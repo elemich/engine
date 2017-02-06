@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="win32.cpp">
+      <Filter>win32</Filter>
+    </ClCompile>
+    <ClCompile Include="datatypes.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="win32helper.cpp">
+      <Filter>win32</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="win32.h">
+      <Filter>win32</Filter>
+    </ClInclude>
+    <ClInclude Include="win32helper.h">
+      <Filter>win32</Filter>
+    </ClInclude>
+    <ClInclude Include="conditionals.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="datatypes.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="interfaces.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="t_datatypes.h">
+      <Filter>common</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="win32">
+      <UniqueIdentifier>{5aba703e-82ba-43ca-bf63-a319167ebb4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{d2806868-410b-4883-8b50-03cbaf0154f6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
