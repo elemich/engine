@@ -48,10 +48,10 @@ int main()
 	app->Init();
 
 	
-	TestString();
-	TestVector();
-	TestList();
-	TestSplitter();
+	//TestString();
+	//TestVector();
+	//TestList();
+	//TestSplitter();
 
 	app->AppLoop();
 

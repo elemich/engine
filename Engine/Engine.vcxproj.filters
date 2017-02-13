@@ -11,6 +11,9 @@
     <ClCompile Include="win32helper.cpp">
       <Filter>win32</Filter>
     </ClCompile>
+    <ClCompile Include="win32splitter.cpp">
+      <Filter>win32</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="win32.h">
@@ -30,6 +33,9 @@
     </ClInclude>
     <ClInclude Include="t_datatypes.h">
       <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="win32splitter.h">
+      <Filter>win32</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -261,7 +261,88 @@ public:
 	}
 
 	NODE* Cur(){return _current;}
+	NODE* First(){return _head;}
+	NODE* Last(){return _last;}
+	operator T*(){return (_current ? &_current->_data : 0);}
 };
+
+template<class T> struct FourLinkNode
+{
+	typedef FourLinkNode NODE;
+
+	enum
+	{
+		LEFT,
+		TOP,
+		RIGHT,
+		BOTTOM
+	};
+
+	T data;
+
+	NODE* links[4];
+
+	NODE*& left;
+	NODE*& top;
+	NODE*& right;
+	NODE*& bottom;
+
+	FourLinkNode(T h,NODE* l,NODE* t,NODE* r,NODE* b):data(h),left(links[0]),top(links[1]),right(links[2]),bottom(links[3]){links[0]=l,links[1]=t,links[2]=r,links[3]=b;printf("creating node %p with data %p\n",this,data);}
+
+	void LinkWith(NODE* n,int ntype)
+	{
+		if(links[ntype])
+			n->LinkWith(links[ntype],ntype);
+		links[ntype]=n;
+		if(!n)return;
+		n->links[ntype<2 ? ntype+2 : ntype-2]=this;
+	}
+
+	void LinkWithAll(NODE* l, NODE* t,NODE* r,NODE* b)
+	{
+		LinkWith(l,LEFT);
+		LinkWith(l,TOP);
+		LinkWith(r,RIGHT);
+		LinkWith(b,BOTTOM);
+	}
+
+	int Count()
+	{
+		int cnt=0;
+		for(int i=0;i<4;i++)
+			cnt+=(links[i] ? links[i]->Count() : 0);
+
+		return cnt;
+	}
+
+	NODE* Find(T h,NODE* par=0)
+	{
+		printf("searching %p in node %p\n",h,this);
+		if(!h)
+			return 0;
+		if(h==data)
+		{
+			printf("found %p in node %p\n",data,this);
+			return this;
+		}
+
+		NODE* res=0;
+		for(int i=0;i<4;i++)
+		{
+			if(links[i] && links[i]!=par)
+			{
+				if(res=links[i]->Find(h,this))
+					return res;
+			}
+		}
+
+		return 0;
+	}
+
+
+};
+
+
 
 
 template<class A,class B> struct TPair

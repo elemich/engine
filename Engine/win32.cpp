@@ -168,54 +168,12 @@ void ProjectFolderBrowser2::Create()
 
 //--------------------AppData-------------------------
 
-LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
-{
-	App* app=(App*)GetWindowLong(hwnd,GWL_USERDATA);
-
-	if(!app)
-		return DefDlgProc(hwnd,msg,wparam,lparam);
-
-	switch(msg)
-	{
-		case WM_PARENTNOTIFY:
-		{
-			switch(LOWORD(wparam))
-			{
-				case WM_CREATE:
-				{
-					HWND newChild=(HWND)lparam;
-					HWND child=GetWindow(hwnd,GW_CHILD);
-
-					if(newChild==child)
-					{
-						IntSize size=(WHGetWindowSize(hwnd));
-						WHSetWindowSize(newChild,size.x,size.y);
-					}
-
-					TDLList<HWND> childs;
-
-					
-				}
-
-				break;
-			}
-		}
-		
-		
-
-		break;
-	}
-
-
-
-	return DefDlgProc(hwnd,msg,wparam,lparam);
-}
-
-
 
 App::App()
 {
 	___app=this;
+
+	renderer=0;
 }
 
 int App::Init()
@@ -232,6 +190,8 @@ int App::Init()
 		error=-1;
 	}
 
+	InitSplitter();
+
 	this->CreateMainWindow();
 
 	return error;
@@ -239,9 +199,7 @@ int App::Init()
 
 void App::CreateMainWindow()
 {
-	hwnd=CreateWindow(WC_DIALOG,"MainWindow",WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
-
-	WHSetWindowDataAndProcedure(hwnd,this,MainWindowProc);
+	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
 
 	//browser.Create();
 
@@ -260,7 +218,8 @@ void App::AppLoop()
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
-		renderer->Render();
+		if(renderer)
+			renderer->Render();
 	}
 }
 
@@ -297,9 +256,7 @@ char* OpenGLFixedRenderer::Name()
 void OpenGLFixedRenderer::Init()
 {
 	hwnd=CreateWindowEx(WS_EX_TOOLWINDOW,WC_DIALOG,"OpenGLFixedRenderer",WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,/*CW_USEDEFAULT,CW_USEDEFAULT*/100,100,___app->hwnd,0,0,0);
-
-	WHSetWindowDataAndProcedure(hwnd,this,MainWindowProc);
-
+	
 	hdc=GetDC(hwnd);
 
 	if(!hdc)

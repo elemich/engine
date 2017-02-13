@@ -22,6 +22,7 @@ struct IntSize : TVector<int>
 	IntSize(int inputX,int inputY):TVector(2),x(operator[](0)),y(operator[](1)){x=inputX,y=inputY;}
 };
 
+
 #endif //DATATYPES_H
 
 
