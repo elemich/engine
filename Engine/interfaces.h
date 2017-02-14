@@ -55,7 +55,6 @@ struct AppInterface
 struct RendererInterface
 {
 	virtual char* Name()=0;
-	virtual void Init()=0;
 	virtual void Render()=0;
 };
 

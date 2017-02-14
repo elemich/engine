@@ -1,6 +1,8 @@
 #ifndef T_DATATYPES_H
 #define T_DATATYPES_H
 
+#include <vector>
+#include <cstdio>
 
 #define SAFEDELETE(_ptr) \
 	if(_ptr!=0)\

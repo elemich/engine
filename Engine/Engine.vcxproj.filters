@@ -8,18 +8,12 @@
     <ClCompile Include="datatypes.cpp">
       <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="win32helper.cpp">
-      <Filter>win32</Filter>
-    </ClCompile>
     <ClCompile Include="win32splitter.cpp">
       <Filter>win32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="win32.h">
-      <Filter>win32</Filter>
-    </ClInclude>
-    <ClInclude Include="win32helper.h">
       <Filter>win32</Filter>
     </ClInclude>
     <ClInclude Include="conditionals.h">
@@ -33,9 +27,6 @@
     </ClInclude>
     <ClInclude Include="t_datatypes.h">
       <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="win32splitter.h">
-      <Filter>win32</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

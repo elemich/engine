@@ -66,7 +66,6 @@
     <ClCompile Include="datatypes.cpp" />
     <ClCompile Include="win32.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="win32helper.cpp" />
     <ClCompile Include="win32splitter.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -75,8 +74,6 @@
     <ClInclude Include="t_datatypes.h" />
     <ClInclude Include="interfaces.h" />
     <ClInclude Include="win32.h" />
-    <ClInclude Include="win32helper.h" />
-    <ClInclude Include="win32splitter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

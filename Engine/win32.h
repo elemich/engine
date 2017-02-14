@@ -3,18 +3,44 @@
 
 #include "interfaces.h"
 
-#include "win32helper.h"
+#include "datatypes.h"
+
+#include <windows.h>
+#include <windowsx.h>
+
+#include <winuser.h>
+#include <wingdi.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+#include <objbase.h>
+#include <CommCtrl.h>
 
 #include <gl/GL.h>
 #include <d3d11.h>
 
+#define SPLITTER_DEBUG true
+#define BROWSER_DEBUG true
+#define TMP_DEBUG true
 
+//#define RENDERER DirectXRenderer()
+#define RENDERER OpenGLFixedRenderer
+#define BROWSER  ProjectFolderBrowser2
+
+#define WC_MAINAPPWINDOW "MainAppWindow"
+#define WC_TABCONTAINER  "TabContainer"
+
+LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+
+bool InitSplitter();
+
+HWND CreateTabContainer(int x,int y,int w,int h,void* data=0);
+int CreateTab(HWND parent,char* text=0,int pos=-1,HWND from=0);
 
 struct ProjectFolderBrowser
 {
 	IExplorerBrowser* browser;
-	
-
+		
 	HWND hwnd;
 
 	ProjectFolderBrowser();
@@ -22,7 +48,7 @@ struct ProjectFolderBrowser
 
 	PIDLIST_ABSOLUTE SelectProjectFolder();
 
-	void Create();
+	void Create(HWND container);
 };
 
 struct ProjectFolderBrowser2
@@ -37,7 +63,7 @@ struct ProjectFolderBrowser2
 
 	PIDLIST_ABSOLUTE SelectProjectFolder();
 
-	void Create();
+	void Create(HWND container);
 };
 
 
@@ -45,9 +71,11 @@ struct ProjectFolderBrowser2
 struct App : AppInterface
 {
 	HWND hwnd;
-	MSG msg;
-	RendererInterface* renderer;
-	ProjectFolderBrowser2 browser;
+	
+
+	std::vector<RendererInterface*> renderers;
+	std::vector<BROWSER*> browsers;
+
 	PIDLIST_ABSOLUTE projectFolder;
 
 	App();
@@ -71,7 +99,7 @@ struct OpenGLFixedRenderer : RendererInterface
 	OpenGLFixedRenderer();
 
 	char* Name();
-	void  Init();
+	void  Create(HWND container);
 	void Render();
 };
 
@@ -90,7 +118,7 @@ struct DirectXRenderer : RendererInterface
 	~DirectXRenderer();
 
 	virtual char* Name();
-	virtual void  Init();
+	virtual void  Create(HWND container);
 	virtual void Render();
 };
 

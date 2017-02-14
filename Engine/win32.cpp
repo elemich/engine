@@ -26,8 +26,7 @@
 App* ___app;
 
 
-//#define RENDERER DirectXRenderer()
-#define RENDERER OpenGLFixedRenderer()
+
 
 
 
@@ -57,24 +56,13 @@ PIDLIST_ABSOLUTE ProjectFolderBrowser::SelectProjectFolder()
 
 
 
-void ProjectFolderBrowser::Create()
+void ProjectFolderBrowser::Create(HWND container)
 {
 	PIDLIST_ABSOLUTE projectFolder=SelectProjectFolder();
 
 	if(!projectFolder)
 		return;
-
-	hwnd=CreateWindow(WC_TABCONTROL,"TabControlWindow",WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
-
-	TCITEM item={0};
-
-	item.pszText="ProjectFolderBrowser";
-	item.mask=TCIF_TEXT;
-
-	SendMessage(hwnd,TCM_INSERTITEM,0,(LPARAM)(LPTCITEM)&item);
 	
-	RECT tabcontrol_rectangle=WHGetClientRect(hwnd);
-
 	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 	if (!SUCCEEDED(hr))
 		__debugbreak();
@@ -85,13 +73,25 @@ void ProjectFolderBrowser::Create()
 
 	FOLDERSETTINGS fs = {0};
 	fs.ViewMode = FVM_DETAILS;
-	fs.fFlags = FWF_AUTOARRANGE/* | FWF_NOWEBVIEW*/;
-	hr = browser->Initialize(hwnd, &tabcontrol_rectangle, &fs);
+	fs.fFlags = FWF_AUTOARRANGE;
+
+	RECT tabcontrol_rectangle={50,50,101,101};//WHGetClientRect(container);
+
+	hr = browser->Initialize(container, &tabcontrol_rectangle, &fs);
 
 	if (!SUCCEEDED(hr))
 		__debugbreak();
 
+	browser->SetOptions(EBO_NOWRAPPERWINDOW);
 	browser->BrowseToIDList(projectFolder,SBSP_DEFBROWSER);
+
+	hr=IUnknown_GetWindow(browser,&hwnd);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	if(BROWSER_DEBUG)
+		printf("browser window %p\n",hwnd);
 }
 
 ProjectFolderBrowser2::ProjectFolderBrowser2()
@@ -116,23 +116,12 @@ PIDLIST_ABSOLUTE ProjectFolderBrowser2::SelectProjectFolder()
 
 
 
-void ProjectFolderBrowser2::Create()
+void ProjectFolderBrowser2::Create(HWND container)
 {
 	PIDLIST_ABSOLUTE projectFolder=SelectProjectFolder();
 
 	if(!projectFolder)
 		return;
-
-	hwnd=CreateWindow(WC_TABCONTROL,"TabControlWindow",WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
-	
-	TCITEM item={0};
-
-	item.pszText="ProjectFolderBrowser";
-	item.mask=TCIF_TEXT;
-
-	SendMessage(hwnd,TCM_INSERTITEM,0,(LPARAM)(LPTCITEM)&item);
-
-	RECT tabcontrol_rectangle=WHGetClientRect(hwnd);
 
 	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 	if (!SUCCEEDED(hr))
@@ -151,7 +140,10 @@ void ProjectFolderBrowser2::Create()
 		NSTCS_ALLOWJUNCTIONS |         // Show folders such as zip folders and libraries
 		NSTCS_SHOWSELECTIONALWAYS |    // Show selection when NSC doesn't have focus
 		NSTCS_FULLROWSELECT;           // Select full width of item
-	hr = browser->Initialize(hwnd, &tabcontrol_rectangle, style);
+
+	RECT tabcontrol_rectangle={50,50,100,100};//WHGetClientRect(container);
+
+	hr = browser->Initialize(container, &tabcontrol_rectangle, style);
 	if (!SUCCEEDED(hr))
 		__debugbreak();
 
@@ -160,7 +152,18 @@ void ProjectFolderBrowser2::Create()
 	if (!SUCCEEDED(hr))
 		__debugbreak();
 
-	browser->AppendRoot(shellItem, SHCONTF_CHECKING_FOR_CHILDREN|SHCONTF_NONFOLDERS|SHCONTF_FOLDERS, NSTCRS_HIDDEN | NSTCRS_EXPANDED, NULL); // ignore result
+	browser->AppendRoot(shellItem, SHCONTF_CHECKING_FOR_CHILDREN|SHCONTF_FOLDERS, NSTCRS_HIDDEN | NSTCRS_EXPANDED, NULL); // ignore result
+	
+	
+	hr=IUnknown_GetWindow(browser,&hwnd);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	if(BROWSER_DEBUG)
+		printf("browser window %p\n",hwnd);
+
+	
 }
 
 
@@ -173,7 +176,6 @@ App::App()
 {
 	___app=this;
 
-	renderer=0;
 }
 
 int App::Init()
@@ -203,9 +205,6 @@ void App::CreateMainWindow()
 
 	//browser.Create();
 
-	renderer=new RENDERER;
-
-	renderer->Init();
 }
 
 
@@ -213,13 +212,18 @@ void App::AppLoop()
 {
 #pragma message (LOCATION " @mic: PeekMessage has 0 as hwnd to let other windows work")
 
+	MSG msg;
+
 	while(WM_CLOSE != PeekMessage(&msg,0,0,0,PM_REMOVE))
 	{
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
-		if(renderer)
-			renderer->Render();
+		for(int i=0;i<(int)renderers.size();i++)
+		{
+			if(renderers[i])
+				renderers[i]->Render();
+		}
 	}
 }
 
@@ -253,9 +257,9 @@ char* OpenGLFixedRenderer::Name()
 	return 0;
 }
 
-void OpenGLFixedRenderer::Init()
+void OpenGLFixedRenderer::Create(HWND container)
 {
-	hwnd=CreateWindowEx(WS_EX_TOOLWINDOW,WC_DIALOG,"OpenGLFixedRenderer",WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,/*CW_USEDEFAULT,CW_USEDEFAULT*/100,100,___app->hwnd,0,0,0);
+	hwnd=CreateWindow(WC_DIALOG,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
 	
 	hdc=GetDC(hwnd);
 
@@ -348,12 +352,12 @@ char* DirectXRenderer::Name()
 	return 0;
 }
 
-void DirectXRenderer::Init()
+void DirectXRenderer::Create(HWND container)
 {
 	HRESULT hr = S_OK;
 
 	RECT rc;
-	GetClientRect( hwnd, &rc );
+	GetClientRect( container, &rc );
 	UINT width = rc.right - rc.left;
 	UINT height = rc.bottom - rc.top;
 
@@ -363,7 +367,7 @@ void DirectXRenderer::Init()
 	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; 
 	scd.SwapEffect = DXGI_SWAP_EFFECT_SEQUENTIAL;    // the recommended flip mode
 	scd.SampleDesc.Count = 1;
-	scd.OutputWindow = hwnd;
+	scd.OutputWindow = container;
 	scd.Windowed=true;
 
 
