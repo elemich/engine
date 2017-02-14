@@ -28,13 +28,15 @@
 
 #define WC_MAINAPPWINDOW "MainAppWindow"
 #define WC_TABCONTAINER  "TabContainer"
+#define WC_OPENGLWINDOW  "OpenGLWindow"
 
 LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
 bool InitSplitter();
 
-HWND CreateTabContainer(int x,int y,int w,int h,void* data=0);
+HWND CreateTabContainer(int x,int y,int w,int h);
 int CreateTab(HWND parent,char* text=0,int pos=-1,HWND from=0);
 
 struct ProjectFolderBrowser

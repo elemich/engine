@@ -218,12 +218,6 @@ void App::AppLoop()
 	{
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-
-		for(int i=0;i<(int)renderers.size();i++)
-		{
-			if(renderers[i])
-				renderers[i]->Render();
-		}
 	}
 }
 
@@ -235,15 +229,24 @@ void App::AppLoop()
 
 //--------------------OpenGLRenderer-------------------------
 
-
-LRESULT CALLBACK OpenGLFixedRenderProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 	OpenGLFixedRenderer* renderer=(OpenGLFixedRenderer*)GetWindowLong(hwnd,GWL_USERDATA);
 
-	if(!renderer)
-		return DefDlgProc(hwnd,msg,wparam,lparam);
+	LRESULT result=0;
 
-	return DefDlgProc(hwnd,msg,wparam,lparam);
+	if(renderer)
+		renderer->Render();
+
+	switch(msg)
+	{
+		case WM_ERASEBKGND:
+			return (LRESULT)1;
+		default:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+	}
+
+	return result;
 }
 
 
@@ -259,7 +262,7 @@ char* OpenGLFixedRenderer::Name()
 
 void OpenGLFixedRenderer::Create(HWND container)
 {
-	hwnd=CreateWindow(WC_DIALOG,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
+	hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
 	
 	hdc=GetDC(hwnd);
 
@@ -272,15 +275,15 @@ void OpenGLFixedRenderer::Create(HWND container)
 		1,                             
 		PFD_DRAW_TO_WINDOW |           
 		PFD_SUPPORT_OPENGL |           
-		PFD_DOUBLEBUFFER,              
+		PFD_SUPPORT_GDI ,//PFD_DOUBLEBUFFER,              
 		PFD_TYPE_RGBA,                 
-		24,                            
+		32,                            
 		0, 0, 0, 0, 0, 0,              
 		0,                             
 		0,                             
 		0,                             
 		0, 0, 0, 0,                    
-		16,                            
+		32,                            
 		0,                             
 		0,                             
 		PFD_MAIN_PLANE,                
@@ -306,6 +309,9 @@ void OpenGLFixedRenderer::Create(HWND container)
 	wglMakeCurrent(hdc,0);
 	wglMakeCurrent(hdc,hglrc);
 
+	ReleaseDC(hwnd,hdc);
+
+	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG)this);
 }
 
 void OpenGLFixedRenderer::Render()
@@ -313,11 +319,18 @@ void OpenGLFixedRenderer::Render()
 	if(!hglrc)
 		return;
 
+	hdc=GetDC(hwnd);
+
 	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
 	glClearColor(0,0,0,1);
 
+	RECT rc;
+	GetClientRect(hwnd,&rc);
+	glViewport(rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top);
 
+	
 	SwapBuffers(hdc);
+	ReleaseDC(hwnd,hdc);
 }
 
 
