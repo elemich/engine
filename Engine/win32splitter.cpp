@@ -337,15 +337,15 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 						if(childMovingSiblingPos!=-1)//
 						{
 							HWND newChild=CreateTabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top);
-							ReparentTabChild(childMovingSibling,newChild,childTabIdx);
+							ReparentTabChild(childMovingRef,newChild,childTabIdx);
 								
 							if(SPLITTER_DEBUG)
 								printf("creating new container %p\n",newChild);
 									
 							SetWindowPos(childMovingSibling,0,childMovingSiblingRc.left,childMovingSiblingRc.top,childMovingSiblingRc.right-childMovingSiblingRc.left,childMovingSiblingRc.bottom-childMovingSiblingRc.top,SWP_SHOWWINDOW);
-							RemoveTab(childMovingSibling,childTabIdx);
+							RemoveTab(childMovingRef,childTabIdx);
 
-							EnableAndShowContainerChild(childMovingSibling,0);
+							EnableAndShowContainerChild(childMovingRef,0);
 
 							if(SPLITTER_DEBUG)
 								printf("changing position to sibling %p\n",childMovingSibling);
