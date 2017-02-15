@@ -53,7 +53,7 @@ HWND CreateTabContainer(int x,int y,int w,int h)
 	return tabWindow;
 }
 
-int CreateTab(HWND parent,char* text,int pos,HWND from)
+int CreateTab(HWND dst,char* text,int pos,HWND src)
 {
 	int tmpPos=-1;
 	char tabLabel[CHAR_MAX];
@@ -62,9 +62,9 @@ int CreateTab(HWND parent,char* text,int pos,HWND from)
 	t.pszText=tabLabel;
 	t.cchTextMax=CHAR_MAX;
 
-	tmpPos=(pos<0 ? SendMessage(parent,TCM_GETITEMCOUNT,0,0) : pos);
+	tmpPos=(pos<0 ? SendMessage(dst,TCM_GETITEMCOUNT,0,0) : pos);
 
-	if(!from)
+	if(!src)
 	{
 		if(tmpPos<0)
 			t.pszText=text;
@@ -73,13 +73,42 @@ int CreateTab(HWND parent,char* text,int pos,HWND from)
 	}
 	else
 	{
-		int tIdx=SendMessage(from,TCM_GETCURSEL,0,0);
-		SendMessage(from,TCM_GETITEM,tIdx,(LPARAM)&t);
+		int tIdx=SendMessage(src,TCM_GETCURSEL,0,0);
+		SendMessage(src,TCM_GETITEM,tIdx,(LPARAM)&t);
 	}
 
-	SendMessage(parent,TCM_INSERTITEM,tmpPos,(LPARAM)&t);
+	SendMessage(dst,TCM_INSERTITEM,tmpPos,(LPARAM)&t);
 
 	return tmpPos;
+}
+
+void RemoveTab(HWND hwnd,int idx)
+{
+	int itemCount=SendMessage(hwnd,TCM_GETITEMCOUNT,0,0);
+	if(!SendMessage(hwnd,TCM_DELETEITEM,idx,0))//tabcontrol automatically scales remaining items
+		__debugbreak();
+	int removeCount=(itemCount-1)-idx;
+	for(int i=0;i<removeCount;i++)
+	{
+		int srcIdx=idx+i+1;
+		int dstIdx=srcIdx-1;
+
+		HWND child=GetDlgItem(hwnd,srcIdx);
+
+		if(!child)
+			__debugbreak();
+
+		SetWindowLong(child,GWL_ID,(LONG)dstIdx);
+	}
+}
+
+void ReparentTabChild(HWND src,HWND dst,int idx)
+{
+	int newTabContentIdx=CreateTab(dst,0,0,src);
+	HWND tabContentWindow=GetDlgItem(src,idx);
+	SetParent(tabContentWindow,dst);
+	SetWindowLong(tabContentWindow,GWL_ID,(LONG)newTabContentIdx);
+	SendMessage(dst,WM_SIZE,0,0);
 }
 
 RECT GetTabClientSize(HWND hwnd)
@@ -100,6 +129,8 @@ RECT GetTabClientSize(HWND hwnd)
 
 	return result;
 }
+
+
 
 void OnTabSizeChanged(HWND hwnd)
 {
@@ -306,23 +337,20 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 						if(childMovingSiblingPos!=-1)//
 						{
 							HWND newChild=CreateTabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top);
-							int newTabContentIdx=CreateTab(newChild,0,0,childMoving);
-							HWND tabContentWindow=GetDlgItem(childMovingSibling,childTabIdx);
-							SetParent(GetDlgItem(childMovingSibling,childTabIdx),newChild);
-							SetWindowLong(tabContentWindow,GWL_ID,(LONG)newTabContentIdx);
-							SendMessage(newChild,WM_SIZE,0,0);
-
+							ReparentTabChild(childMovingSibling,newChild,childTabIdx);
+								
 							if(SPLITTER_DEBUG)
 								printf("creating new container %p\n",newChild);
 									
 							SetWindowPos(childMovingSibling,0,childMovingSiblingRc.left,childMovingSiblingRc.top,childMovingSiblingRc.right-childMovingSiblingRc.left,childMovingSiblingRc.bottom-childMovingSiblingRc.top,SWP_SHOWWINDOW);
-							
+							RemoveTab(childMovingSibling,childTabIdx);
+
+							EnableAndShowContainerChild(childMovingSibling,0);
+
 							if(SPLITTER_DEBUG)
 								printf("changing position to sibling %p\n",childMovingSibling);
 
-
-							SendMessage(childMovingRef,TCM_DELETEITEM,childTabIdx,0);
-							DestroyWindow(childMoving);
+							DestroyWindow(childMoving);//remove floating window
 
 							FLNODE* nodeFound=MainNode->Find(childMovingSibling);
 
@@ -384,7 +412,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 					{
 						int otherChildTabCount=(childMovingSibling!=childMovingRef ? SendMessage(childMovingSibling,TCM_GETITEMCOUNT,0,0) : childTabCount);
 
-						SendMessage(hwnd,TCM_GETITEMRECT,0,(LPARAM)&tmpRc);
+						SendMessage(childMovingSibling,TCM_GETITEMRECT,0,(LPARAM)&tmpRc);
 
 						int hh=tmpRc.bottom-tmpRc.top;//header height
 
@@ -572,6 +600,8 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		{
 			result=CallWindowProc(TabControlProcedure,hwnd,msg,wparam,lparam);
 
+			EnableAndShowContainerChild(hwnd,SendMessage(hwnd,TCM_GETCURSEL,0,0));
+
 			if(childMovingRef)
 				break;
 
@@ -586,8 +616,8 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 				if(childMovingRef)
 					childMovingRef=0;
-				else
-					EnableAndShowContainerChild(hwnd,SendMessage(hwnd,TCM_GETCURSEL,0,0));
+				
+					
 			}
 			break;
 		case WM_SIZE:
