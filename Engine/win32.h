@@ -3,6 +3,13 @@
 
 #include "win32includes.h"
 
+struct WindowData
+{
+	HWND hwnd;
+
+	virtual void Create(HWND container)=0;
+};
+
 struct SplitterContainer
 {
 	static HMENU popupMenuRoot;
@@ -44,13 +51,13 @@ struct SplitterContainer
 
 };
 
-struct ContainerWindow : SplitterContainer
-{
-	HWND hwnd;
 
+
+struct ContainerWindow : WindowData , SplitterContainer
+{
 	ContainerWindow();
 
-	void Create();
+	void Create(HWND hwnd=0);
 	void OnCreate(HWND);
 };
 
@@ -58,16 +65,11 @@ struct MainAppContainerWindow : ContainerWindow
 {
 	MainAppContainerWindow();
 
-	void Create();
+	void Create(HWND hwnd=0);
 	void OnCreate(HWND);
 };
 
-struct WindowData
-{
-	HWND hwnd;
 
-	virtual void Create(HWND container)=0;
-};
 
 struct ProjectFolderBrowser : WindowData , FolderBrowserInterface
 {

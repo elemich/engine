@@ -5,10 +5,10 @@ extern App* ___app;
 WNDPROC SystemOriginalTabControlProcedure;
 
 ContainerWindow::ContainerWindow(){}
-void ContainerWindow::Create(){}
+void ContainerWindow::Create(HWND){}
 
 MainAppContainerWindow::MainAppContainerWindow(){};
-void MainAppContainerWindow::Create()
+void MainAppContainerWindow::Create(HWND)
 {
 	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG)this);
