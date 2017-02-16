@@ -28,7 +28,165 @@ App* ___app;
 
 
 
+HWND CreateTabContainer(int x,int y,int w,int h,HWND parent,int currentCount)
+{
+	char tabContainerName[CHAR_MAX];
+	sprintf_s(tabContainerName,"TabContainer%d",currentCount);
+	HWND tabWindow= CreateWindow(WC_TABCONTAINER,tabContainerName,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS|TCS_FOCUSNEVER,x,y,w,h,parent,(HMENU)currentCount,0,0);
 
+	if(tabWindow)
+		SetWindowLongPtr(tabWindow,GWL_USERDATA,(LONG)MAKEWORD(0,0));
+
+	return tabWindow;
+}
+
+int CreateTab(HWND dst,char* text,int pos,HWND src)
+{
+	int tmpPos=-1;
+	char tabLabel[CHAR_MAX];
+	TCITEM t={0};
+	t.mask=TCIF_TEXT;
+	t.pszText=tabLabel;
+	t.cchTextMax=CHAR_MAX;
+
+	tmpPos=(pos<0 ? SendMessage(dst,TCM_GETITEMCOUNT,0,0) : pos);
+
+	if(!src)
+	{
+		if(tmpPos<0)
+			t.pszText=text;
+		else
+			sprintf_s(tabLabel,"Tab%d",tmpPos);
+	}
+	else
+	{
+		int tIdx=SendMessage(src,TCM_GETCURSEL,0,0);
+		SendMessage(src,TCM_GETITEM,tIdx,(LPARAM)&t);
+	}
+
+	SendMessage(dst,TCM_INSERTITEM,tmpPos,(LPARAM)&t);
+
+	return tmpPos;
+}
+
+void RemoveTab(HWND hwnd,int idx)
+{
+	int itemCount=SendMessage(hwnd,TCM_GETITEMCOUNT,0,0);
+	if(!SendMessage(hwnd,TCM_DELETEITEM,idx,0))//tabcontrol automatically scales remaining items
+		__debugbreak();
+	int removeCount=(itemCount-1)-idx;
+	for(int i=0;i<removeCount;i++)
+	{
+		int srcIdx=idx+i+1;
+		int dstIdx=srcIdx-1;
+
+		HWND child=GetDlgItem(hwnd,srcIdx);
+
+		if(!child)
+			__debugbreak();
+
+		SetWindowLong(child,GWL_ID,(LONG)dstIdx);
+	}
+}
+
+void ReparentTabChild(HWND src,HWND dst,int idx)
+{
+	int newTabContentIdx=CreateTab(dst,0,0,src);
+	HWND tabContentWindow=GetDlgItem(src,idx);
+	SetParent(tabContentWindow,dst);
+	SetWindowLong(tabContentWindow,GWL_ID,(LONG)newTabContentIdx);
+	SendMessage(dst,WM_SIZE,0,0);
+}
+
+RECT GetTabClientSize(HWND hwnd)
+{
+	RECT clientRect,itemRect,adj0Rect,adj1Rect,result;
+
+	GetClientRect(hwnd,&clientRect);
+	SendMessage(hwnd,TCM_GETITEMRECT,0,(LPARAM)&itemRect);
+
+	adj0Rect=itemRect;
+	adj1Rect=itemRect;
+
+	SendMessage(hwnd,TCM_ADJUSTRECT,0,(LPARAM)&adj0Rect);
+	SendMessage(hwnd,TCM_ADJUSTRECT,1,(LPARAM)&adj1Rect);
+
+	result.top=clientRect.top+adj0Rect.top-itemRect.top;
+	result.bottom=clientRect.bottom-(itemRect.bottom-adj0Rect.bottom);
+	result.right=clientRect.right-(itemRect.right-adj0Rect.right);
+	result.left=clientRect.left+adj0Rect.left-itemRect.left;
+
+	/*result.top=clientRect.top+adj1Rect.top;
+	result.bottom=clientRect.bottom-(adj1Rect.bottom-itemRect.bottom);
+	result.right=clientRect.right-(adj1Rect.right-itemRect.right);
+	result.left=clientRect.left+itemRect.left-adj1Rect.left;*/
+
+	return result;
+}
+
+
+
+void OnTabSizeChanged(HWND hwnd)
+{
+	printf("OnTabSizeChanged %p\n",hwnd);
+
+	int		tabIdx=-1;
+	HWND	child=0;	
+
+	tabIdx=0;//SendMessage(hwnd,TCM_GETCURSEL,0,0);
+	
+
+	if(tabIdx<0)
+		return;
+
+	child=GetDlgItem(hwnd,tabIdx);
+
+	if(child==0)
+		return;
+
+	RECT size=GetTabClientSize(hwnd);
+
+	MoveWindow(child,size.left,size.top,size.right-size.left,size.bottom-size.top,true);
+
+}
+
+void EnableChilds(HWND hwnd,int enable,int show)
+{
+	HWND child=0;
+	while(child=FindWindowEx(hwnd,child ? child : 0,0,0))
+	{
+		if(enable>=0)EnableWindow(child,enable);
+		if(show>=0)ShowWindow(child,show);
+	}
+}
+
+void EnableAllChildsDescendants(HWND hwnd,int enable,int show)
+{
+	HWND child=0;
+	while(child=FindWindowEx(hwnd,child ? child : 0,0,0))
+		EnableChilds(child,enable,show);
+}
+
+void EnableAndShowContainerChild(HWND hwnd,int idx)
+{
+	HWND child=GetDlgItem(hwnd,idx);
+
+	if(!child)
+	{
+		__debugbreak();
+		return;
+	}
+
+	EnableChilds(hwnd,false,false);
+
+	SendMessage(hwnd,TCM_SETCURSEL,idx,0);
+	EnableWindow(child,true);
+	ShowWindow(child,SW_SHOW);
+
+	RECT tabRect=GetTabClientSize(hwnd);
+
+	SetWindowPos(child,HWND_TOP,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,SWP_SHOWWINDOW|SWP_ASYNCWINDOWPOS);
+}
 
 
 //--------------------ProjectFolderBrowser-------------------------
@@ -175,7 +333,6 @@ void ProjectFolderBrowser2::Create(HWND container)
 App::App()
 {
 	___app=this;
-
 }
 
 int App::Init()
@@ -201,8 +358,8 @@ int App::Init()
 
 void App::CreateMainWindow()
 {
-	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
-
+	
+	mainAppWindow.Create();
 }
 
 
@@ -212,8 +369,13 @@ void App::AppLoop()
 
 	MSG msg;
 
-	while(WM_CLOSE != PeekMessage(&msg,0,0,0,PM_REMOVE))
+	while(true)
 	{
+		PeekMessage(&msg,0,0,0,PM_REMOVE);
+
+		if(msg.message==WM_QUIT)
+			break;
+
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
@@ -305,7 +467,6 @@ void OpenGLFixedRenderer::Create(HWND container)
 		MessageBox(0,"creating context error","wglCreateContext",MB_OK|MB_ICONEXCLAMATION);
 
 	wglMakeCurrent(hdc,0);
-	wglMakeCurrent(hdc,hglrc);
 
 	ReleaseDC(hwnd,hdc);
 
@@ -318,6 +479,10 @@ void OpenGLFixedRenderer::Render()
 		return;
 
 	hdc=GetDC(hwnd);
+
+	wglMakeCurrent(hdc,hglrc);
+
+	
 
 	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
 	glClearColor(0,0,0,1);
@@ -396,3 +561,10 @@ void DirectXRenderer::Render()
 	pSwapChain->Present( 1, 0 );
 }
 
+//--------------------Logger-------------------------
+
+
+void Logger::Create(HWND container)
+{
+	hwnd=CreateWindow(WC_EDIT,0,WS_CHILD|ES_READONLY|WS_BORDER,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
+}

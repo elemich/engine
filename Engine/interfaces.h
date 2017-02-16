@@ -58,6 +58,16 @@ struct RendererInterface
 	virtual void Render()=0;
 };
 
+struct LoggerInterface
+{
+
+};
+
+struct FolderBrowserInterface
+{
+
+};
+
 
 
 

@@ -1,50 +1,78 @@
 #ifndef WIN32_H
 #define WIN32_H
 
-#include "interfaces.h"
+#include "win32includes.h"
 
-#include "datatypes.h"
+struct SplitterContainer
+{
+	static HMENU popupMenuRoot;
+	static HMENU popupMenuCreate;
 
-#include <windows.h>
-#include <windowsx.h>
+	WINDOWNODE* MainNode;
+	int tabContainerCount;
 
-#include <winuser.h>
-#include <wingdi.h>
-#include <shlobj.h>
-#include <shlwapi.h>
-#include <objbase.h>
-#include <CommCtrl.h>
+	HWND childMovingRef;
+	HWND childMoving;
+	HWND childMovingTarget;
+	int  childMovingRefTabIdx;
+	int  childMovingRefTabCount;
+	int  childMovingTargetAnchorPos;
+	int	 childMovingTargetAnchorTabIndex;
+	RECT childMovingRc;
+	RECT childMovingTargetRc;
 
-#include <gl/GL.h>
-#include <d3d11.h>
+	const int   splitterSize;
+	LPCSTR		splitterCursor;
+	POINTS splitterPreviousPos;
 
-#define SPLITTER_DEBUG true
-#define BROWSER_DEBUG true
-#define TMP_DEBUG true
+	std::vector<HWND> vwin1;
+	std::vector<HWND> vwin2;
+	HWND win1;
+	HWND win2;
 
-//#define RENDERER DirectXRenderer()
-#define RENDERER OpenGLFixedRenderer
-#define BROWSER  ProjectFolderBrowser2
+	SplitterContainer();
+	~SplitterContainer();
 
-#define WC_MAINAPPWINDOW "MainAppWindow"
-#define WC_TABCONTAINER  "TabContainer"
-#define WC_OPENGLWINDOW  "OpenGLWindow"
+	
+	void OnLButtonDown(HWND,LPARAM);
+	void OnLButtonUp(HWND);
+	void OnMouseMove(HWND,LPARAM);
 
-LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
-LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
-LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+	void OnTabContainerLButtonDown(HWND);
+	void OnTabContainerLButtonUp(HWND);
+	int OnTabContainerRButtonUp(HWND,LPARAM);
 
-bool InitSplitter();
+};
 
-HWND CreateTabContainer(int x,int y,int w,int h);
-int CreateTab(HWND parent,char* text=0,int pos=-1,HWND from=0);
+struct ContainerWindow : SplitterContainer
+{
+	HWND hwnd;
 
-struct ProjectFolderBrowser
+	ContainerWindow();
+
+	void Create();
+	void OnCreate(HWND);
+};
+
+struct MainAppContainerWindow : ContainerWindow
+{
+	MainAppContainerWindow();
+
+	void Create();
+	void OnCreate(HWND);
+};
+
+struct WindowData
+{
+	HWND hwnd;
+
+	virtual void Create(HWND container)=0;
+};
+
+struct ProjectFolderBrowser : WindowData , FolderBrowserInterface
 {
 	IExplorerBrowser* browser;
 		
-	HWND hwnd;
-
 	ProjectFolderBrowser();
 	~ProjectFolderBrowser();
 
@@ -53,12 +81,9 @@ struct ProjectFolderBrowser
 	void Create(HWND container);
 };
 
-struct ProjectFolderBrowser2
+struct ProjectFolderBrowser2 : WindowData , FolderBrowserInterface
 {
 	INameSpaceTreeControl2* browser;
-
-
-	HWND hwnd;
 
 	ProjectFolderBrowser2();
 	~ProjectFolderBrowser2();
@@ -68,15 +93,19 @@ struct ProjectFolderBrowser2
 	void Create(HWND container);
 };
 
-
+struct Logger : WindowData , LoggerInterface
+{
+	void Create(HWND container);
+};
 
 struct App : AppInterface
 {
-	HWND hwnd;
+	MainAppContainerWindow mainAppWindow;
 	
-
+	std::vector<ContainerWindow> containers;
 	std::vector<RendererInterface*> renderers;
 	std::vector<BROWSER*> browsers;
+	std::vector<LoggerInterface*> loggers;
 
 	PIDLIST_ABSOLUTE projectFolder;
 
@@ -88,11 +117,8 @@ struct App : AppInterface
 	void AppLoop();
 };
 
-
-
-struct OpenGLFixedRenderer : RendererInterface
+struct OpenGLFixedRenderer : WindowData ,  RendererInterface
 {
-	HWND hwnd;
 	HGLRC hglrc;
 	HDC   hdc;
 	PIXELFORMATDESCRIPTOR pfd;
@@ -105,9 +131,8 @@ struct OpenGLFixedRenderer : RendererInterface
 	void Render();
 };
 
-struct DirectXRenderer : RendererInterface
+struct DirectXRenderer : WindowData ,  RendererInterface
 {
-	HWND					hwnd;
 	HINSTANCE               hInst;
 	D3D_DRIVER_TYPE         driverType;
 	D3D_FEATURE_LEVEL       featureLevel;
@@ -124,5 +149,22 @@ struct DirectXRenderer : RendererInterface
 	virtual void Render();
 };
 
+
+bool InitSplitter();
+
+HWND CreateTabContainer(int x,int y,int w,int h,HWND parent,int currentCount);
+int CreateTab(HWND parent,char* text=0,int pos=-1,HWND from=0);
+void RemoveTab(HWND hwnd,int idx);
+void ReparentTabChild(HWND src,HWND dst,int idx);
+RECT GetTabClientSize(HWND);
+void OnTabSizeChanged(HWND);
+void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
+void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
+void EnableAndShowContainerChild(HWND hwnd,int idx);
+void CreateProjectFolder(HWND);
+
+void CreateProjectFolder(HWND hwnd);
+void CreateOpenglWindow(HWND hwnd);
+void CreateLogger(HWND hwnd);
 
 #endif //WIN32_H

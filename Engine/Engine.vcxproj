@@ -45,8 +45,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>
-      </SubSystem>
+      <SubSystem>Windows</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -64,9 +63,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="datatypes.cpp" />
-    <ClCompile Include="win32.cpp" />
+    <ClCompile Include="win32interfaces.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="win32splitter.cpp" />
+    <ClCompile Include="win32containers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="conditionals.h" />
@@ -74,6 +74,8 @@
     <ClInclude Include="t_datatypes.h" />
     <ClInclude Include="interfaces.h" />
     <ClInclude Include="win32.h" />
+    <ClInclude Include="win32defines.h" />
+    <ClInclude Include="win32includes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
