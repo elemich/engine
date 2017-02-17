@@ -10,7 +10,7 @@ void ContainerWindow::Create(HWND){}
 MainAppContainerWindow::MainAppContainerWindow(){};
 void MainAppContainerWindow::Create(HWND)
 {
-	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
+	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG)this);
 
 	RECT rc;
@@ -18,6 +18,8 @@ void MainAppContainerWindow::Create(HWND)
 	HWND firstChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
 	CreateProjectFolder(firstChild);
 	MainNode=new WINDOWNODE(firstChild,0,0,0,0);
+
+	ShowWindow(hwnd,true);
 }
 
 void CreateProjectFolder(HWND hwnd)
