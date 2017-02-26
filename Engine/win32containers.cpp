@@ -17,7 +17,6 @@ void MainAppContainerWindow::Create(HWND)
 	GetClientRect(hwnd,&rc);
 	HWND firstChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
 	CreateProjectFolder(firstChild);
-	MainNode=new WINDOWNODE(firstChild,0,0,0,0);
 
 	ShowWindow(hwnd,true);
 }
@@ -91,6 +90,20 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		case WM_MOUSEMOVE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->OnMouseMove(hwnd,lparam);
+		break;
+		case WM_SIZING:
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+				RECT rc=*(RECT*)lparam;
+				printf("sizing %d,%d,%d,%d\n",rc.left,rc.top,rc.right,rc.bottom);
+			}
+		break;
+		case WM_SIZE:
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+				POINTS p=MAKEPOINTS(lparam);
+				printf("size %d,%d\n",p.x,p.y);
+			}
 		break;
 		
 			default:

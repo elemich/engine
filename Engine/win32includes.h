@@ -2,7 +2,7 @@
 #define WIN32INCLUDES_H
 
 #include "interfaces.h"
-#include "datatypes.h"
+
 
 #include <windows.h>
 #include <windowsx.h>
@@ -13,6 +13,8 @@
 #include <shlwapi.h>
 #include <objbase.h>
 #include <CommCtrl.h>
+
+#include <array>
 
 #include <gl/GL.h>
 #include <d3d11.h>

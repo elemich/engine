@@ -15,7 +15,6 @@ struct SplitterContainer
 	static HMENU popupMenuRoot;
 	static HMENU popupMenuCreate;
 
-	WINDOWNODE* MainNode;
 	int tabContainerCount;
 
 	HWND childMovingRef;
@@ -32,23 +31,25 @@ struct SplitterContainer
 	LPCSTR		splitterCursor;
 	POINTS splitterPreviousPos;
 
-	std::vector<HWND> vwin1;
-	std::vector<HWND> vwin2;
-	HWND win1;
-	HWND win2;
+	std::vector<HWND> resizingWindows1;
+	std::vector<HWND> resizingWindows2;
+	HWND hittedWindow1;
+	HWND hittedWindow2;
 
 	SplitterContainer();
 	~SplitterContainer();
-
 	
 	void OnLButtonDown(HWND,LPARAM);
 	void OnLButtonUp(HWND);
 	void OnMouseMove(HWND,LPARAM);
+	void OnSize(HWND,WPARAM,LPARAM);
 
 	void OnTabContainerLButtonDown(HWND);
 	void OnTabContainerLButtonUp(HWND);
 	int OnTabContainerRButtonUp(HWND,LPARAM);
 
+	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
+	//std::vector<HWND> findAttachedWindos(HWND mainWindow,RECT &srcRect,int rectPosition);
 };
 
 

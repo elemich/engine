@@ -11,6 +11,7 @@
 	printf("deleted\n");
 
 
+
 template<class T> struct TVector
 {
 private:
@@ -107,9 +108,6 @@ public:
 
 		_data=vNew;
 
-		
-
-
 		return *this;
 	}
 
@@ -139,6 +137,186 @@ template<class T,int I> struct TFixedVector : TVector<T>
 {
 	TFixedVector():TVector<T>(I){}
 };
+
+
+
+
+template<class C> struct TDAutoArray
+{
+protected:
+
+	#define	ARRAY_SPACE 10
+
+	typedef TDAutoArray AUTOARRAY;
+
+	C*  data;
+	int count;
+	int spacedim;
+	int space;
+
+
+
+public:
+
+	AUTOARRAY():data(new C[ARRAY_SPACE]),count(0),spacedim(ARRAY_SPACE),space(ARRAY_SPACE){}
+	//----------------------------------------------------------
+	AUTOARRAY(int spc):data(new C[spc]),count(0),spacedim(spc),space(spc){}
+	//----------------------------------------------------------
+	AUTOARRAY(const AUTOARRAY& array)
+		:
+	count(0),
+		spacedim(ARRAY_SPACE),
+		space(ARRAY_SPACE)
+	{
+		count=array.Count();
+		space=array.Space();
+		spacedim=array.Spacedim();
+		data=new C[count+array.Space()];
+
+		int i=0;
+		while(i<count)
+		{
+			data[i]=array[i];
+			i++;
+		}
+
+	}
+	//----------------------------------------------------------
+	 AUTOARRAY&  AUTOARRAY::operator=(const AUTOARRAY& array)
+	{
+		AUTOARRAY acopy(array);
+		this->~AUTOARRAY();
+		count=acopy.Count();
+		space=array.Space();
+		data=new C[count+space];
+		int i=0;
+		while(i<count)
+		{
+			data[i]=acopy[i];
+			i++;
+		}
+		return *this;
+	}
+	//----------------------------------------------------------
+	 int AUTOARRAY::Count()const{return count;}
+	//----------------------------------------------------------
+	 int AUTOARRAY::Space()const{return space;}
+	//----------------------------------------------------------
+	 int AUTOARRAY::Spacedim()const{return spacedim;}
+	//----------------------------------------------------------
+	 C& AUTOARRAY::operator[](int index)const{return data[index];}
+	//----------------------------------------------------------
+	 void AUTOARRAY::Do(void (*func)(C& fparam))
+	{
+		int i=0;
+		while(i<count){func(data[i]);i++;}
+	}
+	//----------------------------------------------------------
+	 void AUTOARRAY::Erase(int index)
+	{
+		if(index>=count)return;
+
+		C* newdata=new C[count+spacedim-1];
+		int i=0;
+
+		while(i<index)
+		{
+			newdata[i]=data[i];
+			i++;
+		}
+		while(i<count)
+		{
+			newdata[i]=data[i+1];
+			i++;
+		}
+		count-=1;
+		space+=1;
+
+		delete [] data;
+
+		data=newdata;
+	}
+	//----------------------------------------------------------
+	 int AUTOARRAY::Find(C c)
+	{
+		int i=0;
+		while(i<count){
+			if(data[i]==c)return i;
+			i++;
+		}
+		return -1;
+	}
+	//----------------------------------------------------------
+	 AUTOARRAY::~AUTOARRAY()
+	{
+		if(data)delete [] data;
+		data=0;
+		count=space=spacedim=0;
+	}
+	//----------------------------------------------------------
+	 void AUTOARRAY::Empty()
+	{
+		if(data)memset(data,0,4*count);
+		count=0;
+		space=spacedim;
+	}
+	//----------------------------------------------------------
+	 int AUTOARRAY::Append(C c)
+	{
+		if(!space)
+		{
+			C* newdata=new C[count+spacedim+1];
+			int i=0;
+
+			while(i<count)
+			{
+				newdata[i]=data[i];
+				i++;
+			}
+			newdata[count]=c;
+			space=spacedim;
+
+			delete [] data;
+
+			data=newdata;
+		}
+		else
+		{
+			data[count]=c;
+			space-=1;
+		}
+
+		count+=1;
+
+		return count-1;
+	}
+	//----------------------------------------------------------
+	 AUTOARRAY AUTOARRAY::operator+(AUTOARRAY& array)
+	{
+		int totaldim=count+array.Count();
+
+		AUTOARRAY ret(totaldim+spacedim);
+
+		int i=0;
+
+		while(i<count)
+		{
+			ret.Append(data[i]);
+			i++;
+		}
+		while(i<totaldim)
+		{
+			ret.Append(array[i-count]);
+			i++;
+		}
+
+		return ret;
+	}
+
+};
+
+
+
 
 template<typename T> struct TDLNode
 {
@@ -289,15 +467,15 @@ template<class T> struct FourLinkNode
 	NODE*& right;
 	NODE*& bottom;
 
-	FourLinkNode(T h,NODE* l,NODE* t,NODE* r,NODE* b):data(h),left(links[0]),top(links[1]),right(links[2]),bottom(links[3]){links[0]=l,links[1]=t,links[2]=r,links[3]=b;printf("creating node %p with data %p\n",this,data);}
+	FourLinkNode(T h,NODE* l,NODE* t,NODE* r,NODE* b):data(h),left(links[LEFT]),top(links[TOP]),right(links[RIGHT]),bottom(links[BOTTOM]){links[LEFT]=l,links[TOP]=t,links[RIGHT]=r,links[BOTTOM]=b;printf("creating node %p with data %p\n",this,data);}
 
-	void LinkWith(NODE* n,int ntype)
+	void LinkWith(NODE* n,int direction)
 	{
-		if(links[ntype])
-			n->LinkWith(links[ntype],ntype);
-		links[ntype]=n;
+		if(links[direction])
+			n->LinkWith(links[direction],direction);
+		links[direction]=n;
 		if(!n)return;
-		n->links[ntype<2 ? ntype+2 : ntype-2]=this;
+		n->links[direction<2 ? direction+2 : direction-2]=this;
 	}
 
 	void LinkWithAll(NODE* l, NODE* t,NODE* r,NODE* b)
@@ -311,30 +489,32 @@ template<class T> struct FourLinkNode
 	int Count()
 	{
 		int cnt=0;
-		for(int i=0;i<4;i++)
-			cnt+=(links[i] ? links[i]->Count() : 0);
+		for(int direction=0;direction<4;direction++)
+			cnt+=(links[direction] ? links[direction]->Count() : 0);
 
 		return cnt;
 	}
 
-	NODE* Find(T h,NODE* par=0)
+	NODE* Find(T toFind,NODE* parentNode=0)
 	{
-		printf("searching %p in node %p\n",h,this);
-		if(!h)
+		printf("searching %p in node %p\n",toFind,this);
+		if(!toFind)
 			return 0;
-		if(h==data)
+		if(toFind==data)
 		{
 			printf("found %p in node %p\n",data,this);
 			return this;
 		}
 
-		NODE* res=0;
-		for(int i=0;i<4;i++)
+		NODE* founded=0;
+		for(int direction=0;direction<4;direction++)
 		{
-			if(links[i] && links[i]!=par)
+			NODE* pLink=links[direction];
+
+			if(pLink && pLink!=parentNode)
 			{
-				if(res=links[i]->Find(h,this))
-					return res;
+				if(founded=pLink->Find(toFind,this))
+					return founded;
 			}
 		}
 
@@ -344,13 +524,26 @@ template<class T> struct FourLinkNode
 
 };
 
-
-
-
 template<class A,class B> struct TPair
 {
 	A first;
 	B second;
+};
+
+template<class T> struct SmartPointer
+{
+private:
+	T* _pointer;
+public:
+
+	SmartPointer(){_pointer=new T();}
+	~SmartPointer(){SAFEDELETE(_pointer);}
+
+	T& operator*(){return *_pointer;}
+	T* operator->(){return _pointer;}
+
+	void operator=(T* tp){_pointer=tp;}
+	void operator=(T& tp){_pointer=&tp;}
 };
 
 

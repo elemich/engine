@@ -7,21 +7,7 @@
 #include "conditionals.h"
 
 
-template<class T> struct SmartPointer
-{
-private:
-	T* _pointer;
-public:
 
-	SmartPointer(){_pointer=new T();}
-	~SmartPointer(){if(_pointer)delete _pointer;_pointer=0;}
-
-	T& operator*(){return *_pointer;}
-	T* operator->(){return _pointer;}
-
-	void operator=(T* tp){_pointer=tp;}
-	void operator=(T& tp){_pointer=&tp;}
-};
 
 
 

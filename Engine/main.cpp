@@ -2,7 +2,8 @@
 
 
 
-int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
+//int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
+int main()
 {
 	AppInterface *app = new App();
 
