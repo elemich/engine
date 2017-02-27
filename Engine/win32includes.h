@@ -1,8 +1,11 @@
 #ifndef WIN32INCLUDES_H
 #define WIN32INCLUDES_H
 
-#include "interfaces.h"
 
+
+#pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
+ //#pragma warning(disable:4996) //
 
 #include <windows.h>
 #include <windowsx.h>
@@ -19,6 +22,18 @@
 #include <gl/GL.h>
 #include <d3d11.h>
 
+#include "interfaces.h"
+
 #include "win32defines.h"
+
+#define PRINT(x) #x
+#define PRINTF(x) PRINT(x)
+
+#define LOCATION "@mic (" __FILE__ " : " PRINTF(__LINE__) ")"
+
+#ifndef WINVER
+#define WINVER 0x0601
+#pragma message (LOCATION " WINVER: " PRINTF(WINVER))
+#endif
 
 #endif

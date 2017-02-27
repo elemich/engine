@@ -61,6 +61,18 @@ void CreateLogger(HWND hwnd)
 	}
 }
 
+void CreateSceneEntitiesWindow(HWND hwnd)
+{
+	int tabIdx=CreateTab(hwnd);
+	SceneEntities* sceneEntitiesWindow=new SceneEntities();
+	if(sceneEntitiesWindow)
+	{
+		sceneEntitiesWindow->Create(hwnd);
+		___app->sceneEntities.push_back(sceneEntitiesWindow);
+		SetWindowLong(sceneEntitiesWindow->hwnd,GWL_ID,(LONG)tabIdx);
+		EnableAndShowContainerChild(hwnd,tabIdx);
+	}
+}
 
 
 
@@ -139,18 +151,21 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			switch(cw->OnTabContainerRButtonUp(hwnd,lparam))
 			{
-				case 1:
+				case TAB_MENU_COMMAND_OPENGLWINDOW:
 					CreateOpenglWindow(hwnd);
 				break;
-				case 2:
+				case TAB_MENU_COMMAND_PROJECTFOLDER:
 					CreateProjectFolder(hwnd);
 				break;
-				case 3:
+				case TAB_MENU_COMMAND_LOGGER:
 					CreateLogger(hwnd);
 				break;
-				/*case 2://remove
-					CreateTab(hwnd);
-					break;*/
+				case TAB_MENU_COMMAND_SCENEENTITIES:
+					CreateSceneEntitiesWindow(hwnd);
+				break;
+				case TAB_MENU_COMMAND_REMOVE:
+					CreateSceneEntitiesWindow(hwnd);
+				break;
 			}
 		break;
 		default:

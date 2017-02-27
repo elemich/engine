@@ -10,7 +10,7 @@ struct WindowData
 	virtual void Create(HWND container)=0;
 };
 
-struct SplitterContainer
+struct SplitterContainer 
 {
 	static HMENU popupMenuRoot;
 	static HMENU popupMenuCreate;
@@ -51,7 +51,6 @@ struct SplitterContainer
 	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
 	//std::vector<HWND> findAttachedWindos(HWND mainWindow,RECT &srcRect,int rectPosition);
 };
-
 
 
 struct ContainerWindow : WindowData , SplitterContainer
@@ -96,6 +95,15 @@ struct ProjectFolderBrowser2 : WindowData , FolderBrowserInterface
 	void Create(HWND container);
 };
 
+struct SceneEntities : WindowData , SceneEntitiesInterface
+{
+
+	SceneEntities();
+	~SceneEntities();
+
+	void Create(HWND container);
+};
+
 struct Logger : WindowData , LoggerInterface
 {
 	void Create(HWND container);
@@ -109,6 +117,7 @@ struct App : AppInterface
 	std::vector<RendererInterface*> renderers;
 	std::vector<BROWSER*> browsers;
 	std::vector<LoggerInterface*> loggers;
+	std::vector<SceneEntitiesInterface*> sceneEntities;
 
 	PIDLIST_ABSOLUTE projectFolder;
 
@@ -169,5 +178,6 @@ void CreateProjectFolder(HWND);
 void CreateProjectFolder(HWND hwnd);
 void CreateOpenglWindow(HWND hwnd);
 void CreateLogger(HWND hwnd);
+void CreateSceneEntitiesWindow(HWND hwnd);
 
 #endif //WIN32_H

@@ -1,26 +1,10 @@
 
 #include "win32.h"
 
-
-#define PRINT(x) #x
-#define PRINTF(x) PRINT(x)
-
-#define LOCATION "@mic (" __FILE__ " : " PRINTF(__LINE__) ")"
-
-#ifndef WINVER
-#define WINVER 0x0601
-#pragma message (LOCATION " WINVER: " PRINTF(WINVER))
-#endif
-
-
 #pragma message("@mic \"LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
 //#pragma message("@mic \"LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
 
-#pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
-
-
-
-
+WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
 App* ___app;
@@ -261,6 +245,9 @@ ProjectFolderBrowser2::~ProjectFolderBrowser2()
 
 }
 
+//--------------------ProjectFolderBrowser2-------------------------
+
+
 PIDLIST_ABSOLUTE ProjectFolderBrowser2::SelectProjectFolder()
 {
 	char _pszDisplayName[MAX_PATH];
@@ -324,8 +311,31 @@ void ProjectFolderBrowser2::Create(HWND container)
 	
 }
 
+//--------------------SceneEntities-------------------------
+
+LRESULT CALLBACK SceneEntitiesProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+{
+	SceneEntities* sceneEntities=(SceneEntities*)GetWindowLong(hwnd,GWL_USERDATA);
+
+	return CallWindowProc(SystemOriginalSysTreeView32ControlProcedure,hwnd,msg,wparam,lparam);
+}
 
 
+SceneEntities::SceneEntities()
+{
+
+}
+
+SceneEntities::~SceneEntities()
+{
+	
+}
+
+void SceneEntities::Create(HWND container)
+{
+	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD,0,0,100,100,container,0,0,0);
+	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG)this);
+}
 
 //--------------------AppData-------------------------
 

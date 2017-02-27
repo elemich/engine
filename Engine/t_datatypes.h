@@ -1,6 +1,8 @@
 #ifndef T_DATATYPES_H
 #define T_DATATYPES_H
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <vector>
 #include <cstdio>
 

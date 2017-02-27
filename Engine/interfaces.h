@@ -1,9 +1,7 @@
 #ifndef INTERFACES_H
 #define INTERFACES_H
 
-#include <cstdio>
-
-#include "t_datatypes.h"
+#include "datatypes.h"
 #include "conditionals.h"
 
 
@@ -50,6 +48,16 @@ struct LoggerInterface
 };
 
 struct FolderBrowserInterface
+{
+
+};
+
+struct SceneEntitiesInterface
+{
+
+};
+
+struct PropertyInterface
 {
 
 };

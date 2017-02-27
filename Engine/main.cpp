@@ -11,5 +11,10 @@ int main()
 
 	app->AppLoop();
 
+	vec2 v2;
+	vec3 v3;
+	vec4 v4;
+
+
 	return 0;
 }

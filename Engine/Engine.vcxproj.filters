@@ -47,5 +47,11 @@
     <Filter Include="common">
       <UniqueIdentifier>{d2806868-410b-4883-8b50-03cbaf0154f6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="common\math">
+      <UniqueIdentifier>{3da36706-a2b2-439f-9146-a4242480b55e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common\entities">
+      <UniqueIdentifier>{dec07f9f-264d-4ac4-a36d-a6e50bf75ca6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

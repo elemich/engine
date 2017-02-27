@@ -1,6 +1,7 @@
 #include "win32.h"
 
 extern WNDPROC SystemOriginalTabControlProcedure;
+extern WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
 
@@ -425,6 +426,19 @@ bool InitSplitter()
 	else 
 		returnValue=false;
 
+	if(GetClassInfoEx(0,"SysTreeView32",&wc))
+	{
+		//wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
+		wc.lpszClassName=WC_SCENEENTITIESWINDOW;
+		SystemOriginalSysTreeView32ControlProcedure=wc.lpfnWndProc;
+		wc.lpfnWndProc=SceneEntitiesProc;
+		//wc.hbrBackground=0;
+		if(!RegisterClassEx(&wc))
+			returnValue=false;
+	}
+	else 
+		returnValue=false;
+
 	
 	//scintilla text control
 	/*{
@@ -460,12 +474,13 @@ bool InitSplitter()
 
 	InsertMenu(popupMenuRoot,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)popupMenuCreate,"New Tab");
 	{
-		InsertMenu(popupMenuCreate,0,MF_BYPOSITION|MF_STRING,1,"OpenGLFixedRenderer");
-		InsertMenu(popupMenuCreate,1,MF_BYPOSITION|MF_STRING,2,"Project Folder");
-		InsertMenu(popupMenuCreate,2,MF_BYPOSITION|MF_STRING,3,"Logger");
+		InsertMenu(popupMenuCreate,0,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_OPENGLWINDOW,"OpenGLFixedRenderer");
+		InsertMenu(popupMenuCreate,1,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER,"Project Folder");
+		InsertMenu(popupMenuCreate,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_LOGGER,"Logger");
+		InsertMenu(popupMenuCreate,3,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_SCENEENTITIES,"Scene Entities");
 	}
 	InsertMenu(popupMenuRoot,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
-	InsertMenu(popupMenuRoot,2,MF_BYPOSITION|MF_STRING,4,"Remove Tab");
+	InsertMenu(popupMenuRoot,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_REMOVE,"Remove Tab");
 
 	return returnValue;
 }
