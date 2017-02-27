@@ -1,8 +1,4 @@
-#include "datatypes.h"
-
-
-
-
+#include "primitives.h"
 
 String::String():data(NULL){}
 String::String(const char* s){if(!s){data=NULL;return;}data=new char[strlen(s)+1];strcpy(data,s);}

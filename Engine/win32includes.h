@@ -19,10 +19,11 @@
 
 #include <array>
 
+#include <gl/glew.h>
 #include <gl/GL.h>
 #include <d3d11.h>
 
-#include "interfaces.h"
+#include "datatypes.h"
 
 #include "win32defines.h"
 

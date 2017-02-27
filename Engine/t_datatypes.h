@@ -322,10 +322,10 @@ public:
 
 template<typename T> struct TDLNode
 {
-	T _data;
+	T data;
 
-	TDLNode<T>* _prev;
-	TDLNode<T>* _next;
+	TDLNode<T>* prev;
+	TDLNode<T>* next;
 };
 
 template<class T> struct TDLList
@@ -343,9 +343,9 @@ private:
 	NODE* __node()
 	{
 		NODE* n=new NODE;
-		n->_data=0;
-		n->_prev=0;
-		n->_next=0;
+		n->data=0;
+		n->prev=0;
+		n->next=0;
 		return n;
 	}
 
@@ -358,14 +358,14 @@ private:
 			_last=_head=n;
 		else if(dir==true)
 		{
-			_last->_next=n;
-			n->_prev=_last;
+			_last->next=n;
+			n->prev=_last;
 			_last=n;
 		}
 		else
 		{
-			_head->_prev=n;
-			n->_next=_head;
+			_head->prev=n;
+			n->next=_head;
 			_head=n;
 		}
 
@@ -384,7 +384,7 @@ public:
 	{
 		NODE* newNode=__node();
 
-		newNode->_data=t;
+		newNode->data=t;
 
 		__addNode(newNode,true);
 
@@ -394,7 +394,7 @@ public:
 	{
 		NODE* newNode=__node();
 
-		newNode->_data=t;
+		newNode->data=t;
 
 		__addNode(newNode,false);
 
@@ -408,7 +408,7 @@ public:
 		{
 			if(t==n)
 				return t;
-			t=t->_next;
+			t=t->next;
 		};
 
 		return 0;
@@ -420,9 +420,9 @@ public:
 
 		while(t)
 		{
-			if(t->_data==el)
+			if(t->data==el)
 				return t;
-			t=t->_next;
+			t=t->next;
 		};
 
 		return 0;
@@ -435,7 +435,7 @@ public:
 
 	NODE* operator++(int)
 	{
-		return (_current=_current->_next);
+		return (_current=_current->next);
 	}
 	NODE* operator--(int)
 	{
@@ -445,7 +445,7 @@ public:
 	NODE* Cur(){return _current;}
 	NODE* First(){return _head;}
 	NODE* Last(){return _last;}
-	operator T*(){return (_current ? &_current->_data : 0);}
+	operator T*(){return (_current ? &_current->data : 0);}
 };
 
 template<class T> struct FourLinkNode
@@ -530,6 +530,11 @@ template<class A,class B> struct TPair
 {
 	A first;
 	B second;
+};
+
+template <class T,int size> struct TNumberedVectorInterface
+{
+	T v[size];
 };
 
 template<class T> struct SmartPointer

@@ -42,12 +42,17 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>c:\sdk\glew-1.12.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glew32.lib;opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
+      <AdditionalLibraryDirectories>c:\sdk\glew-1.12.0\lib\release\win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy $(OutputDir) C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll /R /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -63,15 +68,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="datatypes.cpp" />
+    <ClCompile Include="primitives.cpp" />
+    <ClCompile Include="entitymanager.cpp" />
+    <ClCompile Include="matrixstack.cpp" />
+    <ClCompile Include="shadermanager.cpp" />
     <ClCompile Include="win32interfaces.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="win32openglrenderer.cpp" />
     <ClCompile Include="win32splitter.cpp" />
     <ClCompile Include="win32containers.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="conditionals.h" />
     <ClInclude Include="datatypes.h" />
+    <ClInclude Include="primitives.h" />
     <ClInclude Include="t_datatypes.h" />
     <ClInclude Include="interfaces.h" />
     <ClInclude Include="win32.h" />
