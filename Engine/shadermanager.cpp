@@ -1,12 +1,5 @@
 #include "datatypes.h"
 
-
-
-
-
-
-
-
 typedef TDLAutoList<ShaderInterface*> LIST;
 typedef TDLAutoNode<ShaderInterface*> NODE;
 
@@ -31,7 +24,7 @@ ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
 		shaderNode=shaderNode->Next();
 	}
 
-	return NULL;
+	return 0;
 }
 
 
