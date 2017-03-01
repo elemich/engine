@@ -1,9 +1,12 @@
 #ifndef DATATYPES_H
 #define DATATYPES_H
 
+#include "shader_data.h"
+
 #include "interfaces.h"
+#include "entities.h"
 
-
+#include "fbxutil.h"
 
 struct MatrixStack
 {
@@ -47,49 +50,13 @@ struct MatrixStack
 
 	static  MatrixStack::matrixmode GetMode();
 	static  void SetMode(MatrixStack::matrixmode m);
-};
 
-struct ShaderManager
-{
-	static TDLList<ShaderInterface*> shaders;
-	static ShaderInterface			  *current;
-
-
-	static ShaderInterface* Find(const char*,bool exact=true);
-
-	static void SetMatrices(float* proj,float* mdlv);
-
-	static ShaderInterface* GetCurrent();
-	static void SetCurrent(ShaderInterface*);
+	static mat4 modelview;
+	static mat4 projection;
 };
 
 int simple_shader(int shader_type, const char* shader_src);
 int create_program(const char* vertexsh,const char* fragmentsh);
-
-struct Entity
-{
-	int animate(float);
-	void update();
-	void draw();
-};
-
-struct EntityManager
-{
-	static TDLList<Entity*> entities;
-	static TDLList<Entity*> typed_entities[10];
-
-	static void draw();
-	static void update();
-	static int  animate(float);
-
-	static Entity* Find(const char*,bool exact=true);
-
-	static void debugProcessed();
-};
-
-
-
-
 
 struct OpenGLShader : ShaderInterface
 {

@@ -18,9 +18,6 @@ HWND CreateTabContainer(int x,int y,int w,int h,HWND parent,int currentCount)
 	sprintf_s(tabContainerName,"TabContainer%d",currentCount);
 	HWND tabWindow= CreateWindow(WC_TABCONTAINER,tabContainerName,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS|TCS_FOCUSNEVER,x,y,w,h,parent,(HMENU)currentCount,0,0);
 
-	if(tabWindow)
-		SetWindowLongPtr(tabWindow,GWL_USERDATA,(LONG)MAKEWORD(0,0));
-
 	return tabWindow;
 }
 
@@ -224,8 +221,16 @@ void ProjectFolderBrowser::Create(HWND container)
 	if (!SUCCEEDED(hr))
 		__debugbreak();
 
-	browser->SetOptions(EBO_NOWRAPPERWINDOW);
+	browser->SetOptions(EBO_NOWRAPPERWINDOW|EBO_SHOWFRAMES);
 	browser->BrowseToIDList(projectFolder,SBSP_DEFBROWSER);
+
+	/*INameSpaceTreeControl2* shellItem;
+	hr=browser->GetCurrentView(EP_NavPane,(void**)&shellItem);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();*/
+
+	
 
 	hr=IUnknown_GetWindow(browser,&hwnd);
 
@@ -236,6 +241,10 @@ void ProjectFolderBrowser::Create(HWND container)
 		printf("browser window %p\n",hwnd);
 }
 
+
+
+//--------------------ProjectFolderBrowser2-------------------------
+
 ProjectFolderBrowser2::ProjectFolderBrowser2()
 {
 	browser=0;
@@ -244,9 +253,6 @@ ProjectFolderBrowser2::~ProjectFolderBrowser2()
 {
 
 }
-
-//--------------------ProjectFolderBrowser2-------------------------
-
 
 PIDLIST_ABSOLUTE ProjectFolderBrowser2::SelectProjectFolder()
 {
@@ -294,11 +300,11 @@ void ProjectFolderBrowser2::Create(HWND container)
 
 	IShellItem* shellItem;
 	hr=SHCreateShellItem(0,0,projectFolder,&shellItem);
+	//hr=SHCreateItemWithParent(0,);
 	if (!SUCCEEDED(hr))
 		__debugbreak();
 
 	browser->AppendRoot(shellItem, SHCONTF_CHECKING_FOR_CHILDREN|SHCONTF_FOLDERS, NSTCRS_HIDDEN | NSTCRS_EXPANDED, NULL); // ignore result
-	
 	
 	hr=IUnknown_GetWindow(browser,&hwnd);
 
@@ -315,7 +321,7 @@ void ProjectFolderBrowser2::Create(HWND container)
 
 LRESULT CALLBACK SceneEntitiesProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	SceneEntities* sceneEntities=(SceneEntities*)GetWindowLong(hwnd,GWL_USERDATA);
+	SceneEntities* sceneEntities=(SceneEntities*)GetWindowLongPtr(hwnd,GWL_USERDATA);
 
 	return CallWindowProc(SystemOriginalSysTreeView32ControlProcedure,hwnd,msg,wparam,lparam);
 }
@@ -334,7 +340,7 @@ SceneEntities::~SceneEntities()
 void SceneEntities::Create(HWND container)
 {
 	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD,0,0,100,100,container,0,0,0);
-	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG)this);
+	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 }
 
 //--------------------AppData-------------------------

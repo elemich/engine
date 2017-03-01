@@ -42,13 +42,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>c:\sdk\glew-1.12.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>c:\sdk\glew-1.12.0\include;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ShowIncludes>false</ShowIncludes>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <ErrorReporting>Queue</ErrorReporting>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>glew32.lib;opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;libfbxsdk-md.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>c:\sdk\glew-1.12.0\lib\release\win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>c:\sdk\glew-1.12.0\lib\release\win32;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>xcopy $(OutputDir) C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll /R /Y</Command>
@@ -68,10 +71,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="anim.cpp" />
+    <ClCompile Include="bone.cpp" />
+    <ClCompile Include="entity.cpp" />
+    <ClCompile Include="fbxutil.cpp" />
+    <ClCompile Include="fbxutil_fbx.cpp" />
+    <ClCompile Include="jpgdecoder.cpp" />
+    <ClCompile Include="light.cpp" />
+    <ClCompile Include="material.cpp" />
+    <ClCompile Include="mesh.cpp" />
+    <ClCompile Include="picopng.cpp" />
     <ClCompile Include="primitives.cpp" />
-    <ClCompile Include="entitymanager.cpp" />
+    <ClCompile Include="rendererinterface.cpp" />
     <ClCompile Include="matrixstack.cpp" />
     <ClCompile Include="shadermanager.cpp" />
+    <ClCompile Include="skin.cpp" />
+    <ClCompile Include="texture.cpp" />
+    <ClCompile Include="tga_reader.cpp" />
     <ClCompile Include="win32interfaces.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="win32openglrenderer.cpp" />
@@ -80,7 +96,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="datatypes.h" />
+    <ClInclude Include="entities.h" />
+    <ClInclude Include="fbxutil.h" />
+    <ClInclude Include="jpgdecoder.h" />
+    <ClInclude Include="picopng.h" />
     <ClInclude Include="primitives.h" />
+    <ClInclude Include="tga_reader.h" />
     <ClInclude Include="t_datatypes.h" />
     <ClInclude Include="interfaces.h" />
     <ClInclude Include="win32.h" />

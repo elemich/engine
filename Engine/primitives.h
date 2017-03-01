@@ -127,6 +127,7 @@ struct vec3 : TNumberedVectorInterface<float,3>
 	static vec3 cross(vec3& a,vec3& b){vec3 c;VectorMathNamespace::cross(c,a.v,b.v);return c;}
 	vec3& normalize(){VectorMathNamespace::normalize(v,v,3);return *this;}
 	vec3& make(float a,float b,float c){VectorMathNamespace::make(v,3,a,b,c);return *this;}
+	//vec3& make(double a,double b,double c){VectorMathNamespace::make(v,3,(float)a,(float)b,(float)c);return *this;}
 	vec3& negate(){VectorMathNamespace::negate(v,v,3);return *this;}
 
 	String stringize(){char str[100];/*sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);*/String s(str);return s;}
@@ -322,7 +323,12 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	void zero();
 };
 
-
+struct Entity;
+struct Bone;
+struct Mesh;
+struct Skin;
+struct Texture;
+struct Light;
 
 #endif //PRIMITIVES_H
 

@@ -22,10 +22,49 @@
     <ClCompile Include="shadermanager.cpp">
       <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="entitymanager.cpp">
+    <ClCompile Include="primitives.cpp">
       <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="primitives.cpp">
+    <ClCompile Include="entity.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="anim.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="texture.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="mesh.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="skin.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="material.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="rendererinterface.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="light.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="fbxutil.cpp">
+      <Filter>importers</Filter>
+    </ClCompile>
+    <ClCompile Include="fbxutil_fbx.cpp">
+      <Filter>importers</Filter>
+    </ClCompile>
+    <ClCompile Include="bone.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="tga_reader.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="jpgdecoder.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="picopng.cpp">
       <Filter>common</Filter>
     </ClCompile>
   </ItemGroup>
@@ -51,6 +90,21 @@
     <ClInclude Include="primitives.h">
       <Filter>common</Filter>
     </ClInclude>
+    <ClInclude Include="entities.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="fbxutil.h">
+      <Filter>importers</Filter>
+    </ClInclude>
+    <ClInclude Include="tga_reader.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="jpgdecoder.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="picopng.h">
+      <Filter>common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">
@@ -59,11 +113,8 @@
     <Filter Include="common">
       <UniqueIdentifier>{d2806868-410b-4883-8b50-03cbaf0154f6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="common\math">
-      <UniqueIdentifier>{3da36706-a2b2-439f-9146-a4242480b55e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="common\entities">
-      <UniqueIdentifier>{dec07f9f-264d-4ac4-a36d-a6e50bf75ca6}</UniqueIdentifier>
+    <Filter Include="importers">
+      <UniqueIdentifier>{47efae74-b238-4d58-bb97-898567eaccca}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

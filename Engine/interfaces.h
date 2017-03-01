@@ -3,23 +3,6 @@
 
 #include "primitives.h"
 
-struct ObjectInterface
-{
-
-};
-
-struct StringInterface : ObjectInterface
-{
-
-};
-
-struct NumberInterface : ObjectInterface
-{
-
-};
-
-
-
 struct AppInterface
 {
 	virtual int Init()=0;
@@ -29,8 +12,31 @@ struct AppInterface
 
 struct RendererInterface
 {
+	static std::vector<RendererInterface*> renderers;
+	static void draw();//draw on all instanced renderers
+
 	virtual char* Name()=0;
 	virtual void Render()=0;
+
+	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(vec2)=0;
+	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(vec4)=0;
+	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+
+	
+	virtual void draw(Bone*)=0;
+	virtual void draw(Mesh*)=0;
+	virtual void draw(Skin*)=0;
+	virtual void draw(Texture*)=0;
+	virtual void draw(Light*)=0;
+	virtual void drawUnlitTextured(Mesh*)=0;
+	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
+
+	/*virtual vec4 GetRectangle();
+	virtual vec2 GetSize();*/
+
 };
 
 struct LoggerInterface
@@ -57,6 +63,13 @@ struct PropertyInterface
 
 struct ShaderInterface
 {
+	static TDLAutoList<ShaderInterface*>	shaders;
+	static const ShaderInterface			*&current;
+	static ShaderInterface* Find(const char*,bool exact=true);
+	static void SetMatrices(float* proj,float* mdlv);
+	static ShaderInterface* GetCurrent();
+	static void SetCurrent(ShaderInterface*);
+
 	virtual int GetProgram()=0;
 	virtual void SetProgram(int)=0;
 

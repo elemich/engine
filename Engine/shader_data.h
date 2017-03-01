@@ -1,7 +1,7 @@
 #ifndef __SHADER_DATA_HEADER__
 #define __SHADER_DATA_HEADER__
 
-const char* unlit_color_vert =
+static const char* unlit_color_vert =
 	"attribute vec4 position;\n"
 	"varying vec3 vcolor;\n"
 	"uniform mat4 modelview;\n"
@@ -12,14 +12,14 @@ const char* unlit_color_vert =
 	"    gl_Position = projection * modelview * vec4(position.xyz,1.0);\n"
 	"}\n";
 
-const char* unlit_color_frag =
+static const char* unlit_color_frag =
 	"varying vec3 vcolor;\n"
 	"void main(void) {\n"
 	"    gl_FragColor = vec4(vcolor,1.0);\n"
 	"}\n";
 
 
-const char* unlit_vert =
+static const char* unlit_vert =
 	"attribute vec4 position;\n"
 	"attribute vec3 color;\n"
 	"varying vec3 vcolor;\n"
@@ -30,7 +30,7 @@ const char* unlit_vert =
 	"    gl_Position = projection * modelview * vec4(position.xyz,1.0);\n"
 	"}\n";
 
-const char* unlit_frag =
+static const char* unlit_frag =
 	"varying vec3 vcolor;\n"
 	"void main(void) {\n"
 	"    gl_FragColor = vec4(vcolor,1.0);\n"
@@ -38,7 +38,7 @@ const char* unlit_frag =
 
 /////////////////////////////////////////////////////////////////////
 
-const char* unlit_texture_vs =
+static const char* unlit_texture_vs =
 	"attribute vec4 position;\n"
 	"attribute vec2 texcoord;\n"
 	"attribute vec3 normal;\n"
@@ -53,7 +53,7 @@ const char* unlit_texture_vs =
 	"    gl_Position = projection * modelview * position;\n"
 	"}\n";
 
-const char* unlit_texture_fs =
+static const char* unlit_texture_fs =
 	"uniform sampler2D texture;\n"
 	"varying vec2 varying_texcoord;\n"
 	"varying vec3 varying_normal;\n"
@@ -64,7 +64,7 @@ const char* unlit_texture_fs =
 
 //////////////////////////////////////////////////////////////////////////////
 
-const char* texture_vertex_shaded_vert =
+static const char* texture_vertex_shaded_vert =
 	"attribute vec3 position;\n"
 	"attribute vec2 texcoord;\n"
 	"attribute vec3 normal;\n"
@@ -94,7 +94,7 @@ const char* texture_vertex_shaded_vert =
 	"}\n";
 
 
-const char* texture_vertex_shaded_frag =
+static const char* texture_vertex_shaded_frag =
 	"varying vec4 varying_texcolor;\n"
 	"varying vec4 varying_color;\n"
 	"\n"
@@ -105,7 +105,7 @@ const char* texture_vertex_shaded_frag =
 
 
 
-const char* font_pixsh =
+static const char* font_pixsh =
 	"attribute vec4 position;\n"
 	"attribute vec2 texcoord;\n"
 	"varying vec2 v_texcoord;\n"
@@ -114,7 +114,7 @@ const char* font_pixsh =
 	"v_texcoord = texcoord;\n"
 	"}\n";
 
-const char* font_frgsh =
+static const char* font_frgsh =
 	"varying vec2 v_texcoord;\n"
 	"uniform sampler2D texture;\n"
 	"uniform vec4 color;\n"

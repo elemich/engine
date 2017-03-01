@@ -38,7 +38,7 @@ struct SplitterContainer
 
 	SplitterContainer();
 	~SplitterContainer();
-	
+
 	void OnLButtonDown(HWND,LPARAM);
 	void OnLButtonUp(HWND);
 	void OnMouseMove(HWND,LPARAM);
@@ -64,6 +64,9 @@ struct ContainerWindow : WindowData , SplitterContainer
 struct MainAppContainerWindow : ContainerWindow
 {
 	MainAppContainerWindow();
+
+	HMENU menuMain;
+	HMENU menuEntities;
 
 	void Create(HWND hwnd=0);
 	void OnCreate(HWND);
@@ -114,8 +117,7 @@ struct App : AppInterface
 	MainAppContainerWindow mainAppWindow;
 	
 	std::vector<ContainerWindow> containers;
-	std::vector<RendererInterface*> renderers;
-	std::vector<BROWSER*> browsers;
+	std::vector<FolderBrowserInterface*> browsers;
 	std::vector<LoggerInterface*> loggers;
 	std::vector<SceneEntitiesInterface*> sceneEntities;
 
@@ -141,6 +143,22 @@ struct OpenGLFixedRenderer : WindowData ,  RendererInterface
 	char* Name();
 	void  Create(HWND container);
 	void Render();
+
+
+	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
+	void draw(vec2);
+	void draw(vec3,vec3,vec3 color=vec3(1,1,1));
+	void draw(vec4);
+	//void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
+	void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
+
+	void draw(Light*);
+	void draw(Mesh*);
+	void draw(Skin*);
+	void draw(Bone*);
+	void draw(Texture*);
+	void drawUnlitTextured(Mesh*);
+	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface
@@ -159,6 +177,21 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 	virtual char* Name();
 	virtual void  Create(HWND container);
 	virtual void Render();
+
+	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1)){}
+	virtual void draw(vec2){}
+	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1)){}
+	virtual void draw(vec4){}
+	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4){}
+	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4){}
+
+	virtual void draw(Light*){}
+	virtual void draw(Mesh*){}
+	virtual void draw(Skin*){}
+	virtual void draw(Bone*){}
+	virtual void draw(Texture*){}
+	virtual void drawUnlitTextured(Mesh*){}
+	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
 
@@ -174,10 +207,9 @@ void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
 void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
 void EnableAndShowContainerChild(HWND hwnd,int idx);
 void CreateProjectFolder(HWND);
-
-void CreateProjectFolder(HWND hwnd);
-void CreateOpenglWindow(HWND hwnd);
-void CreateLogger(HWND hwnd);
-void CreateSceneEntitiesWindow(HWND hwnd);
+void CreateProjectFolder2(HWND);
+void CreateOpenglWindow(HWND);
+void CreateLogger(HWND);
+void CreateSceneEntitiesWindow(HWND);
 
 #endif //WIN32_H

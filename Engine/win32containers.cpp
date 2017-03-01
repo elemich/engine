@@ -10,13 +10,21 @@ void ContainerWindow::Create(HWND){}
 MainAppContainerWindow::MainAppContainerWindow(){};
 void MainAppContainerWindow::Create(HWND)
 {
-	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,0,0,0);
-	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG)this);
+	menuMain=CreateMenu();
+	menuEntities=CreateMenu();
+
+	InsertMenu(menuMain,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menuEntities,"Entities");
+	{
+		InsertMenu(menuEntities,0,MF_BYPOSITION|MF_STRING,MAINMENU_ENTITIES_IMPORTENTITY,"Import...");
+	}
+
+	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,menuMain,0,0);
+	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	RECT rc;
 	GetClientRect(hwnd,&rc);
 	HWND firstChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
-	CreateProjectFolder(firstChild);
+	CreateOpenglWindow(firstChild);
 
 	ShowWindow(hwnd,true);
 }
@@ -24,7 +32,7 @@ void MainAppContainerWindow::Create(HWND)
 void CreateProjectFolder(HWND hwnd)
 {
 	int tabIdx=CreateTab(hwnd);
-	BROWSER* folderBrowser=new BROWSER();
+	ProjectFolderBrowser* folderBrowser=new ProjectFolderBrowser();
 	if(folderBrowser)
 	{
 		folderBrowser->Create(hwnd);
@@ -35,6 +43,22 @@ void CreateProjectFolder(HWND hwnd)
 	}
 }
 
+void CreateProjectFolder2(HWND hwnd)
+{
+	int tabIdx=CreateTab(hwnd);
+	ProjectFolderBrowser2* folderBrowser=new ProjectFolderBrowser2();
+	if(folderBrowser)
+	{
+		folderBrowser->Create(hwnd);
+		___app->browsers.push_back(folderBrowser);
+		SetParent(hwnd,folderBrowser->hwnd);
+		SetWindowLong(folderBrowser->hwnd,GWL_ID,(LONG)tabIdx);
+		EnableAndShowContainerChild(hwnd,tabIdx);
+	}
+}
+
+
+
 void CreateOpenglWindow(HWND hwnd)
 {
 	int tabIdx=CreateTab(hwnd);
@@ -42,7 +66,7 @@ void CreateOpenglWindow(HWND hwnd)
 	if(renderer)
 	{
 		renderer->Create(hwnd);
-		___app->renderers.push_back(renderer);
+		renderer->renderers.push_back(renderer);
 		SetWindowLong(renderer->hwnd,GWL_ID,(LONG)tabIdx);
 		EnableAndShowContainerChild(hwnd,tabIdx);
 	}
@@ -107,14 +131,43 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			{
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
 				RECT rc=*(RECT*)lparam;
-				printf("sizing %d,%d,%d,%d\n",rc.left,rc.top,rc.right,rc.bottom);
+				//printf("sizing %d,%d,%d,%d\n",rc.left,rc.top,rc.right,rc.bottom);
 			}
 		break;
 		case WM_SIZE:
 			{
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
 				POINTS p=MAKEPOINTS(lparam);
-				printf("size %d,%d\n",p.x,p.y);
+				//printf("size %d,%d\n",p.x,p.y);
+			}
+		break;
+		case WM_COMMAND:
+			{
+				if(!HIWORD(wparam))//menu notification
+				{
+					switch(LOWORD(wparam))
+					{
+						case MAINMENU_ENTITIES_IMPORTENTITY:
+						{
+							char charpretval[5000];
+							charpretval[0]='\0';
+
+							OPENFILENAME openfilename={0};
+							openfilename.lStructSize=sizeof(OPENFILENAME);
+							openfilename.hwndOwner=hwnd;
+							openfilename.lpstrFilter="Fbx File Format (*.fbx)\0*.fbx\0\0";
+							openfilename.nFilterIndex=1;
+							openfilename.lpstrFile=charpretval;
+							openfilename.nMaxFile=5000;
+							 
+							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
+							{
+								InitFbxSceneLoad(openfilename.lpstrFile);
+							}
+						}
+						break;
+					}
+				}
 			}
 		break;
 		
@@ -154,9 +207,12 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 				case TAB_MENU_COMMAND_OPENGLWINDOW:
 					CreateOpenglWindow(hwnd);
 				break;
+				case TAB_MENU_COMMAND_PROJECTFOLDER2:
+					CreateProjectFolder2(hwnd);
+				break;
 				case TAB_MENU_COMMAND_PROJECTFOLDER:
 					CreateProjectFolder(hwnd);
-				break;
+					break;
 				case TAB_MENU_COMMAND_LOGGER:
 					CreateLogger(hwnd);
 				break;

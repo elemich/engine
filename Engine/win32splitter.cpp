@@ -29,9 +29,6 @@ SplitterContainer::~SplitterContainer()
 HMENU SplitterContainer::popupMenuRoot=CreatePopupMenu();
 HMENU SplitterContainer::popupMenuCreate=CreatePopupMenu();
 
-
-
-
 void SplitterContainer::OnLButtonDown(HWND hwnd,LPARAM lparam)
 {
 	if(!GetCapture() && !childMovingRef && splitterCursor!=IDC_ARROW)
@@ -111,7 +108,7 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 {
 	POINTS p=MAKEPOINTS(lparam);
 
-	printf("moving parent %d,%d\n",p.x,p.y);
+	//printf("moving parent %d,%d\n",p.x,p.y);
 
 	if(childMovingRef)
 	{
@@ -405,6 +402,7 @@ bool InitSplitter()
 	if(!RegisterClassEx(&wc))
 		returnValue=false;
 
+	wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
 	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 	wc.lpszClassName=WC_OPENGLWINDOW;
 	wc.lpfnWndProc=OpenGLProc;
@@ -475,7 +473,8 @@ bool InitSplitter()
 	InsertMenu(popupMenuRoot,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)popupMenuCreate,"New Tab");
 	{
 		InsertMenu(popupMenuCreate,0,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_OPENGLWINDOW,"OpenGLFixedRenderer");
-		InsertMenu(popupMenuCreate,1,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER,"Project Folder");
+		InsertMenu(popupMenuCreate,1,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER2,"Project Folder2");
+		InsertMenu(popupMenuCreate,4,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER,"Project Folder");
 		InsertMenu(popupMenuCreate,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_LOGGER,"Logger");
 		InsertMenu(popupMenuCreate,3,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_SCENEENTITIES,"Scene Entities");
 	}

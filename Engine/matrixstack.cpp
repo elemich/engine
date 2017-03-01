@@ -8,8 +8,8 @@ float matrixstack[MatrixStack::MATRIXMODE_MAX][MATRIXSTACK_ARRAY_SIZES][16];
 int	  levels[MatrixStack::MATRIXMODE_MAX];
 int	  mode;
 
-mat4 modelview;
-mat4 projection;
+mat4 MatrixStack::modelview;
+mat4 MatrixStack::projection;
 
 void MatrixStack::Init()
 	
@@ -49,10 +49,16 @@ void MatrixStack::SetModelviewMatrix(float* mm)
 
 float* MatrixStack::GetProjectionMatrix()
 {
+	if(!matrixstack[PROJECTION][levels[PROJECTION]])
+		__debugbreak();
+
 	return matrixstack[PROJECTION][levels[PROJECTION]];
 }
 float* MatrixStack::GetModelviewMatrix()
 {
+	if(!matrixstack[MODELVIEW][levels[MODELVIEW]])
+		__debugbreak();
+
 	return matrixstack[MODELVIEW][levels[MODELVIEW]];
 }
 
@@ -144,7 +150,7 @@ void MatrixStack::SetShaderMatrix()
 
 void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m)
 {
-	ShaderInterface*		shader=ShaderManager::GetCurrent();
+	ShaderInterface*		shader=ShaderInterface::GetCurrent();
 
 	if(shader)
 	{
@@ -155,7 +161,7 @@ void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m)
 
 void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m,float* mtx)
 {
-	ShaderInterface*		shader=ShaderManager::GetCurrent();
+	ShaderInterface*		shader=ShaderInterface::GetCurrent();
 
 	if(shader)
 	{

@@ -1,0 +1,44 @@
+#ifndef __FBXUTIL__HEADER__
+#define __FBXUTIL__HEADER__
+
+#include "entities.h"
+
+#include <fbxsdk.h>
+#include <fbxsdk\fileio\fbxiosettings.h>
+
+
+
+//int pippo (char*,...);
+
+struct cmat
+{
+	vec3 a,b,c;
+
+	cmat(vec3 x,vec3 y,vec3 z)
+	{
+		a=x,b=y,c=z;
+	}
+};
+
+//#define printf pippo
+
+FbxScene* InitFbxSceneLoad(char* fname);
+
+void FillSkin(FbxNode* fbxNode,Skin* skin);
+void FillMesh(FbxNode* fbxNode,Mesh* mesh);
+void FillMaterial(FbxNode*,Material*);
+void FillLight(FbxNode* fbxNode,Light* light);
+
+void StoreKeyframes(Animation*,CurveGroup* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
+void ExtractAnimations(FbxNode* fbxNode,Entity* entity);
+void GetSceneDetails(FbxScene*);
+
+bool AnimationPresent(FbxAnimLayer * pAnimLayer, FbxNode* pNode);
+bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,String &animnae);
+
+Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent);
+Entity* processExtractSceneFunc(FbxNode* fbxNode,Entity* parent);
+
+
+
+#endif __FBXUTIL__HEADER__

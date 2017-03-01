@@ -828,7 +828,7 @@ mat4 mat4::operator*(mat4 mm){mat4 t;MatrixMathNamespace::multiply(t.v,mm.v,v);r
 mat4 mat4::operator*(float f){mat4 t;MatrixMathNamespace::scale(t,v,f);return t;}
 mat4 mat4::operator*(vec3 v){mat4 t;MatrixMathNamespace::scale(t,v,v);return t;}
 mat4& mat4::operator*=(mat4 mm){MatrixMathNamespace::multiply(v,mm.v,v);return *this;}
-mat4& mat4::operator*=(vec3 v){MatrixMathNamespace::scale(v,v,v);return *this;}
+mat4& mat4::operator*=(vec3 v3){MatrixMathNamespace::scale(v,v,v3);return *this;}
 mat4& mat4::operator*=(float f){MatrixMathNamespace::scale(v,v,f);return *this;}
 mat4 mat4::operator+(mat4& mm){mat4 t;MatrixMathNamespace::sum(t.v,v,mm.v);return t;}
 mat4& mat4::operator+=(mat4& mm){MatrixMathNamespace::sum(v,v,mm.v);return *this;}
@@ -846,8 +846,8 @@ vec3 mat4::transform(float x,float y,float z){vec3 r;MatrixMathNamespace::transf
 mat4& mat4::traspose(){MatrixMathNamespace::traspose(v,v);return *this;}
 
 mat4& mat4::rotate(float a,float x,float y,float z){MatrixMathNamespace::rotate(v,v,a,x,y,z);return *this;}
-mat4& mat4::rotate(float a,vec3 v){MatrixMathNamespace::rotate(v,v,a,v[0],v[1],v[2]);return *this;}
-mat4& mat4::rotate(vec3 r){MatrixMathNamespace::rotate(v,v,r);return *this;}
+mat4& mat4::rotate(float a,vec3 v3){MatrixMathNamespace::rotate(v,v,a,v3[0],v3[1],v3[2]);return *this;}
+mat4& mat4::rotate(vec3 v3){MatrixMathNamespace::rotate(v,v,v3);return *this;}
 
 mat4& mat4::scale(float scalar){MatrixMathNamespace::scale(v,v,scalar);return *this;}
 mat4& mat4::scale(vec3 scalevector){MatrixMathNamespace::scale(v,v,scalevector);return *this;}
@@ -858,10 +858,10 @@ mat4& mat4::trs(vec3 t,vec3 r,vec3 s){mat4 ms;ms.scale(s);mat4 mr;MatrixMathName
 
 mat4& mat4::copy(float* mm){MatrixMathNamespace::copy(mm,v);return *this;}
 mat4& mat4::copy33(mat4& mm){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)v[idx[i]]=mm.v[idx[i]];return *this;}
-mat4& mat4::move(vec3 v){v[12] = v[0];v[13] = v[1];v[14] = v[2];return *this;}
+mat4& mat4::move(vec3 v3){v[12] = v3[0];v[13] = v3[1];v[14] = v3[2];return *this;}
 
 mat4& mat4::translate(float x,float y,float z){vec3 t(x,y,z);MatrixMathNamespace::translate(v,t);return *this;}
-mat4& mat4::translate(vec3 v){MatrixMathNamespace::translate(v,v);return *this;}
+mat4& mat4::translate(vec3 v3){MatrixMathNamespace::translate(v,v3);return *this;}
 
 mat4& mat4::invert(){MatrixMathNamespace::invert(v,v);return *this;}
 mat4 mat4::inverse(){float ret[16];MatrixMathNamespace::invert(ret,v);return mat4(ret);}
@@ -872,7 +872,7 @@ mat4& mat4::perspective(float left,float right ,float bottom,float up,float near
 //mat4& mat4::lookat(vec3 target,vec3 p,vec3 y){matrix::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
 mat4& mat4::lookat(vec3 target){vec3 y=axis(vec3(0,1,0)),p=position();VectorMathNamespace::print(p);VectorMathNamespace::print(y);MatrixMathNamespace::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
 
-vec3 mat4::position(){vec3 v;MatrixMathNamespace::transform(v,v,0,0,0);return v;}
+vec3 mat4::position(){vec3 t;MatrixMathNamespace::transform(t,v,0,0,0);return t;}
 
 void mat4::axes(vec3& a,vec3& b,vec3& c){MatrixMathNamespace::orientations(v,a,b,c);}
 vec3 mat4::axis(vec3 in){MatrixMathNamespace::orientation(in,v,in);return in;}

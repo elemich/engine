@@ -448,6 +448,303 @@ public:
 	operator T*(){return (_current ? &_current->data : 0);}
 };
 
+template <class T> struct TDLAutoNode
+{
+	TDLAutoNode* prev;
+	TDLAutoNode* next;
+
+	T data;
+
+
+	TDLAutoNode(){prev=next=0;}
+
+	~TDLAutoNode(){/*prev=next=0;*/}
+
+	TDLAutoNode(T& t){
+		prev=next=0;
+		data=t;
+	}
+
+	void Link(TDLAutoNode* p,TDLAutoNode* n){
+		prev=p;
+		next=n;
+	}
+
+	void Unlink(){
+		if(prev)
+			prev->next=next;
+		if(next)
+			next->prev=prev;
+	}
+
+	TDLAutoNode* Next()const{return next;}
+
+	TDLAutoNode* Prev()const{return prev;}
+
+	T& Data(){return data;}
+
+	operator T&(){return data;}
+};
+
+template<class T> struct TDLAutoList
+{
+
+private:
+	TDLAutoNode<T>* head;
+	TDLAutoNode<T>* last;
+	TDLAutoNode<T>* current;
+	int		 count;
+public:
+
+
+	//----------------------------------------------------------
+	 TDLAutoList()
+		:
+	head(0),
+		last(0),
+		count(0)
+	{
+	}
+	//----------------------------------------------------------
+	 TDLAutoList(T c)
+		:
+	head(0),
+		last(0),
+		count(0)
+	{
+		Push(c);
+	}
+	//----------------------------------------------------------
+	 TDLAutoList(int num, T t, ...)
+		:
+	head(0),
+		last(0),
+		count(0)
+	{
+		va_list vl;
+		va_start(vl,t);
+		Push(t);
+		int i=1;
+		while(i<num)
+		{
+			Push(va_arg(vl,T));
+			i++;
+		}
+		va_end(vl);
+	}
+	//----------------------------------------------------------
+	 TDLAutoList(T* t, ...)
+		:
+	head(0),
+		last(0),
+		count(0)
+	{
+		va_list vl;
+		va_start(vl,t);
+		Push(*t);
+		T* tmp=va_arg(vl,T*);
+		while(tmp)
+		{
+			Push(*tmp);
+			tmp=va_arg(vl,T*);
+		}
+		va_end(vl);
+	}
+	//----------------------------------------------------------
+	 TDLAutoList(const TDLAutoList& l)
+		:
+	head(0),
+		last(0),
+		count(0)
+	{
+		delete this;
+
+		TDLAutoNode* t=l.Head();
+
+		while(t)
+		{
+			Push(t);
+			t=t->Next();
+		}
+	}
+	//----------------------------------------------------------
+	 ~TDLAutoList()
+	{
+		while(head)
+		{
+			TDLAutoNode<T>* t=head->Next();
+			delete head;
+			head=t;
+
+		}
+		head=last=0;
+		count=0;
+
+
+	}
+	//----------------------------------------------------------
+	 TDLAutoList& operator=(const TDLAutoList& l)
+	{
+
+		this->~TDLAutoList();
+		TDLAutoNode* t=l.Head();
+
+		while(t)
+		{
+			Push(t->Data());
+			t=t->Next();
+		}
+
+		return *this;
+	}
+	//----------------------------------------------------------
+	 void Do(void (*func)(T& c))
+	{
+		TDLAutoNode* t=head;
+		while(t)
+		{
+			func(*t);
+			t=t->Next();
+		}
+	}
+	//----------------------------------------------------------
+	 void Do(void (*func)(T& c,void*),void* data)
+	{
+		TDLAutoNode* t=head;
+		while(t)
+		{
+			func(*t,data);
+			t=t->Next();
+		}
+	}
+	//----------------------------------------------------------
+	 void Do(void (*func)(T& c,void*,void*),void* data1,void* data2)
+	{
+		TDLAutoNode* t=head;
+		while(t)
+		{
+			func(*t,data1,data2);
+			t=t->Next();
+		}
+	}
+	//----------------------------------------------------------
+	TDLAutoList  operator+(const TDLAutoList& l)
+	{
+		 ret(*this);
+		TDLAutoNode* t=l.Head();
+
+		while(t)
+		{
+			ret.Push(t);
+			t=t->Next();
+		}
+
+		return ret;
+	}
+	//----------------------------------------------------------
+	 void Push(T t)
+	{
+		TDLAutoNode<T>* node=new TDLAutoNode<T>(t);
+
+		node->Link(last,0);
+
+		if(!head)
+		{
+			head=node;
+			last=head;
+		}
+		else
+		{
+			last->Link(last->Prev(),node);
+			last=node;
+		}
+
+		count++;
+
+
+	}
+	//----------------------------------------------------------
+	 void Push(int num, T t, ...)
+	{
+		va_list vl;
+		va_start(vl,t);
+		Push(t);
+		int i=1;
+		while(i<num)
+		{
+			Push(va_arg(vl,T));
+			i++;
+		}
+		va_end(vl);
+	}
+	//----------------------------------------------------------
+	 void Erase(T t)
+	{
+		if(!t)return;
+
+		TDLAutoNode<T>* node=Find(t);
+
+		if(node)
+		{
+			node->Unlink();
+			delete node;
+
+			count--;
+		}
+	}
+	//----------------------------------------------------------
+	 void Delete(T t)
+	{
+		if(!t)return;
+
+		TDLAutoNode* node=Find(t);
+
+		if(node)
+		{
+			node->Unlink();
+			delete node->Data();
+			delete node;
+
+			count--;
+		}
+	}
+	//----------------------------------------------------------
+	 TDLAutoNode<T>* Find(T t)const
+	{
+		TDLAutoNode<T>* node=head;
+
+		while(node)
+		{
+			if(t==*node)return node;
+			node=node->Next();
+		}
+
+		return 0;
+	}
+	//----------------------------------------------------------
+	 void Print()
+	{
+		TDLAutoNode<T>* node=head;
+
+		while(node)
+		{
+			printf("%p\n",node);
+			node=node->Next();
+		}
+
+	}
+	//----------------------------------------------------------
+	 int Count()const{return count;}
+	//----------------------------------------------------------
+	 TDLAutoNode<T>* Head()const{return head;}
+	//----------------------------------------------------------
+	 TDLAutoNode<T>* Last()const{return last;}
+};
+
+
+
+
+
 template<class T> struct FourLinkNode
 {
 	typedef FourLinkNode NODE;
