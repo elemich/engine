@@ -43,6 +43,7 @@ struct SplitterContainer
 	void OnLButtonUp(HWND);
 	void OnMouseMove(HWND,LPARAM);
 	void OnSize(HWND,WPARAM,LPARAM);
+	void OnMouseWheel(HWND,WPARAM,LPARAM);
 
 	void OnTabContainerLButtonDown(HWND);
 	void OnTabContainerLButtonUp(HWND);
@@ -55,6 +56,8 @@ struct SplitterContainer
 
 struct ContainerWindow : WindowData , SplitterContainer
 {
+	int ContainerWindow_currentVisibleChildIdx;
+
 	ContainerWindow();
 
 	void Create(HWND hwnd=0);
@@ -131,14 +134,14 @@ struct App : AppInterface
 	void AppLoop();
 };
 
-struct OpenGLFixedRenderer : WindowData ,  RendererInterface
+struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterface
 {
 	HGLRC hglrc;
 	HDC   hdc;
 	PIXELFORMATDESCRIPTOR pfd;
 	int pixelFormat;
 
-	OpenGLFixedRenderer();
+	OpenGLRenderer();
 
 	char* Name();
 	void  Create(HWND container);
@@ -159,6 +162,11 @@ struct OpenGLFixedRenderer : WindowData ,  RendererInterface
 	void draw(Texture*);
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
+
+	void OnMouseWheel(float);
+	void OnMouseRightDown();
+	void OnViewportSize(int width,int height);
+	void OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown);
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface

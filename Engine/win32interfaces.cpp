@@ -164,6 +164,9 @@ void EnableAndShowContainerChild(HWND hwnd,int idx)
 	EnableWindow(child,true);
 	ShowWindow(child,SW_SHOW);
 
+	/*if(TabProc==(WNDPROC)GetClassLong(hwnd,GWL_WNDPROC))//is a tab container ?
+		SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)idx);//set child window index in the tab container user data*/
+
 	RECT tabRect=GetTabClientSize(hwnd);
 
 	SetWindowPos(child,HWND_TOP,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,SWP_SHOWWINDOW|SWP_ASYNCWINDOWPOS);
@@ -387,19 +390,21 @@ void App::AppLoop()
 
 	while(true)
 	{
-		PeekMessage(&msg,0,0,0,PM_REMOVE);
+		if(PeekMessage(&msg,0,0,0,PM_REMOVE))
+		{
+			if(msg.message==WM_QUIT)
+				break;
 
-		if(msg.message==WM_QUIT)
-			break;
-
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else
+		{
+			for(int i=0;i<RendererInterface::renderers.size();i++)
+				RendererInterface::renderers[i]->Render();
+		}
 	}
 }
-
-
-
-
 
 
 

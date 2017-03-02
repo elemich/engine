@@ -76,6 +76,7 @@
     <ClCompile Include="entity.cpp" />
     <ClCompile Include="fbxutil.cpp" />
     <ClCompile Include="fbxutil_fbx.cpp" />
+    <ClCompile Include="inputmanager.cpp" />
     <ClCompile Include="jpgdecoder.cpp" />
     <ClCompile Include="light.cpp" />
     <ClCompile Include="material.cpp" />
@@ -91,6 +92,7 @@
     <ClCompile Include="win32interfaces.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="win32openglrenderer.cpp" />
+    <ClCompile Include="win32openglshader.cpp" />
     <ClCompile Include="win32splitter.cpp" />
     <ClCompile Include="win32containers.cpp" />
   </ItemGroup>
@@ -98,6 +100,7 @@
     <ClInclude Include="datatypes.h" />
     <ClInclude Include="entities.h" />
     <ClInclude Include="fbxutil.h" />
+    <ClInclude Include="gui_interfaces.h" />
     <ClInclude Include="jpgdecoder.h" />
     <ClInclude Include="picopng.h" />
     <ClInclude Include="primitives.h" />

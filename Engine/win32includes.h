@@ -25,6 +25,8 @@
 
 #include "datatypes.h"
 
+#include "gui_interfaces.h"
+
 #include "win32defines.h"
 
 #define PRINT(x) #x
@@ -36,5 +38,7 @@
 #define WINVER 0x0601
 #pragma message (LOCATION " WINVER: " PRINTF(WINVER))
 #endif
+
+void glCheckError();
 
 #endif

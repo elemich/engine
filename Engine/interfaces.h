@@ -34,30 +34,9 @@ struct RendererInterface
 	virtual void drawUnlitTextured(Mesh*)=0;
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
 
-	/*virtual vec4 GetRectangle();
-	virtual vec2 GetSize();*/
-
 };
 
-struct LoggerInterface
-{
 
-};
-
-struct FolderBrowserInterface
-{
-
-};
-
-struct SceneEntitiesInterface
-{
-
-};
-
-struct PropertyInterface
-{
-
-};
 
 
 
@@ -108,6 +87,11 @@ struct ShaderInterface
 	virtual void SetModelviewMatrix(float*)=0;
 
 	virtual void SetByMatrixStack()=0;
+};
+
+struct InputInterface
+{
+
 };
 
 

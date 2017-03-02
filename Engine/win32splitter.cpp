@@ -313,6 +313,19 @@ std::vector<HWND> SplitterContainer::findWindoswAtPos(HWND mainWindow,RECT &srcR
 }
 
 
+#pragma message (LOCATION " @mic: should SplitterContainer::OnMouseWheel call directly the child OnMouseWheel method?")
+
+
+void SplitterContainer::OnMouseWheel(HWND hwnd,WPARAM wparam,LPARAM lparam)
+{
+	POINTS p=MAKEPOINTS(lparam);
+	POINT ps={p.x,p.y};
+	HWND onChild=ChildWindowFromPointEx(hwnd,ps,CWP_SKIPDISABLED);
+
+	if(onChild!=hwnd)
+		SendMessage(onChild,WM_MOUSEWHEEL,wparam,lparam);
+}
+
 void SplitterContainer::OnSize(HWND hwnd,WPARAM wparam,LPARAM lparam)
 {	
 	/*std::vector<HWND> windows;

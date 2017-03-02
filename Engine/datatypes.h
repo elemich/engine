@@ -109,7 +109,136 @@ struct OpenGLShader : ShaderInterface
 	unsigned int	  ibo;
 };
 
+struct TouchInput : InputInterface
+{
+	enum
+	{
+		TOUCH_DOWN,
+		TOUCH_UP,
+		TOUCH_MAX
+	};
 
+#define MAX_TOUCH_INPUTS 10
+
+	bool pressed[MAX_TOUCH_INPUTS];
+	bool released[MAX_TOUCH_INPUTS];
+
+	vec2 position[MAX_TOUCH_INPUTS];
+
+	TouchInput()
+	{
+		for(int i=0;i<10;i++)
+		{
+			pressed[i]=0;
+			released[i]=0;
+			position[i].make(0,0);
+		}
+	}
+
+	bool IsPressed(int i){return pressed[i];}
+	bool IsReleased(int i){return released[i];}
+
+	void SetPressed(bool b,int i){pressed[i]=b;}
+	void SetReleased(bool b,int i){released[i]=b;}
+
+
+	vec2& GetPosition(int i){return position[i];}
+	void   SetPosition(vec2& pos,int i){position[i]=pos;}
+};
+
+struct KeyboardInput : InputInterface
+{
+	enum
+	{
+		KEY_PRESSED=0,
+		KEY_RELEASED,
+		KEY_INACTIVE
+	};
+
+	int keys[255];
+	int nkeys;
+
+	KeyboardInput()
+	{
+		for(int i=0;i<255;i++)
+			SetKey(i,KEY_INACTIVE);
+		nkeys=0;
+	}
+
+	void SetKey(unsigned char c,int state)//pressed,released,inactive
+	{
+		keys[c]=state;
+
+		switch(state)
+		{
+		case KEY_PRESSED:{if(nkeys<sizeof(keys))nkeys++;}break;
+		case KEY_RELEASED:{if(nkeys>0)nkeys--;}break;
+		}
+	}
+
+	int GetKey(unsigned char c)//pressed,released,inactive
+	{
+		return keys[c];
+	}
+
+	bool GetPressed(unsigned char c)
+	{
+		return keys[c]==KEY_PRESSED;
+	}
+
+	bool GetReleased(unsigned char c)
+	{
+		return keys[c]==KEY_RELEASED;
+	}
+
+};
+
+struct MouseInput : InputInterface
+{
+	enum
+	{
+		MOUSE_PRESSED=0,
+		MOUSE_RELEASED,
+		MOUSE_INACTIVE
+	};
+
+	enum
+	{
+		DIR_LEFT=0,
+		DIR_RIGHT,
+		DIR_UP,
+		DIR_BOTTOM
+	};
+
+	int		mouseinput_keys[3];
+	vec2	mouseinpt_position;
+	vec2	mouseinpt_oldposition;
+	vec2	mouseinpt_posnorm;
+
+	int GetDirection(){return DIR_LEFT;}
+
+	MouseInput(){}
+
+};
+
+
+struct InputManager
+{
+	static TouchInput touchInput;
+	static MouseInput mouseInput;
+	static KeyboardInput keyboardInput;
+	static InputInterface voiceInput;
+	static InputInterface joystickInput;
+
+	void update()
+	{
+		for(int i=0;i<255;i++)
+		{
+			int state=keyboardInput.GetKey(i);
+			keyboardInput.SetKey(i,state==KeyboardInput::KEY_RELEASED ? KeyboardInput::KEY_INACTIVE : state);
+		}
+	}
+};
 
 
 #endif //DATATYPES_H

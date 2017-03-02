@@ -19,9 +19,6 @@
     <ClCompile Include="win32openglrenderer.cpp">
       <Filter>win32</Filter>
     </ClCompile>
-    <ClCompile Include="shadermanager.cpp">
-      <Filter>common</Filter>
-    </ClCompile>
     <ClCompile Include="primitives.cpp">
       <Filter>common</Filter>
     </ClCompile>
@@ -35,22 +32,22 @@
       <Filter>importers</Filter>
     </ClCompile>
     <ClCompile Include="anim.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="skin.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="bone.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="entity.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="material.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="mesh.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="jpgdecoder.cpp">
       <Filter>common\utils</Filter>
@@ -62,10 +59,19 @@
       <Filter>common\utils</Filter>
     </ClCompile>
     <ClCompile Include="texture.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClCompile>
     <ClCompile Include="light.cpp">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
+    </ClCompile>
+    <ClCompile Include="win32openglshader.cpp">
+      <Filter>win32</Filter>
+    </ClCompile>
+    <ClCompile Include="inputmanager.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="shadermanager.cpp">
+      <Filter>common\engine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -91,7 +97,7 @@
       <Filter>importers</Filter>
     </ClInclude>
     <ClInclude Include="entities.h">
-      <Filter>common\entities</Filter>
+      <Filter>common\engine\entities</Filter>
     </ClInclude>
     <ClInclude Include="datatypes.h">
       <Filter>common\engine</Filter>
@@ -105,6 +111,9 @@
     <ClInclude Include="picopng.h">
       <Filter>common\utils</Filter>
     </ClInclude>
+    <ClInclude Include="gui_interfaces.h">
+      <Filter>common\gui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">
@@ -116,9 +125,6 @@
     <Filter Include="importers">
       <UniqueIdentifier>{47efae74-b238-4d58-bb97-898567eaccca}</UniqueIdentifier>
     </Filter>
-    <Filter Include="common\entities">
-      <UniqueIdentifier>{4f6912fb-9bd9-4973-80bf-8ee430229c20}</UniqueIdentifier>
-    </Filter>
     <Filter Include="common\engine">
       <UniqueIdentifier>{03afc731-e880-4f0c-8dc5-6fd120abb848}</UniqueIdentifier>
     </Filter>
@@ -127,6 +133,9 @@
     </Filter>
     <Filter Include="common\utils">
       <UniqueIdentifier>{69993e15-d5b4-498d-8310-5ef9c25461dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common\engine\entities">
+      <UniqueIdentifier>{4f6912fb-9bd9-4973-80bf-8ee430229c20}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

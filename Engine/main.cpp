@@ -9,11 +9,8 @@ int main()
 
 	app->Init();
 
-	mat4 &p=MatrixStack::projection.perspective(-300,300,-300,300,1,3000);
-	mat4 &m=MatrixStack::modelview;
-
-	MatrixStack::SetProjectionMatrix(p);
-	MatrixStack::SetModelviewMatrix(m);
+	MatrixStack::SetProjectionMatrix(MatrixStack::projection);
+	MatrixStack::SetModelviewMatrix(MatrixStack::modelview);
 
 	ShaderInterface::SetMatrices(MatrixStack::projection,MatrixStack::modelview);
 

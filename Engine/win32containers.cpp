@@ -4,7 +4,7 @@ extern App* ___app;
 
 WNDPROC SystemOriginalTabControlProcedure;
 
-ContainerWindow::ContainerWindow(){}
+ContainerWindow::ContainerWindow():ContainerWindow_currentVisibleChildIdx(0){}
 void ContainerWindow::Create(HWND){}
 
 MainAppContainerWindow::MainAppContainerWindow(){};
@@ -23,8 +23,8 @@ void MainAppContainerWindow::Create(HWND)
 
 	RECT rc;
 	GetClientRect(hwnd,&rc);
-	HWND firstChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
-	CreateOpenglWindow(firstChild);
+	HWND firstTabContainerChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
+	CreateOpenglWindow(firstTabContainerChild);
 
 	ShowWindow(hwnd,true);
 }
@@ -62,7 +62,7 @@ void CreateProjectFolder2(HWND hwnd)
 void CreateOpenglWindow(HWND hwnd)
 {
 	int tabIdx=CreateTab(hwnd);
-	OpenGLFixedRenderer* renderer=new OpenGLFixedRenderer();
+	OpenGLRenderer* renderer=new OpenGLRenderer();
 	if(renderer)
 	{
 		renderer->Create(hwnd);
@@ -118,7 +118,10 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->OnLButtonDown(hwnd,lparam);
 		break;
-		
+		/*case WM_MOUSEWHEEL:
+			//result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->OnMouseWheel(hwnd,wparam,lparam);
+		break;*/
 		case WM_LBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->OnLButtonUp(hwnd);
@@ -145,6 +148,8 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			{
 				if(!HIWORD(wparam))//menu notification
 				{
+					SetFocus(hwnd);
+
 					switch(LOWORD(wparam))
 					{
 						case MAINMENU_ENTITIES_IMPORTENTITY:
@@ -191,9 +196,21 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			cw->OnTabContainerLButtonDown(hwnd);
 		break;
+		/*case WM_MOUSEWHEEL:
+		{
+			printf("tabcontainerwindow");
+			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
+			SendMessage(GetDlgItem(hwnd,cw->ContainerWindow_currentVisibleChildIdx),WM_MOUSEWHEEL,0,0);
+		}
+		break;*/
+		/*case WM_MOUSEMOVE:
+			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
+			SetFocus(hwnd);
+		break;*/
 		case WM_LBUTTONUP:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			cw->OnTabContainerLButtonUp(hwnd);
+			cw->ContainerWindow_currentVisibleChildIdx=cw->childMovingRefTabIdx;
 		break;
 		case WM_SIZE:
 		case WM_WINDOWPOSCHANGED:	
@@ -202,6 +219,7 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		break;
 		case WM_RBUTTONUP:	
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
+			
 			switch(cw->OnTabContainerRButtonUp(hwnd,lparam))
 			{
 				case TAB_MENU_COMMAND_OPENGLWINDOW:

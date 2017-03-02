@@ -1,325 +1,118 @@
 #include "win32.h"
 
-extern App* ___app;
-
 bool GLEW_INITED=false;
 
+#pragma message (LOCATION " @mic: processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
 
-void glCheckError()
+int processNode(RendererInterface* renderer,TDLAutoNode<Entity*>* node,int type,float time)
 {
-	GLenum err=glGetError();
-	if(err!=GL_NO_ERROR)
+	int retValue=0;
+
+#if PROCESS_ENTITIES_RECURSIVELY
+	if(node)
+#else
+	for(;node;node=node->next)
+#endif
 	{
-		printf("glErr %d",err);
-		__debugbreak();
-	}
-}
-
-
-int simple_shader(int shader_type, const char* shader_src)
-{
-	GLint compile_success = 0;
-	GLchar message[1024];
-	int len=0;
-	int shader_id;
-
-	shader_id = glCreateShader(shader_type);glCheckError();
-
-	if(!shader_id)
-	{
-		printf("glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
-		__debugbreak();
-		return 0;
-	}
-
-	glShaderSource(shader_id, 1, &shader_src,NULL);glCheckError();
-	glCompileShader(shader_id);glCheckError();
-	glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_success);glCheckError();
-
-	if (GL_FALSE==compile_success)
-	{
-		printf( "\nglCompileShader error for %s\n",shader_src);
-		glGetShaderInfoLog(shader_id, sizeof(message), &len, message);
-		__debugbreak();
-	}
-
-	glGetShaderInfoLog(shader_id, sizeof(message), &len, message);
-
-	if(len && len<sizeof(message))
-	{
-		char shaderName[100];
-
-		switch(shader_type)
+		switch(type)
 		{
-		case GL_VERTEX_SHADER:
-			sprintf_s(shaderName,"%s","GL_VERTEX_SHADER");
+		case 0:
+			retValue+=node->data->animate(time);
 			break;
-		case GL_FRAGMENT_SHADER:
-			sprintf_s(shaderName,"%s","GL_FRAGMENT_SHADER");
+		case 1:
+			node->data->update();
+			break;
+		case 2:
+			node->data->draw(renderer);
 			break;
 		}
 
-		char* s=strrchr(message,'\n');
-		if(s)
-			*s=0;
-		printf("%s:%s",shaderName,message);
+#if PROCESS_ENTITIES_RECURSIVELY
+		retValue+=processNode(node->data->entity_childs.Head(),type,time);
+#endif
 	}
 
-	return shader_id;
+	return retValue;
 }
 
 
-int create_program(const char* vertexsh,const char* fragmentsh)
-{
-	GLint link_success=0;
-	GLint program=0;
-	GLint vertex_shader=0;
-	GLint fragment_shader=0;
-	GLchar message[1024]={0};
-	GLint len=0;
-
-	program = glCreateProgram();glCheckError();
-	
-	if(!program)
-	{
-		printf("glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
-		__debugbreak();
-		return 0;
-	}
-
-	vertex_shader=simple_shader(GL_VERTEX_SHADER, vertexsh);
-	fragment_shader=simple_shader(GL_FRAGMENT_SHADER, fragmentsh);
-
-	glAttachShader(program, vertex_shader);glCheckError();
-	glAttachShader(program, fragment_shader);glCheckError();
-	glLinkProgram(program);glCheckError();
-	glGetProgramiv(program, GL_LINK_STATUS, &link_success);glCheckError();
-
-	if (GL_FALSE==link_success)
-	{
-		printf("glLinkProgram error for %s\n",message);
-		__debugbreak();
-	}
-
-	glGetProgramInfoLog(program,sizeof(message),&len,message);glCheckError();
-
-	if(len && len<sizeof(message))
-		printf("%s",message);
-	
-
-	return program;
-}
-
-
-//--------------------OpenGLRenderer-------------------------
-
-
-ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const char* frag)
-{
-	int program=create_program(pix,frag);
-
-	if(program)
-	{
-		ShaderInterface* shader=new OpenGLShader();
-		shader->SetName(name);
-		shader->SetProgram(program);
-
-		glUseProgram(program);glCheckError();
-
-		shader->init();
-		shader->Use();
-		
-		ShaderInterface::shaders.Push(shader);
-
-		printf("adding %s to shaders list\n",name);
-
-		return shader;
-	}
-	else
-
-		printf("error creating shader %s\n",name);
-
-	return 0;
-}
-
-
-
-unsigned int& OpenGLShader::GetBufferObject()
-{
-	return vbo;
-}
-
-int OpenGLShader::GetProgram(){return program;}
-void OpenGLShader::SetProgram(int p){program=p;}
-
-int OpenGLShader::GetUniform(int slot,char* var)
-{
-	return glGetUniformLocation(slot,var);glCheckError();
-}
-int OpenGLShader::GetAttrib(int slot,char* var)
-{
-	return glGetAttribLocation(slot,var);glCheckError();
-}
-
-void OpenGLShader::SetProjectionMatrix(float* pm)
-{
-	if(!pm)
-		return;
-
-	this->SetMatrix4f(this->GetProjectionSlot(),pm);
-
-}
-void OpenGLShader::SetModelviewMatrix(float* mm)
-{
-	if(!mm)
-		return;
-
-	this->SetMatrix4f(this->GetModelviewSlot(),mm);
-}
-
-void OpenGLShader::SetByMatrixStack()
-{
-	this->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
-	this->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-}
-
-void OpenGLShader::Use()
-{
-	ShaderInterface* current_shader=ShaderInterface::GetCurrent();
-
-	if(!program || current_shader==this)
-		return;
-	
-	glUseProgram(program);glCheckError();
-
-	this->SetByMatrixStack();
-	
-	ShaderInterface::SetCurrent(this);
-}
-
-const char* OpenGLShader::GetPixelShader(){return 0;}
-const char* OpenGLShader::GetFragmentShader(){return 0;}
-
-int OpenGLShader::init()
-{
-	mat4 m;
-
-	int proj=GetProjectionSlot();
-	int mdlv=GetModelviewSlot();
-
-	bool bOk = this->SetMatrix4f(proj,m) && this->SetMatrix4f(mdlv,m);
-
-	return bOk;
-}
-
-int OpenGLShader::GetAttribute(const char* attrib)
-{
-	int location=glGetAttribLocation(program,attrib);glCheckError();
-	return location;
-}
-
-int OpenGLShader::GetUniform(const char* uniform)
-{
-	int location=glGetUniformLocation(program,uniform);glCheckError();
-	return location;
-}
-
-int OpenGLShader::GetPositionSlot()
-{
-	return GetAttribute("position");
-}
-int OpenGLShader::GetColorSlot()
-{
-	return GetAttribute("color");
-}
-int OpenGLShader::GetProjectionSlot()
-{
-	return GetUniform("projection");
-}
-int OpenGLShader::GetModelviewSlot()
-{
-	return GetUniform("modelview");
-}
-int OpenGLShader::GetTexcoordSlot()
-{
-	return GetAttribute("texcoord");
-}
-int OpenGLShader::GetTextureSlot()
-{
-	return GetUniform("texture");
-}
-int OpenGLShader::GetLightposSlot()
-{
-	return GetUniform("lightpos");
-}
-int OpenGLShader::GetLightdiffSlot()
-{
-	return GetUniform("lightdiff");
-}
-int OpenGLShader::GetLightambSlot()
-{
-	return GetUniform("lightamb");
-}
-int OpenGLShader::GetNormalSlot()
-{
-	return GetAttribute("normal");
-}
-
-bool OpenGLShader::SetMatrix4f(int slot,float* mtx)
-{
-	if(slot<0 || !mtx)
-		return false;
-
-	glUniformMatrix4fv(slot,1,0,mtx);glCheckError();
-	return true;
-}
-
-void OpenGLShader::SetName(const char* n)
-{
-	name=n;
-}
-const char* OpenGLShader::GetName()
-{
-	return name;
-}
-
-
-
-
-//--------------------OpenGLRenderer-------------------------
 
 LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	OpenGLFixedRenderer* renderer=(OpenGLFixedRenderer*)GetWindowLongPtr(hwnd,GWL_USERDATA);
+	OpenGLRenderer* renderer=(OpenGLRenderer*)GetWindowLongPtr(hwnd,GWL_USERDATA);
 
 	LRESULT result=0;
 
 	switch(msg)
 	{
-	case WM_ERASEBKGND:
-		return (LRESULT)1;
-	default:
-		result=DefWindowProc(hwnd,msg,wparam,lparam);
-	}
+		case WM_MOUSEMOVE:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
 
-	if(renderer)
-		renderer->Render();
+			POINTS p=MAKEPOINTS(lparam);
+
+			if(renderer)
+				renderer->OnMouseMotion(p.x,p.y,wparam & MK_LBUTTON,wparam & MK_CONTROL);
+
+			SetFocus(hwnd);//for sending mousewheel to this window
+		}
+		break;
+		case WM_MOUSEWHEEL:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+			short int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+
+			if(renderer && wparam && lparam)
+				renderer->OnMouseWheel(delta);
+		
+		}
+		break;
+		case WM_RBUTTONDOWN:
+			if(renderer)
+				renderer->OnMouseRightDown();
+		break;
+		case WM_SIZE:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+			if(renderer)
+				renderer->OnViewportSize(LOWORD(lparam),HIWORD(lparam));
+		}
+		break;
+		case WM_ERASEBKGND:
+			return (LRESULT)1;
+		break;
+		/*case WM_PAINT:
+		{
+			if(renderer)
+				renderer->Render();
+
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+		}
+		break;*/
+		default:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+	}
 
 	return result;
 }
 
 
-OpenGLFixedRenderer::OpenGLFixedRenderer()
+OpenGLRenderer::OpenGLRenderer()
 {
+	RendererViewportInterface_viewScale=1.0f;
+	RendererViewportInterface_farPlane=3000.0f;
+
 	hglrc=0;
 }
 
-char* OpenGLFixedRenderer::Name()
+char* OpenGLRenderer::Name()
 {
 	return 0;
 }
 
-void OpenGLFixedRenderer::Create(HWND container)
+void OpenGLRenderer::Create(HWND container)
 {
 	hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
 
@@ -380,38 +173,9 @@ void OpenGLFixedRenderer::Create(HWND container)
 	renderers.push_back(this);
 }
 
-int processNode(RendererInterface* renderer,TDLAutoNode<Entity*>* node,int type,float time)
-{
-	int retValue=0;
 
-#if PROCESS_ENTITIES_RECURSIVELY
-	if(node)
-#else
-	for(;node;node=node->next)
-#endif
-	{
-		switch(type)
-		{
-		case 0:
-			retValue+=node->data->animate(time);
-			break;
-		case 1:
-			node->data->update();
-			break;
-		case 2:
-			node->data->draw(renderer);
-			break;
-		}
 
-#if PROCESS_ENTITIES_RECURSIVELY
-		retValue+=processNode(node->data->entity_childs.Head(),type,time);
-#endif
-	}
-
-	return retValue;
-}
-
-void OpenGLFixedRenderer::Render()
+void OpenGLRenderer::Render()
 {
 	if(!hglrc)
 		return;
@@ -422,11 +186,7 @@ void OpenGLFixedRenderer::Render()
 	
 	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);glCheckError();
 	glClearColor(0,0,0,0);glCheckError();
-
-	RECT rc;
-	GetClientRect(hwnd,&rc);
-	glViewport(rc.left,rc.top,rc.right-rc.left,rc.bottom-rc.top);glCheckError();
-
+	
 	draw(vec3(0,0,0),15);
 	draw(vec3(0,0,0),vec3(1000,0,0));
 
@@ -439,22 +199,17 @@ void OpenGLFixedRenderer::Render()
 }
 
 
-
-
-////-------------------------------------------------------------------
-
-
-void OpenGLFixedRenderer::draw(Light*)
+void OpenGLRenderer::draw(Light*)
 {
 
 }
 
-void OpenGLFixedRenderer::draw(vec2)
+void OpenGLRenderer::draw(vec2)
 {
 
 }
 
-void OpenGLFixedRenderer::draw(vec3 point,float psize,vec3 col)
+void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 {
 	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
 
@@ -485,7 +240,7 @@ void OpenGLFixedRenderer::draw(vec3 point,float psize,vec3 col)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void OpenGLFixedRenderer::draw(vec4 rect)
+void OpenGLRenderer::draw(vec4 rect)
 {
 	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
 
@@ -546,7 +301,7 @@ void OpenGLFixedRenderer::drawmarker(mat4 &mtx,float size,vec3 color)
 
 
 
-void OpenGLFixedRenderer::draw(vec3 a,vec3 b,vec3 color)
+void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 {
 	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
 
@@ -579,7 +334,7 @@ void OpenGLFixedRenderer::draw(vec3 a,vec3 b,vec3 color)
 
 }
 
-void OpenGLFixedRenderer::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
+void OpenGLRenderer::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
 {
 	ShaderInterface* shader=0;//line_color_shader
 
@@ -741,7 +496,7 @@ void OpenGLFixedRenderer::draw(Font* font,char* phrase,float x,float y,float wid
 }*/
 
 
-void OpenGLFixedRenderer::draw(Texture* _t)
+void OpenGLRenderer::draw(Texture* _t)
 {
 	return;
 	ShaderInterface* shader=0;//unlit_texture
@@ -818,7 +573,7 @@ void OpenGLFixedRenderer::draw(Texture* _t)
 	glDeleteTextures(1,&tid);glCheckError();
 }
 
-void OpenGLFixedRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int texture_slot,int texcoord_slot)
+void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int texture_slot,int texcoord_slot)
 {
 	for(int i=0;i<mesh->mesh_materials.Count();i++)
 	{
@@ -901,12 +656,12 @@ void OpenGLFixedRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,in
 	}
 }
 
-void OpenGLFixedRenderer::draw(Mesh* mesh)
+void OpenGLRenderer::draw(Mesh* mesh)
 {
 	drawUnlitTextured(mesh);
 }
 
-void OpenGLFixedRenderer::drawUnlitTextured(Mesh* mesh)
+void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 {
 	ShaderInterface* shader=ShaderInterface::Find("unlit_texture");
 
@@ -965,7 +720,7 @@ void OpenGLFixedRenderer::drawUnlitTextured(Mesh* mesh)
 }
 
 
-void OpenGLFixedRenderer::draw(Skin *skin)
+void OpenGLRenderer::draw(Skin *skin)
 {
 	/*this->draw((Mesh*)skin);
 	return;*/
@@ -1048,7 +803,7 @@ void OpenGLFixedRenderer::draw(Skin *skin)
 }
 
 
-void OpenGLFixedRenderer::draw(Bone* bone)
+void OpenGLRenderer::draw(Bone* bone)
 {
 	if(!bone)
 		return;
@@ -1062,6 +817,86 @@ void OpenGLFixedRenderer::draw(Bone* bone)
 		this->draw(b1p,b2p,bone->bone_color);
 	}
 }
+
+float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
+
+void OpenGLRenderer::OnMouseWheel(float factor)
+{
+	RendererViewportInterface_viewScale+=-signof(factor)*(RendererViewportInterface_viewScale*0.1f);
+
+	RECT rc;
+	GetClientRect(this->hwnd,&rc);
+
+	float halfW=((rc.right-rc.left)/2.0f)*RendererViewportInterface_viewScale;
+	float halfH=((rc.bottom-rc.top)/2.0f)*RendererViewportInterface_viewScale;
+	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
+	MatrixStack::SetProjectionMatrix(p);
+
+	//printf("wiewScale %3.2f\n",RendererViewportInterface_viewScale);
+}
+
+void OpenGLRenderer::OnMouseRightDown()
+{
+	mat4& m=MatrixStack::modelview.identity();
+	MatrixStack::SetModelviewMatrix(m);
+}
+
+void OpenGLRenderer::OnViewportSize(int width,int height)
+{
+	glViewport(0,0,width,height);glCheckError();
+	float halfW=(width/2.0f)*RendererViewportInterface_viewScale;
+	float halfH=(height/2.0f)*RendererViewportInterface_viewScale;
+	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
+	MatrixStack::SetProjectionMatrix(p);
+}
+
+void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown)
+{
+	vec2 &pos=InputManager::mouseInput.mouseinpt_position;
+	vec2 &oldpos=InputManager::mouseInput.mouseinpt_oldposition;
+
+	oldpos=pos;
+	pos.make(x,y);
+
+	if(leftButtonDown && GetFocus()==this->hwnd)
+	{
+		int dX=(pos[0]-oldpos[0]);
+		int dY=(pos[1]-oldpos[1]);
+
+		mat4& modelview=MatrixStack::modelview;
+
+		if(altIsDown)
+		{
+			mat4 mX;
+
+			vec3 pos=modelview.position();
+
+			modelview.move(vec3(0,0,0));
+
+			if(dY)
+				mX.rotate(-dY,1,0,0);
+
+			modelview.rotate(-dX,0,1,0);
+
+			modelview=modelview*mX;
+
+			modelview.move(pos);
+		}
+		else
+		{
+			mat4 invMdlv(modelview.inverse());
+
+			vec3 y=invMdlv.axis(0,1,0);
+			vec3 x=invMdlv.axis(1,0,0);
+
+			modelview.translate(x*dX);
+			modelview.translate(y*-dY);
+		}
+
+		MatrixStack::SetModelviewMatrix(modelview);
+	}
+}
+
 
 
 
