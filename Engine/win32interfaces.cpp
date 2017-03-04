@@ -322,11 +322,23 @@ void ProjectFolderBrowser2::Create(HWND container)
 
 //--------------------SceneEntities-------------------------
 
+
+
+
 LRESULT CALLBACK SceneEntitiesProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	SceneEntities* sceneEntities=(SceneEntities*)GetWindowLongPtr(hwnd,GWL_USERDATA);
+	SceneEntities* se=(SceneEntities*)GetWindowLongPtr(hwnd,GWL_USERDATA);
 
-	return CallWindowProc(SystemOriginalSysTreeView32ControlProcedure,hwnd,msg,wparam,lparam);
+	LRESULT result=CallWindowProc(SystemOriginalSysTreeView32ControlProcedure,hwnd,msg,wparam,lparam);
+
+	switch(msg)
+	{
+	case WM_MOUSEMOVE:
+		SetFocus(hwnd);
+	break;
+	}
+
+	return result;
 }
 
 
@@ -340,10 +352,66 @@ SceneEntities::~SceneEntities()
 	
 }
 
+void ProcessEntity(SceneEntities& se,TDLAutoNode<Entity*>* node,int itemIdx,HTREEITEM parent)
+{
+	Entity* e=node->Data();
+
+	if(!e)
+		return;
+
+	TVITEM tvi={0};
+	TVINSERTSTRUCT tvis={0};
+
+	tvi.mask=TVIF_TEXT|TVIF_PARAM|TVIF_CHILDREN;
+	tvi.pszText=(CHAR*)e->entity_name.Buf();
+	tvi.cchTextMax=e->entity_name.Count();
+	tvi.lParam=(LPARAM)e;
+	tvi.cChildren=e->entity_childs.Count() ? 1 : 0;
+
+	int parentIndex=e->entity_parent ? (itemIdx - e->entity_parent->entity_childs.Count()) : 0;
+
+	tvis.hParent=parent;//se.items[parentIndex];
+	//tvis.hInsertAfter=parent;//se.items[parentIndex];
+	tvis.item=tvi;
+
+	HTREEITEM item=(HTREEITEM)SendMessage(se.hwnd,TVM_INSERTITEM,0,(LPARAM)&tvis);
+
+	se.items.push_back(item);
+
+	itemIdx++;
+
+	for(TDLAutoNode<Entity*>* ChildNode=e->entity_childs.Head();ChildNode;ChildNode=ChildNode->Next(),itemIdx++)
+		ProcessEntity(se,ChildNode,itemIdx,item);
+}
+
+void SceneEntities::Expand()
+{
+	for(int i=0;i<(int)items.size();i++)
+		SendMessage(hwnd,TVM_EXPAND,TVE_EXPAND,(LPARAM)items[i]);
+
+}
+
+void SceneEntities::Fill()
+{
+	items.clear();
+
+	HTREEITEM parent=TVI_ROOT;
+
+	ProcessEntity(*this,Entity::entities.Head(),0,parent);
+
+	Expand();
+}
+
 void SceneEntities::Create(HWND container)
 {
-	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD,0,0,100,100,container,0,0,0);
+	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD|TVS_FULLROWSELECT|/*TVS_SINGLEEXPAND|*/TVS_SHOWSELALWAYS|TVS_EX_NOINDENTSTATE,0,0,100,100,container,0,0,0);
+
+	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_FADEINOUTEXPANDOS,(LPARAM)TVS_EX_FADEINOUTEXPANDOS);
+	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_DOUBLEBUFFER,(LPARAM)TVS_EX_DOUBLEBUFFER);
+
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
+
+	Fill();
 }
 
 //--------------------AppData-------------------------

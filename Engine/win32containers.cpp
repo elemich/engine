@@ -25,6 +25,7 @@ void MainAppContainerWindow::Create(HWND)
 	GetClientRect(hwnd,&rc);
 	HWND firstTabContainerChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
 	CreateOpenglWindow(firstTabContainerChild);
+	//CreateLogger(firstTabContainerChild);
 
 	ShowWindow(hwnd,true);
 }
@@ -35,6 +36,7 @@ void CreateProjectFolder(HWND hwnd)
 	ProjectFolderBrowser* folderBrowser=new ProjectFolderBrowser();
 	if(folderBrowser)
 	{
+		EnableChilds(hwnd,false,true);
 		folderBrowser->Create(hwnd);
 		___app->browsers.push_back(folderBrowser);
 		SetParent(hwnd,folderBrowser->hwnd);
@@ -49,6 +51,7 @@ void CreateProjectFolder2(HWND hwnd)
 	ProjectFolderBrowser2* folderBrowser=new ProjectFolderBrowser2();
 	if(folderBrowser)
 	{
+		EnableChilds(hwnd,false,true);
 		folderBrowser->Create(hwnd);
 		___app->browsers.push_back(folderBrowser);
 		SetParent(hwnd,folderBrowser->hwnd);
@@ -67,6 +70,25 @@ void CreateOpenglWindow(HWND hwnd)
 	{
 		renderer->Create(hwnd);
 		renderer->renderers.push_back(renderer);
+		SetWindowLong(renderer->hwnd,GWL_ID,(LONG)tabIdx);
+		EnableAndShowContainerChild(hwnd,tabIdx);
+	}
+
+
+	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
+	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
+	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	OpenGLShader::Create("font",font_pixsh,font_frgsh);
+	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+}
+
+void CreateSharedOpenglWindow(HWND hwnd)
+{
+	int tabIdx=CreateTab(hwnd);
+	OpenGLRenderer* renderer=(OpenGLRenderer*)GetWindowLongPtr(GetDlgItem(hwnd,SendMessage(hwnd,TCM_GETCURSEL,0,0)),GWL_USERDATA);
+	if(renderer)
+	{
+		renderer->CreateSharedContext(hwnd);
 		SetWindowLong(renderer->hwnd,GWL_ID,(LONG)tabIdx);
 		EnableAndShowContainerChild(hwnd,tabIdx);
 	}
@@ -119,8 +141,12 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			mainw->OnLButtonDown(hwnd,lparam);
 		break;
 		/*case WM_MOUSEWHEEL:
-			//result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->OnMouseWheel(hwnd,wparam,lparam);
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+				HWND window=mainw->GetWindowBelowMouse(hwnd,wparam,lparam);
+				if(hwnd!=window)
+					SendMessage(mainw->GetTabSelectionWindow(window),WM_MOUSEWHEEL,wparam,lparam);
+			}
 		break;*/
 		case WM_LBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
@@ -154,8 +180,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 					{
 						case MAINMENU_ENTITIES_IMPORTENTITY:
 						{
-							char charpretval[5000];
-							charpretval[0]='\0';
+							char charpretval[5000]={0};
 
 							OPENFILENAME openfilename={0};
 							openfilename.lStructSize=sizeof(OPENFILENAME);
@@ -198,6 +223,7 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		break;
 		/*case WM_MOUSEWHEEL:
 		{
+			
 			printf("tabcontainerwindow");
 			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			SendMessage(GetDlgItem(hwnd,cw->ContainerWindow_currentVisibleChildIdx),WM_MOUSEWHEEL,0,0);
@@ -224,6 +250,9 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			{
 				case TAB_MENU_COMMAND_OPENGLWINDOW:
 					CreateOpenglWindow(hwnd);
+				break;
+				case TAB_MENU_COMMAND_SHAREDOPENGLWINDOW:
+					CreateSharedOpenglWindow(hwnd);
 				break;
 				case TAB_MENU_COMMAND_PROJECTFOLDER2:
 					CreateProjectFolder2(hwnd);

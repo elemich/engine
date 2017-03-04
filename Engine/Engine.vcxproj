@@ -42,19 +42,20 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>c:\sdk\glew-1.12.0\include;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>c:\sdk\openGL;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ShowIncludes>false</ShowIncludes>
       <OmitDefaultLibName>false</OmitDefaultLibName>
       <ErrorReporting>Queue</ErrorReporting>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;libfbxsdk-md.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;libfbxsdk-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>c:\sdk\glew-1.12.0\lib\release\win32;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy $(OutputDir) C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll /R /Y</Command>
+      <Command>copy C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll "$(OutDir)glew32.dll" 
+copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.dll" </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -104,6 +105,7 @@
     <ClInclude Include="jpgdecoder.h" />
     <ClInclude Include="picopng.h" />
     <ClInclude Include="primitives.h" />
+    <ClInclude Include="shader_data.h" />
     <ClInclude Include="tga_reader.h" />
     <ClInclude Include="t_datatypes.h" />
     <ClInclude Include="interfaces.h" />

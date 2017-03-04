@@ -43,11 +43,17 @@ struct SplitterContainer
 	void OnLButtonUp(HWND);
 	void OnMouseMove(HWND,LPARAM);
 	void OnSize(HWND,WPARAM,LPARAM);
-	void OnMouseWheel(HWND,WPARAM,LPARAM);
+
+	HWND GetWindowBelowMouse(HWND,WPARAM,LPARAM);
 
 	void OnTabContainerLButtonDown(HWND);
 	void OnTabContainerLButtonUp(HWND);
 	int OnTabContainerRButtonUp(HWND,LPARAM);
+
+	int GetTabSelectionIdx(HWND);
+	void SetTabSelectionIdx(HWND hwnd,int idx);
+	HWND GetTabSelectionWindow(HWND hwnd);
+
 
 	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
 	//std::vector<HWND> findAttachedWindos(HWND mainWindow,RECT &srcRect,int rectPosition);
@@ -103,11 +109,15 @@ struct ProjectFolderBrowser2 : WindowData , FolderBrowserInterface
 
 struct SceneEntities : WindowData , SceneEntitiesInterface
 {
+	std::vector<HTREEITEM> items;
 
 	SceneEntities();
 	~SceneEntities();
 
 	void Create(HWND container);
+
+	void Fill();
+	void Expand();
 };
 
 struct Logger : WindowData , LoggerInterface
@@ -136,25 +146,38 @@ struct App : AppInterface
 
 struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterface
 {
+	static GLuint vertexArrayObject;
+	static GLuint vertexBufferObject;
+	static GLuint indicesBufferObject;
+
 	HGLRC hglrc;
 	HDC   hdc;
-	PIXELFORMATDESCRIPTOR pfd;
-	int pixelFormat;
+
+	
+
+#if USE_MULTIPLE_OPENGL_CONTEXTS
+	GLEWContext* glewContext;
+#endif
+
+	std::vector<OpenGLRenderer*> shared_renderers;
 
 	OpenGLRenderer();
 
+	virtual void Create(HWND container);
+
+	void CreateSharedContext(HWND container);
+
 	char* Name();
-	void  Create(HWND container);
 	void Render();
-
-
+	void ChangeContext();
+	
 	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
 	void draw(vec2);
 	void draw(vec3,vec3,vec3 color=vec3(1,1,1));
 	void draw(vec4);
 	//void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
 	void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
-
+	
 	void draw(Light*);
 	void draw(Mesh*);
 	void draw(Skin*);
@@ -162,7 +185,7 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 	void draw(Texture*);
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
-
+	
 	void OnMouseWheel(float);
 	void OnMouseRightDown();
 	void OnViewportSize(int width,int height);
@@ -217,6 +240,7 @@ void EnableAndShowContainerChild(HWND hwnd,int idx);
 void CreateProjectFolder(HWND);
 void CreateProjectFolder2(HWND);
 void CreateOpenglWindow(HWND);
+void CreateSharedOpenglWindow(HWND);
 void CreateLogger(HWND);
 void CreateSceneEntitiesWindow(HWND);
 

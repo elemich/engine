@@ -1,8 +1,54 @@
 #include "win32.h"
 
+#pragma message (LOCATION " @mic: processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
+#pragma message (LOCATION " @mic: multiple opengl context needs glew32mx.lib")
+
+GLuint OpenGLRenderer::vertexArrayObject=0;
+GLuint OpenGLRenderer::vertexBufferObject=0;
+GLuint OpenGLRenderer::indicesBufferObject=0;
+
+PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
+PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
+PFNGLATTACHSHADERPROC glAttachShader = 0;
+PFNGLBINDBUFFERPROC glBindBuffer = 0;
+PFNGLBINDVERTEXARRAYPROC glBindVertexArray = 0;
+PFNGLBUFFERDATAPROC glBufferData = 0;
+PFNGLCOMPILESHADERPROC glCompileShader = 0;
+PFNGLCREATEPROGRAMPROC glCreateProgram = 0;
+PFNGLCREATESHADERPROC glCreateShader = 0;
+PFNGLDELETEBUFFERSPROC glDeleteBuffers = 0;
+PFNGLDELETEPROGRAMPROC glDeleteProgram = 0;
+PFNGLDELETESHADERPROC glDeleteShader = 0;
+PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays = 0;
+PFNGLDETACHSHADERPROC glDetachShader = 0;
+PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = 0;
+PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib = 0;
+PFNGLGENBUFFERSPROC glGenBuffers = 0;
+PFNGLGENVERTEXARRAYSPROC glGenVertexArrays = 0;
+PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation = 0;
+PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog = 0;
+PFNGLGETPROGRAMIVPROC glGetProgramiv = 0;
+PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog = 0;
+PFNGLGETSHADERIVPROC glGetShaderiv = 0;
+PFNGLLINKPROGRAMPROC glLinkProgram = 0;
+PFNGLSHADERSOURCEPROC glShaderSource = 0;
+PFNGLUSEPROGRAMPROC glUseProgram = 0;
+PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer = 0;
+PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation = 0;
+PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation = 0;
+PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv = 0;
+PFNGLACTIVETEXTUREPROC glActiveTexture = 0;
+PFNGLUNIFORM1IPROC glUniform1i = 0;
+PFNGLUNIFORM1FPROC glUniform1f = 0;
+PFNGLUNIFORM3FPROC glUniform3f = 0;
+PFNGLGENERATEMIPMAPPROC glGenerateMipmap = 0;
+PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray = 0;
+PFNGLUNIFORM3FVPROC glUniform3fv = 0;
+PFNGLUNIFORM4FVPROC glUniform4fv = 0;
+
 bool GLEW_INITED=false;
 
-#pragma message (LOCATION " @mic: processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
+#define USE_COMMON_PIXELFORMAT_SYSTEM 1
 
 int processNode(RendererInterface* renderer,TDLAutoNode<Entity*>* node,int type,float time)
 {
@@ -51,8 +97,11 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 			POINTS p=MAKEPOINTS(lparam);
 
+			bool leftButtonIsDown=(wparam & MK_LBUTTON)!=0;
+			bool controlButtonIsDown=(wparam & MK_CONTROL)!=0;
+
 			if(renderer)
-				renderer->OnMouseMotion(p.x,p.y,wparam & MK_LBUTTON,wparam & MK_CONTROL);
+				renderer->OnMouseMotion(p.x,p.y,leftButtonIsDown,controlButtonIsDown);
 
 			SetFocus(hwnd);//for sending mousewheel to this window
 		}
@@ -83,14 +132,7 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		case WM_ERASEBKGND:
 			return (LRESULT)1;
 		break;
-		/*case WM_PAINT:
-		{
-			if(renderer)
-				renderer->Render();
-
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-		}
-		break;*/
+		
 		default:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 	}
@@ -115,78 +157,193 @@ char* OpenGLRenderer::Name()
 void OpenGLRenderer::Create(HWND container)
 {
 	hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
-
 	hdc=GetDC(hwnd);
 
-	if(!hdc)
-		MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
+	DWORD error=0;
 
-	memset(&pfd,0,sizeof(PIXELFORMATDESCRIPTOR));
-
-	pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
-	pfd.nVersion=1;
-	pfd.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
-	pfd.iPixelType=PFD_TYPE_RGBA;
-	pfd.cColorBits=32;
-	pfd.cDepthBits=32;
-	pfd.iLayerType=PFD_MAIN_PLANE;
-
-	pixelFormat = ChoosePixelFormat(hdc,&pfd);
-
-	if(pixelFormat==0)
-		MessageBox(0,"pixel format error","ChoosePixelFormat",MB_OK|MB_ICONEXCLAMATION);
-
-	if(!SetPixelFormat(hdc,pixelFormat,&pfd))
-		MessageBox(0,"pixel format error","DescribePixelFormat",MB_OK|MB_ICONEXCLAMATION);
-
-	hglrc = wglCreateContext(hdc);
-
-	if(!hglrc)
-		MessageBox(0,"creating context error","wglCreateContext",MB_OK|MB_ICONEXCLAMATION);
-
-	if(!wglMakeCurrent(hdc,hglrc))
-		MessageBox(0,"error making current context","wglMakeCurrent",MB_OK|MB_ICONEXCLAMATION);
-
-	glCheckError();
-
-	ReleaseDC(hwnd,hdc);
-
-	if(!GLEW_INITED)
+	for(int i=0;i<1;i++)
 	{
-		GLenum err = glewInit();glCheckError();
-		if (GLEW_OK != err)
-		{
-			/* Problem: glewInit failed, something is seriously wrong. */
-			printf("Error: %s\n", glewGetErrorString(err));
-			__debugbreak();
-		}
+		if(!hdc)
+			MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
 
-		GLEW_INITED=true;
+		PIXELFORMATDESCRIPTOR pfd={0};
+		pfd.nVersion=1;
+		pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
+		pfd.dwFlags=PFD_DOUBLEBUFFER|PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL;
+		pfd.iPixelType=PFD_TYPE_RGBA;
+		pfd.cColorBits=32;
+		pfd.cDepthBits=32;
+		pfd.cStencilBits=32;
+
+		int pixelFormat = ChoosePixelFormat(hdc,&pfd);
+
+		error=GetLastError();
+
+		if(error!=NO_ERROR && error!=ERROR_OLD_WIN_VERSION)
+			__debugbreak();
+
+		if(pixelFormat==0)
+			MessageBox(0,"pixel format error","ChoosePixelFormat",MB_OK|MB_ICONEXCLAMATION);
+
+		if(!SetPixelFormat(hdc,pixelFormat,&pfd))
+			MessageBox(0,"pixel format error","SetPixelFormat",MB_OK|MB_ICONEXCLAMATION);
+
+		if(!(hglrc = wglCreateContext(hdc)))
+			MessageBox(0,"create context error","wglCreateContext",MB_OK|MB_ICONEXCLAMATION);
+
+		if(!wglMakeCurrent(hdc,hglrc))
+			MessageBox(0,"making current context error","wglMakeCurrent",MB_OK|MB_ICONEXCLAMATION);
+
+		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
+		if(!wglCreateContextAttribsARB)wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
+		if(!glAttachShader)glAttachShader = (PFNGLATTACHSHADERPROC) wglGetProcAddress("glAttachShader");
+		if(!glBindBuffer)glBindBuffer = (PFNGLBINDBUFFERPROC) wglGetProcAddress("glBindBuffer");
+		if(!glBindVertexArray) glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) wglGetProcAddress("glBindVertexArray");
+		if(!glBufferData) glBufferData = (PFNGLBUFFERDATAPROC) wglGetProcAddress("glBufferData");
+		if(!glCompileShader) glCompileShader = (PFNGLCOMPILESHADERPROC) wglGetProcAddress("glCompileShader");
+		if(!glCreateProgram) glCreateProgram = (PFNGLCREATEPROGRAMPROC) wglGetProcAddress("glCreateProgram");
+		if(!glCreateShader) glCreateShader = (PFNGLCREATESHADERPROC) wglGetProcAddress("glCreateShader");
+		if(!glDeleteBuffers) glDeleteBuffers = (PFNGLDELETEBUFFERSPROC) wglGetProcAddress("glDeleteBuffers");
+		if(!glDeleteProgram) glDeleteProgram = (PFNGLDELETEPROGRAMPROC) wglGetProcAddress("glDeleteProgram");
+		if(!glDeleteShader) glDeleteShader = (PFNGLDELETESHADERPROC) wglGetProcAddress("glDeleteShader");
+		if(!glDeleteVertexArrays) glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC) wglGetProcAddress("glDeleteVertexArrays");
+		if(!glDetachShader) glDetachShader = (PFNGLDETACHSHADERPROC) wglGetProcAddress("glDetachShader");
+		if(!glEnableVertexAttribArray) glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glEnableVertexAttribArray");
+		if(!glEnableVertexArrayAttrib) glEnableVertexArrayAttrib = (PFNGLENABLEVERTEXARRAYATTRIBPROC) wglGetProcAddress("glEnableVertexArrayAttrib");
+		if(!glGenBuffers) glGenBuffers = (PFNGLGENBUFFERSPROC) wglGetProcAddress("glGenBuffers");
+		if(!glGenVertexArrays) glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) wglGetProcAddress("glGenVertexArrays");
+		if(!glGetAttribLocation) glGetAttribLocation = (PFNGLGETATTRIBLOCATIONPROC) wglGetProcAddress("glGetAttribLocation");
+		if(!glGetProgramInfoLog) glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC) wglGetProcAddress("glGetProgramInfoLog");
+		if(!glGetProgramiv) glGetProgramiv = (PFNGLGETPROGRAMIVPROC) wglGetProcAddress("glGetProgramiv");
+		if(!glGetShaderInfoLog) glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC) wglGetProcAddress("glGetShaderInfoLog");
+		if(!glGetShaderiv) glGetShaderiv = (PFNGLGETSHADERIVPROC) wglGetProcAddress("glGetShaderiv");
+		if(!glLinkProgram) glLinkProgram = (PFNGLLINKPROGRAMPROC) wglGetProcAddress("glLinkProgram");
+		if(!glShaderSource) glShaderSource = (PFNGLSHADERSOURCEPROC) wglGetProcAddress("glShaderSource");
+		if(!glUseProgram) glUseProgram = (PFNGLUSEPROGRAMPROC) wglGetProcAddress("glUseProgram");
+		if(!glVertexAttribPointer) glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC) wglGetProcAddress("glVertexAttribPointer");
+		if(!glBindAttribLocation) glBindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC) wglGetProcAddress("glBindAttribLocation");
+		if(!glGetUniformLocation) glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) wglGetProcAddress("glGetUniformLocation");
+		if(!glUniformMatrix4fv) glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC) wglGetProcAddress("glUniformMatrix4fv");
+		if(!glActiveTexture) glActiveTexture = (PFNGLACTIVETEXTUREPROC) wglGetProcAddress("glActiveTexture");
+		if(!glUniform1i) glUniform1i = (PFNGLUNIFORM1IPROC) wglGetProcAddress("glUniform1i");
+		if(!glUniform1f) glUniform1f = (PFNGLUNIFORM1FPROC) wglGetProcAddress("glUniform1f");
+		if(!glUniform3f) glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
+		if(!glGenerateMipmap) glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) wglGetProcAddress("glGenerateMipmap");
+		if(!glDisableVertexAttribArray) glDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glDisableVertexAttribArray");
+		if(!glUniform3fv) glUniform3fv = (PFNGLUNIFORM3FVPROC) wglGetProcAddress("glUniform3fv");
+		if(!glUniform4fv) glUniform4fv = (PFNGLUNIFORM4FVPROC) wglGetProcAddress("glUniform4fv");
+
+		wglMakeCurrent(NULL, NULL);
+		wglDeleteContext(hglrc);
 	}
+
+	const int pixelFormatAttribList[] = 
+	{
+		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+		WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+		WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+		WGL_COLOR_BITS_ARB, 32,
+		WGL_DEPTH_BITS_ARB, 32,
+		WGL_STENCIL_BITS_ARB, 32,
+		0,        //End
+	};
+
+	int pixelFormat;
+	UINT numFormats;
+
+	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
+		MessageBox(0,"pixel format error","wglChoosePixelFormatARB",MB_OK|MB_ICONEXCLAMATION);
+
+	const int versionAttribList[] = 
+	{
+		WGL_CONTEXT_MAJOR_VERSION_ARB,4,
+		WGL_CONTEXT_MINOR_VERSION_ARB,0,
+		0,        //End
+	};
+
+	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
+		MessageBox(0,"createcontext error","wglCreateContextAttribsARB",MB_OK|MB_ICONEXCLAMATION);
 	
+	if(!wglMakeCurrent(hdc,hglrc))
+		MessageBox(0,"make context current error","wglMakeCurrent",MB_OK|MB_ICONEXCLAMATION);
+
+	if(!vertexArrayObject)
+	{
+		glGenVertexArrays(1, &vertexArrayObject);
+		glBindVertexArray(vertexArrayObject);
+
+		glGenBuffers(1,&vertexBufferObject);
+		/*
+		//glGenBuffers(1,&indicesBufferObject);
+
+		glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+		//glBindBuffer(GL_ARRAY_BUFFER,indicesBufferObject);
+
+		glBufferData(GL_ARRAY_BUFFER,100000,0,GL_DYNAMIC_DRAW);*/
+
+		
+	}
+
 	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
 	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
-	printf("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+	//printf("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	renderers.push_back(this);
 }
 
+void OpenGLRenderer::CreateSharedContext(HWND container)
+{
+	OpenGLRenderer* sharedRenderer=new OpenGLRenderer();
 
+	sharedRenderer->hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
+
+	sharedRenderer->hdc=GetDC(sharedRenderer->hwnd);
+
+	if(!sharedRenderer->hdc)
+		MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
+
+	sharedRenderer->hglrc=hglrc;
+	
+	sharedRenderer->ChangeContext();
+
+	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
+	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
+	//printf("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+
+	SetWindowLongPtr(sharedRenderer->hwnd,GWL_USERDATA,(LONG_PTR)this);
+
+	shared_renderers.push_back(sharedRenderer);
+}
+
+
+
+
+void OpenGLRenderer::ChangeContext()
+{
+	if(!hglrc || !hdc)
+	{
+		__debugbreak();
+		return;
+	}
+
+	if(!wglMakeCurrent(hdc,hglrc))
+		__debugbreak();
+}
 
 void OpenGLRenderer::Render()
 {
 	if(!hglrc)
 		return;
 
-	hdc=GetDC(hwnd);
-
-	wglMakeCurrent(hdc,hglrc);glCheckError();
+	//ChangeContext();
+	
 	
 	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);glCheckError();
 	glClearColor(0,0,0,0);glCheckError();
-	
+
 	draw(vec3(0,0,0),15);
 	draw(vec3(0,0,0),vec3(1000,0,0));
 
@@ -194,8 +351,11 @@ void OpenGLRenderer::Render()
 	processNode(this,Entity::entities.Head(),1,0);
 	processNode(this,Entity::entities.Head(),2,0);
 
-	SwapBuffers(hdc);
-	ReleaseDC(hwnd,hdc);
+	if(!SwapBuffers(hdc))
+		MessageBox(0,"error","SwapBuffers",MB_OK|MB_ICONEXCLAMATION);
+
+	for(int i=0;i<(int)shared_renderers.size();i++)
+		shared_renderers[i]->Render();
 }
 
 
@@ -226,10 +386,17 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 	int uniform_color=shader->GetUniform("color");glCheckError();
 
 	if(uniform_color>=0)
-		glUniform3fv(uniform_color,1,col);
+	{glUniform3fv(uniform_color,1,col);glCheckError();}
 
+	
+
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+
+	glBufferData(GL_ARRAY_BUFFER,3*sizeof(float),point.v,GL_DYNAMIC_DRAW);
+
+	
 	glEnableVertexAttribArray(ps);glCheckError();
-	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,point.v);glCheckError();
+	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,0);glCheckError();
 	
 	glDrawArrays(GL_POINTS,0,1);glCheckError();
 
@@ -322,13 +489,20 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 	int col=shader->GetUniform("color");
 
 	glUniform3fv(col,1,color);
+
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+
+	glBufferData(GL_ARRAY_BUFFER,8*sizeof(float),line,GL_DYNAMIC_DRAW);
 	
 	glEnableVertexAttribArray(pos);glCheckError();
 
-	glVertexAttribPointer(pos,4,GL_FLOAT,GL_FALSE,0,line);glCheckError();
+	glVertexAttribPointer(pos,4,GL_FLOAT,GL_FALSE,0,0);glCheckError();
 
 	glDrawArrays(GL_LINES,0,2);glCheckError();
+	//glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,)
+
 	glDisableVertexAttribArray(pos);
+
 
 	glDisable(GL_DEPTH_TEST);
 
@@ -856,12 +1030,13 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 	vec2 &oldpos=InputManager::mouseInput.mouseinpt_oldposition;
 
 	oldpos=pos;
-	pos.make(x,y);
+	pos.x=(float)x;
+	pos.y=(float)y;
 
 	if(leftButtonDown && GetFocus()==this->hwnd)
 	{
-		int dX=(pos[0]-oldpos[0]);
-		int dY=(pos[1]-oldpos[1]);
+		float dX=(pos.x-oldpos.x);
+		float dY=(pos.y-oldpos.y);
 
 		mat4& modelview=MatrixStack::modelview;
 

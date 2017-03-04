@@ -42,6 +42,11 @@ String::String(float scalar)
     strcpy(data,n);
 }
 
+String::~String()
+{
+	SAFEDELETEARRAY(data);
+}
+
 void String::operator=(const char* s)
 {
     if(s)

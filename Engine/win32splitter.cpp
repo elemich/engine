@@ -108,8 +108,6 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 {
 	POINTS p=MAKEPOINTS(lparam);
 
-	//printf("moving parent %d,%d\n",p.x,p.y);
-
 	if(childMovingRef)
 	{
 		RECT tmpRc;
@@ -316,14 +314,12 @@ std::vector<HWND> SplitterContainer::findWindoswAtPos(HWND mainWindow,RECT &srcR
 #pragma message (LOCATION " @mic: should SplitterContainer::OnMouseWheel call directly the child OnMouseWheel method?")
 
 
-void SplitterContainer::OnMouseWheel(HWND hwnd,WPARAM wparam,LPARAM lparam)
-{
-	POINTS p=MAKEPOINTS(lparam);
-	POINT ps={p.x,p.y};
-	HWND onChild=ChildWindowFromPointEx(hwnd,ps,CWP_SKIPDISABLED);
 
-	if(onChild!=hwnd)
-		SendMessage(onChild,WM_MOUSEWHEEL,wparam,lparam);
+HWND SplitterContainer::GetWindowBelowMouse(HWND hwnd,WPARAM wparam,LPARAM lparam)
+{
+	POINTS mousePos=MAKEPOINTS(lparam);
+	POINT p={mousePos.x,mousePos.y};
+	return ChildWindowFromPointEx(hwnd,p,CWP_SKIPDISABLED|CWP_SKIPINVISIBLE|CWP_SKIPTRANSPARENT);
 }
 
 void SplitterContainer::OnSize(HWND hwnd,WPARAM wparam,LPARAM lparam)
@@ -400,6 +396,21 @@ int SplitterContainer::OnTabContainerRButtonUp(HWND hwnd,LPARAM lparam)
 	return (int)TrackPopupMenu(popupMenuRoot,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(lparam),rc.top+HIWORD(lparam),0,GetParent(hwnd),0);
 }
 
+int SplitterContainer::GetTabSelectionIdx(HWND hwnd)
+{
+	return SendMessage(hwnd,TCM_GETCURSEL,0,0);
+}
+
+void SplitterContainer::SetTabSelectionIdx(HWND hwnd,int idx)
+{
+	SendMessage(hwnd,TCM_SETCURSEL,idx,0);
+}
+
+HWND SplitterContainer::GetTabSelectionWindow(HWND hwnd)
+{
+	return GetDlgItem(hwnd,GetTabSelectionIdx(hwnd));
+}
+
 
 bool InitSplitter()
 {
@@ -415,7 +426,7 @@ bool InitSplitter()
 	if(!RegisterClassEx(&wc))
 		returnValue=false;
 
-	wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
+	wc.style=CS_VREDRAW|CS_HREDRAW|CS_OWNDC;//CS_OWNDC have always the same dc xevery window
 	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 	wc.lpszClassName=WC_OPENGLWINDOW;
 	wc.lpfnWndProc=OpenGLProc;
@@ -485,7 +496,8 @@ bool InitSplitter()
 
 	InsertMenu(popupMenuRoot,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)popupMenuCreate,"New Tab");
 	{
-		InsertMenu(popupMenuCreate,0,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_OPENGLWINDOW,"OpenGLFixedRenderer");
+		InsertMenu(popupMenuCreate,0,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_OPENGLWINDOW,"OpenGL Renderer");
+		InsertMenu(popupMenuCreate,5,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_SHAREDOPENGLWINDOW,"Shared OpenGL Renderer");
 		InsertMenu(popupMenuCreate,1,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER2,"Project Folder2");
 		InsertMenu(popupMenuCreate,4,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER,"Project Folder");
 		InsertMenu(popupMenuCreate,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_LOGGER,"Logger");

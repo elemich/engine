@@ -15,10 +15,10 @@ ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
 	{
 		ShaderInterface* element=shaderNode->data;
 
-		String programName=element->GetName();
+		const char* programName=element->GetName();
 
-		if(element && programName.Buf())
-			if(exact ? programName==name :  programName==name)
+		if(element && programName)
+			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
 				return shaderNode->data;
 
 		shaderNode=shaderNode->Next();

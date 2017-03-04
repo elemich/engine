@@ -7,10 +7,19 @@
 #include <cstdio>
 
 #define SAFEDELETE(_ptr) \
-	if(_ptr!=0)\
+	if(_ptr!=0){\
+	printf("SAFEDELETE(%p)\n",_ptr);\
 	delete _ptr;\
-	_ptr=0;\
-	printf("deleted\n");
+	_ptr=0;}\
+	
+
+#define SAFEDELETEARRAY(_ptr) \
+	if(_ptr!=0){\
+	printf("SAFEDELETEARRAY(%p)\n",_ptr);\
+	delete [] _ptr;\
+	_ptr=0;}\
+	
+	
 
 
 
@@ -84,8 +93,9 @@ public:
 		if(t2!=0)
 		while(*sDest++=*t2++);
 
-		_data=vNew;
+		SAFEDELETEARRAY(_data);
 
+		_data=vNew;
 
 		return *this;
 	}
@@ -106,7 +116,7 @@ public:
 		*sDest=t;
 		_size++;
 
-		SAFEDELETE(_data);
+		SAFEDELETEARRAY(_data);
 
 		_data=vNew;
 
@@ -125,7 +135,7 @@ public:
 
 		while(*s1++=*s2++);
 
-		SAFEDELETE(_data);
+		SAFEDELETEARRAY(_data);
 
 		_data=tNew;
 

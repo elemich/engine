@@ -114,6 +114,9 @@
     <ClInclude Include="gui_interfaces.h">
       <Filter>common\gui</Filter>
     </ClInclude>
+    <ClInclude Include="shader_data.h">
+      <Filter>common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">

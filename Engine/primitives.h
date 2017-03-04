@@ -16,6 +16,8 @@ public:
 	String(int number);
 	String(float scalar);
 
+	~String();
+
 	void operator=(const char* s);
 	bool operator==(const char* s);
 	char operator[](int i);

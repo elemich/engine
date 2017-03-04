@@ -188,22 +188,6 @@ TDLAutoList<Entity*> Entity::typed_entities[ENTITY_MAX];
 
 
 
-/*
-void Entity::draw()
-{
-	processNode(entities.Head(),2,0);
-}
-
-void EntityManager::update()
-{
-	processNode(entities.Head(),1,0);
-}
-
-int EntityManager::animate(float _time)
-{
-	return processNode(entities.Head(),0,_time);
-}*/
-
 
 Entity* Entity::Find(const char* name,bool exact)
 {
