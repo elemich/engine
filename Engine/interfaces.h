@@ -22,6 +22,8 @@ struct RendererInterface
 	virtual void draw(vec2)=0;
 	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec4)=0;
+	virtual void draw(AABB,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1))=0;
 	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
 	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
 

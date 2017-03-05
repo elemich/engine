@@ -59,6 +59,11 @@ void Entity::endDraw()
 
 void Entity::draw(RendererInterface* renderer)
 {
+	AABB &bbox=entity_bbox;
+	/*AABB aabb(this->animation_transform.transform(bbox.minimum),this->animation_transform.transform(bbox.maximum));
+	renderer->draw(bbox.minimum,5,vec3(1,0,0));	
+	renderer->draw(bbox.maximum,5,vec3(1,1,0));	*/
+	renderer->draw(bbox,vec3(1,1,0));	
 	nDrawed++;
 }
 
@@ -88,7 +93,7 @@ int Entity::animate(float ftime)
 
 	this->animation_transform=this->entity_transform;
 
-	//return 1;
+	return 1;
 
 	if(this->animation_animselected<this->animation_curvegroups.Count())
 	{

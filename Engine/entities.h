@@ -311,9 +311,13 @@ struct Entity : Animation
 
 	String					entity_name;
 
+	AABB					entity_bbox;
+
 	int						nDrawed;
 	int						nUpdated;
 	int						nAnimated;
+
+						
 
 	Entity(EEntity);
 	~Entity();

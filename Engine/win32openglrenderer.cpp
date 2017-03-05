@@ -5,10 +5,14 @@
 
 GLuint OpenGLRenderer::vertexArrayObject=0;
 GLuint OpenGLRenderer::vertexBufferObject=0;
+GLuint OpenGLRenderer::textureBufferObject=0;
 GLuint OpenGLRenderer::indicesBufferObject=0;
 
 PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
 PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
+
+#ifndef GL_GLEXT_PROTOTYPES
+
 PFNGLATTACHSHADERPROC glAttachShader = 0;
 PFNGLBINDBUFFERPROC glBindBuffer = 0;
 PFNGLBINDVERTEXARRAYPROC glBindVertexArray = 0;
@@ -45,6 +49,11 @@ PFNGLGENERATEMIPMAPPROC glGenerateMipmap = 0;
 PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray = 0;
 PFNGLUNIFORM3FVPROC glUniform3fv = 0;
 PFNGLUNIFORM4FVPROC glUniform4fv = 0;
+PFNGLTEXBUFFERPROC glTexBuffer = 0;
+PFNGLTEXTUREBUFFERPROC glTextureBuffer = 0;
+PFNGLBUFFERSUBDATAPROC glBufferSubData = 0;
+
+#endif
 
 bool GLEW_INITED=false;
 
@@ -129,6 +138,14 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 				renderer->OnViewportSize(LOWORD(lparam),HIWORD(lparam));
 		}
 		break;
+		/*case WM_LBUTTONDOWN:
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+				if(renderer)
+					renderer->OnViewportSize(LOWORD(lparam),HIWORD(lparam));
+			}
+			break;*/
 		case WM_ERASEBKGND:
 			return (LRESULT)1;
 		break;
@@ -196,6 +213,9 @@ void OpenGLRenderer::Create(HWND container)
 
 		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
 		if(!wglCreateContextAttribsARB)wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
+
+		#ifndef GL_GLEXT_PROTOTYPES
+
 		if(!glAttachShader)glAttachShader = (PFNGLATTACHSHADERPROC) wglGetProcAddress("glAttachShader");
 		if(!glBindBuffer)glBindBuffer = (PFNGLBINDBUFFERPROC) wglGetProcAddress("glBindBuffer");
 		if(!glBindVertexArray) glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) wglGetProcAddress("glBindVertexArray");
@@ -232,6 +252,11 @@ void OpenGLRenderer::Create(HWND container)
 		if(!glDisableVertexAttribArray) glDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glDisableVertexAttribArray");
 		if(!glUniform3fv) glUniform3fv = (PFNGLUNIFORM3FVPROC) wglGetProcAddress("glUniform3fv");
 		if(!glUniform4fv) glUniform4fv = (PFNGLUNIFORM4FVPROC) wglGetProcAddress("glUniform4fv");
+		if(!glTexBuffer) glTexBuffer = (PFNGLTEXBUFFERPROC) wglGetProcAddress("glTexBuffer");
+		if(!glTextureBuffer) glTextureBuffer = (PFNGLTEXTUREBUFFERPROC) wglGetProcAddress("glTextureBuffer");
+		if(!glBufferSubData) glBufferSubData = (PFNGLBUFFERSUBDATAPROC) wglGetProcAddress("glBufferSubData");
+
+#endif
 
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(hglrc);
@@ -274,6 +299,7 @@ void OpenGLRenderer::Create(HWND container)
 		glBindVertexArray(vertexArrayObject);
 
 		glGenBuffers(1,&vertexBufferObject);
+		glGenBuffers(1,&textureBufferObject);
 		/*
 		//glGenBuffers(1,&indicesBufferObject);
 
@@ -346,6 +372,7 @@ void OpenGLRenderer::Render()
 
 	draw(vec3(0,0,0),15);
 	draw(vec3(0,0,0),vec3(1000,0,0));
+	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
 
 	processNode(this,Entity::entities.Head(),0,0);
 	processNode(this,Entity::entities.Head(),1,0);
@@ -443,30 +470,119 @@ void OpenGLRenderer::draw(vec4 rect)
 	glDrawArrays(GL_LINE_STRIP, 0, 5);
 }
 
-/*
-void OpenGLFixedRenderer::drawmarker(mat4 &mtx,float size,vec3 color)
+
+void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 {
-	MatrixStack::Instance()->Push();
+	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
 
-	MatrixStack::Instance()->Multiply(mtx);
+	if(!shader)
+		return;
 
-	float ms=size/2;
+	shader->Use();
 
-	vec3 a(-ms,0,0),b(ms/2,0,0),g(ms/2,0,0),l(ms,0,0);
-	vec3 c(0,-ms,0),d(0,ms/2,0),h(0,ms/2,0),m(0,ms,0);
-	vec3 e(0,0,-ms),f(0,0,ms/2),i(0,0,ms/2),n(0,0,ms);
+	/*MatrixStack::Push();
+	MatrixStack::Multiply(mtx);*/
 
-	OpenGLFixedRenderer::Instance()->draw(a,b,color);
-	OpenGLFixedRenderer::Instance()->draw(c,d,color);
-	OpenGLFixedRenderer::Instance()->draw(e,f,color);
-	OpenGLFixedRenderer::Instance()->draw(g,l,vec3(.3f,0,0));
-	OpenGLFixedRenderer::Instance()->draw(h,m,vec3(0,.3f,0));
-	OpenGLFixedRenderer::Instance()->draw(i,n,vec3(0,0,.7f));
+	vec3 axes[6];
 
-	MatrixStack::Instance()->Pop();
-}*/
+	vec3 zero=mtx.transform(0,0,0);
+
+	axes[0]=axes[2]=axes[4]=zero;
+
+	mtx.axes(axes[1],axes[3],axes[5]);
+
+	glEnable(GL_DEPTH_TEST);
+
+	int pos=shader->GetPositionSlot();
+	int col=shader->GetUniform("color");
+
+	glUniform3fv(col,1,color);
+
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+
+	glBufferData(GL_ARRAY_BUFFER,18*sizeof(float),axes,GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(pos);glCheckError();
+
+	glVertexAttribPointer(pos,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+
+	glDrawArrays(GL_LINES,0,6);glCheckError();
+	//glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,)
+
+	glDisableVertexAttribArray(pos);
 
 
+	glDisable(GL_DEPTH_TEST);
+
+	
+
+	//MatrixStack::Pop();
+}
+
+void OpenGLRenderer::draw(AABB aabb,vec3 color)
+{
+	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
+
+	//if(!shader)
+		return;
+
+	shader->Use();
+
+	vec3 &a=aabb.a;
+	vec3 &b=aabb.b;
+
+	float dx=b.x-a.x;
+	float dy=b.y-a.y;
+	float dz=b.z-a.z;
+
+	if(dx<0.00000001f && dy<0.00000001f && dz<0.00000001f)
+		return;
+
+	float parallelepiped[72]=
+	{
+		//lower quad
+		a.x,a.y,a.z,		a.x+dx,a.y,a.z,
+		a.x+dx,a.y,a.z,		a.x+dx,a.y+dy,a.z, 
+		a.x+dx,a.y+dy,a.z,	a.x,a.y+dy,a.z,
+		a.x,a.y+dy,a.z,     a.x,a.y,a.z,
+
+		//upper quad
+		a.x,a.y,a.z+dz,			a.x+dx,a.y,a.z+dz,
+		a.x+dx,a.y,a.z+dz,		a.x+dx,a.y+dy,a.z+dz, 
+		a.x+dx,a.y+dy,a.z+dz,	a.x,a.y+dy,a.z+dz,
+		a.x,a.y+dy,a.z+dz,		a.x,a.y,a.z+dz,
+
+		//staffs
+		a.x,a.y,a.z,		a.x,a.y,a.z+dz,
+		a.x+dx,a.y,a.z,		a.x+dx,a.y,a.z+dz,
+		a.x+dx,a.y+dy,a.z,	a.x+dx,a.y+dy,a.z+dz,
+		a.x,a.y+dy,a.z,   	a.x,a.y+dy,a.z+dz
+	};
+
+	glEnable(GL_DEPTH_TEST);
+
+	int pos=shader->GetPositionSlot();
+	int col=shader->GetUniform("color");
+
+	glUniform3fv(col,1,color);
+
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+
+	glBufferData(GL_ARRAY_BUFFER,72*sizeof(float),parallelepiped,GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(pos);glCheckError();
+
+	glVertexAttribPointer(pos,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+
+	glDrawArrays(GL_LINES,0,24);glCheckError();
+	//glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,)
+
+	glDisableVertexAttribArray(pos);
+
+
+	glDisable(GL_DEPTH_TEST);
+
+}
 
 void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 {
@@ -477,8 +593,8 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 
 	float line[]=
 	{
-		a[0],a[1],a[2],1,
-		b[0],b[1],b[2],1 
+		a[0],a[1],a[2],
+		b[0],b[1],b[2], 
 	};
 	
 	shader->Use();
@@ -492,11 +608,11 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 
-	glBufferData(GL_ARRAY_BUFFER,8*sizeof(float),line,GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER,6*sizeof(float),line,GL_DYNAMIC_DRAW);
 	
 	glEnableVertexAttribArray(pos);glCheckError();
 
-	glVertexAttribPointer(pos,4,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+	glVertexAttribPointer(pos,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
 
 	glDrawArrays(GL_LINES,0,2);glCheckError();
 	//glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,)
@@ -780,9 +896,14 @@ void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int tex
 
 						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,texture_width,texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,texture_buffer);glCheckError();
 
+						glBindBuffer(GL_ARRAY_BUFFER,textureBufferObject);
+						glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ntexcoord*2*sizeof(float),mesh->mesh_texcoord,GL_DYNAMIC_DRAW);
+
 						glUniform1i(texture_slot, 0);glCheckError();
 						glEnableVertexAttribArray(texcoord_slot);glCheckError();
-						glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,mesh->mesh_texcoord);glCheckError();
+						glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+
+						glBindBuffer(GL_ARRAY_BUFFER,0);
 					}
 				}
 				break;
@@ -817,9 +938,14 @@ void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int tex
 
 							glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,texture_width,texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,texture_buffer);glCheckError();
 
+							glBindBuffer(GL_ARRAY_BUFFER,textureBufferObject);
+							glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ntexcoord*2*sizeof(float),mesh->mesh_texcoord,GL_DYNAMIC_DRAW);
+
 							glUniform1i(texture_slot, 0);glCheckError();
 							glEnableVertexAttribArray(texcoord_slot);glCheckError();
-							glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,mesh->mesh_texcoord);glCheckError();
+							glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+
+							glBindBuffer(GL_ARRAY_BUFFER,0);
 						}
 
 					}
@@ -850,8 +976,6 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 	glFrontFace(mesh->mesh_isCCW ? GL_CCW : GL_CW);
 	//glFrontFace(GL_CW);
 
-	
-
 	shader->Use();
 
 	int position_slot = shader->GetPositionSlot();
@@ -870,10 +994,16 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 	else
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+	
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+	glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ncontrolpoints*3*sizeof(float),mesh->mesh_controlpoints,GL_DYNAMIC_DRAW);
+
 	glEnableVertexAttribArray(position_slot);glCheckError();
 	if(normal_slot>=0)glEnableVertexAttribArray(normal_slot);glCheckError();
-	glVertexAttribPointer(position_slot,3,GL_FLOAT,GL_FALSE,0,mesh->mesh_controlpoints);glCheckError();
+	glVertexAttribPointer(position_slot,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
 	if(normal_slot>=0)glVertexAttribPointer(normal_slot,3,GL_FLOAT,GL_FALSE,0,mesh->mesh_normals);glCheckError();
+
+	glBindBuffer(GL_ARRAY_BUFFER,0);
 
 	glDrawArrays(GL_TRIANGLES,0,mesh->mesh_npolygons*3);glCheckError();
 	//glDrawElements(GL_TRIANGLES,mesh->mesh_nvertexindices*3,GL_UNSIGNED_INT,mesh->mesh_vertexindices);glCheckError();
@@ -949,11 +1079,13 @@ void OpenGLRenderer::draw(Skin *skin)
 	if(lightamb_slot>=0)glUniform3f(lightamb_slot,v[0]+128,v[1]+128,v[2]+255);glCheckError();
 	if(lightpos_slot>=0)glUniform3fv(lightpos_slot,1,lightpos);glCheckError();
 	
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+	glBufferData(GL_ARRAY_BUFFER,skin->mesh_ncontrolpoints*3*sizeof(float),skin->skin_vertexcache,GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(position_slot);glCheckError();
 	if(normal_slot>=0)glEnableVertexAttribArray(normal_slot);glCheckError();
-	glVertexAttribPointer(position_slot,3,GL_FLOAT,GL_FALSE,0,skin->skin_vertexcache);glCheckError();
-	if(normal_slot>=0)glVertexAttribPointer(normal_slot,3,GL_FLOAT,GL_FALSE,0,skin->mesh_normals);glCheckError();
+	glVertexAttribPointer(position_slot,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+	if(normal_slot>=0)glVertexAttribPointer(normal_slot,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
 
 	glDrawArrays(GL_TRIANGLES,0,skin->mesh_npolygons*3);glCheckError();
 	//glDrawElements(GL_TRIANGLES,skin->mesh_ntriangleindices*3,GL_UNSIGNED_INT,skin->mesh_triangleindices);glCheckError();
@@ -1026,8 +1158,8 @@ void OpenGLRenderer::OnViewportSize(int width,int height)
 
 void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown)
 {
-	vec2 &pos=InputManager::mouseInput.mouseinpt_position;
-	vec2 &oldpos=InputManager::mouseInput.mouseinpt_oldposition;
+	vec2 &pos=InputManager::mouseInput.mouse_pos;
+	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
 
 	oldpos=pos;
 	pos.x=(float)x;
@@ -1070,6 +1202,12 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 
 		MatrixStack::SetModelviewMatrix(modelview);
 	}
+}
+
+
+void OpenGLRenderer::OnMouseDown(int,int)
+{
+
 }
 
 

@@ -144,6 +144,8 @@ struct TouchInput : InputInterface
 
 	vec2& GetPosition(int i){return position[i];}
 	void   SetPosition(vec2& pos,int i){position[i]=pos;}
+
+
 };
 
 struct KeyboardInput : InputInterface
@@ -197,9 +199,20 @@ struct MouseInput : InputInterface
 {
 	enum
 	{
-		MOUSE_PRESSED=0,
-		MOUSE_RELEASED,
-		MOUSE_INACTIVE
+		MOUSE_STATE_PRESSED=0,
+		MOUSE_STATE_RELEASED,
+		MOUSE_STATE_CLICKED,
+		MOUSE_STATE_DBLCLICKED,
+		MOUSE_STATE_INACTIVE,
+		MOUSE_STATE_MAX
+	};
+
+	enum
+	{
+		BUTTON_LEFT=0,
+		BUTTON_CENTER,
+		BUTTON_RIGHT,
+		BUTTON_MAX
 	};
 
 	enum
@@ -210,15 +223,19 @@ struct MouseInput : InputInterface
 		DIR_BOTTOM
 	};
 
-	int		mouseinput_keys[3];
-	vec2	mouseinpt_position;
-	vec2	mouseinpt_oldposition;
-	vec2	mouseinpt_posnorm;
+	int		mouse_states[BUTTON_MAX];
+	vec2	mouse_pos;
+	vec2	mouse_posold;
+	vec2	mouse_posnorm;
+	float   mouse_timers[BUTTON_MAX];
 
-	int GetDirection(){return DIR_LEFT;}
+	
 
-	MouseInput(){}
+	MouseInput();
 
+
+	bool IsClick(int);
+	virtual void Update();
 };
 
 

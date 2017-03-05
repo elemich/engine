@@ -148,6 +148,7 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 {
 	static GLuint vertexArrayObject;
 	static GLuint vertexBufferObject;
+	static GLuint textureBufferObject;
 	static GLuint indicesBufferObject;
 
 	HGLRC hglrc;
@@ -175,6 +176,8 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 	void draw(vec2);
 	void draw(vec3,vec3,vec3 color=vec3(1,1,1));
 	void draw(vec4);
+	void draw(AABB,vec3 color=vec3(1,1,1));
+	void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1));
 	//void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
 	void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
 	
@@ -190,6 +193,7 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 	void OnMouseRightDown();
 	void OnViewportSize(int width,int height);
 	void OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown);
+	void OnMouseDown(int,int);
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface

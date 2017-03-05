@@ -31,6 +31,7 @@ struct RendererViewportInterface //should get the window handle from the WindowD
 	virtual void OnMouseRightDown()=0;
 	virtual void OnViewportSize(int,int)=0;
 	virtual void OnMouseMotion(int,int,bool leftButtonDown,bool altIsDown)=0;
+	virtual void OnMouseDown(int,int)=0;
 };
 
 

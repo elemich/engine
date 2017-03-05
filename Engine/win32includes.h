@@ -19,7 +19,9 @@
 #include <array>
 	
 #include "gl/gl.h"
+//#define GL_GLEXT_PROTOTYPES
 #include <glext.h>
+#include <wgl.h>
 #include <wglext.h>
 
 #include <d3d11.h>

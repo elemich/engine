@@ -404,10 +404,11 @@ void SceneEntities::Fill()
 
 void SceneEntities::Create(HWND container)
 {
-	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD|TVS_FULLROWSELECT|/*TVS_SINGLEEXPAND|*/TVS_SHOWSELALWAYS|TVS_EX_NOINDENTSTATE,0,0,100,100,container,0,0,0);
+	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD|TVS_FULLROWSELECT|/*TVS_SINGLEEXPAND|*/TVS_SHOWSELALWAYS|TVS_EX_NOINDENTSTATE|/*TVS_TRACKSELECT|*/TVS_HASBUTTONS|TVS_LINESATROOT|TVS_HASLINES,0,0,100,100,container,0,0,0);
 
 	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_FADEINOUTEXPANDOS,(LPARAM)TVS_EX_FADEINOUTEXPANDOS);
 	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_DOUBLEBUFFER,(LPARAM)TVS_EX_DOUBLEBUFFER);
+	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_NOINDENTSTATE,(LPARAM)TVS_EX_NOINDENTSTATE);
 
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
@@ -468,7 +469,7 @@ void App::AppLoop()
 		}
 		else
 		{
-			for(int i=0;i<RendererInterface::renderers.size();i++)
+			for(int i=0;i<(int)RendererInterface::renderers.size();i++)
 				RendererInterface::renderers[i]->Render();
 		}
 	}

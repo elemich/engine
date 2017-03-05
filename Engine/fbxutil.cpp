@@ -123,6 +123,12 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 			entity=mesh;
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		}
+
+		FbxDouble3 bbMin=fbxNode->GetGeometry()->BBoxMin;
+		FbxDouble3 bbMax=fbxNode->GetGeometry()->BBoxMax;
+		
+		entity->entity_bbox.a.make((float)bbMin[0],(float)bbMin[1],(float)bbMin[2]);
+		entity->entity_bbox.b.make((float)bbMax[0],(float)bbMax[1],(float)bbMax[2]);
 	}
 	else if(fbxNode->GetLight())
 	{
@@ -141,7 +147,6 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		entity->entity_name=fbxNode->GetName();
 
 		entity->entity_transform=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
-		
 
 		ExtractAnimations(fbxNode,entity);
 		entity->entity_parent=parent;
@@ -171,6 +176,8 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 			}
 		}
 
+		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
+
 		//set root bone if bone
 		if(ENTITY_BONE==entity->entity_type)
 		{
@@ -179,8 +186,22 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 				Bone* bone=(Bone*)entity;
 				Bone* bone_parent=(Bone*)entity->entity_parent;
 
+				
+
+				/*entity->entity_bbox.minimum=entity->entity_world.position()+entity->entity_world.transform(1,1,0);
+				entity->entity_bbox.maximum=entity->entity_parent->entity_world.position()+entity->entity_parent->entity_world.transform(-1,-1,0);*/
+
 				if(ENTITY_BONE==bone_parent->entity_type)
+				{
 					bone->bone_root=bone_parent->bone_root;
+				
+					/*entity->entity_bbox.a=entity->entity_parent->entity_world.position();
+					entity->entity_bbox.b=entity->entity_world.position();*/
+
+					vec3 dir=entity->entity_bbox.b-entity->entity_bbox.a;
+
+					printf("");
+				}
 				else
 					bone->bone_root=entity;
 			}

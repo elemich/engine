@@ -2,7 +2,7 @@
 #define __SHADER_DATA_HEADER__
 
 static const char* unlit_color_vert =
-	"attribute vec4 position;\n"
+	"attribute vec3 position;\n"
 	"varying vec3 vcolor;\n"
 	"uniform mat4 modelview;\n"
 	"uniform mat4 projection;\n"

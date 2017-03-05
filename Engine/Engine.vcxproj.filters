@@ -117,6 +117,7 @@
     <ClInclude Include="shader_data.h">
       <Filter>common</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">
@@ -140,5 +141,11 @@
     <Filter Include="common\engine\entities">
       <UniqueIdentifier>{4f6912fb-9bd9-4973-80bf-8ee430229c20}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Engine.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="toolbar1.bmp" />
   </ItemGroup>
 </Project>
