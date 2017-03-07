@@ -1,6 +1,6 @@
 #include "win32.h"
 
-extern App* ___app;
+
 
 WNDPROC SystemOriginalTabControlProcedure;
 
@@ -23,102 +23,20 @@ void MainAppContainerWindow::Create(HWND)
 
 	RECT rc;
 	GetClientRect(hwnd,&rc);
-	HWND firstTabContainerChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd,tabContainerCount);
-	CreateOpenglWindow(firstTabContainerChild);
-	//CreateLogger(firstTabContainerChild);
-
-	ShowWindow(hwnd,true);
-}
-
-void CreateProjectFolder(HWND hwnd)
-{
-	int tabIdx=CreateTab(hwnd);
-	ProjectFolderBrowser* folderBrowser=new ProjectFolderBrowser();
-	if(folderBrowser)
-	{
-		EnableChilds(hwnd,false,true);
-		folderBrowser->Create(hwnd);
-		___app->browsers.push_back(folderBrowser);
-		SetParent(hwnd,folderBrowser->hwnd);
-		SetWindowLong(folderBrowser->hwnd,GWL_ID,(LONG)tabIdx);
-		EnableAndShowContainerChild(hwnd,tabIdx);
-	}
-}
-
-void CreateProjectFolder2(HWND hwnd)
-{
-	int tabIdx=CreateTab(hwnd);
-	ProjectFolderBrowser2* folderBrowser=new ProjectFolderBrowser2();
-	if(folderBrowser)
-	{
-		EnableChilds(hwnd,false,true);
-		folderBrowser->Create(hwnd);
-		___app->browsers.push_back(folderBrowser);
-		SetParent(hwnd,folderBrowser->hwnd);
-		SetWindowLong(folderBrowser->hwnd,GWL_ID,(LONG)tabIdx);
-		EnableAndShowContainerChild(hwnd,tabIdx);
-	}
-}
-
-
-
-void CreateOpenglWindow(HWND hwnd)
-{
-	int tabIdx=CreateTab(hwnd);
-	OpenGLRenderer* renderer=new OpenGLRenderer();
-	if(renderer)
-	{
-		renderer->Create(hwnd);
-		renderer->renderers.push_back(renderer);
-		SetWindowLong(renderer->hwnd,GWL_ID,(LONG)tabIdx);
-		EnableAndShowContainerChild(hwnd,tabIdx);
-	}
-
+	HWND firstTabContainerChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd);
+	CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_OPENGLWINDOW);
+	CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_SCENEENTITIES);
 
 	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
 	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
 	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
 	OpenGLShader::Create("font",font_pixsh,font_frgsh);
 	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+
+	ShowWindow(hwnd,true);
 }
 
-void CreateSharedOpenglWindow(HWND hwnd)
-{
-	int tabIdx=CreateTab(hwnd);
-	OpenGLRenderer* renderer=(OpenGLRenderer*)GetWindowLongPtr(GetDlgItem(hwnd,SendMessage(hwnd,TCM_GETCURSEL,0,0)),GWL_USERDATA);
-	if(renderer)
-	{
-		renderer->CreateSharedContext(hwnd);
-		SetWindowLong(renderer->hwnd,GWL_ID,(LONG)tabIdx);
-		EnableAndShowContainerChild(hwnd,tabIdx);
-	}
-}
 
-void CreateLogger(HWND hwnd)
-{
-	int tabIdx=CreateTab(hwnd);
-	Logger* logger=new Logger();
-	if(logger)
-	{
-		logger->Create(hwnd);
-		___app->loggers.push_back(logger);
-		SetWindowLong(logger->hwnd,GWL_ID,(LONG)tabIdx);
-		EnableAndShowContainerChild(hwnd,tabIdx);
-	}
-}
-
-void CreateSceneEntitiesWindow(HWND hwnd)
-{
-	int tabIdx=CreateTab(hwnd);
-	SceneEntities* sceneEntitiesWindow=new SceneEntities();
-	if(sceneEntitiesWindow)
-	{
-		sceneEntitiesWindow->Create(hwnd);
-		___app->sceneEntities.push_back(sceneEntitiesWindow);
-		SetWindowLong(sceneEntitiesWindow->hwnd,GWL_ID,(LONG)tabIdx);
-		EnableAndShowContainerChild(hwnd,tabIdx);
-	}
-}
 
 
 
@@ -238,38 +156,20 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			cw->OnTabContainerLButtonUp(hwnd);
 			cw->ContainerWindow_currentVisibleChildIdx=cw->childMovingRefTabIdx;
 		break;
+		/*case WM_SIZING:
+			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
+			break;*/
 		case WM_SIZE:
 		case WM_WINDOWPOSCHANGED:	
-			//result=CallWindowProc(TabControlProcedure,hwnd,msg,wparam,lparam);
-			OnTabSizeChanged(hwnd);
+			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
+			cw->OnTabContainerSize(hwnd);
 		break;
+		
 		case WM_RBUTTONUP:	
+		{
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			
-			switch(cw->OnTabContainerRButtonUp(hwnd,lparam))
-			{
-				case TAB_MENU_COMMAND_OPENGLWINDOW:
-					CreateOpenglWindow(hwnd);
-				break;
-				case TAB_MENU_COMMAND_SHAREDOPENGLWINDOW:
-					CreateSharedOpenglWindow(hwnd);
-				break;
-				case TAB_MENU_COMMAND_PROJECTFOLDER2:
-					CreateProjectFolder2(hwnd);
-				break;
-				case TAB_MENU_COMMAND_PROJECTFOLDER:
-					CreateProjectFolder(hwnd);
-					break;
-				case TAB_MENU_COMMAND_LOGGER:
-					CreateLogger(hwnd);
-				break;
-				case TAB_MENU_COMMAND_SCENEENTITIES:
-					CreateSceneEntitiesWindow(hwnd);
-				break;
-				case TAB_MENU_COMMAND_REMOVE:
-					CreateSceneEntitiesWindow(hwnd);
-				break;
-			}
+			cw->CreateNewPanel(hwnd,cw->OnTabContainerRButtonUp(hwnd,lparam));
+		}
 		break;
 		default:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);

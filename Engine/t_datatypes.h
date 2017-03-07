@@ -470,9 +470,8 @@ template <class T> struct TDLAutoNode
 
 	~TDLAutoNode(){/*prev=next=0;*/}
 
-	TDLAutoNode(T& t){
+	TDLAutoNode(T& t):data(t){
 		prev=next=0;
-		data=t;
 	}
 
 	void Link(TDLAutoNode* p,TDLAutoNode* n){
@@ -543,56 +542,6 @@ public:
 		va_end(vl);
 	}
 	//----------------------------------------------------------
-	 TDLAutoList(T* t, ...)
-		:
-	head(0),
-		last(0),
-		count(0)
-	{
-		va_list vl;
-		va_start(vl,t);
-		Push(*t);
-		T* tmp=va_arg(vl,T*);
-		while(tmp)
-		{
-			Push(*tmp);
-			tmp=va_arg(vl,T*);
-		}
-		va_end(vl);
-	}
-	//----------------------------------------------------------
-	 TDLAutoList(const TDLAutoList& l)
-		:
-	head(0),
-		last(0),
-		count(0)
-	{
-		delete this;
-
-		TDLAutoNode* t=l.Head();
-
-		while(t)
-		{
-			Push(t);
-			t=t->Next();
-		}
-	}
-	//----------------------------------------------------------
-	 ~TDLAutoList()
-	{
-		while(head)
-		{
-			TDLAutoNode<T>* t=head->Next();
-			delete head;
-			head=t;
-
-		}
-		head=last=0;
-		count=0;
-
-
-	}
-	//----------------------------------------------------------
 	 TDLAutoList& operator=(const TDLAutoList& l)
 	{
 
@@ -652,7 +601,7 @@ public:
 		return ret;
 	}
 	//----------------------------------------------------------
-	 void Push(T t)
+	 void Push(T &t)
 	{
 		TDLAutoNode<T>* node=new TDLAutoNode<T>(t);
 
@@ -673,6 +622,8 @@ public:
 
 
 	}
+
+	
 	//----------------------------------------------------------
 	 void Push(int num, T t, ...)
 	{
@@ -690,8 +641,6 @@ public:
 	//----------------------------------------------------------
 	 void Erase(T t)
 	{
-		if(!t)return;
-
 		TDLAutoNode<T>* node=Find(t);
 
 		if(node)
@@ -719,13 +668,13 @@ public:
 		}
 	}
 	//----------------------------------------------------------
-	 TDLAutoNode<T>* Find(T t)const
+	 TDLAutoNode<T>* Find(T &t)const
 	{
 		TDLAutoNode<T>* node=head;
 
 		while(node)
 		{
-			if(t==*node)return node;
+			if(t==node->Data())return node;
 			node=node->Next();
 		}
 
@@ -839,10 +788,22 @@ template<class A,class B> struct TPair
 	B second;
 };
 
-template <class T,int size> struct TNumberedVectorInterface
+template<class T,int size> struct TNumberedVectorInterface
 {
 	T v[size];
 };
+
+template<class T> struct TStaticListPool
+{
+	static TDLAutoList<T> pool;
+};
+template<class T> TDLAutoList<T> TStaticListPool<T>::pool;
+
+template<class T> struct TStaticVectorPool
+{
+	static std::vector<T> pool;
+};
+template<class T> std::vector<T> TStaticVectorPool<T>::pool;
 
 template<class T> struct SmartPointer
 {

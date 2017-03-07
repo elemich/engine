@@ -124,6 +124,8 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		}
 
+		fbxNode->GetGeometry()->ComputeBBox();
+
 		FbxDouble3 bbMin=fbxNode->GetGeometry()->BBoxMin;
 		FbxDouble3 bbMax=fbxNode->GetGeometry()->BBoxMax;
 		
@@ -177,6 +179,9 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		}
 
 		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
+
+		/*entity->entity_world.transformself(entity->entity_bbox.a);
+		entity->entity_world.transformself(entity->entity_bbox.b);*/
 
 		//set root bone if bone
 		if(ENTITY_BONE==entity->entity_type)

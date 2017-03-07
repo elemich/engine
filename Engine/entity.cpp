@@ -6,6 +6,7 @@
 
 #define PROCESS_ENTITIES_RECURSIVELY 0
 
+std::vector<Entity*> Entity::entitiesPool;
 
 float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 {
@@ -26,8 +27,7 @@ Entity::Entity(EEntity e)
 	entity_type(e),
 	entity_parent(0)
 {
-	Entity::entities.Push(this);
-	Entity::typed_entities[this->entity_type].Push(this);
+	Entity::pool.Push(*this);
 
 	nDrawed=0;
 	nAnimated=0;
@@ -36,8 +36,7 @@ Entity::Entity(EEntity e)
 
 Entity::~Entity()
 {
-	Entity::typed_entities[this->entity_type].Erase(this);
-	Entity::entities.Erase(this);
+	Entity::pool.Erase(*this);
 }
 
 void Entity::update()
@@ -60,9 +59,9 @@ void Entity::endDraw()
 void Entity::draw(RendererInterface* renderer)
 {
 	AABB &bbox=entity_bbox;
-	/*AABB aabb(this->animation_transform.transform(bbox.minimum),this->animation_transform.transform(bbox.maximum));
-	renderer->draw(bbox.minimum,5,vec3(1,0,0));	
-	renderer->draw(bbox.maximum,5,vec3(1,1,0));	*/
+	//AABB aabb(this->entity_world.transform(bbox.a),this->entity_world.transform(bbox.b));
+	//renderer->draw(aabb,vec3(1,0,0));	
+	
 	renderer->draw(bbox,vec3(1,1,0));	
 	nDrawed++;
 }
@@ -77,12 +76,12 @@ void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff
 		case TRANSLATEX:poff[0]	= val; break;
 		case TRANSLATEY:poff[1]	= val; break;
 		case TRANSLATEZ:poff[2]	= val; break;
-		case ROTATEX:roff[0]		= val; break;
-		case ROTATEY:roff[1]		= val; break;
-		case ROTATEZ:roff[2]		= val; break;
-		case SCALEX:soff[0]		= val; break;
-		case SCALEY:soff[1]		= val; break;
-		case SCALEZ:soff[2]		= val; break;
+		case ROTATEX:roff[0] = val; break;
+		case ROTATEY:roff[1] = val; break;
+		case ROTATEZ:roff[2] = val; break;
+		case SCALEX:soff[0]	= val; break;
+		case SCALEY:soff[1]	= val; break;
+		case SCALEZ:soff[2]	= val; break;
 	}
 }
 
@@ -93,7 +92,7 @@ int Entity::animate(float ftime)
 
 	this->animation_transform=this->entity_transform;
 
-	return 1;
+	//return 1;
 
 	if(this->animation_animselected<this->animation_curvegroups.Count())
 	{
@@ -183,22 +182,22 @@ int Entity::animate(float ftime)
 
 
 
-typedef TDLAutoList<Entity*> LIST;
-typedef TDLAutoNode<Entity*> NODE;
-
-TDLAutoList<Entity*> Entity::entities;
-TDLAutoList<Entity*> Entity::typed_entities[ENTITY_MAX];
+/*
 
 
+TDLAutoList<Entity&> TStaticListPool<Entity&>::pool;
+
+
+*/
 
 
 
 
 Entity* Entity::Find(const char* name,bool exact)
 {
-	for(NODE *node=entities.Head();node;node=node->next)
+	for(TDLAutoNode<Entity&> *node=pool.Head();node;node=node->next)
 	{
-		Entity* e=node->data;
+		Entity* e=&node->data;
 		if(e && (exact ? e->entity_name==name : e->entity_name.Contains(name)))
 			return e;
 	}

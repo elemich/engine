@@ -3,17 +3,51 @@
 
 #include "primitives.h"
 
-struct AppInterface
+struct Interface
+{
+	static std::vector<Interface*> interfacesPool;
+
+	virtual Interface* GetApp(){return 0;}
+	virtual Interface* GetRenderer(){return 0;}
+	virtual Interface* GetShader(){return 0;}
+};
+
+struct EntityInterface
+{
+	static std::vector<EntityInterface*> entityInterfacesPool;
+
+	EntityInterface* GetBone(){return 0;}
+	EntityInterface* GetMesh(){return 0;}
+	EntityInterface* GetSkin(){return 0;}
+	EntityInterface* GetLight(){return 0;}
+};
+
+struct ResourceInterface
+{
+	static std::vector<ResourceInterface*> resourceInterfacesPool;
+
+	ResourceInterface* GetTexture(){return 0;}
+	ResourceInterface* GetMaterial(){return 0;}
+};
+
+
+
+struct AppInterface : Interface
 {
 	virtual int Init()=0;
 	virtual void AppLoop()=0;
 	virtual void CreateMainWindow()=0;
+
+	virtual AppInterface* GetApp(){return this;}
+	
 };
 
-struct RendererInterface
+struct RendererInterface : Interface
 {
+	virtual RendererInterface* GetRenderer(){return this;}
+	
 	static std::vector<RendererInterface*> renderers;
-	static void draw();//draw on all instanced renderers
+
 
 	virtual char* Name()=0;
 	virtual void Render()=0;
@@ -36,20 +70,28 @@ struct RendererInterface
 	virtual void drawUnlitTextured(Mesh*)=0;
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
 
+	//virtual operator RendererInterface&()=0;
+
 };
 
+struct ShaderInterface;
 
-
-
-
-struct ShaderInterface
+struct ShadersPool
 {
-	static TDLAutoList<ShaderInterface*>	shaders;
-	static const ShaderInterface			*&current;
+	static std::vector<ShaderInterface*> pool;
+
 	static ShaderInterface* Find(const char*,bool exact=true);
 	static void SetMatrices(float* proj,float* mdlv);
 	static ShaderInterface* GetCurrent();
 	static void SetCurrent(ShaderInterface*);
+};
+
+
+struct ShaderInterface : Interface
+{
+	static ShadersPool shadersPool;
+
+	virtual ShaderInterface* GetShader(){return this;}
 
 	virtual int GetProgram()=0;
 	virtual void SetProgram(int)=0;
@@ -91,7 +133,7 @@ struct ShaderInterface
 	virtual void SetByMatrixStack()=0;
 };
 
-struct InputInterface
+struct InputInterface : Interface
 {
 
 };

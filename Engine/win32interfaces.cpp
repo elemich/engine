@@ -1,6 +1,8 @@
 
 #include "win32.h"
 
+#include "SceneEntitiesResource.h"
+
 #pragma message("@mic \"LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
 //#pragma message("@mic \"LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
 
@@ -8,170 +10,6 @@ WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
 App* ___app;
-
-
-
-
-HWND CreateTabContainer(int x,int y,int w,int h,HWND parent,int currentCount)
-{
-	char tabContainerName[CHAR_MAX];
-	sprintf_s(tabContainerName,"TabContainer%d",currentCount);
-	HWND tabWindow= CreateWindow(WC_TABCONTAINER,tabContainerName,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS|TCS_FOCUSNEVER,x,y,w,h,parent,(HMENU)currentCount,0,0);
-
-	return tabWindow;
-}
-
-int CreateTab(HWND dst,char* text,int pos,HWND src)
-{
-	int tmpPos=-1;
-	char tabLabel[CHAR_MAX];
-	TCITEM t={0};
-	t.mask=TCIF_TEXT;
-	t.pszText=tabLabel;
-	t.cchTextMax=CHAR_MAX;
-
-	tmpPos=(pos<0 ? SendMessage(dst,TCM_GETITEMCOUNT,0,0) : pos);
-
-	if(!src)
-	{
-		if(tmpPos<0)
-			t.pszText=text;
-		else
-			sprintf_s(tabLabel,"Tab%d",tmpPos);
-	}
-	else
-	{
-		int tIdx=SendMessage(src,TCM_GETCURSEL,0,0);
-		SendMessage(src,TCM_GETITEM,tIdx,(LPARAM)&t);
-	}
-
-	SendMessage(dst,TCM_INSERTITEM,tmpPos,(LPARAM)&t);
-
-	return tmpPos;
-}
-
-void RemoveTab(HWND hwnd,int idx)
-{
-	int itemCount=SendMessage(hwnd,TCM_GETITEMCOUNT,0,0);
-	if(!SendMessage(hwnd,TCM_DELETEITEM,idx,0))//tabcontrol automatically scales remaining items
-		__debugbreak();
-	int removeCount=(itemCount-1)-idx;
-	for(int i=0;i<removeCount;i++)
-	{
-		int srcIdx=idx+i+1;
-		int dstIdx=srcIdx-1;
-
-		HWND child=GetDlgItem(hwnd,srcIdx);
-
-		if(!child)
-			__debugbreak();
-
-		SetWindowLong(child,GWL_ID,(LONG)dstIdx);
-	}
-}
-
-void ReparentTabChild(HWND src,HWND dst,int idx)
-{
-	int newTabContentIdx=CreateTab(dst,0,0,src);
-	HWND tabContentWindow=GetDlgItem(src,idx);
-	SetParent(tabContentWindow,dst);
-	SetWindowLong(tabContentWindow,GWL_ID,(LONG)newTabContentIdx);
-	SendMessage(dst,WM_SIZE,0,0);
-}
-
-RECT GetTabClientSize(HWND hwnd)
-{
-	RECT clientRect,itemRect,adj0Rect,adj1Rect,result;
-
-	GetClientRect(hwnd,&clientRect);
-	SendMessage(hwnd,TCM_GETITEMRECT,0,(LPARAM)&itemRect);
-
-	adj0Rect=itemRect;
-	adj1Rect=itemRect;
-
-	SendMessage(hwnd,TCM_ADJUSTRECT,0,(LPARAM)&adj0Rect);
-	SendMessage(hwnd,TCM_ADJUSTRECT,1,(LPARAM)&adj1Rect);
-
-	result.top=clientRect.top+adj0Rect.top-itemRect.top;
-	result.bottom=clientRect.bottom-(itemRect.bottom-adj0Rect.bottom);
-	result.right=clientRect.right-(itemRect.right-adj0Rect.right);
-	result.left=clientRect.left+adj0Rect.left-itemRect.left;
-
-	/*result.top=clientRect.top+adj1Rect.top;
-	result.bottom=clientRect.bottom-(adj1Rect.bottom-itemRect.bottom);
-	result.right=clientRect.right-(adj1Rect.right-itemRect.right);
-	result.left=clientRect.left+itemRect.left-adj1Rect.left;*/
-
-	return result;
-}
-
-
-
-void OnTabSizeChanged(HWND hwnd)
-{
-	printf("OnTabSizeChanged %p\n",hwnd);
-
-	int		tabIdx=-1;
-	HWND	child=0;	
-
-	tabIdx=0;//SendMessage(hwnd,TCM_GETCURSEL,0,0);
-	
-
-	if(tabIdx<0)
-		return;
-
-	child=GetDlgItem(hwnd,tabIdx);
-
-	if(child==0)
-		return;
-
-	RECT size=GetTabClientSize(hwnd);
-
-	MoveWindow(child,size.left,size.top,size.right-size.left,size.bottom-size.top,true);
-
-}
-
-void EnableChilds(HWND hwnd,int enable,int show)
-{
-	HWND child=0;
-	while(child=FindWindowEx(hwnd,child ? child : 0,0,0))
-	{
-		if(enable>=0)EnableWindow(child,enable);
-		if(show>=0)ShowWindow(child,show);
-	}
-}
-
-void EnableAllChildsDescendants(HWND hwnd,int enable,int show)
-{
-	HWND child=0;
-	while(child=FindWindowEx(hwnd,child ? child : 0,0,0))
-		EnableChilds(child,enable,show);
-}
-
-void EnableAndShowContainerChild(HWND hwnd,int idx)
-{
-	HWND child=GetDlgItem(hwnd,idx);
-
-	if(!child)
-	{
-		__debugbreak();
-		return;
-	}
-
-	EnableChilds(hwnd,false,false);
-
-	SendMessage(hwnd,TCM_SETCURSEL,idx,0);
-	EnableWindow(child,true);
-	ShowWindow(child,SW_SHOW);
-
-	/*if(TabProc==(WNDPROC)GetClassLong(hwnd,GWL_WNDPROC))//is a tab container ?
-		SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)idx);//set child window index in the tab container user data*/
-
-	RECT tabRect=GetTabClientSize(hwnd);
-
-	SetWindowPos(child,HWND_TOP,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,SWP_SHOWWINDOW|SWP_ASYNCWINDOWPOS);
-}
-
 
 //--------------------ProjectFolderBrowser-------------------------
 
@@ -341,6 +179,40 @@ LRESULT CALLBACK SceneEntitiesProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lpara
 	return result;
 }
 
+INT_PTR CALLBACK SceneEntitiesDialogProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+{
+	INT_PTR result=false;//DefDlgProc(hwnd,msg,wparam,lparam);
+
+	switch(msg)
+	{
+	case WM_ERASEBKGND:
+		return true;
+	case WM_SIZE:
+		{
+			HWND tabContainer=GetParent(hwnd);
+
+			ContainerWindow* cw=(ContainerWindow*)GetWindowLongPtr(GetParent(tabContainer),GWL_USERDATA);
+
+			int width=LOWORD(lparam);
+			int height=HIWORD(lparam);
+
+			RECT statusRect;
+			GetClientRect(GetDlgItem(hwnd,IDC_STATUSDOWN),&statusRect);
+			int statusHeight=statusRect.bottom-statusRect.top;
+
+			HDWP hdwp=BeginDeferWindowPos(4);
+			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_STATUSUP),0,0,0,width,statusHeight,SWP_SHOWWINDOW);
+			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_ENTITIES),0,0,statusHeight,width,height-2*statusHeight,SWP_SHOWWINDOW);
+			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_STATUSDOWN),0,0,height-statusHeight,width,statusHeight,SWP_SHOWWINDOW);
+			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_EXPAND),HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW);
+			EndDeferWindowPos(hdwp);
+		}
+	break;
+	}
+
+	return result;
+}
+
 
 SceneEntities::SceneEntities()
 {
@@ -352,10 +224,8 @@ SceneEntities::~SceneEntities()
 	
 }
 
-void ProcessEntity(SceneEntities& se,TDLAutoNode<Entity*>* node,int itemIdx,HTREEITEM parent)
+void ProcessEntity(SceneEntities& se,Entity* e,int itemIdx,HTREEITEM parent)
 {
-	Entity* e=node->Data();
-
 	if(!e)
 		return;
 
@@ -374,20 +244,20 @@ void ProcessEntity(SceneEntities& se,TDLAutoNode<Entity*>* node,int itemIdx,HTRE
 	//tvis.hInsertAfter=parent;//se.items[parentIndex];
 	tvis.item=tvi;
 
-	HTREEITEM item=(HTREEITEM)SendMessage(se.hwnd,TVM_INSERTITEM,0,(LPARAM)&tvis);
+	HTREEITEM item=(HTREEITEM)SendMessage(GetDlgItem(se.hwnd,IDC_ENTITIES),TVM_INSERTITEM,0,(LPARAM)&tvis);
 
 	se.items.push_back(item);
 
 	itemIdx++;
 
 	for(TDLAutoNode<Entity*>* ChildNode=e->entity_childs.Head();ChildNode;ChildNode=ChildNode->Next(),itemIdx++)
-		ProcessEntity(se,ChildNode,itemIdx,item);
+		ProcessEntity(se,ChildNode->Data(),itemIdx,item);
 }
 
 void SceneEntities::Expand()
 {
 	for(int i=0;i<(int)items.size();i++)
-		SendMessage(hwnd,TVM_EXPAND,TVE_EXPAND,(LPARAM)items[i]);
+		SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_EXPAND,TVE_EXPAND,(LPARAM)items[i]);
 
 }
 
@@ -397,18 +267,21 @@ void SceneEntities::Fill()
 
 	HTREEITEM parent=TVI_ROOT;
 
-	ProcessEntity(*this,Entity::entities.Head(),0,parent);
+	TDLAutoNode<Entity&>* eList=Entity::pool.Head();
+
+	if(eList)
+		ProcessEntity(*this,&eList->Data(),0,parent);
 
 	Expand();
 }
 
 void SceneEntities::Create(HWND container)
 {
-	hwnd=CreateWindow(WC_SCENEENTITIESWINDOW,0,WS_CHILD|TVS_FULLROWSELECT|/*TVS_SINGLEEXPAND|*/TVS_SHOWSELALWAYS|TVS_EX_NOINDENTSTATE|/*TVS_TRACKSELECT|*/TVS_HASBUTTONS|TVS_LINESATROOT|TVS_HASLINES,0,0,100,100,container,0,0,0);
+	hwnd=CreateDialog(0,MAKEINTRESOURCE(IDD_SCENEENTITIESDIALOG),container,SceneEntitiesDialogProc);
 
-	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_FADEINOUTEXPANDOS,(LPARAM)TVS_EX_FADEINOUTEXPANDOS);
-	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_DOUBLEBUFFER,(LPARAM)TVS_EX_DOUBLEBUFFER);
-	SendMessage(hwnd,TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_NOINDENTSTATE,(LPARAM)TVS_EX_NOINDENTSTATE);
+	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_FADEINOUTEXPANDOS,(LPARAM)TVS_EX_FADEINOUTEXPANDOS);
+	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_DOUBLEBUFFER,(LPARAM)TVS_EX_DOUBLEBUFFER);
+	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_NOINDENTSTATE,(LPARAM)TVS_EX_NOINDENTSTATE);
 
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
@@ -547,4 +420,25 @@ void DirectXRenderer::Render()
 void Logger::Create(HWND container)
 {
 	hwnd=CreateWindow(WC_EDIT,0,WS_CHILD|ES_READONLY|WS_BORDER,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
+}
+
+
+
+
+INT_PTR CALLBACK EntityPropertyDialogProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+{
+	INT_PTR result=false;//DefDlgProc(hwnd,msg,wparam,lparam);
+
+
+	return result;
+}
+
+
+
+
+void EntityProperty::Create(HWND container)
+{
+	hwnd=CreateDialog(0,MAKEINTRESOURCE(IDD_ENTITYPROPERTIESDIALOG),container,SceneEntitiesDialogProc);
+
+
 }

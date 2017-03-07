@@ -12,9 +12,7 @@ int main()
 	MatrixStack::SetProjectionMatrix(MatrixStack::projection);
 	MatrixStack::SetModelviewMatrix(MatrixStack::modelview);
 
-	ShaderInterface::SetMatrices(MatrixStack::projection,MatrixStack::modelview);
-
-	
+	ShadersPool::SetMatrices(MatrixStack::projection,MatrixStack::modelview);
 
 	app->AppLoop();
 

@@ -3,8 +3,6 @@
 
 #include "interfaces.h"
 
-
-
 enum EEntity
 {
 	ENTITY_GENERIC=0,
@@ -108,22 +106,6 @@ static const char *EEntityNames[ENTITY_MAX]=
 	"ENTITY_GUI"
 };
 
-/*
-struct Entity;
-
-struct EntityManager
-{
-	static TDLAutoList<Entity*> entities;
-	static TDLAutoList<Entity*> typed_entities[ENTITY_MAX];
-
-	static void draw();
-	static void update();
-	static int  animate(float);
-
-	static Entity* Find(const char*,bool exact=true);
-
-	static void debugProcessed();
-};*/
 
 struct Resource
 {
@@ -286,10 +268,10 @@ struct Animation
 	vec3 animation_rot;
 };
 
-struct Entity : Animation
+struct Entity : Animation , TStaticListPool<Entity&>
 {
-	static TDLAutoList<Entity*> entities;
-	static TDLAutoList<Entity*> typed_entities[ENTITY_MAX];
+	static std::vector<Entity*> entitiesPool;
+
 	static Entity*			Find(const char*,bool exact=true);
 
 	virtual void beginDraw();
@@ -304,7 +286,7 @@ struct Entity : Animation
 	EEntity					entity_type;
 
 	Entity*					entity_parent;
-	TDLAutoList<Entity*>	entity_childs;		
+	TDLAutoList<Entity*>			entity_childs;		
 
 	mat4					entity_transform;
 	mat4					entity_world;
@@ -317,7 +299,7 @@ struct Entity : Animation
 	int						nUpdated;
 	int						nAnimated;
 
-						
+	bool operator==(const Entity& e){return this==&e;}
 
 	Entity(EEntity);
 	~Entity();
@@ -531,5 +513,7 @@ struct TextureProcedural : Texture
 
 	void draw(RendererInterface*){}
 };
+
+
 
 #endif //__ENTITY_HEADER__

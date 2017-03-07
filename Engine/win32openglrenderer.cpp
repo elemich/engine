@@ -59,7 +59,7 @@ bool GLEW_INITED=false;
 
 #define USE_COMMON_PIXELFORMAT_SYSTEM 1
 
-int processNode(RendererInterface* renderer,TDLAutoNode<Entity*>* node,int type,float time)
+int processNode(RendererInterface* renderer,TDLAutoNode<Entity&>* node,int type,float time)
 {
 	int retValue=0;
 
@@ -72,13 +72,13 @@ int processNode(RendererInterface* renderer,TDLAutoNode<Entity*>* node,int type,
 		switch(type)
 		{
 		case 0:
-			retValue+=node->data->animate(time);
+			retValue+=node->data.animate(time);
 			break;
 		case 1:
-			node->data->update();
+			node->data.update();
 			break;
 		case 2:
-			node->data->draw(renderer);
+			node->data.draw(renderer);
 			break;
 		}
 
@@ -320,7 +320,7 @@ void OpenGLRenderer::Create(HWND container)
 	renderers.push_back(this);
 }
 
-void OpenGLRenderer::CreateSharedContext(HWND container)
+OpenGLRenderer* OpenGLRenderer::CreateSharedContext(HWND container)
 {
 	OpenGLRenderer* sharedRenderer=new OpenGLRenderer();
 
@@ -342,6 +342,8 @@ void OpenGLRenderer::CreateSharedContext(HWND container)
 	SetWindowLongPtr(sharedRenderer->hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	shared_renderers.push_back(sharedRenderer);
+
+	return sharedRenderer;
 }
 
 
@@ -374,9 +376,9 @@ void OpenGLRenderer::Render()
 	draw(vec3(0,0,0),vec3(1000,0,0));
 	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
 
-	processNode(this,Entity::entities.Head(),0,0);
-	processNode(this,Entity::entities.Head(),1,0);
-	processNode(this,Entity::entities.Head(),2,0);
+	processNode(this,Entity::pool.Head(),0,0);
+	processNode(this,Entity::pool.Head(),1,0);
+	processNode(this,Entity::pool.Head(),2,0);
 
 	if(!SwapBuffers(hdc))
 		MessageBox(0,"error","SwapBuffers",MB_OK|MB_ICONEXCLAMATION);
@@ -398,7 +400,7 @@ void OpenGLRenderer::draw(vec2)
 
 void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 {
-	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
 		return;
@@ -436,7 +438,7 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 void OpenGLRenderer::draw(vec4 rect)
 {
-	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	int position_slot=-1;
 	int modelview_slot=-1;
@@ -473,7 +475,7 @@ void OpenGLRenderer::draw(vec4 rect)
 
 void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 {
-	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
 		return;
@@ -521,9 +523,9 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 
 void OpenGLRenderer::draw(AABB aabb,vec3 color)
 {
-	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
-	//if(!shader)
+	if(!shader)
 		return;
 
 	shader->Use();
@@ -586,7 +588,7 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 
 void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 {
-	ShaderInterface* shader=ShaderInterface::Find("unlit_color");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
 		return;
@@ -963,7 +965,7 @@ void OpenGLRenderer::draw(Mesh* mesh)
 
 void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 {
-	ShaderInterface* shader=ShaderInterface::Find("unlit_texture");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_texture");
 
 	if(!shader || !mesh)
 		return;
@@ -990,7 +992,21 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 	draw(mesh,textureIndices,texture_slot,texcoord_slot);
 
 	if(!textureIndices.size())
+	{
+		ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+
+		if(shader)
+			shader->Use();
+
+		position_slot = shader->GetPositionSlot();
+		model_slot = shader->GetModelviewSlot();
+		projection_slot = shader->GetProjectionSlot();
+		texcoord_slot = shader->GetTexcoordSlot();
+		texture_slot = shader->GetTextureSlot();
+		normal_slot = shader->GetNormalSlot();
+
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	}
 	else
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -1029,7 +1045,7 @@ void OpenGLRenderer::draw(Skin *skin)
 	/*this->draw((Mesh*)skin);
 	return;*/
 
-	ShaderInterface* shader=ShaderInterface::Find("unlit_texture");
+	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_texture");
 
 	if(!skin || !skin->skin_vertexcache || !shader)
 	{
@@ -1068,6 +1084,26 @@ void OpenGLRenderer::draw(Skin *skin)
 	draw(skin,textureIndices,texture_slot,texcoord_slot);
 
 	glUniform1f(shader->GetUniform("textured"),(GLfloat)textureIndices.size());glCheckError();
+
+	if(!textureIndices.size())
+	{
+		ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+
+		if(shader)
+			shader->Use();
+
+
+		position_slot = shader->GetPositionSlot();
+		model_slot = shader->GetModelviewSlot();
+		projection_slot = shader->GetProjectionSlot();
+		texcoord_slot = shader->GetTexcoordSlot();
+		texture_slot = shader->GetTextureSlot();
+		lightpos_slot = shader->GetLightposSlot();
+		lightdiff_slot = shader->GetLightdiffSlot();
+		lightamb_slot = shader->GetLightambSlot();
+		normal_slot = shader->GetNormalSlot();
+		color_slot = shader->GetColorSlot();
+	}
 
 	if(lightdiff_slot>=0)glEnableVertexAttribArray(lightdiff_slot);glCheckError();
 	if(lightamb_slot>=0)glEnableVertexAttribArray(lightamb_slot);glCheckError();

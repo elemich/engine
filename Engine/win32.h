@@ -8,6 +8,7 @@ struct WindowData
 	HWND hwnd;
 
 	virtual void Create(HWND container)=0;
+
 };
 
 struct SplitterContainer 
@@ -49,14 +50,28 @@ struct SplitterContainer
 	void OnTabContainerLButtonDown(HWND);
 	void OnTabContainerLButtonUp(HWND);
 	int OnTabContainerRButtonUp(HWND,LPARAM);
+	void OnTabContainerSize(HWND);
 
 	int GetTabSelectionIdx(HWND);
 	void SetTabSelectionIdx(HWND hwnd,int idx);
 	HWND GetTabSelectionWindow(HWND hwnd);
 
 
+	RECT GetTabContainerClientSize(HWND);
+	void EnableAndShowTabContainerChild(HWND hwnd,int idx);
+
+
 	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
 	//std::vector<HWND> findAttachedWindos(HWND mainWindow,RECT &srcRect,int rectPosition);
+
+	HWND CreateTabContainer(int x,int y,int w,int h,HWND parent);
+	int	 CreateTabChildren(HWND parent,char* text=0,int pos=-1,HWND from=0);
+	void RemoveTabChildren(HWND hwnd,int idx);
+	void ReparentTabChildren(HWND src,HWND dst,int idx);
+	void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
+	void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
+
+	bool CreateNewPanel(HWND,int popupMenuItem);
 };
 
 
@@ -120,6 +135,14 @@ struct SceneEntities : WindowData , SceneEntitiesInterface
 	void Expand();
 };
 
+
+struct EntityProperty : WindowData , PropertyInterface
+{
+	
+
+	void Create(HWND container);
+};
+
 struct Logger : WindowData , LoggerInterface
 {
 	void Create(HWND container);
@@ -129,11 +152,6 @@ struct App : AppInterface
 {
 	MainAppContainerWindow mainAppWindow;
 	
-	std::vector<ContainerWindow> containers;
-	std::vector<FolderBrowserInterface*> browsers;
-	std::vector<LoggerInterface*> loggers;
-	std::vector<SceneEntitiesInterface*> sceneEntities;
-
 	PIDLIST_ABSOLUTE projectFolder;
 
 	App();
@@ -166,7 +184,7 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 
 	virtual void Create(HWND container);
 
-	void CreateSharedContext(HWND container);
+	OpenGLRenderer* CreateSharedContext(HWND container);
 
 	char* Name();
 	void Render();
@@ -188,6 +206,11 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 	void draw(Texture*);
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
+
+	/*operator RendererInterface&(){return *this;}
+	operator OpenGLRenderer&(){return *this;}
+	operator RendererViewportInterface&(){return *this;}*/
+
 	
 	void OnMouseWheel(float);
 	void OnMouseRightDown();
@@ -232,20 +255,6 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 
 bool InitSplitter();
 
-HWND CreateTabContainer(int x,int y,int w,int h,HWND parent,int currentCount);
-int CreateTab(HWND parent,char* text=0,int pos=-1,HWND from=0);
-void RemoveTab(HWND hwnd,int idx);
-void ReparentTabChild(HWND src,HWND dst,int idx);
-RECT GetTabClientSize(HWND);
-void OnTabSizeChanged(HWND);
-void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
-void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
-void EnableAndShowContainerChild(HWND hwnd,int idx);
-void CreateProjectFolder(HWND);
-void CreateProjectFolder2(HWND);
-void CreateOpenglWindow(HWND);
-void CreateSharedOpenglWindow(HWND);
-void CreateLogger(HWND);
-void CreateSceneEntitiesWindow(HWND);
+
 
 #endif //WIN32_H

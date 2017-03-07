@@ -84,7 +84,7 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
     <ClCompile Include="mesh.cpp" />
     <ClCompile Include="picopng.cpp" />
     <ClCompile Include="primitives.cpp" />
-    <ClCompile Include="rendererinterface.cpp" />
+    <ClCompile Include="interfaces.cpp" />
     <ClCompile Include="matrixstack.cpp" />
     <ClCompile Include="shadermanager.cpp" />
     <ClCompile Include="skin.cpp" />
@@ -105,7 +105,7 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
     <ClInclude Include="jpgdecoder.h" />
     <ClInclude Include="picopng.h" />
     <ClInclude Include="primitives.h" />
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="SceneEntitiesResource.h" />
     <ClInclude Include="shader_data.h" />
     <ClInclude Include="tga_reader.h" />
     <ClInclude Include="t_datatypes.h" />
@@ -115,10 +115,7 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
     <ClInclude Include="win32includes.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Engine.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="toolbar1.bmp" />
+    <ResourceCompile Include="SceneEntitiesResource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

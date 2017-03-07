@@ -1,40 +1,37 @@
 #include "datatypes.h"
 
-typedef TDLAutoList<ShaderInterface*> LIST;
-typedef TDLAutoNode<ShaderInterface*> NODE;
 
-TDLAutoList<ShaderInterface*> ShaderInterface::shaders;
-ShaderInterface*			  _current=0;
-const ShaderInterface*&			 ShaderInterface::current=(const ShaderInterface*&)_current;
+ShadersPool ShaderInterface::shadersPool;
 
-ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
+
+
+std::vector<ShaderInterface*> ShadersPool::pool;
+ShaderInterface*			  currentShader=0;
+
+ShaderInterface* ShadersPool::Find(const char* name,bool exact)
 {
-	NODE *shaderNode=shaders.Head();
-
-	while(shaderNode)
+	for(int i=0;i<(int)pool.size();i++)
 	{
-		ShaderInterface* element=shaderNode->data;
+		ShaderInterface* element=pool[i];
 
 		const char* programName=element->GetName();
 
 		if(element && programName)
 			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
-				return shaderNode->data;
-
-		shaderNode=shaderNode->Next();
+				return pool[i];
 	}
 
 	return 0;
 }
 
 
-void ShaderInterface::SetMatrices(float* proj,float* mdlv)
+void ShadersPool::SetMatrices(float* proj,float* mdlv)
 {
-	for(NODE *ns=shaders.Head();ns;ns=ns->Next())
+	for(int i=0;i<(int)pool.size();i++)
 	{
-		ShaderInterface* shader=ns->data;
+		ShaderInterface* shader=pool[i];
 
-		if(ShaderInterface::GetCurrent()!=shader)
+		if(GetCurrent()!=shader)
 			shader->Use();
 
 		shader->SetProjectionMatrix(proj);
@@ -42,15 +39,13 @@ void ShaderInterface::SetMatrices(float* proj,float* mdlv)
 	}
 }
 
-ShaderInterface* ShaderInterface::GetCurrent()
+ShaderInterface* ShadersPool::GetCurrent()
 {
-	return _current;
+	return currentShader;
 }
-void ShaderInterface::SetCurrent(ShaderInterface* shader)
+void ShadersPool::SetCurrent(ShaderInterface* shader)
 {
-	_current=shader;
+	currentShader=shader;
 }
-
-
 
 

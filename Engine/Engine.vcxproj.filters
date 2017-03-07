@@ -22,9 +22,6 @@
     <ClCompile Include="primitives.cpp">
       <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="rendererinterface.cpp">
-      <Filter>common</Filter>
-    </ClCompile>
     <ClCompile Include="fbxutil.cpp">
       <Filter>importers</Filter>
     </ClCompile>
@@ -73,6 +70,9 @@
     <ClCompile Include="shadermanager.cpp">
       <Filter>common\engine</Filter>
     </ClCompile>
+    <ClCompile Include="interfaces.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="win32.h">
@@ -117,7 +117,9 @@
     <ClInclude Include="shader_data.h">
       <Filter>common</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="SceneEntitiesResource.h">
+      <Filter>win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">
@@ -143,9 +145,8 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Engine.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="toolbar1.bmp" />
+    <ResourceCompile Include="SceneEntitiesResource.rc">
+      <Filter>win32</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

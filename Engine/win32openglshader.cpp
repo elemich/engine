@@ -167,7 +167,7 @@ int create_program(const char* vertexsh,const char* fragmentsh)
 
 ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const char* frag)
 {
-	if(ShaderInterface::Find(name))
+	if(shadersPool.Find(name))
 		return 0;
 
 	int program=create_program(pix,frag);
@@ -183,7 +183,7 @@ ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const cha
 		shader->init();
 		shader->Use();
 		
-		ShaderInterface::shaders.Push(shader);
+		shadersPool.pool.push_back(shader);
 
 		printf("adding %s to shaders list\n",name);
 
@@ -239,7 +239,7 @@ void OpenGLShader::SetByMatrixStack()
 
 void OpenGLShader::Use()
 {
-	ShaderInterface* current_shader=ShaderInterface::GetCurrent();
+	ShaderInterface* current_shader=shadersPool.GetCurrent();
 
 	if(!program || current_shader==this)
 		return;
@@ -248,7 +248,7 @@ void OpenGLShader::Use()
 
 	this->SetByMatrixStack();
 	
-	ShaderInterface::SetCurrent(this);
+	shadersPool.SetCurrent(this);
 }
 
 const char* OpenGLShader::GetPixelShader(){return 0;}

@@ -150,7 +150,7 @@ void MatrixStack::SetShaderMatrix()
 
 void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m)
 {
-	ShaderInterface*		shader=ShaderInterface::GetCurrent();
+	ShaderInterface*		shader=ShaderInterface::shadersPool.GetCurrent();
 
 	if(shader)
 	{
@@ -161,7 +161,7 @@ void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m)
 
 void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m,float* mtx)
 {
-	ShaderInterface*		shader=ShaderInterface::GetCurrent();
+	ShaderInterface*		shader=ShaderInterface::shadersPool.GetCurrent();
 
 	if(shader)
 	{

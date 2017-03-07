@@ -6,7 +6,7 @@
 #define TMP_DEBUG true
 
 //#define RENDERER DirectXRenderer()
-#define RENDERER OpenGLFixedRenderer
+#define RENDERER OpenGLRenderer
 #define BROWSER  ProjectFolderBrowser2
 
 #define WC_MAINAPPWINDOW "MainAppWindow"
@@ -18,10 +18,12 @@
 #define TAB_MENU_COMMAND_REMOVE	1
 #define TAB_MENU_COMMAND_OPENGLWINDOW 2
 #define TAB_MENU_COMMAND_PROJECTFOLDER 3
-#define TAB_MENU_COMMAND_PROJECTFOLDER2 6
 #define TAB_MENU_COMMAND_LOGGER 4
 #define TAB_MENU_COMMAND_SCENEENTITIES 5
+#define TAB_MENU_COMMAND_PROJECTFOLDER2 6
 #define TAB_MENU_COMMAND_SHAREDOPENGLWINDOW 7
+#define TAB_MENU_COMMAND_ENTITYPROPERTIES 8
+
 
 #define MAINMENU_ENTITIES_IMPORTENTITY 1
 
@@ -29,9 +31,10 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 LRESULT CALLBACK SceneEntitiesProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+INT_PTR CALLBACK SceneEntitiesDialogProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+INT_PTR CALLBACK EntityPropertyDialogProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
 typedef FourLinkNode<HWND> WINDOWNODE;
-
 
 
 #endif
