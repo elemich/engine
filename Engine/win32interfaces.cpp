@@ -3,8 +3,7 @@
 
 #include "SceneEntitiesResource.h"
 
-#pragma message("@mic \"LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
-//#pragma message("@mic \"LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
+#pragma message(LOCATION " LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
 
 WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
@@ -236,9 +235,9 @@ void ProcessEntity(SceneEntities& se,Entity* e,int itemIdx,HTREEITEM parent)
 	tvi.pszText=(CHAR*)e->entity_name.Buf();
 	tvi.cchTextMax=e->entity_name.Count();
 	tvi.lParam=(LPARAM)e;
-	tvi.cChildren=e->entity_childs.Count() ? 1 : 0;
+	tvi.cChildren=e->entity_childs.size() ? 1 : 0;
 
-	int parentIndex=e->entity_parent ? (itemIdx - e->entity_parent->entity_childs.Count()) : 0;
+	int parentIndex=e->entity_parent ? (itemIdx - e->entity_parent->entity_childs.size()) : 0;
 
 	tvis.hParent=parent;//se.items[parentIndex];
 	//tvis.hInsertAfter=parent;//se.items[parentIndex];
@@ -250,8 +249,8 @@ void ProcessEntity(SceneEntities& se,Entity* e,int itemIdx,HTREEITEM parent)
 
 	itemIdx++;
 
-	for(TDLAutoNode<Entity*>* ChildNode=e->entity_childs.Head();ChildNode;ChildNode=ChildNode->Next(),itemIdx++)
-		ProcessEntity(se,ChildNode->Data(),itemIdx,item);
+	for(std::list<Entity*>::iterator ChildNode=e->entity_childs.begin();*ChildNode;ChildNode=ChildNode++,itemIdx++)
+		ProcessEntity(se,*ChildNode,itemIdx,item);
 }
 
 void SceneEntities::Expand()
@@ -267,10 +266,10 @@ void SceneEntities::Fill()
 
 	HTREEITEM parent=TVI_ROOT;
 
-	TDLAutoNode<Entity&>* eList=Entity::pool.Head();
+	std::list<Entity*>::iterator eList=Entity::pool.begin();
 
-	if(eList)
-		ProcessEntity(*this,&eList->Data(),0,parent);
+	if(eList!=Entity::pool.end())
+		ProcessEntity(*this,*eList,0,parent);
 
 	Expand();
 }
@@ -326,7 +325,7 @@ void App::CreateMainWindow()
 
 void App::AppLoop()
 {
-#pragma message (LOCATION " @mic: PeekMessage has 0 as hwnd to let other windows work")
+#pragma message (LOCATION " PeekMessage has 0 as hwnd to let other windows work")
 
 	MSG msg;
 

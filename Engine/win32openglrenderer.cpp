@@ -1,7 +1,7 @@
 #include "win32.h"
 
-#pragma message (LOCATION " @mic: processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
-#pragma message (LOCATION " @mic: multiple opengl context needs glew32mx.lib")
+#pragma message (LOCATION " processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
+#pragma message (LOCATION " multiple opengl context needs glew32mx.lib")
 
 GLuint OpenGLRenderer::vertexArrayObject=0;
 GLuint OpenGLRenderer::vertexBufferObject=0;
@@ -59,31 +59,31 @@ bool GLEW_INITED=false;
 
 #define USE_COMMON_PIXELFORMAT_SYSTEM 1
 
-int processNode(RendererInterface* renderer,TDLAutoNode<Entity&>* node,int type,float time)
+int processNode(RendererInterface* renderer,std::list<Entity*>& entitiesPool,std::list<Entity*>::iterator& poolNode,int type,float time)
 {
 	int retValue=0;
 
 #if PROCESS_ENTITIES_RECURSIVELY
-	if(node)
+	if(poolNode!=entitiesPool.end())
 #else
-	for(;node;node=node->next)
+	for(;poolNode!=entitiesPool.end();poolNode++)
 #endif
 	{
 		switch(type)
 		{
 		case 0:
-			retValue+=node->data.animate(time);
-			break;
+			retValue+=(*poolNode)->animate(time);
+		break;
 		case 1:
-			node->data.update();
-			break;
+			(*poolNode)->update();
+		break;
 		case 2:
-			node->data.draw(renderer);
-			break;
+			(*poolNode)->draw(renderer);
+		break;
 		}
 
 #if PROCESS_ENTITIES_RECURSIVELY
-		retValue+=processNode(node->data->entity_childs.Head(),type,time);
+		retValue+=processNode(renderer,entitiesPool,(*poolNode)->entity_childs.begin(),type,time);
 #endif
 	}
 
@@ -376,9 +376,9 @@ void OpenGLRenderer::Render()
 	draw(vec3(0,0,0),vec3(1000,0,0));
 	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
 
-	processNode(this,Entity::pool.Head(),0,0);
-	processNode(this,Entity::pool.Head(),1,0);
-	processNode(this,Entity::pool.Head(),2,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),0,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),1,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),2,0);
 
 	if(!SwapBuffers(hdc))
 		MessageBox(0,"error","SwapBuffers",MB_OK|MB_ICONEXCLAMATION);
@@ -867,92 +867,40 @@ void OpenGLRenderer::draw(Texture* _t)
 
 void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int texture_slot,int texcoord_slot)
 {
-	for(int i=0;i<mesh->mesh_materials.Count();i++)
+	for(int i=0;i<(int)mesh->mesh_materials.size();i++)
 	{
-		for(int j=0;j<mesh->mesh_materials[i]->textures.Count() && !textureIndices.size();j++)
+		for(int j=0;j<(int)mesh->mesh_materials[i]->textures.size() && !textureIndices.size();j++)
 		{
-			switch(mesh->mesh_materials[i]->textures[j]->texture_type)
+			Texture* texture=mesh->mesh_materials[i]->textures[j];
+			
+			int		texture_width=texture->GetWidth();
+			int		texture_height=texture->GetHeight();
+			void	*texture_buffer=texture->GetBuffer();
+
+			if(texture_buffer)
 			{
-			case TEXTURE_FILE:
-				{
-					TextureFile* texture=(TextureFile*)mesh->mesh_materials[i]->textures[j];
+				GLuint tid;
+				glGenTextures(1,&tid);glCheckError();
+				textureIndices.push_back(tid);
 
+				glActiveTexture(GL_TEXTURE0);glCheckError();
+				glBindTexture(GL_TEXTURE_2D,tid);glCheckError();
 
-					int		texture_width=texture->GetWidth();
-					int		texture_height=texture->GetHeight();
-					void	*texture_buffer=texture->GetBuffer();
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);glCheckError();
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);glCheckError();
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);glCheckError();
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glCheckError();
 
-					if(texture_buffer)
-					{
-						GLuint tid;
-						glGenTextures(1,&tid);glCheckError();
-						textureIndices.push_back(tid);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,texture_width,texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,texture_buffer);glCheckError();
 
-						glActiveTexture(GL_TEXTURE0);glCheckError();
-						glBindTexture(GL_TEXTURE_2D,tid);glCheckError();
+				glBindBuffer(GL_ARRAY_BUFFER,textureBufferObject);
+				glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ntexcoord*2*sizeof(float),mesh->mesh_texcoord,GL_DYNAMIC_DRAW);
 
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);glCheckError();
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);glCheckError();
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);glCheckError();
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glCheckError();
+				glUniform1i(texture_slot, 0);glCheckError();
+				glEnableVertexAttribArray(texcoord_slot);glCheckError();
+				glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,0);glCheckError();
 
-						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,texture_width,texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,texture_buffer);glCheckError();
-
-						glBindBuffer(GL_ARRAY_BUFFER,textureBufferObject);
-						glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ntexcoord*2*sizeof(float),mesh->mesh_texcoord,GL_DYNAMIC_DRAW);
-
-						glUniform1i(texture_slot, 0);glCheckError();
-						glEnableVertexAttribArray(texcoord_slot);glCheckError();
-						glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,0);glCheckError();
-
-						glBindBuffer(GL_ARRAY_BUFFER,0);
-					}
-				}
-				break;
-			case TEXTURE_LAYERED:
-				{
-					TextureLayered* texturelayered=(TextureLayered*)mesh->mesh_materials[i]->textures[j];
-
-					for(int i=0;i<texturelayered->textures.Count();i++)
-					{
-						if(texturelayered->textures[i]->texture_type!=TEXTURE_FILE)
-							continue;
-
-						TextureFile* texture=(TextureFile*)texturelayered->textures[i];
-
-						int		texture_width=texture->GetWidth();
-						int		texture_height=texture->GetHeight();
-						void	*texture_buffer=texture->GetBuffer();
-
-						if(texture_buffer)
-						{
-							GLuint tid;
-							glGenTextures(1,&tid);glCheckError();
-							textureIndices.push_back(tid);
-
-							glActiveTexture(GL_TEXTURE0);glCheckError();
-							glBindTexture(GL_TEXTURE_2D,tid);glCheckError();
-
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);glCheckError();
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);glCheckError();
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);glCheckError();
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glCheckError();
-
-							glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,texture_width,texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE,texture_buffer);glCheckError();
-
-							glBindBuffer(GL_ARRAY_BUFFER,textureBufferObject);
-							glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ntexcoord*2*sizeof(float),mesh->mesh_texcoord,GL_DYNAMIC_DRAW);
-
-							glUniform1i(texture_slot, 0);glCheckError();
-							glEnableVertexAttribArray(texcoord_slot);glCheckError();
-							glVertexAttribPointer(texcoord_slot,2,GL_FLOAT,GL_FALSE,0,0);glCheckError();
-
-							glBindBuffer(GL_ARRAY_BUFFER,0);
-						}
-
-					}
-				}
-				break;
+				glBindBuffer(GL_ARRAY_BUFFER,0);
 			}
 		}
 	}
@@ -1150,9 +1098,7 @@ void OpenGLRenderer::draw(Bone* bone)
 	if(!bone)
 		return;
 
-	TDLAutoNode<Entity*>* nb=bone->entity_childs.Head();
-	
-	if(bone->entity_parent->IsA(ENTITY_BONE))
+	if(bone->entity_parent->GetBone())
 	{
 		vec3 b2p=bone->entity_parent->entity_world.position();
 		vec3 b1p=bone->entity_world.position();

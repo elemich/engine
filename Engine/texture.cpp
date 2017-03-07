@@ -9,7 +9,7 @@
 
 extern "C"
 {
-#pragma message ("@mic remove hidden __dso_handle")
+#pragma message (LOCATION " remove hidden __dso_handle")
 	void *__dso_handle=NULL;
 };
 
@@ -38,17 +38,7 @@ IMAGE* getdata(void* d)
 
 ////TEXTURE
 
-Texture::Texture():
-	Resource(RESOURCE_TEXTURE),
-	texture_type(TEXTURE_GENERIC)
-{
-	/*TextureManager::Instance()->Push(this);
-	TextureManager::Instance()->textures[texture_type].Push(this);*/
-}
-
-Texture::Texture(ETexture e):
-	Resource(RESOURCE_TEXTURE),
-	texture_type(e)
+Texture::Texture()
 {
 	/*TextureManager::Instance()->Push(this);
 	TextureManager::Instance()->textures[texture_type].Push(this);*/
@@ -56,16 +46,12 @@ Texture::Texture(ETexture e):
 
 
 
-TextureFile::TextureFile():
-	Texture(TEXTURE_FILE)
+
+TextureFile::TextureFile()
 {
 	this->__data=new IMAGE;
 }
 
-TextureFile::TextureFile(ETexture e)
-{
-	this->__data=new IMAGE;
-}
 
 TextureFile::~TextureFile()
 {
@@ -236,14 +222,12 @@ void TextureFile::draw(RendererInterface* renderer)
 
 
 
-TextureLayered::TextureLayered():
-	Texture(TEXTURE_LAYERED)
+TextureLayered::TextureLayered()
 {
 
 }
 
-TextureProcedural::TextureProcedural():
-	Texture(TEXTURE_LAYERED)
+TextureProcedural::TextureProcedural()
 {
 
 }

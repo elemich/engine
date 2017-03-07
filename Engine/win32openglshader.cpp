@@ -1,6 +1,6 @@
 #include "win32.h"
 
-#pragma message (LOCATION " @mic: this should go to common opengl part of the project cause there is no os-related call within")
+#pragma message (LOCATION " this should go to common opengl part of the project cause there is no os-related call within")
 
 extern PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB;
 extern PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;

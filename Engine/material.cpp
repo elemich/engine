@@ -1,7 +1,6 @@
 #include "entities.h"
 
-Material::Material():
-	Resource(RESOURCE_MATERIAL)
+Material::Material()
 {
 	VectorMathNamespace::make(emissive,3,0.2f,0.2f,0.2f);
 	VectorMathNamespace::make(diffuse,3,0.2f,0.2f,0.2f);

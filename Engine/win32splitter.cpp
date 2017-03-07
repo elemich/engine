@@ -314,7 +314,7 @@ std::vector<HWND> SplitterContainer::findWindoswAtPos(HWND mainWindow,RECT &srcR
 }
 
 
-#pragma message (LOCATION " @mic: should SplitterContainer::OnMouseWheel call directly the child OnMouseWheel method?")
+#pragma message (LOCATION " should SplitterContainer::OnMouseWheel call directly the child OnMouseWheel method?")
 
 
 

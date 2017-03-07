@@ -5,7 +5,6 @@
 #include <string>
 
 Skin::Skin():
-Mesh(ENTITY_SKIN),
 	skin_textures(NULL),
 	skin_ntextures(0),
 	skin_clusters(NULL),

@@ -514,7 +514,7 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 	animation->GetCurves().Append(&curve[7]);
 	animation->GetCurves().Append(&curve[8]);
 
-#pragma message ("@mic remember to destroy lpFloat3TimeKey array content")
+#pragma message (LOCATION " remember to destroy lpFloat3TimeKey array content")
 	
 #endif
 	return true;

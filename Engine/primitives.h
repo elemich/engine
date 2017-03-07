@@ -3,6 +3,11 @@
 
 #include "t_datatypes.h"
 
+#define PRINT(x) #x
+#define PRINTF(x) PRINT(x)
+
+#define LOCATION " @mic (" __FILE__ " : " PRINTF(__LINE__) ")"
+
 struct String
 {
 private:

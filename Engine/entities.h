@@ -109,17 +109,20 @@ static const char *EEntityNames[ENTITY_MAX]=
 
 struct Resource
 {
-	EResourceId resource_id;
+	static std::vector<Entity*> resourcePool;
 
-	inline Resource(EResourceId rid){resource_id=rid;}
+	Resource* GetResource(){return this;}
+	Resource* GetTexture(){return 0;}
+	Resource* GetMaterial(){return 0;}
 };
 
-struct Texture : Resource
+struct Texture
 {
-	ETexture texture_type;
-
 	Texture();
-	Texture(ETexture);
+
+	Texture* GetTexture(){return this;}
+	Texture* GetTextureFile(){return 0;}
+	Texture* GetTextureLayered(){return 0;}
 
 	virtual void draw(RendererInterface*)=0;
 
@@ -140,14 +143,12 @@ struct Material : Resource
 {
 	Material();
 
-	EMaterial GetType();
-
-	//lambert 
+	Material* GetMaterial(){return this;}
 
 	void update(){}
 	void draw(RendererInterface*){}
 
-	TDAutoArray<Texture*> textures;
+	std::vector<Texture*> textures;
 
 
 
@@ -268,11 +269,16 @@ struct Animation
 	vec3 animation_rot;
 };
 
-struct Entity : Animation , TStaticListPool<Entity&>
+struct Entity : Animation
 {
-	static std::vector<Entity*> entitiesPool;
+	static std::list<Entity*> pool;
+	static Entity* Find(const char*,bool exact=true);
 
-	static Entity*			Find(const char*,bool exact=true);
+	virtual Entity* GetEntity(){return this;}
+	virtual Bone* GetBone(){return 0;}
+	virtual Mesh* GetMesh(){return 0;}
+	virtual Skin* GetSkin(){return 0;}
+	virtual Light* GetLight(){return 0;}
 
 	virtual void beginDraw();
 	virtual void draw(RendererInterface*);
@@ -280,13 +286,8 @@ struct Entity : Animation , TStaticListPool<Entity&>
 	virtual void update();
 	int		 animate(float);
 
-	virtual EEntity Type(){return entity_type;}
-	virtual bool	IsA(EEntity e){return Type()==e;}
-
-	EEntity					entity_type;
-
 	Entity*					entity_parent;
-	TDLAutoList<Entity*>			entity_childs;		
+	std::list<Entity*>	entity_childs;		
 
 	mat4					entity_transform;
 	mat4					entity_world;
@@ -301,7 +302,7 @@ struct Entity : Animation , TStaticListPool<Entity&>
 
 	bool operator==(const Entity& e){return this==&e;}
 
-	Entity(EEntity);
+	Entity();
 	~Entity();
 
 
@@ -315,7 +316,7 @@ struct Bone : Entity
 
 	vec3    bone_color;
 
-	void set(int par,int i,float* p,float* r,float* s,float* c,char *n);
+	Bone* GetBone(){return this;}
 
 	void draw(RendererInterface*);
 	void update();
@@ -327,6 +328,8 @@ struct Light : Entity
 
 
 	Light();
+
+	Light* GetLight(){return this;}
 	
 	ELight	LightType();
 	EDecay	DecayType();
@@ -376,7 +379,8 @@ struct Light : Entity
 struct Mesh : Entity
 {
 	Mesh();
-	Mesh(EEntity);
+
+	Mesh* GetMesh(){return this;}
 
 	virtual void draw(RendererInterface*);
 	virtual void update();
@@ -397,7 +401,7 @@ struct Mesh : Entity
 	float** GetNormals();
 	int GetNumNormals();
 
-	TDAutoArray<Material*>* GetMaterials();
+	std::vector<Material*>& GetMaterials();
 
 	float (*mesh_controlpoints)[3];
 	int	  mesh_ncontrolpoints;
@@ -420,12 +424,15 @@ struct Mesh : Entity
 
 	bool  mesh_isCCW;
 
-	TDAutoArray<Material*> mesh_materials;
+	std::vector<Material*> mesh_materials;
 };
 
 struct Skin : Mesh
 {
 	Skin();
+
+	Skin* GetSkin(){return this;}
+
 
 	void		draw(RendererInterface*);
 	void		update();
@@ -452,8 +459,9 @@ struct Skin : Mesh
 struct TextureFile : Texture
 {
 	TextureFile();
-	TextureFile(ETexture);
 	~TextureFile();
+
+	TextureFile* GetTextureFile(){return this;}
 
 	int load(char*);
 	int loadBMP(char*);//0 error
@@ -476,22 +484,13 @@ struct TextureFile : Texture
 
 
 
-struct TextureLayered : Texture
+struct TextureLayered
 {
-	TDAutoArray<Texture*> textures;
+	std::vector<Texture*> textures;
 
 	TextureLayered();
 
-	int load(char*){return 0;}
-	int loadBMP(char*){return 0;}
-	int loadPNG(char*){return 0;}
-	int loadJPG(char*){return 0;}
-	int loadTGA(char*){return 0;}
-	void* GetBuffer(){return 0;}
-	int GetSize(){return 0;}
-	int GetWidth(){return 0;}
-	int GetHeight(){return 0;}
-	int GetBpp(){return 0;}
+	TextureLayered* GetTextureLayered(){return this;}
 
 	void draw(RendererInterface*){}
 };

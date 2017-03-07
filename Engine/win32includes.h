@@ -32,14 +32,9 @@
 
 #include "win32defines.h"
 
-#define PRINT(x) #x
-#define PRINTF(x) PRINT(x)
-
-#define LOCATION "@mic (" __FILE__ " : " PRINTF(__LINE__) ")"
-
 #ifndef WINVER
 #define WINVER 0x0601
-#pragma message (LOCATION " WINVER: " PRINTF(WINVER))
+#pragma message (LOCATION "  WINVER: " PRINTF(WINVER))
 #endif
 
 void glCheckError();

@@ -6,7 +6,7 @@
 
 #define PROCESS_ENTITIES_RECURSIVELY 0
 
-std::vector<Entity*> Entity::entitiesPool;
+std::list<Entity*> Entity::pool;
 
 float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 {
@@ -22,12 +22,9 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 	return P * x3 + Q * x2 + R * x + S;
 }
 
-Entity::Entity(EEntity e)
-:
-	entity_type(e),
-	entity_parent(0)
+Entity::Entity():entity_parent(0)
 {
-	Entity::pool.Push(*this);
+	pool.push_back(this);
 
 	nDrawed=0;
 	nAnimated=0;
@@ -36,7 +33,7 @@ Entity::Entity(EEntity e)
 
 Entity::~Entity()
 {
-	Entity::pool.Erase(*this);
+	pool.remove(this);
 }
 
 void Entity::update()
@@ -193,16 +190,7 @@ TDLAutoList<Entity&> TStaticListPool<Entity&>::pool;
 
 
 
-Entity* Entity::Find(const char* name,bool exact)
-{
-	for(TDLAutoNode<Entity&> *node=pool.Head();node;node=node->next)
-	{
-		Entity* e=&node->data;
-		if(e && (exact ? e->entity_name==name : e->entity_name.Contains(name)))
-			return e;
-	}
-	return 0;
-}
+
 
 /*
 void Entity::debugProcessed()

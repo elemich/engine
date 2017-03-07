@@ -12,23 +12,6 @@ struct Interface
 	virtual Interface* GetShader(){return 0;}
 };
 
-struct EntityInterface
-{
-	static std::vector<EntityInterface*> entityInterfacesPool;
-
-	EntityInterface* GetBone(){return 0;}
-	EntityInterface* GetMesh(){return 0;}
-	EntityInterface* GetSkin(){return 0;}
-	EntityInterface* GetLight(){return 0;}
-};
-
-struct ResourceInterface
-{
-	static std::vector<ResourceInterface*> resourceInterfacesPool;
-
-	ResourceInterface* GetTexture(){return 0;}
-	ResourceInterface* GetMaterial(){return 0;}
-};
 
 
 

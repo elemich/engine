@@ -1,6 +1,6 @@
 #include "fbxutil.h"
 
-#pragma message ("@mic mesh needs other polygons type ?")		
+#pragma message (LOCATION " mesh needs other polygons type ?")		
 
 #include <map>
 
@@ -14,7 +14,7 @@ std::map<FbxTexture*,Texture*>			mapFromFbxTextureToTexture;
 #define GENERATE_INDEXED_GEOMETRY 1
 #define DEBUG_PRINTF 0
 
-#pragma message ("@mic: remember to implement generating missing fbx animation keys")
+#pragma message (LOCATION " remember to implement generating missing fbx animation keys")
 
 void FillMaterials(FbxNode* fbxNode);
 
@@ -97,7 +97,7 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 	if(!parent)
 	{
-		entity=new Entity(ENTITY_GENERIC);
+		entity=new Entity();
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
 	else if(fbxNode->GetSkeleton())
@@ -140,7 +140,7 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 	}
 	else
 	{
-		entity=new Entity(ENTITY_GENERIC);
+		entity=new Entity();
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
 
@@ -180,41 +180,23 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
 
-		/*entity->entity_world.transformself(entity->entity_bbox.a);
-		entity->entity_world.transformself(entity->entity_bbox.b);*/
-
 		//set root bone if bone
-		if(ENTITY_BONE==entity->entity_type)
+		if(entity->GetBone())
 		{
 			if(entity->entity_parent)
 			{
-				Bone* bone=(Bone*)entity;
-				Bone* bone_parent=(Bone*)entity->entity_parent;
+				Bone* bone=entity->GetBone();
 
-				
-
-				/*entity->entity_bbox.minimum=entity->entity_world.position()+entity->entity_world.transform(1,1,0);
-				entity->entity_bbox.maximum=entity->entity_parent->entity_world.position()+entity->entity_parent->entity_world.transform(-1,-1,0);*/
-
-				if(ENTITY_BONE==bone_parent->entity_type)
-				{
-					bone->bone_root=bone_parent->bone_root;
-				
-					/*entity->entity_bbox.a=entity->entity_parent->entity_world.position();
-					entity->entity_bbox.b=entity->entity_world.position();*/
-
-					vec3 dir=entity->entity_bbox.b-entity->entity_bbox.a;
-
-					printf("");
-				}
+				if(bone->entity_parent->GetBone())
+					bone->bone_root=bone->entity_parent->GetBone();
 				else
-					bone->bone_root=entity;
+					bone->bone_root=bone;
 			}
 		}
 	}
 
 	if(parent && entity)
-		parent->entity_childs.Push(entity);
+		parent->entity_childs.push_back(entity);
 
 	return entity;
 }
@@ -257,7 +239,7 @@ Entity* processExtractSceneFunc(FbxNode* fbxNode,Entity* parent)
 			if(!material)
 				__debugbreak();
 
-			mesh ? mesh->mesh_materials.Append(material) : skin->mesh_materials.Append(material);
+			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
 		}
 	}
 	else if(fbxNode->GetLight())
@@ -745,10 +727,11 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 		FbxLayeredTexture* fbxlayeredtexture=lScene->GetSrcObject<FbxLayeredTexture>(i);
 		TextureLayered* layeredtexture=new TextureLayered();
 
-		mapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxlayeredtexture,layeredtexture));
-
 		for(int j=0;j<fbxlayeredtexture->GetSrcObjectCount<FbxFileTexture>();j++)
-			layeredtexture->textures.Append((Texture*)mapFromFbxTextureToTexture.at(fbxlayeredtexture->GetSrcObject<FbxFileTexture>(j)));
+		{
+			layeredtexture->textures.push_back((Texture*)mapFromFbxTextureToTexture.at(fbxlayeredtexture->GetSrcObject<FbxFileTexture>(j)));
+			mapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxlayeredtexture,layeredtexture->textures[j]));
+		}
 	}
 
 	for(int i=0;i<lScene->GetSrcObjectCount<FbxProceduralTexture>();i++)
@@ -810,7 +793,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 					Texture* texture=(Texture*)mapFromFbxTextureToTexture.at(property.GetSrcObject<FbxTexture>(k));
 
 					if(texture)
-						material->textures.Append(texture);
+						material->textures.push_back(texture);
 				}
 			}
 		}

@@ -4,7 +4,6 @@
 
 Bone::Bone()
 	:
-Entity(ENTITY_BONE),
 	bone_root(NULL)
 {
 	int x;
@@ -23,11 +22,6 @@ Entity(ENTITY_BONE),
 	}
 
 	bone_color.make((float)x,(float)y,(float)z);
-}
-
-void Bone::set(int par,int i,float* p,float* r,float* s,float* c,char *n)
-{
-	entity_name=n;
 }
 
 void Bone::update()
@@ -50,7 +44,7 @@ int Bone::animate(float ftime)
 
 	Entity::animate(this->animation_time);
 
-#pragma message ("@mic this->animation_time+=0.03f must be moved away from Bone::animate")
+#pragma message (LOCATION " this->animation_time+=0.03f must be moved away from Bone::animate")
 
 	if(this->bone_root != this)
 		this->bone_root->animation_nprocessed+=this->animation_nprocessed;

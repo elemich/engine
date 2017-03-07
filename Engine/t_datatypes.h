@@ -4,6 +4,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <vector>
+#include <list>
 #include <cstdio>
 
 #define SAFEDELETE(_ptr) \

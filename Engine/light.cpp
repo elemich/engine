@@ -1,7 +1,6 @@
 #include "entities.h"
 
 Light::Light():
-	Entity(ENTITY_LIGHT),
 	light_cast(0),
 	light_volumetric(0),
 	light_groundprojection(0),

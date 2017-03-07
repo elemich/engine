@@ -2,9 +2,7 @@
 
 //#include "include\renderer.h"
 
-Mesh::Mesh()
-	:
-Entity(ENTITY_MESH),
+Mesh::Mesh():
 	mesh_controlpoints(NULL),
 	mesh_ncontrolpoints(0),
 	mesh_vertexindices(0),
@@ -20,21 +18,6 @@ Entity(ENTITY_MESH),
 {
 }
 
-Mesh::Mesh(EEntity e)
-	:
-Entity(e),
-	mesh_controlpoints(NULL),
-	mesh_ncontrolpoints(0),
-	mesh_vertexindices(0),
-	mesh_nvertexindices(0),
-	mesh_texcoord(0),
-	mesh_ntexcoord(0),
-	mesh_normals(NULL),
-	mesh_npolygons(0),
-	mesh_nnormals(0),
-	mesh_isCCW(true)
-{
-}
 
 float** Mesh::GetControlPoints()
 {
@@ -77,9 +60,9 @@ int Mesh::GetNumNormals()
 	return this->mesh_nnormals;
 }
 
-TDAutoArray<Material*>* Mesh::GetMaterials()
+std::vector<Material*>& Mesh::GetMaterials()
 {
-	return &this->mesh_materials;
+	return this->mesh_materials;
 }
 
 void Mesh::update()
