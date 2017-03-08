@@ -1,7 +1,7 @@
 #include "primitives.h"
 
-String::String():data(NULL){}
-String::String(const char* s){if(!s){data=NULL;return;}data=new char[strlen(s)+1];strcpy(data,s);}
+String::String():data(0){}
+String::String(const char* s):data(0){if(!s){data=0;return;}data=new char[strlen(s)+1];strcpy(data,s);}
 String::String(int size,const char* s,...)
 {
 	__debugbreak();
@@ -23,7 +23,7 @@ String::String(const String& s)
     }
     else
     {
-        data=NULL;
+        data=0;
         return;
     }
 }
@@ -49,13 +49,12 @@ String::~String()
 
 void String::operator=(const char* s)
 {
-    if(s)
-    {
-        delete [] data;
-        data=NULL;
-    }
-    data=new char[strlen(s)+1];
-    strcpy(data,s);
+    SAFEDELETEARRAY(data);
+	if(s)
+	{
+		data=new char[strlen(s)+1];
+		strcpy(data,s);
+	}
 }
 
 bool String::operator==(const char* s)
@@ -87,7 +86,7 @@ String::operator float()const
 }
 
 String::operator char*()const{return data;}
-int String::Count()const{return strlen(data);}
+int String::Count()const{return data ? strlen(data) : 0;}
 const char* String::Buf()const{return data;}
 
 bool String::Contains(const char* in)
@@ -792,7 +791,7 @@ float* MatrixMathNamespace::invert(float* i,float* m)
     else {memcpy(mcc,m,sizeof(float)*16);mc=mcc;}
 
     float x=det(m);
-    if(!x) return NULL;
+    if(!x) return 0;
 
     i[0]= (-mc[13]*mc[10]*mc[7] +mc[9]*mc[14]*mc[7] +mc[13]*mc[6]*mc[11]
     -mc[5]*mc[14]*mc[11] -mc[9]*mc[6]*mc[15] +mc[5]*mc[10]*mc[15])/x;

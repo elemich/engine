@@ -129,10 +129,14 @@ struct SceneEntities : WindowData , SceneEntitiesInterface
 	SceneEntities();
 	~SceneEntities();
 
+	SceneEntities* GetSceneEntities(){return this;}
+
 	void Create(HWND container);
 
 	void Fill();
 	void Expand();
+
+	virtual void OnEntitiesChange(){Fill();Expand();}
 };
 
 

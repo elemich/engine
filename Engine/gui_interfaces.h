@@ -28,7 +28,10 @@ struct FolderBrowserInterface : GuiInterface
 
 struct SceneEntitiesInterface : GuiInterface
 {
-	virtual SceneEntitiesInterface* GetSceneEntities(){return this;}
+	SceneEntitiesInterface* GetSceneEntitiesInterface(){return this;}
+	SceneEntitiesInterface* GetSceneEntities(){return 0;}
+
+	virtual void OnEntitiesChange()=0;
 };
 
 struct PropertyInterface : GuiInterface

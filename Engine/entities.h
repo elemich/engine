@@ -3,6 +3,8 @@
 
 #include "interfaces.h"
 
+#define PROCESS_ENTITIES_RECURSIVELY 1
+
 enum EEntity
 {
 	ENTITY_GENERIC=0,
@@ -274,7 +276,7 @@ struct Entity : Animation
 	static std::list<Entity*> pool;
 	static Entity* Find(const char*,bool exact=true);
 
-	virtual Entity* GetEntity(){return this;}
+	virtual Root* GetRoot(){return 0;}
 	virtual Bone* GetBone(){return 0;}
 	virtual Mesh* GetMesh(){return 0;}
 	virtual Skin* GetSkin(){return 0;}
@@ -306,6 +308,11 @@ struct Entity : Animation
 	~Entity();
 
 
+};
+
+struct Root : Entity
+{
+	Root* GetRoot(){return this;}
 };
 
 struct Bone : Entity

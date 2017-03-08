@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 
-#define PROCESS_ENTITIES_RECURSIVELY 0
+
 
 std::list<Entity*> Entity::pool;
 
@@ -24,6 +24,7 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 
 Entity::Entity():entity_parent(0)
 {
+	if(!pool.size())
 	pool.push_back(this);
 
 	nDrawed=0;
@@ -54,12 +55,7 @@ void Entity::endDraw()
 }
 
 void Entity::draw(RendererInterface* renderer)
-{
-	AABB &bbox=entity_bbox;
-	//AABB aabb(this->entity_world.transform(bbox.a),this->entity_world.transform(bbox.b));
-	//renderer->draw(aabb,vec3(1,0,0));	
-	
-	renderer->draw(bbox,vec3(1,1,0));	
+{	
 	nDrawed++;
 }
 
@@ -169,46 +165,3 @@ int Entity::animate(float ftime)
 
 	return this->animation_nprocessed;
 }
-
-
-
-
-
-
-////////////////////////////////////////77
-
-
-
-/*
-
-
-TDLAutoList<Entity&> TStaticListPool<Entity&>::pool;
-
-
-*/
-
-
-
-
-
-
-/*
-void Entity::debugProcessed()
-{
-	int nError=0;
-	for(NODE *node=entities.Head();node;node=node->next)
-	{
-		if(node->data)
-		{
-			int& nDrawed=node->data->nDrawed;
-			int& nUpdated=node->data->nUpdated;
-			int& nAnimated=node->data->nAnimated;
-			String &name=node->data->entity_name;
-			if(nDrawed>1 || nUpdated>1 || nAnimated>1){
-				nError++;
-				__debugbreak();
-			}
-			nDrawed=nUpdated=nAnimated=0;
-		}
-	}
-}*/

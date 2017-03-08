@@ -1,8 +1,6 @@
 #ifndef TGA_READER
 #define TGA_READER
 
-#include "primitives.h"
-
 #include <fstream>
 
 

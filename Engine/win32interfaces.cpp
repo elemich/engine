@@ -249,7 +249,7 @@ void ProcessEntity(SceneEntities& se,Entity* e,int itemIdx,HTREEITEM parent)
 
 	itemIdx++;
 
-	for(std::list<Entity*>::iterator ChildNode=e->entity_childs.begin();*ChildNode;ChildNode=ChildNode++,itemIdx++)
+	for(std::list<Entity*>::iterator ChildNode=e->entity_childs.begin();ChildNode!=e->entity_childs.end();ChildNode++,itemIdx++)
 		ProcessEntity(se,*ChildNode,itemIdx,item);
 }
 
@@ -263,6 +263,8 @@ void SceneEntities::Expand()
 void SceneEntities::Fill()
 {
 	items.clear();
+
+	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_DELETEITEM,0,0);//delete all items
 
 	HTREEITEM parent=TVI_ROOT;
 

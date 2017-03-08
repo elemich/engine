@@ -5,6 +5,7 @@
 #include <map>
 
 FbxManager* lSdkManager=0;
+const char* sceneFilename=0;
 
 std::map<FbxNode*,Entity*>				mapFromNodeToEntity;
 std::map<FbxSurfaceMaterial*,Material*>	mapFromFbxMaterialToMaterial;
@@ -97,13 +98,36 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 	if(!parent)
 	{
-		entity=new Entity();
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
+
+		Entity* rootNode=0;
+
+		if(!Entity::pool.size())
+		{
+			rootNode=new Root;
+			rootNode->entity_name="RootNode";
+		}
+		else
+			rootNode=Entity::pool.front();
+
+		entity=new Root;
+
+		const char* begin=strrchr(sceneFilename,'\\');
+		const char* end=strrchr(begin,'.');
+
+		const char* bPtr=begin++;
+
+		int i=0;
+		while(++bPtr!=end)i++;
+
+		entity->entity_name=std::string(begin,i).c_str();
+
+		rootNode->entity_childs.push_back(entity);
 	}
 	else if(fbxNode->GetSkeleton())
 	{
-		entity=new Bone();
-		//entity=bone;
+		Bone* bone=new Bone;
+		entity=bone;
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		nBonesTotal++;
 	}
@@ -113,7 +137,7 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 		if(deformerCount)//skin
 		{
-			Skin* skin=new Skin();
+			Skin* skin=new Skin;
 			entity=skin;
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		}
@@ -134,19 +158,20 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 	}
 	else if(fbxNode->GetLight())
 	{
-		Light* light=new Light();
+		Light* light=new Light;
 		entity=light;
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
 	else
 	{
-		entity=new Entity();
+		entity=new Entity;
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
 
 	if(entity)
 	{
-		entity->entity_name=fbxNode->GetName();
+		if(!entity->entity_name.Count())
+			entity->entity_name=fbxNode->GetName();
 
 		entity->entity_transform=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
 
@@ -185,10 +210,10 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		{
 			if(entity->entity_parent)
 			{
-				Bone* bone=entity->GetBone();
+				Bone* bone=(Bone*)entity->GetBone();
 
 				if(bone->entity_parent->GetBone())
-					bone->bone_root=bone->entity_parent->GetBone();
+					bone->bone_root=((Bone*)bone->entity_parent->GetBone())->bone_root;
 				else
 					bone->bone_root=bone;
 			}
@@ -365,6 +390,8 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 FbxScene* InitFbxSceneLoad(char* fname)
 {
 	printf("Importing file %s\n",fname);
+
+	sceneFilename=fname;
 
 	lSdkManager=FbxManager::Create();
 

@@ -145,7 +145,8 @@ void MatrixStack::Pop(MatrixStack::matrixmode m)
 
 void MatrixStack::SetShaderMatrix()
 {
-	SetShaderMatrix((MatrixStack::matrixmode)mode);
+	SetShaderMatrix(MatrixStack::PROJECTION);
+	SetShaderMatrix(MatrixStack::MODELVIEW);
 }
 
 void MatrixStack::SetShaderMatrix(MatrixStack::matrixmode m)

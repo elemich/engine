@@ -111,6 +111,15 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
 							{
 								InitFbxSceneLoad(openfilename.lpstrFile);
+
+								for(int i=0;i<(int)GuiInterface::guiInterfacesPool.size();i++)
+								{
+									SceneEntitiesInterface* see=(SceneEntitiesInterface*)GuiInterface::guiInterfacesPool[i]->GetSceneEntities();
+
+									if(see)
+										see->OnEntitiesChange();
+								}
+								
 							}
 						}
 						break;

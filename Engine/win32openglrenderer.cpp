@@ -69,21 +69,40 @@ int processNode(RendererInterface* renderer,std::list<Entity*>& entitiesPool,std
 	for(;poolNode!=entitiesPool.end();poolNode++)
 #endif
 	{
+		Entity* entity=*poolNode;
+
+		
 		switch(type)
 		{
-		case 0:
-			retValue+=(*poolNode)->animate(time);
-		break;
-		case 1:
-			(*poolNode)->update();
-		break;
-		case 2:
-			(*poolNode)->draw(renderer);
-		break;
+			case 0:
+				retValue+=entity->animate(time);
+			break;
+			case 1:
+				entity->update();
+			break;
+			case 2:
+				entity->draw(renderer);
+			break;
+			case 3:
+			{
+				int& nDrawed=entity->nDrawed;
+				int& nUpdated=entity->nUpdated;
+				int& nAnimated=entity->nAnimated;
+				String &name=entity->entity_name;
+				if(nDrawed>1 || nUpdated>1 || nAnimated>1)
+					__debugbreak();
+
+				nDrawed=nUpdated=nAnimated=0;
+			}
+			break;
 		}
 
 #if PROCESS_ENTITIES_RECURSIVELY
-		retValue+=processNode(renderer,entitiesPool,(*poolNode)->entity_childs.begin(),type,time);
+
+		std::list<Entity*>::iterator childPoolNode=entity->entity_childs.begin();
+
+		while(childPoolNode!=entity->entity_childs.end())
+			retValue+=processNode(renderer,entity->entity_childs,childPoolNode++,type,time);
 #endif
 	}
 
@@ -372,6 +391,8 @@ void OpenGLRenderer::Render()
 	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);glCheckError();
 	glClearColor(0,0,0,0);glCheckError();
 
+	MatrixStack::SetShaderMatrix();
+
 	draw(vec3(0,0,0),15);
 	draw(vec3(0,0,0),vec3(1000,0,0));
 	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
@@ -379,6 +400,7 @@ void OpenGLRenderer::Render()
 	processNode(this,Entity::pool,Entity::pool.begin(),0,0);
 	processNode(this,Entity::pool,Entity::pool.begin(),1,0);
 	processNode(this,Entity::pool,Entity::pool.begin(),2,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),3,0);
 
 	if(!SwapBuffers(hdc))
 		MessageBox(0,"error","SwapBuffers",MB_OK|MB_ICONEXCLAMATION);
@@ -581,9 +603,9 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 
 	glDisableVertexAttribArray(pos);
 
+	glBindBuffer(GL_ARRAY_BUFFER,0);
 
 	glDisable(GL_DEPTH_TEST);
-
 }
 
 void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)

@@ -332,13 +332,12 @@ struct mat4 : TNumberedVectorInterface<float,16>
 };
 
 struct Entity;
+struct Root;
 struct Bone;
 struct Mesh;
 struct Skin;
 struct Texture;
 struct Light;
-
-
 
 
 #endif //PRIMITIVES_H

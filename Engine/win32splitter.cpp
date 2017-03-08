@@ -3,6 +3,8 @@
 extern App* ___app;
 
 
+#pragma message (LOCATION " beware to new POD initialization (parhentesized or not)")
+
 extern WNDPROC SystemOriginalTabControlProcedure;
 extern WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
@@ -626,9 +628,9 @@ bool SplitterContainer::CreateNewPanel(HWND hwnd,int popupMenuItem)
 		break;
 		case TAB_MENU_COMMAND_SCENEENTITIES:
 		{
-			SceneEntities* se=new SceneEntities();
+			SceneEntities* se=new SceneEntities;
 			newClassIsCreated=se;
-			SceneEntities::guiInterfacesPool.push_back(se);
+			GuiInterface::guiInterfacesPool.push_back(se);
 		}
 		break;
 		case TAB_MENU_COMMAND_ENTITYPROPERTIES:

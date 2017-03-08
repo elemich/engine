@@ -4,7 +4,7 @@
 
 Bone::Bone()
 	:
-	bone_root(NULL)
+	bone_root(0)
 {
 	int x;
 	int y;
