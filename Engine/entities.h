@@ -456,13 +456,6 @@ struct Skin : Mesh
 	
 };
 
-
-
-
-
-
-
-
 struct TextureFile : Texture
 {
 	TextureFile();

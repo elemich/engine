@@ -7,6 +7,9 @@ struct Interface
 {
 	static std::vector<Interface*> interfacesPool;
 
+	Interface();
+	~Interface();
+
 	virtual Interface* GetApp(){return 0;}
 	virtual Interface* GetRenderer(){return 0;}
 	virtual Interface* GetShader(){return 0;}
@@ -18,7 +21,7 @@ struct Interface
 struct AppInterface : Interface
 {
 	virtual int Init()=0;
-	virtual void AppLoop()=0;
+	virtual void Run()=0;
 	virtual void CreateMainWindow()=0;
 
 	virtual AppInterface* GetApp(){return this;}

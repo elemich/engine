@@ -375,8 +375,10 @@ void SplitterContainer::OnTabContainerLButtonDown(HWND hwnd)
 
 	GetWindowRect(childMovingRef,&tmpRc);
 
-	childMoving=CreateWindow(WC_TABCONTAINER,"TmpFloatingTab",WS_CHILD|WS_VISIBLE,tmpRc.left,tmpRc.top,tmpRc.right-tmpRc.left,tmpRc.bottom-tmpRc.top,GetParent(hwnd),0,0,0);
+	//childMoving=CreateWindow(WC_DIALOG,"TmpFloatingTab",WS_CHILD|WS_VISIBLE,tmpRc.left,tmpRc.top,tmpRc.right-tmpRc.left,tmpRc.bottom-tmpRc.top,GetParent(hwnd),0,0,0);
+	childMoving=CreateWindow(WC_TABCONTROL,"TmpFloatingTab",WS_CHILD|WS_VISIBLE,0,0,100,100,GetParent(hwnd),0,0,0);
 	CreateTabChildren(childMoving,0,0,childMovingRef);
+	SetFocus(childMoving);
 
 	EnableWindow(childMoving,false);
 
@@ -467,7 +469,7 @@ RECT SplitterContainer::GetTabContainerClientSize(HWND hwnd)
 
 void SplitterContainer::EnableAndShowTabContainerChild(HWND hwnd,int idx)
 {
-	HWND child=GetDlgItem(hwnd,idx);
+	/*HWND child=GetDlgItem(hwnd,idx);
 
 	if(!child)
 	{
@@ -481,22 +483,18 @@ void SplitterContainer::EnableAndShowTabContainerChild(HWND hwnd,int idx)
 	EnableWindow(child,true);
 	ShowWindow(child,SW_SHOW);
 
-	/*if(TabProc==(WNDPROC)GetClassLong(hwnd,GWL_WNDPROC))//is a tab container ?
-		SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)idx);//set child window index in the tab container user data*/
+	/ *if(TabProc==(WNDPROC)GetClassLong(hwnd,GWL_WNDPROC))//is a tab container ?
+		SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)idx);//set child window index in the tab container user data* /
 
 	RECT tabRect=GetTabContainerClientSize(hwnd);
 
-	SetWindowPos(child,HWND_TOP,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,SWP_SHOWWINDOW|SWP_ASYNCWINDOWPOS);
+	SetWindowPos(child,HWND_TOP,tabRect.left,tabRect.top,tabRect.right-tabRect.left,tabRect.bottom-tabRect.top,SWP_SHOWWINDOW|SWP_ASYNCWINDOWPOS);*/
 }
 
 
 HWND SplitterContainer::CreateTabContainer(int x,int y,int w,int h,HWND parent)
 {
-	char tabContainerName[CHAR_MAX];
-	sprintf_s(tabContainerName,"TabContainer%d",tabContainerCount);
-	HWND tabWindow= CreateWindow(WC_TABCONTAINER,tabContainerName,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS|TCS_FOCUSNEVER,x,y,w,h,parent,(HMENU)tabContainerCount,0,0);
-
-	return tabWindow;
+	return CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,x,y,w,h,parent,(HMENU)tabContainerCount,0,0);
 }
 
 int SplitterContainer::CreateTabChildren(HWND dst,char* text,int pos,HWND src)
@@ -582,7 +580,7 @@ void SplitterContainer::EnableAllChildsDescendants(HWND hwnd,int enable,int show
 
 bool SplitterContainer::CreateNewPanel(HWND hwnd,int popupMenuItem)
 {
-	WindowData* newClassIsCreated=0;
+	/*WindowData* newClassIsCreated=0;
 
 	switch(popupMenuItem)
 	{
@@ -650,7 +648,7 @@ bool SplitterContainer::CreateNewPanel(HWND hwnd,int popupMenuItem)
 		this->EnableAndShowTabContainerChild(hwnd,tabIdx);
 
 		return true;
-	}
+	}*/
 
 	return false;
 }
@@ -661,80 +659,44 @@ bool InitSplitter()
 {
 	bool returnValue=true;
 
-	WNDCLASSEX wc={0};
-	wc.cbSize=sizeof(WNDCLASSEX);
-	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-	wc.lpszClassName=WC_MAINAPPWINDOW;
-	wc.lpfnWndProc=MainWindowProc;
-	wc.hbrBackground=CreateSolidBrush(RGB(255,0,0));
-	wc.hbrBackground=0;
-	if(!RegisterClassEx(&wc))
-		returnValue=false;
-
-	wc.style=CS_VREDRAW|CS_HREDRAW|CS_OWNDC;//CS_OWNDC have always the same dc xevery window
-	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-	wc.lpszClassName=WC_OPENGLWINDOW;
-	wc.lpfnWndProc=OpenGLProc;
-	wc.hbrBackground=0;
-	if(!RegisterClassEx(&wc))
-		returnValue=false;
-
-	if(GetClassInfoEx(0,WC_TABCONTROL,&wc))
 	{
+		WNDCLASSEX wc={0};
+		wc.cbSize=sizeof(WNDCLASSEX);
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-		wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
-		wc.lpszClassName=WC_TABCONTAINER;
-		SystemOriginalTabControlProcedure=wc.lpfnWndProc;
-		wc.lpfnWndProc=TabProc;
-		//wc.hbrBackground=0;
-		if(!RegisterClassEx(&wc))
-			returnValue=false;
-	}
-	else 
-		returnValue=false;
+		wc.lpszClassName=WC_MAINAPPWINDOW;
+		wc.lpfnWndProc=MainWindowProc;
+		wc.hbrBackground=CreateSolidBrush(RGB(255,0,0));
+		wc.hbrBackground=0;
 
-	if(GetClassInfoEx(0,"SysTreeView32",&wc))
+		if(!RegisterClassEx(&wc))
+			__debugbreak();
+	}
+
 	{
-		//wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
-		wc.lpszClassName=WC_SCENEENTITIESWINDOW;
-		SystemOriginalSysTreeView32ControlProcedure=wc.lpfnWndProc;
-		wc.lpfnWndProc=SceneEntitiesProc;
-		//wc.hbrBackground=0;
-		if(!RegisterClassEx(&wc))
-			returnValue=false;
+		WNDCLASS wc={0};
+
+		wc.style=CS_VREDRAW|CS_HREDRAW|CS_OWNDC;//CS_OWNDC have always the same dc xevery window
+		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
+		wc.lpszClassName=WC_OPENGLWINDOW;
+		wc.lpfnWndProc=OpenGLProc;
+		wc.hbrBackground=0;
+
+		if(!RegisterClass(&wc))
+			__debugbreak();
 	}
-	else 
-		returnValue=false;
 
-	
-	//scintilla text control
-	/*{
-		#define WC_CODEWINDOW	"CodeWindow"
+	{
+		WNDCLASS wc={0};
 
-		LRESULT CALLBACK CodeWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
-		WNDPROC ScintillaOriginalWindowProc;
+		wc.lpszClassName=WC_TABCONTAINERWINDOWCLASS;
+		wc.lpfnWndProc=TabContainer::TabContainerWindowClassProcedure;
+		wc.hbrBackground=0;
+		wc.hCursor=(HCURSOR)LoadCursor(0,IDC_ARROW);
+		wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
 
-		HMODULE hmod = LoadLibrary("SciLexer.DLL");
-	
-		if (hmod==NULL)
-			MessageBox(0,"The Scintilla DLL could not be loaded.","Error loading Scintilla",MB_OK | MB_ICONERROR);
-
-		if(GetClassInfoEx(0,"Scintilla",&wc))
-		{
-			//wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-			wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
-			wc.lpszClassName=WC_CODEWINDOW;
-			ScintillaOriginalWindowProc=wc.lpfnWndProc;
-			wc.lpfnWndProc=CodeWindowProc;
-			//wc.hbrBackground=0;
-			if(!RegisterClassEx(&wc))
-				returnValue=false;
-		}
-		else 
-			returnValue=false;
-
-		HWND hwndScintilla = CreateWindowEx(0,"Scintilla","Scintilla", WS_OVERLAPPEDWINDOW|WS_VISIBLE | WS_TABSTOP | WS_CLIPCHILDREN,10,10,500,400,0,0,0,0);
-	}*/
+		if(!RegisterClass(&wc))
+			__debugbreak();
+	}
 
 	HMENU& popupMenuRoot=SplitterContainer::popupMenuRoot;
 	HMENU& popupMenuCreate=SplitterContainer::popupMenuCreate;

@@ -7,11 +7,21 @@ struct GuiInterface
 {
 	static std::vector<GuiInterface*> guiInterfacesPool;
 
+	GuiInterface();
+	~GuiInterface();
+
 	virtual GuiInterface* GetLogger(){return 0;}
 	virtual GuiInterface* GetFolderBrowser(){return 0;}
 	virtual GuiInterface* GetSceneEntities(){return 0;}
 	virtual GuiInterface* GetProperty(){return 0;}
 	virtual GuiInterface* GetRendererViewport(){return 0;}
+
+
+	virtual void OnPaint(){}
+	virtual void OnEntitiesChange(){}
+	virtual void OnSize(){}
+	virtual void OnLMouseDown(){}
+	virtual void OnRun(){}
 };
 
 

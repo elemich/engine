@@ -49,7 +49,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;libfbxsdk-md.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;libfbxsdk-md.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -74,6 +74,7 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
   <ItemGroup>
     <ClCompile Include="anim.cpp" />
     <ClCompile Include="bone.cpp" />
+    <ClCompile Include="Direct2DGui.cpp" />
     <ClCompile Include="entity.cpp" />
     <ClCompile Include="fbxutil.cpp" />
     <ClCompile Include="fbxutil_fbx.cpp" />
@@ -94,6 +95,7 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
     <ClCompile Include="main.cpp" />
     <ClCompile Include="win32openglrenderer.cpp" />
     <ClCompile Include="win32openglshader.cpp" />
+    <ClCompile Include="win32procedures.cpp" />
     <ClCompile Include="win32splitter.cpp" />
     <ClCompile Include="win32containers.cpp" />
   </ItemGroup>

@@ -4,7 +4,7 @@
 
 #include <map>
 
-FbxManager* lSdkManager=0;
+FbxManager* fbxManager=0;
 const char* sceneFilename=0;
 
 std::map<FbxNode*,Entity*>				mapFromNodeToEntity;
@@ -126,6 +126,9 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 	}
 	else if(fbxNode->GetSkeleton())
 	{
+		/*if(fbxNode->GetSkeleton()->GetSkeletonType()==FbxSkeleton::eRoot || fbxNode->GetSkeleton()->IsSkeletonRoot())
+			__debugbreak();*/
+
 		Bone* bone=new Bone;
 		entity=bone;
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
@@ -387,36 +390,67 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 
 
 
-FbxScene* InitFbxSceneLoad(char* fname)
+void InitFbxSceneLoad(char* fname)
 {
 	printf("Importing file %s\n",fname);
 
+	FbxIOSettings * fbxIOSettings=0;
+	FbxImporter* fbxImporter=0;
+	FbxScene* fbxScene=0;
+
 	sceneFilename=fname;
 
-	lSdkManager=FbxManager::Create();
+	fbxManager=FbxManager::Create();
 
-	FbxIOSettings * ios = FbxIOSettings::Create(lSdkManager, IOSROOT );
-	lSdkManager->SetIOSettings(ios);
+	if(fbxManager)
+		fbxIOSettings = FbxIOSettings::Create(fbxManager, IOSROOT );
 
-	FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
+	if(fbxIOSettings)
+		fbxManager->SetIOSettings(fbxIOSettings);
 
-	bool lImportStatus = lImporter->Initialize(fname, -1, lSdkManager->GetIOSettings());
+	fbxImporter = FbxImporter::Create(fbxManager, "");
 
-	if(!lImportStatus) {
-		printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
-		printf("Error returned: %s\n", lImporter->GetStatus().GetErrorString());
-		return NULL;
+	if(fbxImporter)
+		if(!fbxImporter->Initialize(fname, -1, fbxManager->GetIOSettings())) 
+		{
+			printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
+			printf("Error returned: %s\n", fbxImporter->GetStatus().GetErrorString());
+			return;
+		}
+
+	fbxScene = FbxScene::Create(fbxManager,"myScene");
+
+	if(fbxScene)
+	{
+		printf("importing fbx scene...");
+		if(fbxImporter->Import(fbxScene))
+		{
+			printf("ok\n");
+
+			GetSceneDetails(fbxScene);
+
+			ExtractTexturesandMaterials(fbxScene);
+
+			printf("acquiring fbx nodes structure...\n");
+			processNodeRecursive1(fbxScene->GetRootNode(),0);//acquire nodes structure
+			printf("filling acquired structures...\n");
+			processNodeRecursive2(fbxScene->GetRootNode(),0);//fill our structure
+			printf("...ready\n");
+		}
+		else
+			printf("error\n");
 	}
 
-	FbxScene* lScene = FbxScene::Create(lSdkManager,"myScene");
+	
 
-	printf("importing fbx scene...");
-	lImporter->Import(lScene);
-	printf("ok\n");
+	if(fbxScene)fbxScene->Destroy(true);
+	if(fbxScene)fbxImporter->Destroy(true);
+	if(fbxScene)fbxIOSettings->Destroy(true);
+	if(fbxScene)fbxManager->Destroy();
 
-	GetSceneDetails(lScene);
-
-	return lScene;
+	mapFromNodeToEntity.clear();
+	mapFromFbxMaterialToMaterial.clear();
+	mapFromFbxTextureToTexture.clear();
 }
 
 
@@ -454,8 +488,6 @@ void StoreKeyframes(Animation* animation,CurveGroup* curvegroup,EChannel channel
 		}
 
 		curvegroup->curvegroup_keycurves.Append(curve);
-		if(curve->keycurve_keyframes.Count()>1000)
-			__debugbreak();
 	}
 }
 
@@ -526,7 +558,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 				
 				printf("error(polygon %d has %d vertices), retriangulate...",i,polygonSize);
 
-				FbxGeometryConverter triangulator(lSdkManager);
+				FbxGeometryConverter triangulator(fbxManager);
 				triangulator.TriangulateInPlace(fbxNode);
 
 				printf("retriangulate ok...recheck...");
@@ -831,7 +863,6 @@ void GetSceneDetails(FbxScene* lScene)
 {
 	printf("\n");
 
-
 	int nmeshes=lScene->GetSrcObjectCount<FbxMesh>();
 	int nlights=lScene->GetSrcObjectCount<FbxLight>();
 	int ncameras=lScene->GetSrcObjectCount<FbxCamera>();
@@ -851,7 +882,6 @@ void GetSceneDetails(FbxScene* lScene)
 	int numposes=lScene->GetSrcObjectCount<FbxPose>();
 	int numcharacters=lScene->GetSrcObjectCount<FbxCharacter>();
 
-	
 	printf("nmeshes: %d\n",nmeshes);
 	printf("nlights: %d\n",nlights);
 	printf("ncameras: %d\n",ncameras);
@@ -872,19 +902,5 @@ void GetSceneDetails(FbxScene* lScene)
 	printf("numcharacters: %d\n",numcharacters);
 
 	printf("\n");
-
-	
-	ExtractTexturesandMaterials(lScene);
-
-	printf("acquiring fbx nodes structure...\n");
-	processNodeRecursive1(lScene->GetRootNode(),0);//acquire nodes structure
-	printf("filling acquired structures...\n");
-	processNodeRecursive2(lScene->GetRootNode(),0);//fill our structure
-
-	mapFromNodeToEntity.clear();
-	mapFromFbxMaterialToMaterial.clear();
-	mapFromFbxTextureToTexture.clear();
-
-	printf("...ready\n");
 }
 

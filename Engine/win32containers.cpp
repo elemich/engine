@@ -5,7 +5,9 @@
 WNDPROC SystemOriginalTabControlProcedure;
 
 ContainerWindow::ContainerWindow():ContainerWindow_currentVisibleChildIdx(0){}
-void ContainerWindow::Create(HWND){}
+void ContainerWindow::Create(HWND container){}
+
+std::vector<ContainerWindow> MainAppContainerWindow::windows;
 
 MainAppContainerWindow::MainAppContainerWindow(){};
 void MainAppContainerWindow::Create(HWND)
@@ -24,14 +26,14 @@ void MainAppContainerWindow::Create(HWND)
 	RECT rc;
 	GetClientRect(hwnd,&rc);
 	HWND firstTabContainerChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd);
-	CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_OPENGLWINDOW);
+	/*CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_OPENGLWINDOW);
 	CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_SCENEENTITIES);
 
 	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
 	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
 	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
 	OpenGLShader::Create("font",font_pixsh,font_frgsh);
-	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);*/
 
 	ShowWindow(hwnd,true);
 }
@@ -113,13 +115,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 								InitFbxSceneLoad(openfilename.lpstrFile);
 
 								for(int i=0;i<(int)GuiInterface::guiInterfacesPool.size();i++)
-								{
-									SceneEntitiesInterface* see=(SceneEntitiesInterface*)GuiInterface::guiInterfacesPool[i]->GetSceneEntities();
-
-									if(see)
-										see->OnEntitiesChange();
-								}
-								
+									GuiInterface::guiInterfacesPool[i]->OnEntitiesChange();
 							}
 						}
 						break;
@@ -142,32 +138,32 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 	LRESULT result=0;
 
-	switch(msg)
+	/*switch(msg)
 	{
 		case WM_LBUTTONDOWN:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			cw->OnTabContainerLButtonDown(hwnd);
 		break;
-		/*case WM_MOUSEWHEEL:
+		/ *case WM_MOUSEWHEEL:
 		{
 			
 			printf("tabcontainerwindow");
 			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			SendMessage(GetDlgItem(hwnd,cw->ContainerWindow_currentVisibleChildIdx),WM_MOUSEWHEEL,0,0);
 		}
-		break;*/
-		/*case WM_MOUSEMOVE:
+		break;* /
+		/ *case WM_MOUSEMOVE:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			SetFocus(hwnd);
-		break;*/
+		break;* /
 		case WM_LBUTTONUP:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			cw->OnTabContainerLButtonUp(hwnd);
 			cw->ContainerWindow_currentVisibleChildIdx=cw->childMovingRefTabIdx;
 		break;
-		/*case WM_SIZING:
+		/ *case WM_SIZING:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			break;*/
+			break;* /
 		case WM_SIZE:
 		case WM_WINDOWPOSCHANGED:	
 			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
@@ -175,7 +171,7 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		break;
 		
 		case WM_RBUTTONUP:	
-		{
+		{	
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 			cw->CreateNewPanel(hwnd,cw->OnTabContainerRButtonUp(hwnd,lparam));
 		}
@@ -183,7 +179,7 @@ LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		default:
 			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
 		
-	}
+	}*/
 	return result;
 }
 

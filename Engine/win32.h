@@ -3,16 +3,98 @@
 
 #include "win32includes.h"
 
+struct Direct2DGuiBase
+{
+	static ID2D1Factory *factory;
+	static IWICImagingFactory *imager;
+	static IDWriteFactory *writer;
+	static IDWriteTextFormat *texter;
+
+	static void Init(wchar_t* fontName,float fontSize);
+	static void Release();
+
+	static ID2D1HwndRenderTarget* InitHWNDRenderer(HWND hwnd);
+
+	static ID2D1TransformedGeometry* CreateTransformedGeometry(ID2D1Geometry* geometry);
+	static ID2D1RectangleGeometry* CreateRectangle(float x,float y, float w,float h);
+	static ID2D1RoundedRectangleGeometry* CreateRoundRectangle(float x,float y, float w,float h,float rx,float ry);
+	static ID2D1EllipseGeometry* CreateEllipse(float x,float y, float w,float h);
+	static ID2D1PathGeometry* CreatePathGeometry();
+	static ID2D1Bitmap* CreateBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname);
+
+	static ID2D1SolidColorBrush* SolidColorBrush(ID2D1RenderTarget* renderer,float r,float g,float b,float a);
+	static ID2D1LinearGradientBrush* LinearGradientBrush(ID2D1RenderTarget* renderer,float x1,float y1,float x2,float y2,float position,float r,float g,float b,float a,D2D1::Matrix3x2F mtx=D2D1::Matrix3x2F::Identity());
+	static ID2D1BitmapBrush* BitmapBrush();
+	static ID2D1RadialGradientBrush* RadialGradientBrush(ID2D1RenderTarget* renderer,float x1,float y1,float x2,float y2,float position,float r,float g,float b,float a,D2D1::Matrix3x2F mtx=D2D1::Matrix3x2F::Identity());
+
+	static void Draw(ID2D1RenderTarget*renderer,ID2D1Geometry* geometry,ID2D1Brush* brush,bool filled=true);
+
+	static void DrawRectangle(ID2D1RenderTarget*renderer,float x,float y,float w,float h,ID2D1Brush* brush,bool filled=true);
+	static void DrawRoundRectangle(ID2D1RenderTarget*renderer,float x,float y,float w,float h,float rx,float ry,ID2D1Brush* brush,bool filled=true);
+	static void DrawEllipse(ID2D1RenderTarget*renderer,float x,float y, float rx,float ry,ID2D1Brush* brush,bool filled=true);
+	static void DrawLine(ID2D1RenderTarget*renderer,float x1,float y1, float x2,float y2,ID2D1Brush* brush);
+	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h);
+
+
+	static bool OnSize(ID2D1Geometry* geometry,D2D1::Matrix3x2F& mtx,float x,float y);
+	static bool OnSize(ID2D1Geometry* geometry,float x,float y);
+};
+
 struct WindowData
 {
 	HWND hwnd;
-
+	int width;
+	int height;
+	
 	virtual void Create(HWND container)=0;
 
+	virtual void OnSize(LPARAM lparam){width=LOWORD(lparam),height=HIWORD(lparam);}
+
+};
+
+struct SplitterContainer;
+
+struct TabContainer : WindowData
+{
+	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
+
+	static const int CONTAINER_HEIGHT=30;
+	static const int CONTAINER_TAB_WIDTH=80;
+	static const int CONTAINER_TAB_HEIGHT=25;
+	
+	ID2D1HwndRenderTarget* tabcontainer_renderer;
+	static ID2D1SolidColorBrush*  tabcontainer_tabBackgroundBrush;
+	static ID2D1SolidColorBrush*  tabcontainer_backgroundBrush;
+	static ID2D1SolidColorBrush*  tabcontainer_tabBrush;
+	static ID2D1SolidColorBrush*  tabcontainer_textBrush;
+
+	std::vector<GuiInterface*> tabcontainer_tabs;
+	
+	int tabcontainer_selected;
+	bool tabcontainer_mouseDown;
+
+	float tabcontainer_mousex,tabcontainer_mousey;
+
+	TabContainer();
+
+	void Create(HWND container);
+
+	virtual void OnPaint();
+	virtual void OnSize(LPARAM lparam);
+	virtual void OnLMouseDown(LPARAM lparam);
+	virtual void OnLMouseUp(LPARAM lparam);
+	virtual void OnMouseMove(LPARAM lparam);
+	virtual void OnRMouseUp(LPARAM lparam);
+	virtual void OnRun();
+
+	SplitterContainer* GetSplitter();
 };
 
 struct SplitterContainer 
 {
+	std::vector<TabContainer*> containers;
+
 	static HMENU popupMenuRoot;
 	static HMENU popupMenuCreate;
 
@@ -89,12 +171,17 @@ struct MainAppContainerWindow : ContainerWindow
 {
 	MainAppContainerWindow();
 
+	static std::vector<ContainerWindow> windows;
+
 	HMENU menuMain;
 	HMENU menuEntities;
 
 	void Create(HWND hwnd=0);
 	void OnCreate(HWND);
 };
+
+
+/*
 
 
 
@@ -151,6 +238,7 @@ struct Logger : WindowData , LoggerInterface
 {
 	void Create(HWND container);
 };
+*/
 
 struct App : AppInterface
 {
@@ -161,9 +249,11 @@ struct App : AppInterface
 	App();
 
 	int Init();
+	void Close();
 
 	void CreateMainWindow();
-	void AppLoop();
+	void Run();
+	
 };
 
 struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterface
@@ -254,6 +344,80 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 	virtual void draw(Texture*){}
 	virtual void drawUnlitTextured(Mesh*){}
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
+};
+
+
+struct ScrollBar
+{
+	static const int SCROLLBAR_WIDTH=20;
+	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
+	static const int SCROLLBAR_AMOUNT=10;
+
+};
+
+struct TreeView : GuiInterface
+{
+	TreeView(TabContainer*);
+	~TreeView();
+
+	static const int TREEVIEW_ROW_HEIGHT=20;
+	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
+
+	TabContainer* tabContainer;
+
+	struct TVNODE
+	{
+		TVNODE* parent;
+
+		Entity* entity;
+		float x;
+		float y;
+		bool expanded;
+		bool selected;
+		float textWidth;
+		int level;
+		int hasChilds;
+
+		std::list<TVNODE> childs;
+
+		TVNODE();
+		~TVNODE();	
+
+		static void insert(TVNODE& node,Entity* entity,HDC hdc,float& width,float& height,TVNODE* parent=0,int expandUntilLevel=1);
+		static void update(TVNODE&,float& width,float& height);
+		static void drawlist(TVNODE&,TreeView* tv);
+		static void drawselection(TVNODE&,TreeView* tv);
+		static void clear(TVNODE&);
+		static bool onmousepressed(TVNODE& node,TreeView* tv,float& x,float& y,float& width,float& height);
+	};
+
+	TVNODE elements;
+
+	ID2D1BitmapRenderTarget* treeview_bitmapRenderTarget;
+	ID2D1Bitmap* treeview_bitmap;
+
+	static ID2D1Bitmap* treeview_rightArrow;
+	static ID2D1Bitmap* treeview_downArrow;
+	
+	float treeview_tvWidth;
+	float treeview_tvHeight;
+	int treeview_scroll;
+	int treeview_framex;
+	int treeview_framey;
+
+	void OnPaint();
+	void OnSize();
+	void OnLMouseDown();
+	void OnEntitiesChange();
+	void OnRun();
+
+	void DrawItems();
+
+	static ID2D1SolidColorBrush *colorGray;
+	static ID2D1SolidColorBrush *colorGraySel;
+	static ID2D1SolidColorBrush *m_pFeatureBrush;
+	static ID2D1SolidColorBrush *m_pFeatureBrushSelection;
+	static ID2D1SolidColorBrush *m_pTextBrush;
 };
 
 

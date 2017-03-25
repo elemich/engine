@@ -10,6 +10,7 @@ WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 App* ___app;
 
+/*
 //--------------------ProjectFolderBrowser-------------------------
 
 
@@ -64,11 +65,11 @@ void ProjectFolderBrowser::Create(HWND container)
 	browser->SetOptions(EBO_NOWRAPPERWINDOW|EBO_SHOWFRAMES);
 	browser->BrowseToIDList(projectFolder,SBSP_DEFBROWSER);
 
-	/*INameSpaceTreeControl2* shellItem;
+	/ *INameSpaceTreeControl2* shellItem;
 	hr=browser->GetCurrentView(EP_NavPane,(void**)&shellItem);
 
 	if (!SUCCEEDED(hr))
-		__debugbreak();*/
+		__debugbreak();* /
 
 	
 
@@ -287,7 +288,7 @@ void SceneEntities::Create(HWND container)
 	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	Fill();
-}
+}*/
 
 //--------------------AppData-------------------------
 
@@ -299,6 +300,10 @@ App::App()
 
 int App::Init()
 {
+	CoInitialize(0);
+
+	Direct2DGuiBase::Init(L"Verdana",10);
+
 	int error=ERROR_SUCCESS;
 
 	INITCOMMONCONTROLSEX iccex={0};
@@ -318,6 +323,12 @@ int App::Init()
 	return error;
 }
 
+void App::Close()
+{
+	Direct2DGuiBase::Release();
+	CoUninitialize();
+}
+
 void App::CreateMainWindow()
 {
 	
@@ -325,7 +336,7 @@ void App::CreateMainWindow()
 }
 
 
-void App::AppLoop()
+void App::Run()
 {
 #pragma message (LOCATION " PeekMessage has 0 as hwnd to let other windows work")
 
@@ -347,6 +358,8 @@ void App::AppLoop()
 				RendererInterface::renderers[i]->Render();
 		}
 	}
+
+	this->Close();
 }
 
 
@@ -418,14 +431,16 @@ void DirectXRenderer::Render()
 //--------------------Logger-------------------------
 
 
+/*
 void Logger::Create(HWND container)
 {
 	hwnd=CreateWindow(WC_EDIT,0,WS_CHILD|ES_READONLY|WS_BORDER,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
-}
+}*/
 
 
 
 
+/*
 INT_PTR CALLBACK EntityPropertyDialogProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 	INT_PTR result=false;//DefDlgProc(hwnd,msg,wparam,lparam);
@@ -442,4 +457,4 @@ void EntityProperty::Create(HWND container)
 	hwnd=CreateDialog(0,MAKEINTRESOURCE(IDD_ENTITYPROPERTIESDIALOG),container,SceneEntitiesDialogProc);
 
 
-}
+}*/

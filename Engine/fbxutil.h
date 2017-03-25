@@ -8,8 +8,6 @@
 
 
 
-//int pippo (char*,...);
-
 struct cmat
 {
 	vec3 a,b,c;
@@ -20,9 +18,7 @@ struct cmat
 	}
 };
 
-//#define printf pippo
-
-FbxScene* InitFbxSceneLoad(char* fname);
+void InitFbxSceneLoad(char* fname);
 
 void FillSkin(FbxNode* fbxNode,Skin* skin);
 void FillMesh(FbxNode* fbxNode,Mesh* mesh);
@@ -30,7 +26,8 @@ void FillMaterial(FbxNode*,Material*);
 void FillLight(FbxNode* fbxNode,Light* light);
 
 void StoreKeyframes(Animation*,CurveGroup* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
-void ExtractAnimations(FbxNode* fbxNode,Entity* entity);
+void ExtractAnimations(FbxNode*,Entity*);
+void ExtractTexturesandMaterials(FbxScene*);
 void GetSceneDetails(FbxScene*);
 
 bool AnimationPresent(FbxAnimLayer * pAnimLayer, FbxNode* pNode);
