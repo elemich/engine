@@ -13,7 +13,7 @@ extern WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
 
-SplitterContainer::SplitterContainer():splitterSize(0)
+SplitterContainer::SplitterContainer():splitterSize(4)
 {
 	tabContainerCount=0;
 
@@ -60,6 +60,8 @@ void SplitterContainer::OnLButtonDown(HWND hwnd,LPARAM lparam)
 
 void SplitterContainer::OnLButtonUp(HWND hwnd)
 {
+	printf("main L button up\n");
+
 	if(childMovingRef)
 	{
 		EnableAllChildsDescendants(hwnd,true);
@@ -68,36 +70,22 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 		{
 			if(childMovingTarget)
 			{
-				if(childMovingTargetAnchorPos!=-1)//
+				if(childMovingTargetAnchorPos!=-1)
 				{
-					HWND newChild=CreateTabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,hwnd);
-					ReparentTabChildren(childMovingRef,newChild,childMovingRefTabIdx);
-
-					if(SPLITTER_DEBUG)
-						printf("creating new container %p\n",newChild);
-
-					SetWindowPos(childMovingTarget,0,childMovingTargetRc.left,childMovingTargetRc.top,childMovingTargetRc.right-childMovingTargetRc.left,childMovingTargetRc.bottom-childMovingTargetRc.top,SWP_SHOWWINDOW);
-					RemoveTabChildren(childMovingRef,childMovingRefTabIdx);
-
-					EnableAndShowTabContainerChild(childMovingRef,0);
-
-					if(SPLITTER_DEBUG)
-						printf("changing position to sibling %p\n",childMovingTarget);
-
-					DestroyWindow(childMoving);//remove floating window
-
+					TabContainer* newChild=new TabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,hwnd);
+					SetWindowPos(childMovingTarget->hwnd,0,childMovingTargetRc.left,childMovingTargetRc.top,childMovingTargetRc.right-childMovingTargetRc.left,childMovingTargetRc.bottom-childMovingTargetRc.top,SWP_SHOWWINDOW);
+					
+					GuiInterface* reparentTab=childMovingRef->tabcontainer_tabs[childMovingRefTabIdx];
+					childMovingRef->RemoveTab(reparentTab);
+					newChild->AddTab(reparentTab);
 				}
 				else
 				{
 
 				}
 			}
-			else
-				DestroyWindow(childMoving);
 		}
-
-		childMovingRef=0;
-		childMoving=0;
+		this->DestroyFloatingTab();
 	}
 	else if(GetCapture())
 	{
@@ -115,9 +103,10 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 
 	if(childMovingRef)
 	{
+		RECT targetRc;
 		RECT tmpRc;
 
-		GetWindowRect(childMovingRef,&tmpRc);
+		GetWindowRect(childMovingRef->hwnd,&tmpRc);
 
 		int scalesize=3;
 
@@ -126,16 +115,17 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 
 		POINT cp={p.x,p.y};
 
-		childMovingTarget=ChildWindowFromPointEx(hwnd,cp,CWP_SKIPDISABLED);
+		HWND target=ChildWindowFromPointEx(hwnd,cp,CWP_SKIPDISABLED);
 
-		if(childMovingTarget!=hwnd && childMovingTarget!=childMoving && (childMovingRefTabCount==1 ? childMovingTarget!=childMovingRef : true))
+		if(target!=childMoving->hwnd && /*childMovingTarget!=childMovingRef*/(childMovingRefTabCount==1 ? target!=childMovingRef->hwnd : true))
 		{
-			SendMessage(childMovingTarget,TCM_GETITEMRECT,0,(LPARAM)&tmpRc);
+			childMovingTarget=(TabContainer*)GetWindowLongPtr(target,GWL_USERDATA);
 
-			int hh=tmpRc.bottom-tmpRc.top;//header height
+			int hh=TabContainer::CONTAINER_HEIGHT;
 
-			GetClientRect(childMovingTarget,&tmpRc);
-			MapWindowRect(childMovingTarget,hwnd,&tmpRc);
+			GetClientRect(target,&targetRc);
+			tmpRc=targetRc;
+			MapWindowRect(target,hwnd,&tmpRc);
 
 			int w=tmpRc.right-tmpRc.left;
 			int h=tmpRc.bottom-tmpRc.top;
@@ -144,14 +134,14 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 			int hd=h/3;
 
 			childMovingTargetRc=childMovingRc=tmpRc;
-			int anchor=false;//0 not anchor,1 anchor client,2 anchor header
+			int anchor=false;
 
-			if(cp.y>tmpRc.top && cp.y<tmpRc.top+hh)
+			/*if(cp.y>tmpRc.top && cp.y<tmpRc.top+hh)
 			{
 				childMovingTargetAnchorPos=-1;
 				anchor=2;
 			}
-			else if(cp.x>tmpRc.left && cp.x<tmpRc.left+wd)
+			else */if(cp.x>tmpRc.left && cp.x<tmpRc.left+wd)
 			{
 				childMovingTargetAnchorPos=0;
 				childMovingRc.right=tmpRc.left+wd;
@@ -183,32 +173,33 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 				anchor=1;
 			}
 
+			
 
 			if(anchor==2)
 			{
-				ShowWindow(childMoving,false);
+				/*ShowWindow(childMoving,false);
 				if(childMovingTargetAnchorTabIndex<0)
-					childMovingTargetAnchorTabIndex=CreateTabChildren(childMovingTarget,0,childMovingRefTabIdx,childMoving);
+					childMovingTargetAnchorTabIndex=CreateTabChildren(childMovingTarget,0,childMovingRefTabIdx,childMoving);*/
 
 			}
 			else
 			{
-				if(childMovingTargetAnchorTabIndex>=0)
+				/*if(childMovingTargetAnchorTabIndex>=0)
 				{
 					SendMessage(childMovingTarget,TCM_DELETEITEM,childMovingTargetAnchorTabIndex,0);
 					childMovingTargetAnchorTabIndex=-1;
 				}
-				ShowWindow(childMoving,true);
+				ShowWindow(childMoving,true);*/
 
 				if(anchor==1)
-					SetWindowPos(childMoving,0,childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,SWP_SHOWWINDOW);
+					SetWindowPos(childMoving->hwnd,0,childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,SWP_SHOWWINDOW);
 				else
-					SetWindowPos(childMoving,0,p.x-(childMovingScaledWidthX)/2,p.y-(childMovingScaledWidthY)/2,childMovingScaledWidthX,childMovingScaledWidthY,SWP_SHOWWINDOW);
+					SetWindowPos(childMoving->hwnd,0,p.x-(childMovingScaledWidthX)/2,p.y-(childMovingScaledWidthY)/2,childMovingScaledWidthX,childMovingScaledWidthY,SWP_SHOWWINDOW);
 			}
 		}
 		else
 		{
-			SetWindowPos(childMoving,0,p.x-(childMovingScaledWidthX)/2,p.y-(childMovingScaledWidthY)/2,childMovingScaledWidthX,childMovingScaledWidthY,SWP_SHOWWINDOW);
+			SetWindowPos(childMoving->hwnd,0,p.x-(childMovingScaledWidthX)/2,p.y-(childMovingScaledWidthY)/2,childMovingScaledWidthX,childMovingScaledWidthY,SWP_SHOWWINDOW);
 			childMovingTarget=0;
 		}
 	}
@@ -360,39 +351,38 @@ void SplitterContainer::OnSize(HWND hwnd,WPARAM wparam,LPARAM lparam)
 
 
 
-void SplitterContainer::OnTabContainerLButtonDown(HWND hwnd)
+void SplitterContainer::CreateFloatingTab(TabContainer* tab)
 {
-	EnableAndShowTabContainerChild(hwnd,SendMessage(hwnd,TCM_GETCURSEL,0,0));
-
 	if(childMovingRef)
 		return;
 
-	childMovingRef=hwnd;
-	childMovingRefTabIdx=SendMessage(hwnd,TCM_GETCURSEL,0,0);
-	childMovingRefTabCount=SendMessage(hwnd,TCM_GETITEMCOUNT,0,0);
+	childMovingRef=tab;
+	childMovingRefTabIdx=tab->tabcontainer_selected;
+	childMovingRefTabCount=(int)tab->tabcontainer_tabs.size();
 
 	RECT tmpRc;
 
-	GetWindowRect(childMovingRef,&tmpRc);
+	GetWindowRect(childMovingRef->hwnd,&tmpRc);
 
-	//childMoving=CreateWindow(WC_DIALOG,"TmpFloatingTab",WS_CHILD|WS_VISIBLE,tmpRc.left,tmpRc.top,tmpRc.right-tmpRc.left,tmpRc.bottom-tmpRc.top,GetParent(hwnd),0,0,0);
-	childMoving=CreateWindow(WC_TABCONTROL,"TmpFloatingTab",WS_CHILD|WS_VISIBLE,0,0,100,100,GetParent(hwnd),0,0,0);
-	CreateTabChildren(childMoving,0,0,childMovingRef);
-	SetFocus(childMoving);
+	childMoving=new TabContainer(tmpRc.left,tmpRc.top,tmpRc.right-tmpRc.left,tmpRc.bottom-tmpRc.top,GetParent(tab->hwnd));
 
-	EnableWindow(childMoving,false);
+	EnableWindow(childMoving->hwnd,false);
 
-	EnableAllChildsDescendants(GetParent(hwnd),false);
+	printf("creating childmoving %p\n",childMoving);
 
 }
 
-void SplitterContainer::OnTabContainerLButtonUp(HWND hwnd)
+void SplitterContainer::DestroyFloatingTab()
 {
 	if(childMovingRef)
 	{
-		EnableAndShowTabContainerChild(childMovingRef,childMovingRefTabIdx);
-		DestroyWindow(childMoving);//remove floating window
+		EnableAndShowTabContainerChild(childMovingRef->hwnd,childMovingRefTabIdx);
+		DestroyWindow(childMoving->hwnd);//remove floating window
+		childMovingRef->tabcontainer_mouseDown=false;
 		childMovingRef=0;
+		childMoving=0;
+
+		printf("%p deleting childmoving\n",this);
 	}
 }
 
@@ -494,7 +484,7 @@ void SplitterContainer::EnableAndShowTabContainerChild(HWND hwnd,int idx)
 
 HWND SplitterContainer::CreateTabContainer(int x,int y,int w,int h,HWND parent)
 {
-	return CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,x,y,w,h,parent,(HMENU)tabContainerCount,0,0);
+	return CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE,x,y,w,h,parent,(HMENU)tabContainerCount++,0,0);
 }
 
 int SplitterContainer::CreateTabChildren(HWND dst,char* text,int pos,HWND src)
@@ -666,7 +656,6 @@ bool InitSplitter()
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=MainWindowProc;
 		wc.hbrBackground=CreateSolidBrush(RGB(255,0,0));
-		wc.hbrBackground=0;
 
 		if(!RegisterClassEx(&wc))
 			__debugbreak();
@@ -690,7 +679,7 @@ bool InitSplitter()
 
 		wc.lpszClassName=WC_TABCONTAINERWINDOWCLASS;
 		wc.lpfnWndProc=TabContainer::TabContainerWindowClassProcedure;
-		wc.hbrBackground=0;
+		wc.hbrBackground=CreateSolidBrush(RGB(0,255,0));
 		wc.hCursor=(HCURSOR)LoadCursor(0,IDC_ARROW);
 		wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
 

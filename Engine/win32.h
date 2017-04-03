@@ -14,6 +14,7 @@ struct Direct2DGuiBase
 	static void Release();
 
 	static ID2D1HwndRenderTarget* InitHWNDRenderer(HWND hwnd);
+	static ID2D1DCRenderTarget* InitDCRenderer();
 
 	static ID2D1TransformedGeometry* CreateTransformedGeometry(ID2D1Geometry* geometry);
 	static ID2D1RectangleGeometry* CreateRectangle(float x,float y, float w,float h);
@@ -21,6 +22,7 @@ struct Direct2DGuiBase
 	static ID2D1EllipseGeometry* CreateEllipse(float x,float y, float w,float h);
 	static ID2D1PathGeometry* CreatePathGeometry();
 	static ID2D1Bitmap* CreateBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname);
+	static void CreateBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname,unsigned char*& buffer);
 
 	static ID2D1SolidColorBrush* SolidColorBrush(ID2D1RenderTarget* renderer,float r,float g,float b,float a);
 	static ID2D1LinearGradientBrush* LinearGradientBrush(ID2D1RenderTarget* renderer,float x1,float y1,float x2,float y2,float position,float r,float g,float b,float a,D2D1::Matrix3x2F mtx=D2D1::Matrix3x2F::Identity());
@@ -50,6 +52,7 @@ struct WindowData
 	virtual void Create(HWND container)=0;
 
 	virtual void OnSize(LPARAM lparam){width=LOWORD(lparam),height=HIWORD(lparam);}
+	virtual void OnWindowPosChanging(LPARAM lparam){width=((LPWINDOWPOS)lparam)->cx,height=((LPWINDOWPOS)lparam)->cy;}
 
 };
 
@@ -64,31 +67,43 @@ struct TabContainer : WindowData
 	static const int CONTAINER_TAB_HEIGHT=25;
 	
 	ID2D1HwndRenderTarget* tabcontainer_renderer;
-	static ID2D1SolidColorBrush*  tabcontainer_tabBackgroundBrush;
-	static ID2D1SolidColorBrush*  tabcontainer_backgroundBrush;
-	static ID2D1SolidColorBrush*  tabcontainer_tabBrush;
-	static ID2D1SolidColorBrush*  tabcontainer_textBrush;
+	ID2D1DCRenderTarget*   tabcontainer_dcRenderer;
+	ID2D1SolidColorBrush*  tabcontainer_tabBackgroundBrush;
+	ID2D1SolidColorBrush*  tabcontainer_backgroundBrush;
+	ID2D1SolidColorBrush*  tabcontainer_tabBrush;
+	ID2D1SolidColorBrush*  tabcontainer_textBrush;
 
 	std::vector<GuiInterface*> tabcontainer_tabs;
+
+	SplitterContainer* splitterContainer;
 	
 	int tabcontainer_selected;
 	bool tabcontainer_mouseDown;
+	bool tabcontainer_isRender;
+	bool tabcontainer_recreateTarget;
 
 	float tabcontainer_mousex,tabcontainer_mousey;
 
-	TabContainer();
-
-	void Create(HWND container);
+	TabContainer(int x,int y,int w,int h,HWND parent);
+	~TabContainer(){};
+	
+	void Create(HWND){}//@mic no more used, delete from WindowData
 
 	virtual void OnPaint();
 	virtual void OnSize(LPARAM lparam);
+	virtual void OnWindowPosChanging(LPARAM lparam);
 	virtual void OnLMouseDown(LPARAM lparam);
 	virtual void OnLMouseUp(LPARAM lparam);
 	virtual void OnMouseMove(LPARAM lparam);
 	virtual void OnRMouseUp(LPARAM lparam);
 	virtual void OnRun();
 
-	SplitterContainer* GetSplitter();
+	virtual void RecreateTarget();
+
+	GuiInterface* AddTab(GuiInterface*,int position=-1);
+	int RemoveTab(GuiInterface* tab);
+
+
 };
 
 struct SplitterContainer 
@@ -100,9 +115,11 @@ struct SplitterContainer
 
 	int tabContainerCount;
 
-	HWND childMovingRef;
-	HWND childMoving;
-	HWND childMovingTarget;
+	TabContainer* currentTabContainer;
+
+	TabContainer* childMovingRef;
+	TabContainer* childMoving;
+	TabContainer* childMovingTarget;
 	int  childMovingRefTabIdx;
 	int  childMovingRefTabCount;
 	int  childMovingTargetAnchorPos;
@@ -129,8 +146,8 @@ struct SplitterContainer
 
 	HWND GetWindowBelowMouse(HWND,WPARAM,LPARAM);
 
-	void OnTabContainerLButtonDown(HWND);
-	void OnTabContainerLButtonUp(HWND);
+	void CreateFloatingTab(TabContainer*);
+	void DestroyFloatingTab();
 	int OnTabContainerRButtonUp(HWND,LPARAM);
 	void OnTabContainerSize(HWND);
 
@@ -253,20 +270,33 @@ struct App : AppInterface
 
 	void CreateMainWindow();
 	void Run();
+
+
 	
 };
 
-struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterface
+struct OpenGLRenderer : RendererInterface , RendererViewportInterface
 {
 	static GLuint vertexArrayObject;
 	static GLuint vertexBufferObject;
 	static GLuint textureBufferObject;
 	static GLuint indicesBufferObject;
+	static GLuint frameBuffer;
+	static GLuint textureColorbuffer;
+	static GLuint textureRenderbuffer;
+	static GLuint pixelBuffer;
+	static GLuint renderBufferColor;
+	static GLuint renderBufferDepth;
+
+	unsigned char* buffer;
 
 	HGLRC hglrc;
+	HDC sourceDc;
 	HDC   hdc;
+	HBITMAP hbitmap;
 
-	
+	int width;
+	int height;
 
 #if USE_MULTIPLE_OPENGL_CONTEXTS
 	GLEWContext* glewContext;
@@ -274,11 +304,14 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 
 	std::vector<OpenGLRenderer*> shared_renderers;
 
-	OpenGLRenderer();
+	ID2D1BitmapRenderTarget* openglrenderer_bitmapRenderTarget;
+	ID2D1Bitmap* openglrenderer_bitmap;
+
+	OpenGLRenderer(TabContainer*);
 
 	virtual void Create(HWND container);
 
-	OpenGLRenderer* CreateSharedContext(HWND container);
+	//OpenGLRenderer* CreateSharedContext(HWND container);
 
 	char* Name();
 	void Render();
@@ -311,6 +344,13 @@ struct OpenGLRenderer : WindowData ,  RendererInterface , RendererViewportInterf
 	void OnViewportSize(int width,int height);
 	void OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown);
 	void OnMouseDown(int,int);
+
+
+	void OnPaint();
+	void OnSize();
+	void OnLMouseDown();
+	void OnEntitiesChange();
+	void OnRun();
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface
@@ -363,7 +403,7 @@ struct TreeView : GuiInterface
 	static const int TREEVIEW_ROW_HEIGHT=20;
 	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
 
-	TabContainer* tabContainer;
+	
 
 	struct TVNODE
 	{
@@ -396,8 +436,11 @@ struct TreeView : GuiInterface
 	ID2D1BitmapRenderTarget* treeview_bitmapRenderTarget;
 	ID2D1Bitmap* treeview_bitmap;
 
-	static ID2D1Bitmap* treeview_rightArrow;
-	static ID2D1Bitmap* treeview_downArrow;
+	static unsigned char* rightArrow;
+	static unsigned char* downArrow;
+
+	ID2D1Bitmap* treeview_rightArrow;
+	ID2D1Bitmap* treeview_downArrow;
 	
 	float treeview_tvWidth;
 	float treeview_tvHeight;
@@ -410,14 +453,17 @@ struct TreeView : GuiInterface
 	void OnLMouseDown();
 	void OnEntitiesChange();
 	void OnRun();
+	void OnReparent();
 
 	void DrawItems();
 
-	static ID2D1SolidColorBrush *colorGray;
-	static ID2D1SolidColorBrush *colorGraySel;
-	static ID2D1SolidColorBrush *m_pFeatureBrush;
-	static ID2D1SolidColorBrush *m_pFeatureBrushSelection;
-	static ID2D1SolidColorBrush *m_pTextBrush;
+	void RecreateTarget();
+
+	ID2D1SolidColorBrush *colorGray;
+	ID2D1SolidColorBrush *colorGraySel;
+	ID2D1SolidColorBrush *m_pFeatureBrush;
+	ID2D1SolidColorBrush *m_pFeatureBrushSelection;
+	ID2D1SolidColorBrush *m_pTextBrush;
 };
 
 

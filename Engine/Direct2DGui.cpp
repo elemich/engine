@@ -28,6 +28,8 @@ void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
 		if(S_OK!=writer->CreateTextFormat(fontName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,fontSize,L"",&texter))
 			__debugbreak();
 
+		if(S_OK!=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager))
+			__debugbreak();
 
 		// Center the text horizontally and vertically.
 		//textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -56,9 +58,41 @@ ID2D1HwndRenderTarget* Direct2DGuiBase::InitHWNDRenderer(HWND hwnd)
 
 		D2D1_SIZE_U size = D2D1::SizeU(rc.right - rc.left,rc.bottom - rc.top);
 
-		if(S_OK!=factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(),D2D1::HwndRenderTargetProperties(hwnd, size),&renderer))
+		D2D1_RENDER_TARGET_PROPERTIES rtp=D2D1::RenderTargetProperties();
+		//rtp.pixelFormat.format=DXGI_FORMAT_R8G8B8A8_UINT;
+		
+		//rtp.pixelFormat=D2D1::PixelFormat( DXGI_FORMAT_R8G8B8A8_UINT, D2D1_ALPHA_MODE_);
+
+		HRESULT res=factory->CreateHwndRenderTarget(rtp,D2D1::HwndRenderTargetProperties(hwnd, size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
+		if(S_OK!=res)
 			__debugbreak();
+
+		/*D2D1_PIXEL_FORMAT pf=D2D1::PixelFormat();
+
+		if(S_OK!=factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_HARDWARE,pf,96.f,96.f,D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE,D2D1_FEATURE_LEVEL_DEFAULT),D2D1::HwndRenderTargetProperties(hwnd, size),&renderer))
+			__debugbreak();*/
 	}
+
+	return renderer;
+}
+
+ID2D1DCRenderTarget* Direct2DGuiBase::InitDCRenderer()
+{
+	ID2D1DCRenderTarget* renderer=0;
+
+	D2D1_RENDER_TARGET_PROPERTIES rtp = D2D1::RenderTargetProperties(
+		D2D1_RENDER_TARGET_TYPE_DEFAULT,
+		D2D1::PixelFormat(
+		DXGI_FORMAT_B8G8R8A8_UNORM,
+		D2D1_ALPHA_MODE_IGNORE),
+		0,
+		0,
+		D2D1_RENDER_TARGET_USAGE_NONE,
+		D2D1_FEATURE_LEVEL_DEFAULT
+		);
+
+	if(S_OK!=factory->CreateDCRenderTarget(&rtp,&renderer))
+		__debugbreak();
 
 	return renderer;
 }
@@ -141,18 +175,77 @@ ID2D1Bitmap* Direct2DGuiBase::CreateBitmap(ID2D1RenderTarget*renderer,const wcha
 
 	hr = renderer->CreateBitmapFromWicBitmap(pConverter,NULL,&bitmap);
 				
-	if (!SUCCEEDED(hr))
+	if (SUCCEEDED(hr))
 	{
-		pDecoder->Release();
-		pSource->Release();
-		pStream->Release();
-		pConverter->Release();
-		pScaler->Release();
+		if(imager)imager->Release();
+		if(pDecoder)pDecoder->Release();
+		if(pSource)pSource->Release();
+		if(pStream)pStream->Release();
+		if(pConverter)pConverter->Release();
+		if(pScaler)pScaler->Release();
 	}
 
 	
 
 	return bitmap;
+}
+
+void Direct2DGuiBase::CreateBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname,unsigned char*& buffer)
+{
+	ID2D1Bitmap *bitmap=0;
+
+	IWICBitmapDecoder *pDecoder = NULL;
+	IWICBitmapFrameDecode *pSource = NULL;
+	IWICStream *pStream = NULL;
+	IWICFormatConverter *pConverter = NULL;
+	IWICBitmapScaler *pScaler = NULL;
+
+	HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	hr = imager->CreateDecoderFromFilename(fname,NULL,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&pDecoder);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	unsigned int frameCount;
+	pDecoder->GetFrameCount(&frameCount);
+
+	hr = pDecoder->GetFrame(0, &pSource);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	hr = imager->CreateFormatConverter(&pConverter);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	hr = pConverter->Initialize(pSource,GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,NULL,0.f,WICBitmapPaletteTypeMedianCut);
+
+	if(buffer)
+	delete [] buffer;
+
+	UINT width,height;
+	pSource->GetSize(&width,&height);
+
+	buffer=new unsigned char[width*height*4];
+
+	hr=pSource->CopyPixels(0,width*4,width*height*4,buffer);
+
+	if (!SUCCEEDED(hr))
+		__debugbreak();
+
+	if (SUCCEEDED(hr))
+	{
+		if(pDecoder)pDecoder->Release();
+		if(pSource)pSource->Release();
+		if(pStream)pStream->Release();
+		if(pConverter)pConverter->Release();
+		if(pScaler)pScaler->Release();
+	}
 }
 
 void Direct2DGuiBase::Draw(ID2D1RenderTarget*renderer,ID2D1Geometry* geometry,ID2D1Brush* brush,bool filled)
@@ -333,8 +426,10 @@ void TreeView::TVNODE::drawlist(TVNODE& node,TreeView* tv)
 
 void TreeView::TVNODE::drawselection(TVNODE& node,TreeView* tv)
 {
+	TabContainer* tabContainer=tv->guiinterface_tabcontainer;
+
 	if(node.selected)
-		tv->tabContainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(0,node.y,tv->tabContainer->width,node.y+TREEVIEW_ROW_HEIGHT),tv->tabContainer->tabcontainer_tabBrush);
+		tabContainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(0,node.y,tabContainer->width,node.y+TREEVIEW_ROW_HEIGHT),tabContainer->tabcontainer_tabBrush);
 
 	if(node.expanded)
 	{
@@ -373,14 +468,8 @@ bool TreeView::TVNODE::onmousepressed(TVNODE& node,TreeView* tv,float& x,float& 
 	return false;
 }
 
-ID2D1Bitmap* TreeView::treeview_rightArrow=0;
-ID2D1Bitmap* TreeView::treeview_downArrow=0;
-
-ID2D1SolidColorBrush* TreeView::colorGray=0;
-ID2D1SolidColorBrush* TreeView::colorGraySel=0;
-ID2D1SolidColorBrush* TreeView::m_pFeatureBrush=0;
-ID2D1SolidColorBrush* TreeView::m_pFeatureBrushSelection=0;
-ID2D1SolidColorBrush* TreeView::m_pTextBrush=0;
+unsigned char* TreeView::rightArrow=0;
+unsigned char* TreeView::downArrow=0;
 
 void TreeView::TVNODE::clear(TVNODE& node)
 {
@@ -401,27 +490,64 @@ void TreeView::TVNODE::clear(TVNODE& node)
 }
 
 
+
+
+
 TreeView::TreeView(TabContainer* tc):
-tabContainer(tc),
+colorGray(0),
+colorGraySel(0),
+m_pFeatureBrush(0),
+m_pFeatureBrushSelection(0),
+m_pTextBrush(0),
 treeview_bitmapRenderTarget(0),
 treeview_bitmap(0),
 treeview_tvWidth(tc->width),
 treeview_tvHeight(tc->height),
 treeview_scroll(0),
-treeview_framex(tabContainer->width-20),
-treeview_framey(tabContainer->height-30)
+treeview_rightArrow(0),
+treeview_downArrow(0)
 {
+	guiinterface_tabcontainer=tc;
 
-	if(!colorGray)tabContainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkGray),&colorGray);
-	if(!colorGraySel)tabContainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(0x858585),&colorGraySel);
-	if(!m_pFeatureBrush)tabContainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::BlueViolet),&m_pFeatureBrush);
-	if(!m_pFeatureBrushSelection)tabContainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(0xffffff),&m_pFeatureBrushSelection);
-	if(!m_pTextBrush)tabContainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),&m_pTextBrush);
+	treeview_framex=guiinterface_tabcontainer->width-20;
+	treeview_framey=guiinterface_tabcontainer->height-30;
 
-	if(!treeview_rightArrow)treeview_rightArrow=Direct2DGuiBase::CreateBitmap(tabContainer->tabcontainer_renderer,L"rightarrow.png");
-	if(!treeview_downArrow)treeview_downArrow=Direct2DGuiBase::CreateBitmap(tabContainer->tabcontainer_renderer,L"downarrow.png");
+	this->guiinterface_tabName="Entities";
+
+	this->RecreateTarget();
+
+	
 
 	OnEntitiesChange();
+}
+
+void TreeView::RecreateTarget()
+{
+	if(colorGray)colorGray->Release();
+	if(colorGraySel)colorGraySel->Release();
+
+	if(m_pFeatureBrush)m_pFeatureBrush->Release();
+	if(m_pFeatureBrushSelection)m_pFeatureBrushSelection->Release();
+	if(m_pTextBrush)m_pTextBrush->Release();
+
+	if(!rightArrow)
+		Direct2DGuiBase::CreateBitmap(guiinterface_tabcontainer->tabcontainer_renderer,L"rightarrow.png",rightArrow);
+
+	if(!downArrow)
+		Direct2DGuiBase::CreateBitmap(guiinterface_tabcontainer->tabcontainer_renderer,L"downarrow.png",downArrow);
+
+	if(treeview_rightArrow)treeview_rightArrow->Release();
+	if(treeview_downArrow)treeview_downArrow->Release();
+
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkGray),&colorGray);
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(0x858585),&colorGraySel);
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::BlueViolet),&m_pFeatureBrush);
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(0xffffff),&m_pFeatureBrushSelection);
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),&m_pTextBrush);
+
+	
+
+	DrawItems();
 }
 
 
@@ -436,28 +562,28 @@ TreeView::~TreeView()
 
 void TreeView::OnEntitiesChange()
 {
-	HDC hdc=GetDC(tabContainer->hwnd);
+	HDC hdc=GetDC(guiinterface_tabcontainer->hwnd);
 	int nLevels=0;
 
 	TVNODE::clear(elements);
 
 	Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
 
-	TVNODE::insert(elements,rootEntity,GetDC(tabContainer->hwnd),treeview_tvWidth=0,treeview_tvHeight=0,0);
+	TVNODE::insert(elements,rootEntity,GetDC(guiinterface_tabcontainer->hwnd),treeview_tvWidth=0,treeview_tvHeight=0,0);
 
 	this->DrawItems();
 }
 
 void TreeView::OnSize()
 {
-	treeview_framex=tabContainer->width-ScrollBar::SCROLLBAR_WIDTH;
-	treeview_framey=tabContainer->height-TabContainer::CONTAINER_HEIGHT;
+	treeview_framex=guiinterface_tabcontainer->width-ScrollBar::SCROLLBAR_WIDTH;
+	treeview_framey=guiinterface_tabcontainer->height-TabContainer::CONTAINER_HEIGHT;
 }
 
 void TreeView::OnLMouseDown()
 {
-	float &mx=tabContainer->tabcontainer_mousex;
-	float &my=tabContainer->tabcontainer_mousey;
+	float &mx=guiinterface_tabcontainer->tabcontainer_mousex;
+	float &my=guiinterface_tabcontainer->tabcontainer_mousey;
 
 	if(mx>treeview_framex)
 	{
@@ -485,8 +611,15 @@ void TreeView::OnLMouseDown()
 
 void TreeView::OnRun()
 {
-	if(tabContainer->tabcontainer_mouseDown)
+	if(guiinterface_tabcontainer->tabcontainer_mouseDown)
 		this->OnLMouseDown();
+}
+
+void TreeView::OnReparent()
+{
+	this->OnSize();
+	this->RecreateTarget();
+	this->DrawItems();
 }
 
 void TreeView::DrawItems()
@@ -494,7 +627,24 @@ void TreeView::DrawItems()
 	if(treeview_bitmapRenderTarget)
 		treeview_bitmapRenderTarget->Release();
 
-	tabContainer->tabcontainer_renderer->CreateCompatibleRenderTarget(D2D1::SizeF(treeview_tvWidth,treeview_tvHeight),&treeview_bitmapRenderTarget);
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateCompatibleRenderTarget(D2D1::SizeF(treeview_tvWidth,treeview_tvHeight),&treeview_bitmapRenderTarget);
+
+	if(!treeview_bitmapRenderTarget)
+		treeview_bitmapRenderTarget->Release();
+
+	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+	bp.pixelFormat=treeview_bitmapRenderTarget->GetPixelFormat();
+
+
+	treeview_bitmapRenderTarget->CreateBitmap(D2D1::SizeU(20,20),rightArrow,20*4,bp,&treeview_rightArrow);
+
+	if(!treeview_rightArrow)
+		__debugbreak();
+
+	treeview_bitmapRenderTarget->CreateBitmap(D2D1::SizeU(20,20),downArrow,20*4,bp,&treeview_downArrow);
+
+	if(!treeview_downArrow)
+		__debugbreak();
 
 	treeview_bitmapRenderTarget->BeginDraw();
 
@@ -504,33 +654,39 @@ void TreeView::DrawItems()
 
 	treeview_bitmapRenderTarget->EndDraw();
 
-	treeview_bitmapRenderTarget->GetBitmap(&treeview_bitmap);
+	LRESULT result=treeview_bitmapRenderTarget->GetBitmap(&treeview_bitmap);
+
+	if(result!=S_OK)
+		__debugbreak();
 
 	this->OnPaint();
 }
 
 void TreeView::OnPaint()
 {
-	tabContainer->tabcontainer_renderer->BeginDraw();
+	if(!guiinterface_tabcontainer->tabcontainer_isRender)
+		guiinterface_tabcontainer->tabcontainer_renderer->BeginDraw();
 
-	tabContainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(0,TabContainer::CONTAINER_HEIGHT,treeview_framex,tabContainer->height),this->tabContainer->tabcontainer_backgroundBrush);
 
-	tabContainer->tabcontainer_renderer->PushAxisAlignedClip(D2D1::RectF(0,TabContainer::CONTAINER_HEIGHT,treeview_framex,tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
+	guiinterface_tabcontainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(0,TabContainer::CONTAINER_HEIGHT,treeview_framex,guiinterface_tabcontainer->height),this->guiinterface_tabcontainer->tabcontainer_backgroundBrush);
 
-	tabContainer->tabcontainer_renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,TabContainer::CONTAINER_HEIGHT-treeview_scroll));
+	guiinterface_tabcontainer->tabcontainer_renderer->PushAxisAlignedClip(D2D1::RectF(0,TabContainer::CONTAINER_HEIGHT,treeview_framex,guiinterface_tabcontainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
+
+	guiinterface_tabcontainer->tabcontainer_renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,TabContainer::CONTAINER_HEIGHT-treeview_scroll));
 
 	TVNODE::drawselection(elements,this);
 
-	tabContainer->tabcontainer_renderer->DrawBitmap(treeview_bitmap);
+	guiinterface_tabcontainer->tabcontainer_renderer->DrawBitmap(treeview_bitmap);
 
-	tabContainer->tabcontainer_renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+	guiinterface_tabcontainer->tabcontainer_renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
-	tabContainer->tabcontainer_renderer->PopAxisAlignedClip();
+	guiinterface_tabcontainer->tabcontainer_renderer->PopAxisAlignedClip();
 
-	tabContainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(treeview_framex,TabContainer::CONTAINER_HEIGHT,tabContainer->width,TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT),this->m_pFeatureBrush);
-	tabContainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(treeview_framex,treeview_framey,tabContainer->width,tabContainer->height),this->m_pFeatureBrush);
+	guiinterface_tabcontainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(treeview_framex,TabContainer::CONTAINER_HEIGHT,guiinterface_tabcontainer->width,TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT),this->m_pFeatureBrush);
+	guiinterface_tabcontainer->tabcontainer_renderer->FillRectangle(D2D1::RectF(treeview_framex,treeview_framey,guiinterface_tabcontainer->width,guiinterface_tabcontainer->height),this->m_pFeatureBrush);
 
-	tabContainer->tabcontainer_renderer->EndDraw();
+	if(!guiinterface_tabcontainer->tabcontainer_isRender)
+		guiinterface_tabcontainer->tabcontainer_renderer->EndDraw();
 }
 
 

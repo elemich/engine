@@ -352,11 +352,11 @@ void App::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-		else
+
+		/*for(int i=0;i<(int)RendererInterface::renderers.size();i++)
 		{
-			for(int i=0;i<(int)RendererInterface::renderers.size();i++)
-				RendererInterface::renderers[i]->Render();
-		}
+			RendererInterface::renderers[i]->Render();		
+		}*/
 	}
 
 	this->Close();

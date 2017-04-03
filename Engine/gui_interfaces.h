@@ -3,12 +3,17 @@
 
 #include "interfaces.h"
 
+struct TabContainer;
+
 struct GuiInterface
 {
 	static std::vector<GuiInterface*> guiInterfacesPool;
 
 	GuiInterface();
 	~GuiInterface();
+
+	String guiinterface_tabName;
+	TabContainer* guiinterface_tabcontainer;
 
 	virtual GuiInterface* GetLogger(){return 0;}
 	virtual GuiInterface* GetFolderBrowser(){return 0;}
@@ -22,6 +27,9 @@ struct GuiInterface
 	virtual void OnSize(){}
 	virtual void OnLMouseDown(){}
 	virtual void OnRun(){}
+	virtual void OnReparent(){this->OnSize();}
+
+	virtual void RecreateTarget(){}
 };
 
 

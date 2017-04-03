@@ -20,20 +20,19 @@ void MainAppContainerWindow::Create(HWND)
 		InsertMenu(menuEntities,0,MF_BYPOSITION|MF_STRING,MAINMENU_ENTITIES_IMPORTENTITY,"Import...");
 	}
 
-	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,menuMain,0,0);
-	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
+	hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,menuMain,0,this);
 
 	RECT rc;
 	GetClientRect(hwnd,&rc);
-	HWND firstTabContainerChild=CreateTabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd);
+	TabContainer* tabContainer=new TabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd);
+
+	if(tabContainer)
+		tabContainer->AddTab(new OpenGLRenderer(tabContainer));
+
 	/*CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_OPENGLWINDOW);
 	CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_SCENEENTITIES);
 
-	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
-	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
-	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
-	OpenGLShader::Create("font",font_pixsh,font_frgsh);
-	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);*/
+	*/
 
 	ShowWindow(hwnd,true);
 }
@@ -50,24 +49,22 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 	switch(msg)
 	{
+		case WM_CREATE:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)((LPCREATESTRUCT)lparam)->lpCreateParams);
+		}
+		break;
 		case WM_CLOSE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			PostQuitMessage(1);
 		break;
-		case WM_ERASEBKGND:
-			return (LRESULT)1;
+		/*case WM_ERASEBKGND:
+			return (LRESULT)1;*/
 		case WM_LBUTTONDOWN:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->OnLButtonDown(hwnd,lparam);
 		break;
-		/*case WM_MOUSEWHEEL:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				HWND window=mainw->GetWindowBelowMouse(hwnd,wparam,lparam);
-				if(hwnd!=window)
-					SendMessage(mainw->GetTabSelectionWindow(window),WM_MOUSEWHEEL,wparam,lparam);
-			}
-		break;*/
 		case WM_LBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->OnLButtonUp(hwnd);
@@ -75,20 +72,6 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		case WM_MOUSEMOVE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->OnMouseMove(hwnd,lparam);
-		break;
-		case WM_SIZING:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				RECT rc=*(RECT*)lparam;
-				//printf("sizing %d,%d,%d,%d\n",rc.left,rc.top,rc.right,rc.bottom);
-			}
-		break;
-		case WM_SIZE:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				POINTS p=MAKEPOINTS(lparam);
-				//printf("size %d,%d\n",p.x,p.y);
-			}
 		break;
 		case WM_COMMAND:
 			{
@@ -123,9 +106,8 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 				}
 			}
 		break;
-		
-			default:
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
+		default:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
 	}
 
 	return result;

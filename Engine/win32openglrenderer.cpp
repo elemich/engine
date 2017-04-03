@@ -7,6 +7,12 @@ GLuint OpenGLRenderer::vertexArrayObject=0;
 GLuint OpenGLRenderer::vertexBufferObject=0;
 GLuint OpenGLRenderer::textureBufferObject=0;
 GLuint OpenGLRenderer::indicesBufferObject=0;
+GLuint OpenGLRenderer::frameBuffer=0;
+GLuint OpenGLRenderer::textureColorbuffer=0;
+GLuint OpenGLRenderer::textureRenderbuffer=0;
+GLuint OpenGLRenderer::pixelBuffer=0;
+GLuint OpenGLRenderer::renderBufferColor=0;
+GLuint OpenGLRenderer::renderBufferDepth=0;
 
 PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
 PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
@@ -52,6 +58,21 @@ PFNGLUNIFORM4FVPROC glUniform4fv = 0;
 PFNGLTEXBUFFERPROC glTexBuffer = 0;
 PFNGLTEXTUREBUFFERPROC glTextureBuffer = 0;
 PFNGLBUFFERSUBDATAPROC glBufferSubData = 0;
+PFNGLVIEWPORTINDEXEDFPROC glViewportIndexedf = 0;
+PFNGLADDSWAPHINTRECTWINPROC glAddSwapHintRectWIN = 0;
+PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers = 0;
+PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = 0;
+PFNGLNAMEDRENDERBUFFERSTORAGEPROC glNamedRenderbufferStorage = 0;
+PFNGLRENDERBUFFERSTORAGEPROC glRenderbufferStorage = 0;
+PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers = 0;
+PFNGLBINDRENDERBUFFERPROC glBindRenderbuffer = 0;
+PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer = 0;
+PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer = 0;
+PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = 0;
+PFNGLDRAWBUFFERSPROC glDrawBuffers = 0;
+PFNGLBLITNAMEDFRAMEBUFFERPROC glBlitNamedFramebuffer = 0;
+PFNGLFRAMEBUFFERTEXTUREPROC glFramebufferTexture = 0;
+PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = 0;
 
 #endif
 
@@ -177,12 +198,22 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 }
 
 
-OpenGLRenderer::OpenGLRenderer()
+OpenGLRenderer::OpenGLRenderer(TabContainer* tc)
 {
+	this->GuiInterface::guiinterface_tabName="OpenGL";
+	this->GuiInterface::guiinterface_tabcontainer=tc;
+
 	RendererViewportInterface_viewScale=1.0f;
 	RendererViewportInterface_farPlane=3000.0f;
 
+	openglrenderer_bitmapRenderTarget=0;
+	openglrenderer_bitmap=0;
+
 	hglrc=0;
+	buffer=0;
+
+	if(guiinterface_tabcontainer->hwnd)
+		this->Create(guiinterface_tabcontainer->hwnd);
 }
 
 char* OpenGLRenderer::Name()
@@ -190,16 +221,30 @@ char* OpenGLRenderer::Name()
 	return 0;
 }
 
-void OpenGLRenderer::Create(HWND container)
+void OpenGLRenderer::Create(HWND hwnd)
 {
-	hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
-	hdc=GetDC(hwnd);
+	sourceDc=GetDC(hwnd);
+
+	RECT r;
+	GetClientRect(hwnd,&r);
+
+	width=r.right-r.left;
+	height=r.bottom-r.top;
+
+	hdc=CreateCompatibleDC(sourceDc);
+
+	hbitmap=CreateCompatibleBitmap(sourceDc,width,height);
+
+	SelectObject(hdc,hbitmap);
+
+	HDC rcDc=sourceDc;
+	hdc=sourceDc;
 
 	DWORD error=0;
 
 	for(int i=0;i<1;i++)
 	{
-		if(!hdc)
+		if(!rcDc)
 			MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
 
 		PIXELFORMATDESCRIPTOR pfd={0};
@@ -211,7 +256,7 @@ void OpenGLRenderer::Create(HWND container)
 		pfd.cDepthBits=32;
 		pfd.cStencilBits=32;
 
-		int pixelFormat = ChoosePixelFormat(hdc,&pfd);
+		int pixelFormat = ChoosePixelFormat(rcDc,&pfd);
 
 		error=GetLastError();
 
@@ -219,16 +264,16 @@ void OpenGLRenderer::Create(HWND container)
 			__debugbreak();
 
 		if(pixelFormat==0)
-			MessageBox(0,"pixel format error","ChoosePixelFormat",MB_OK|MB_ICONEXCLAMATION);
+			__debugbreak();
 
-		if(!SetPixelFormat(hdc,pixelFormat,&pfd))
-			MessageBox(0,"pixel format error","SetPixelFormat",MB_OK|MB_ICONEXCLAMATION);
+		if(!SetPixelFormat(rcDc,pixelFormat,&pfd))
+			__debugbreak();
 
-		if(!(hglrc = wglCreateContext(hdc)))
-			MessageBox(0,"create context error","wglCreateContext",MB_OK|MB_ICONEXCLAMATION);
+		if(!(hglrc = wglCreateContext(rcDc)))
+			__debugbreak();
 
-		if(!wglMakeCurrent(hdc,hglrc))
-			MessageBox(0,"making current context error","wglMakeCurrent",MB_OK|MB_ICONEXCLAMATION);
+		if(!wglMakeCurrent(rcDc,hglrc))
+			__debugbreak();
 
 		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
 		if(!wglCreateContextAttribsARB)wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
@@ -274,12 +319,27 @@ void OpenGLRenderer::Create(HWND container)
 		if(!glTexBuffer) glTexBuffer = (PFNGLTEXBUFFERPROC) wglGetProcAddress("glTexBuffer");
 		if(!glTextureBuffer) glTextureBuffer = (PFNGLTEXTUREBUFFERPROC) wglGetProcAddress("glTextureBuffer");
 		if(!glBufferSubData) glBufferSubData = (PFNGLBUFFERSUBDATAPROC) wglGetProcAddress("glBufferSubData");
-
+		if(!glBufferSubData)glViewportIndexedf = (PFNGLVIEWPORTINDEXEDFPROC) wglGetProcAddress("glViewportIndexedf");
+		if(!glAddSwapHintRectWIN)glAddSwapHintRectWIN = (PFNGLADDSWAPHINTRECTWINPROC) wglGetProcAddress("glAddSwapHintRectWIN");
+		if(!glGenFramebuffers)glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) wglGetProcAddress("glGenFramebuffers");
+		if(!glBindFramebuffer)glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) wglGetProcAddress("glBindFramebuffer");
+		if(!glNamedRenderbufferStorage)glNamedRenderbufferStorage = (PFNGLNAMEDRENDERBUFFERSTORAGEPROC) wglGetProcAddress("glNamedRenderbufferStorage");
+		if(!glRenderbufferStorage)glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) wglGetProcAddress("glRenderbufferStorage");
+		if(!glGenRenderbuffers)glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) wglGetProcAddress("glGenRenderbuffers");
+		if(!glBindRenderbuffer)glBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) wglGetProcAddress("glBindRenderbuffer");
+		if(!glFramebufferRenderbuffer)glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) wglGetProcAddress("glFramebufferRenderbuffer");
+		if(!glBlitFramebuffer)glBlitFramebuffer = (PFNGLBLITFRAMEBUFFERPROC) wglGetProcAddress("glBlitFramebuffer");
+		if(!glCheckFramebufferStatus)glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC) wglGetProcAddress("glCheckFramebufferStatus");
+		if(!glDrawBuffers)glDrawBuffers = (PFNGLDRAWBUFFERSPROC) wglGetProcAddress("glDrawBuffers");
+		if(!glBlitNamedFramebuffer) glBlitNamedFramebuffer = (PFNGLBLITNAMEDFRAMEBUFFERPROC) wglGetProcAddress("glBlitNamedFramebuffer");
+		if(!glFramebufferTexture)glFramebufferTexture = (PFNGLFRAMEBUFFERTEXTUREPROC)wglGetProcAddress("glFramebufferTexture");
+		if(!glFramebufferTexture2D)glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");
 #endif
 
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(hglrc);
 	}
+
 
 	const int pixelFormatAttribList[] = 
 	{
@@ -290,35 +350,48 @@ void OpenGLRenderer::Create(HWND container)
 		WGL_COLOR_BITS_ARB, 32,
 		WGL_DEPTH_BITS_ARB, 32,
 		WGL_STENCIL_BITS_ARB, 32,
-		0,        //End
+		//WGL_SWAP_COPY_ARB,GL_TRUE,        //End
+		0
 	};
 
 	int pixelFormat;
 	UINT numFormats;
 
-	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
-		MessageBox(0,"pixel format error","wglChoosePixelFormatARB",MB_OK|MB_ICONEXCLAMATION);
+	if(!wglChoosePixelFormatARB(rcDc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
+		__debugbreak();
+
+	
 
 	const int versionAttribList[] = 
 	{
 		WGL_CONTEXT_MAJOR_VERSION_ARB,4,
-		WGL_CONTEXT_MINOR_VERSION_ARB,0,
+		WGL_CONTEXT_MINOR_VERSION_ARB,0, 
 		0,        //End
 	};
 
-	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
-		MessageBox(0,"createcontext error","wglCreateContextAttribsARB",MB_OK|MB_ICONEXCLAMATION);
+	if(!(hglrc = wglCreateContextAttribsARB(rcDc, 0, versionAttribList)))
+		__debugbreak();
 	
-	if(!wglMakeCurrent(hdc,hglrc))
-		MessageBox(0,"make context current error","wglMakeCurrent",MB_OK|MB_ICONEXCLAMATION);
+	if(!wglMakeCurrent(rcDc,hglrc))
+		__debugbreak();
 
 	if(!vertexArrayObject)
 	{
-		glGenVertexArrays(1, &vertexArrayObject);
-		glBindVertexArray(vertexArrayObject);
+		{
+			glGenFramebuffers(1,&frameBuffer);glCheckError();
+			
+			glGenTextures(1,&textureColorbuffer);glCheckError();
+			glGenTextures(1,&textureRenderbuffer);glCheckError();
 
-		glGenBuffers(1,&vertexBufferObject);
-		glGenBuffers(1,&textureBufferObject);
+			glGenRenderbuffers(1,&renderBufferColor);glCheckError();
+			glGenRenderbuffers(1,&renderBufferDepth);glCheckError();
+		}
+		
+		glGenVertexArrays(1, &vertexArrayObject);glCheckError();
+		glBindVertexArray(vertexArrayObject);glCheckError();
+
+		glGenBuffers(1,&vertexBufferObject);glCheckError();
+		glGenBuffers(1,&textureBufferObject);glCheckError();
 		/*
 		//glGenBuffers(1,&indicesBufferObject);
 
@@ -327,21 +400,31 @@ void OpenGLRenderer::Create(HWND container)
 
 		glBufferData(GL_ARRAY_BUFFER,100000,0,GL_DYNAMIC_DRAW);*/
 
-		
+
+		glGenBuffers(1, &pixelBuffer);
 	}
 
 	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
 	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
-	//printf("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
+	//printf("Status: Using extension %s\n", glGetString(GL_EXTENSIONS));
 
-	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
+	//SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	renderers.push_back(this);
+
+	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
+	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
+	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	OpenGLShader::Create("font",font_pixsh,font_frgsh);
+	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+
+	
 }
 
+/*
 OpenGLRenderer* OpenGLRenderer::CreateSharedContext(HWND container)
 {
-	OpenGLRenderer* sharedRenderer=new OpenGLRenderer();
+	OpenGLRenderer* sharedRenderer=new OpenGLRenderer(container);
 
 	sharedRenderer->hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
 
@@ -364,6 +447,7 @@ OpenGLRenderer* OpenGLRenderer::CreateSharedContext(HWND container)
 
 	return sharedRenderer;
 }
+*/
 
 
 
@@ -380,34 +464,7 @@ void OpenGLRenderer::ChangeContext()
 		__debugbreak();
 }
 
-void OpenGLRenderer::Render()
-{
-	if(!hglrc)
-		return;
 
-	//ChangeContext();
-	
-	
-	glClear(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);glCheckError();
-	glClearColor(0,0,0,0);glCheckError();
-
-	MatrixStack::SetShaderMatrix();
-
-	draw(vec3(0,0,0),15);
-	draw(vec3(0,0,0),vec3(1000,0,0));
-	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
-
-	processNode(this,Entity::pool,Entity::pool.begin(),0,0);
-	processNode(this,Entity::pool,Entity::pool.begin(),1,0);
-	processNode(this,Entity::pool,Entity::pool.begin(),2,0);
-	processNode(this,Entity::pool,Entity::pool.begin(),3,0);
-
-	if(!SwapBuffers(hdc))
-		MessageBox(0,"error","SwapBuffers",MB_OK|MB_ICONEXCLAMATION);
-
-	for(int i=0;i<(int)shared_renderers.size();i++)
-		shared_renderers[i]->Render();
-}
 
 
 void OpenGLRenderer::draw(Light*)
@@ -439,13 +496,10 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 	if(uniform_color>=0)
 	{glUniform3fv(uniform_color,1,col);glCheckError();}
 
-	
-
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 
 	glBufferData(GL_ARRAY_BUFFER,3*sizeof(float),point.v,GL_DYNAMIC_DRAW);
 
-	
 	glEnableVertexAttribArray(ps);glCheckError();
 	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,0);glCheckError();
 	
@@ -1135,7 +1189,7 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	RendererViewportInterface_viewScale+=-signof(factor)*(RendererViewportInterface_viewScale*0.1f);
 
 	RECT rc;
-	GetClientRect(this->hwnd,&rc);
+	GetClientRect(this->guiinterface_tabcontainer->hwnd,&rc);
 
 	float halfW=((rc.right-rc.left)/2.0f)*RendererViewportInterface_viewScale;
 	float halfH=((rc.bottom-rc.top)/2.0f)*RendererViewportInterface_viewScale;
@@ -1169,7 +1223,7 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 	pos.x=(float)x;
 	pos.y=(float)y;
 
-	if(leftButtonDown && GetFocus()==this->hwnd)
+	if(leftButtonDown && GetFocus()==this->guiinterface_tabcontainer->hwnd)
 	{
 		float dX=(pos.x-oldpos.x);
 		float dY=(pos.y-oldpos.y);
@@ -1216,4 +1270,102 @@ void OpenGLRenderer::OnMouseDown(int,int)
 
 
 
+void OpenGLRenderer::OnPaint()
+{
+	this->Render();
+}
 
+
+void OpenGLRenderer::Render()
+{
+	if(!hglrc)
+		return;
+
+	/*glReadBuffer(GL_FRONT);glCheckError();
+
+	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB,pixelBuffer);glCheckError();
+	glReadPixels(0,30,width,height,GL_RGBA,GL_UNSIGNED_BYTE,0);glCheckError();
+	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB,0);glCheckError();
+
+	glDrawBuffer(GL_BACK);glCheckError();*/
+
+	glEnable(GL_DEPTH_TEST);
+	
+	glClearColor(0.5,0.5,0.5,0);glCheckError();
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+
+	MatrixStack::SetShaderMatrix();
+
+	draw(vec3(0,0,0),15);
+	draw(vec3(0,0,0),vec3(1000,0,0));
+	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
+
+	processNode(this,Entity::pool,Entity::pool.begin(),0,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),1,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),2,0);
+	processNode(this,Entity::pool,Entity::pool.begin(),3,0);
+
+	glReadBuffer(GL_BACK);glCheckError();
+	glReadPixels(0,0,width,height,GL_BGRA,GL_UNSIGNED_BYTE,buffer);glCheckError();//@mic should implement pbo for performance
+
+	float stride=width*4;
+
+	openglrenderer_bitmap->CopyFromMemory(&D2D1::RectU(0,0,width,height),buffer,stride);
+
+	if(!guiinterface_tabcontainer->tabcontainer_isRender)
+		guiinterface_tabcontainer->tabcontainer_renderer->BeginDraw();
+
+	guiinterface_tabcontainer->tabcontainer_renderer->DrawBitmap(openglrenderer_bitmap,D2D1::RectF(0,30,width,height+30));
+
+	if(!guiinterface_tabcontainer->tabcontainer_isRender)
+		guiinterface_tabcontainer->tabcontainer_renderer->EndDraw();
+
+	//SwapBuffers(hdc);glCheckError();
+
+
+	for(int i=0;i<(int)shared_renderers.size();i++)
+		shared_renderers[i]->Render();
+}
+
+
+
+void OpenGLRenderer::OnSize()
+{
+	this->width=guiinterface_tabcontainer->width;
+	this->height=(guiinterface_tabcontainer->height-TabContainer::CONTAINER_HEIGHT);
+
+	if(openglrenderer_bitmap)
+		openglrenderer_bitmap->Release();
+
+	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+	bp.pixelFormat=guiinterface_tabcontainer->tabcontainer_renderer->GetPixelFormat();
+
+	guiinterface_tabcontainer->tabcontainer_renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&openglrenderer_bitmap);
+	
+	if(!openglrenderer_bitmap)
+		__debugbreak();
+
+	if(buffer)
+		delete [] buffer;
+	buffer=new unsigned char[width*height*4];
+
+	glViewport(0,0,width,height);glCheckError();
+	glScissor(0,0,width,height);glCheckError();
+
+	float halfW=(width/2.0f)*RendererViewportInterface_viewScale;
+	float halfH=(height/2.0f)*RendererViewportInterface_viewScale;
+	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
+	MatrixStack::SetProjectionMatrix(p);
+}
+void OpenGLRenderer::OnLMouseDown()
+{
+
+}
+void OpenGLRenderer::OnEntitiesChange()
+{
+
+}
+void OpenGLRenderer::OnRun()
+{
+
+}
