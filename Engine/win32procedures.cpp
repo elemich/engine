@@ -72,18 +72,17 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 }
 
 
+unsigned char* TabContainer::rawRightArrow=0;
+unsigned char* TabContainer::rawDownArrow=0;
+
 TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
-	tabcontainer_renderer(0),
-	tabcontainer_dcRenderer(0),
-	tabcontainer_tabBackgroundBrush(0),
-	tabcontainer_backgroundBrush(0),
-	tabcontainer_tabBrush(0),
-	tabcontainer_textBrush(0),
-	tabcontainer_selected(0),
-	tabcontainer_mouseDown(false),
-	tabcontainer_isRender(false),
+	renderer(0),
+	brush(0),
+	selected(0),
+	mouseDown(false),
+	isRender(false),
 	splitterContainer(0),
-	tabcontainer_recreateTarget(false)
+	recreateTarget(false)
 {
 	width=w;
 	height=h;
@@ -105,13 +104,10 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 void TabContainer::OnSize(LPARAM lparam)
 {
 	WindowData::OnSize(lparam);
-	tabcontainer_renderer->Resize(D2D1::SizeU(width,height));
+	renderer->Resize(D2D1::SizeU(width,height));
 
-	RECT rc={0,0,width,height};
-	tabcontainer_dcRenderer->BindDC(GetDC(hwnd),&rc);
-
-	if(tabcontainer_tabs.size() && tabcontainer_tabs[tabcontainer_selected])
-		tabcontainer_tabs[tabcontainer_selected]->OnSize();
+	if(tabs.size() && tabs[selected])
+		tabs[selected]->OnSize();
 
 	this->OnPaint();
 }
@@ -120,12 +116,12 @@ GuiInterface* TabContainer::AddTab(GuiInterface* gui,int position)
 {
 	if(gui)
 	{
-		gui->guiinterface_tabcontainer=this;
+		gui->tab=this;
 
-		std::vector<GuiInterface*>& tabs=this->tabcontainer_tabs;
+		std::vector<GuiInterface*>& tabs=this->tabs;
 
 		tabs.insert(position<0 ? tabs.end() : tabs.begin() + position,gui);
-		this->tabcontainer_selected = position<0 ? (int)tabs.size()-1 : position;
+		this->selected = position<0 ? (int)tabs.size()-1 : position;
 
 		
 		gui->OnReparent();
@@ -141,9 +137,9 @@ int TabContainer::RemoveTab(GuiInterface* gui)
 {
 	if(gui)
 	{
-		gui->guiinterface_tabcontainer=0;
+		gui->tab=0;
 
-		std::vector<GuiInterface*>& tabs=this->tabcontainer_tabs;
+		std::vector<GuiInterface*>& tabs=this->tabs;
 
 		std::vector<GuiInterface*>::iterator iIt=std::find(tabs.begin(),tabs.end(),gui);
 
@@ -151,7 +147,7 @@ int TabContainer::RemoveTab(GuiInterface* gui)
 		{
 			int position=std::distance(tabs.begin(),iIt);
 			tabs.erase(iIt);
-			position>0 ? this->tabcontainer_selected-- : this->tabcontainer_selected++;
+			position>0 ? this->selected-- : this->selected++;
 			
 			return position;
 		}
@@ -162,49 +158,49 @@ int TabContainer::RemoveTab(GuiInterface* gui)
 
 void TabContainer::RecreateTarget()
 {
-	if(tabcontainer_renderer)tabcontainer_renderer->Release();
-	if(tabcontainer_tabBackgroundBrush)tabcontainer_tabBackgroundBrush->Release();
-	if(tabcontainer_backgroundBrush)tabcontainer_backgroundBrush->Release();
-	if(tabcontainer_tabBrush)tabcontainer_tabBrush->Release();
-	if(tabcontainer_textBrush)tabcontainer_textBrush->Release();
+	if(!rawRightArrow)
+		Direct2DGuiBase::CreateRawBitmap(L"rightarrow.png",rawRightArrow);
 
-	tabcontainer_renderer=Direct2DGuiBase::InitHWNDRenderer(hwnd);
+	if(!rawDownArrow)
+		Direct2DGuiBase::CreateRawBitmap(L"downarrow.png",rawDownArrow);
 
-	tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::LightGray),&tabcontainer_tabBackgroundBrush);
-	tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Gray),&tabcontainer_backgroundBrush);
-	tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Blue),&tabcontainer_tabBrush);
-	tabcontainer_renderer->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White),&tabcontainer_textBrush);
+	if(renderer)renderer->Release();
+	if(brush)brush->Release();
 
-	if(tabcontainer_tabs.size() && tabcontainer_tabs[tabcontainer_selected])
-		tabcontainer_tabs[tabcontainer_selected]->RecreateTarget();
+	renderer=Direct2DGuiBase::InitHWNDRenderer(hwnd);
+
+	renderer->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
+
+	if(tabs.size() && tabs[selected])
+		tabs[selected]->RecreateTarget();
 }
 
 void TabContainer::OnWindowPosChanging(LPARAM lparam)
 {
 	WindowData::OnWindowPosChanging(lparam);
 
-	tabcontainer_renderer->Resize(D2D1::SizeU(width,height));
+	renderer->Resize(D2D1::SizeU(width,height));
 
-	if(tabcontainer_tabs.size() && tabcontainer_tabs[tabcontainer_selected])
-		tabcontainer_tabs[tabcontainer_selected]->OnSize();
+	if(tabs.size() && tabs[selected])
+		tabs[selected]->OnSize();
 
 	this->OnPaint();
 }
 
 void TabContainer::OnMouseMove(LPARAM lparam)
 {
-	tabcontainer_mousex=(float)LOWORD(lparam);
-	tabcontainer_mousey=(float)HIWORD(lparam);
+	mousex=(float)LOWORD(lparam);
+	mousey=(float)HIWORD(lparam);
 
 	splitterContainer->currentTabContainer=this;
 
-	if(tabcontainer_mouseDown)
+	if(mouseDown)
 		splitterContainer->CreateFloatingTab(this);
 }
 
 void TabContainer::OnLMouseUp(LPARAM lparam)
 {
-	tabcontainer_mouseDown=false;
+	mouseDown=false;
 }
 
 void TabContainer::OnLMouseDown(LPARAM lparam)
@@ -213,22 +209,22 @@ void TabContainer::OnLMouseDown(LPARAM lparam)
 
 	
 
-	float &x=this->tabcontainer_mousex;
-	float &y=this->tabcontainer_mousey;
+	float &x=this->mousex;
+	float &y=this->mousey;
 
 	if(y<CONTAINER_HEIGHT)
 	{
-		int prevSel=tabcontainer_selected;
+		int prevSel=selected;
 
-		for(int i=0;i<(int)tabcontainer_tabs.size();i++)
+		for(int i=0;i<(int)tabs.size();i++)
 		{
-			if(x>(i*CONTAINER_TAB_WIDTH) && x< (i*CONTAINER_TAB_WIDTH+CONTAINER_TAB_WIDTH) && y > (CONTAINER_HEIGHT-CONTAINER_TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
+			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 			{
-				tabcontainer_selected=i;
+				selected=i;
 
-				tabcontainer_mouseDown=true;
+				mouseDown=true;
 
-				if(prevSel!=tabcontainer_selected)
+				if(prevSel!=selected)
 					this->OnPaint();
 
 				break;
@@ -237,8 +233,8 @@ void TabContainer::OnLMouseDown(LPARAM lparam)
 	}
 	else
 	{
-		if(tabcontainer_tabs[tabcontainer_selected])
-			tabcontainer_tabs[tabcontainer_selected]->OnLMouseDown();
+		if(tabs[selected])
+			tabs[selected]->OnLMouseDown();
 	}
 }
 
@@ -262,15 +258,15 @@ void TabContainer::OnRMouseUp(LPARAM lparam)
 {
 	OnMouseMove(lparam);
 
-	float &x=this->tabcontainer_mousex;
-	float &y=this->tabcontainer_mousey;
+	float &x=this->mousex;
+	float &y=this->mousey;
 
 	RECT rc;
 	GetWindowRect(hwnd,&rc);
 
-	for(int i=0;i<(int)tabcontainer_tabs.size();i++)
+	for(int i=0;i<(int)tabs.size();i++)
 	{
-		if(x>(i*CONTAINER_TAB_WIDTH) && x< (i*CONTAINER_TAB_WIDTH+CONTAINER_TAB_WIDTH) && y > (CONTAINER_HEIGHT-CONTAINER_TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
+		if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 		{
 			int menuResult=TrackPopupMenu(SplitterContainer::popupMenuRoot,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(lparam),rc.top+HIWORD(lparam),0,GetParent(hwnd),0);
 
@@ -291,30 +287,30 @@ void TabContainer::OnRMouseUp(LPARAM lparam)
 
 void TabContainer::OnPaint()
 {
-	if(this->tabcontainer_recreateTarget)
+	if(this->recreateTarget)
 		this->RecreateTarget();
 	
-	tabcontainer_isRender=true;
+	isRender=true;
 
-	tabcontainer_renderer->BeginDraw();
+	renderer->BeginDraw();
 
-	tabcontainer_renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
-	Direct2DGuiBase::DrawRectangle(tabcontainer_renderer,0,0,width,CONTAINER_HEIGHT,tabcontainer_tabBackgroundBrush);
-	Direct2DGuiBase::DrawRectangle(tabcontainer_renderer,tabcontainer_selected*CONTAINER_TAB_WIDTH,CONTAINER_HEIGHT-CONTAINER_TAB_HEIGHT,CONTAINER_TAB_WIDTH,CONTAINER_TAB_HEIGHT,tabcontainer_tabBrush);
+	renderer->FillRectangle(D2D1::RectF(0,0,(float)width,(float)CONTAINER_HEIGHT),this->SetColor(COLOR_TAB_BACKGROUND));
+	renderer->FillRectangle(D2D1::RectF((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT)),this->SetColor(COLOR_TAB_SELECTED));
 
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-	for(int i=0;i<(int)tabcontainer_tabs.size();i++)
+	for(int i=0;i<(int)tabs.size();i++)
 	{
-		Direct2DGuiBase::DrawText(tabcontainer_renderer,tabcontainer_textBrush,tabcontainer_tabs[i]->guiinterface_tabName,i*CONTAINER_TAB_WIDTH,CONTAINER_HEIGHT-CONTAINER_TAB_HEIGHT,CONTAINER_TAB_WIDTH,CONTAINER_TAB_HEIGHT);
+		Direct2DGuiBase::DrawText(renderer,this->SetColor(COLOR_TEXT),tabs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)TAB_WIDTH,(float)TAB_HEIGHT);
 	}
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	
-	if(tabcontainer_tabs.size() && tabcontainer_tabs[tabcontainer_selected])
-		tabcontainer_tabs[tabcontainer_selected]->OnPaint();
+	if(tabs.size() && tabs[selected])
+		tabs[selected]->OnPaint();
 
-	this->tabcontainer_recreateTarget=tabcontainer_renderer->EndDraw() & D2DERR_RECREATE_TARGET;
+	this->recreateTarget=(renderer->EndDraw() & D2DERR_RECREATE_TARGET) != 0;
 
-	tabcontainer_isRender=false;
+	isRender=false;
 }
 

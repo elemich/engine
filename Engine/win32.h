@@ -21,8 +21,8 @@ struct Direct2DGuiBase
 	static ID2D1RoundedRectangleGeometry* CreateRoundRectangle(float x,float y, float w,float h,float rx,float ry);
 	static ID2D1EllipseGeometry* CreateEllipse(float x,float y, float w,float h);
 	static ID2D1PathGeometry* CreatePathGeometry();
-	static ID2D1Bitmap* CreateBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname);
-	static void CreateBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname,unsigned char*& buffer);
+	static ID2D1Bitmap* CreateRawBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname);
+	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer);
 
 	static ID2D1SolidColorBrush* SolidColorBrush(ID2D1RenderTarget* renderer,float r,float g,float b,float a);
 	static ID2D1LinearGradientBrush* LinearGradientBrush(ID2D1RenderTarget* renderer,float x1,float y1,float x2,float y2,float position,float r,float g,float b,float a,D2D1::Matrix3x2F mtx=D2D1::Matrix3x2F::Identity());
@@ -60,29 +60,35 @@ struct SplitterContainer;
 
 struct TabContainer : WindowData
 {
-	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
+	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
+	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
 
 	static const int CONTAINER_HEIGHT=30;
-	static const int CONTAINER_TAB_WIDTH=80;
-	static const int CONTAINER_TAB_HEIGHT=25;
-	
-	ID2D1HwndRenderTarget* tabcontainer_renderer;
-	ID2D1DCRenderTarget*   tabcontainer_dcRenderer;
-	ID2D1SolidColorBrush*  tabcontainer_tabBackgroundBrush;
-	ID2D1SolidColorBrush*  tabcontainer_backgroundBrush;
-	ID2D1SolidColorBrush*  tabcontainer_tabBrush;
-	ID2D1SolidColorBrush*  tabcontainer_textBrush;
+	static const int TAB_WIDTH=80;
+	static const int TAB_HEIGHT=25;
 
-	std::vector<GuiInterface*> tabcontainer_tabs;
+	static const int CONTAINER_ARROW_STRIDE=20*4;
+	static const int CONTAINER_ARROW_WH=20;
+
+	static unsigned char* rawRightArrow;
+	static unsigned char* rawDownArrow;
+
+	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
+
+	ID2D1HwndRenderTarget* renderer;
+	ID2D1SolidColorBrush*  brush;
+
+	std::vector<GuiInterface*> tabs;
 
 	SplitterContainer* splitterContainer;
 	
-	int tabcontainer_selected;
-	bool tabcontainer_mouseDown;
-	bool tabcontainer_isRender;
-	bool tabcontainer_recreateTarget;
+	int selected;
+	bool mouseDown;
+	bool isRender;
+	bool recreateTarget;
 
-	float tabcontainer_mousex,tabcontainer_mousey;
+	float mousex,mousey;
 
 	TabContainer(int x,int y,int w,int h,HWND parent);
 	~TabContainer(){};
@@ -103,7 +109,7 @@ struct TabContainer : WindowData
 	GuiInterface* AddTab(GuiInterface*,int position=-1);
 	int RemoveTab(GuiInterface* tab);
 
-
+	ID2D1Brush* SetColor(unsigned int color){brush->SetColor(D2D1::ColorF(color));return brush;}
 };
 
 struct SplitterContainer 
@@ -392,8 +398,9 @@ struct ScrollBar
 	static const int SCROLLBAR_WIDTH=20;
 	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
 	static const int SCROLLBAR_AMOUNT=10;
-
 };
+
+
 
 struct TreeView : GuiInterface
 {
@@ -403,50 +410,45 @@ struct TreeView : GuiInterface
 	static const int TREEVIEW_ROW_HEIGHT=20;
 	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
 
-	
-
-	struct TVNODE
+	struct TreeViewNode
 	{
-		TVNODE* parent;
+		TreeViewNode* parent;
 
 		Entity* entity;
 		float x;
 		float y;
 		bool expanded;
 		bool selected;
-		float textWidth;
+		int textWidth;
 		int level;
 		int hasChilds;
 
-		std::list<TVNODE> childs;
+		std::list<TreeViewNode> childs;
 
-		TVNODE();
-		~TVNODE();	
+		TreeViewNode();
+		~TreeViewNode();	
 
-		static void insert(TVNODE& node,Entity* entity,HDC hdc,float& width,float& height,TVNODE* parent=0,int expandUntilLevel=1);
-		static void update(TVNODE&,float& width,float& height);
-		static void drawlist(TVNODE&,TreeView* tv);
-		static void drawselection(TVNODE&,TreeView* tv);
-		static void clear(TVNODE&);
-		static bool onmousepressed(TVNODE& node,TreeView* tv,float& x,float& y,float& width,float& height);
+		static void insert(TreeViewNode& node,Entity* entity,HDC hdc,float& width,float& height,TreeViewNode* parent=0,int expandUntilLevel=1);
+		static void update(TreeViewNode&,float& width,float& height);
+		static void drawlist(TreeViewNode&,TreeView* tv);
+		static void drawselection(TreeViewNode&,TreeView* tv);
+		static void clear(TreeViewNode&);
+		static bool onmousepressed(TreeViewNode& node,TreeView* tv,float& x,float& y,float& width,float& height);
 	};
 
-	TVNODE elements;
+	TreeViewNode elements;
 
-	ID2D1BitmapRenderTarget* treeview_bitmapRenderTarget;
-	ID2D1Bitmap* treeview_bitmap;
+	ID2D1BitmapRenderTarget* bitmaprenderer;
+	ID2D1Bitmap* bitmap;
 
-	static unsigned char* rightArrow;
-	static unsigned char* downArrow;
-
-	ID2D1Bitmap* treeview_rightArrow;
-	ID2D1Bitmap* treeview_downArrow;
+	ID2D1Bitmap* rightArrow;
+	ID2D1Bitmap* downArrow;
 	
-	float treeview_tvWidth;
-	float treeview_tvHeight;
-	int treeview_scroll;
-	int treeview_framex;
-	int treeview_framey;
+	float bitmapWidth;
+	float bitmapHeight;
+	int scrollY;
+	int frameWidth;
+	int frameHeight;
 
 	void OnPaint();
 	void OnSize();
@@ -459,11 +461,38 @@ struct TreeView : GuiInterface
 
 	void RecreateTarget();
 
-	ID2D1SolidColorBrush *colorGray;
-	ID2D1SolidColorBrush *colorGraySel;
-	ID2D1SolidColorBrush *m_pFeatureBrush;
-	ID2D1SolidColorBrush *m_pFeatureBrushSelection;
-	ID2D1SolidColorBrush *m_pTextBrush;
+};
+
+
+
+struct Properties : GuiInterface
+{
+	Properties(TabContainer* tc)
+	{
+		this->tab=tc;
+		this->name="Properties";
+		
+		RecreateTarget();
+
+	};
+	~Properties(){};
+
+	std::vector<ID2D1Bitmap*> panels;
+
+	ID2D1Bitmap* rightArrow;
+	ID2D1Bitmap* downArrow;
+
+
+	void OnPaint(){};
+	void OnSize(){};
+	void OnLMouseDown(){};
+	void OnEntitiesChange(){};
+	void OnRun(){};
+	void OnReparent(){};
+
+	void DrawItems(){};
+
+	void RecreateTarget(){};
 };
 
 

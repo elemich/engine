@@ -19,7 +19,7 @@ Interface::~Interface()
 
 
 GuiInterface::GuiInterface():
-guiinterface_tabcontainer(0)
+tab(0)
 {
 	guiInterfacesPool.push_back(this);
 }

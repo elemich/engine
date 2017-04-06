@@ -200,8 +200,8 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 OpenGLRenderer::OpenGLRenderer(TabContainer* tc)
 {
-	this->GuiInterface::guiinterface_tabName="OpenGL";
-	this->GuiInterface::guiinterface_tabcontainer=tc;
+	this->GuiInterface::name="OpenGL";
+	this->GuiInterface::tab=tc;
 
 	RendererViewportInterface_viewScale=1.0f;
 	RendererViewportInterface_farPlane=3000.0f;
@@ -212,8 +212,8 @@ OpenGLRenderer::OpenGLRenderer(TabContainer* tc)
 	hglrc=0;
 	buffer=0;
 
-	if(guiinterface_tabcontainer->hwnd)
-		this->Create(guiinterface_tabcontainer->hwnd);
+	if(tab->hwnd)
+		this->Create(tab->hwnd);
 }
 
 char* OpenGLRenderer::Name()
@@ -1189,7 +1189,7 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	RendererViewportInterface_viewScale+=-signof(factor)*(RendererViewportInterface_viewScale*0.1f);
 
 	RECT rc;
-	GetClientRect(this->guiinterface_tabcontainer->hwnd,&rc);
+	GetClientRect(this->tab->hwnd,&rc);
 
 	float halfW=((rc.right-rc.left)/2.0f)*RendererViewportInterface_viewScale;
 	float halfH=((rc.bottom-rc.top)/2.0f)*RendererViewportInterface_viewScale;
@@ -1223,7 +1223,7 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 	pos.x=(float)x;
 	pos.y=(float)y;
 
-	if(leftButtonDown && GetFocus()==this->guiinterface_tabcontainer->hwnd)
+	if(leftButtonDown && GetFocus()==this->tab->hwnd)
 	{
 		float dX=(pos.x-oldpos.x);
 		float dY=(pos.y-oldpos.y);
@@ -1308,17 +1308,15 @@ void OpenGLRenderer::Render()
 	glReadBuffer(GL_BACK);glCheckError();
 	glReadPixels(0,0,width,height,GL_BGRA,GL_UNSIGNED_BYTE,buffer);glCheckError();//@mic should implement pbo for performance
 
-	float stride=width*4;
+	openglrenderer_bitmap->CopyFromMemory(&D2D1::RectU(0,0,width,height),buffer,width*4);
 
-	openglrenderer_bitmap->CopyFromMemory(&D2D1::RectU(0,0,width,height),buffer,stride);
+	if(!tab->isRender)
+		tab->renderer->BeginDraw();
 
-	if(!guiinterface_tabcontainer->tabcontainer_isRender)
-		guiinterface_tabcontainer->tabcontainer_renderer->BeginDraw();
+	tab->renderer->DrawBitmap(openglrenderer_bitmap,D2D1::RectF(0,30,(float)width,(float)height+30));
 
-	guiinterface_tabcontainer->tabcontainer_renderer->DrawBitmap(openglrenderer_bitmap,D2D1::RectF(0,30,width,height+30));
-
-	if(!guiinterface_tabcontainer->tabcontainer_isRender)
-		guiinterface_tabcontainer->tabcontainer_renderer->EndDraw();
+	if(!tab->isRender)
+		tab->renderer->EndDraw();
 
 	//SwapBuffers(hdc);glCheckError();
 
@@ -1331,16 +1329,16 @@ void OpenGLRenderer::Render()
 
 void OpenGLRenderer::OnSize()
 {
-	this->width=guiinterface_tabcontainer->width;
-	this->height=(guiinterface_tabcontainer->height-TabContainer::CONTAINER_HEIGHT);
+	this->width=tab->width;
+	this->height=(tab->height-TabContainer::CONTAINER_HEIGHT);
 
 	if(openglrenderer_bitmap)
 		openglrenderer_bitmap->Release();
 
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=guiinterface_tabcontainer->tabcontainer_renderer->GetPixelFormat();
+	bp.pixelFormat=tab->renderer->GetPixelFormat();
 
-	guiinterface_tabcontainer->tabcontainer_renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&openglrenderer_bitmap);
+	tab->renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&openglrenderer_bitmap);
 	
 	if(!openglrenderer_bitmap)
 		__debugbreak();

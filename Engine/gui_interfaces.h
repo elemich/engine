@@ -7,20 +7,21 @@ struct TabContainer;
 
 struct GuiInterface
 {
+	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
+
 	static std::vector<GuiInterface*> guiInterfacesPool;
 
 	GuiInterface();
 	~GuiInterface();
 
-	String guiinterface_tabName;
-	TabContainer* guiinterface_tabcontainer;
+	String name;
+	TabContainer* tab;
 
 	virtual GuiInterface* GetLogger(){return 0;}
 	virtual GuiInterface* GetFolderBrowser(){return 0;}
 	virtual GuiInterface* GetSceneEntities(){return 0;}
 	virtual GuiInterface* GetProperty(){return 0;}
 	virtual GuiInterface* GetRendererViewport(){return 0;}
-
 
 	virtual void OnPaint(){}
 	virtual void OnEntitiesChange(){}

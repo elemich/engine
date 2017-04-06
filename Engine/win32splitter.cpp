@@ -75,7 +75,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 					TabContainer* newChild=new TabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,hwnd);
 					SetWindowPos(childMovingTarget->hwnd,0,childMovingTargetRc.left,childMovingTargetRc.top,childMovingTargetRc.right-childMovingTargetRc.left,childMovingTargetRc.bottom-childMovingTargetRc.top,SWP_SHOWWINDOW);
 					
-					GuiInterface* reparentTab=childMovingRef->tabcontainer_tabs[childMovingRefTabIdx];
+					GuiInterface* reparentTab=childMovingRef->tabs[childMovingRefTabIdx];
 					childMovingRef->RemoveTab(reparentTab);
 					newChild->AddTab(reparentTab);
 				}
@@ -357,8 +357,8 @@ void SplitterContainer::CreateFloatingTab(TabContainer* tab)
 		return;
 
 	childMovingRef=tab;
-	childMovingRefTabIdx=tab->tabcontainer_selected;
-	childMovingRefTabCount=(int)tab->tabcontainer_tabs.size();
+	childMovingRefTabIdx=tab->selected;
+	childMovingRefTabCount=(int)tab->tabs.size();
 
 	RECT tmpRc;
 
@@ -378,7 +378,7 @@ void SplitterContainer::DestroyFloatingTab()
 	{
 		EnableAndShowTabContainerChild(childMovingRef->hwnd,childMovingRefTabIdx);
 		DestroyWindow(childMoving->hwnd);//remove floating window
-		childMovingRef->tabcontainer_mouseDown=false;
+		childMovingRef->mouseDown=false;
 		childMovingRef=0;
 		childMoving=0;
 
