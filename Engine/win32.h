@@ -68,8 +68,9 @@ struct TabContainer : WindowData
 	static const int TAB_WIDTH=80;
 	static const int TAB_HEIGHT=25;
 
-	static const int CONTAINER_ARROW_STRIDE=20*4;
 	static const int CONTAINER_ARROW_WH=20;
+	static const int CONTAINER_ARROW_STRIDE=CONTAINER_ARROW_WH*4;
+	
 
 	static unsigned char* rawRightArrow;
 	static unsigned char* rawDownArrow;
@@ -79,7 +80,10 @@ struct TabContainer : WindowData
 	ID2D1HwndRenderTarget* renderer;
 	ID2D1SolidColorBrush*  brush;
 
-	std::vector<GuiInterface*> tabs;
+	ID2D1Bitmap* rightExpandos;
+	ID2D1Bitmap* downExpandos;
+
+	std::vector<Gui*> tabs;
 
 	SplitterContainer* splitterContainer;
 	
@@ -91,7 +95,7 @@ struct TabContainer : WindowData
 	float mousex,mousey;
 
 	TabContainer(int x,int y,int w,int h,HWND parent);
-	~TabContainer(){};
+	~TabContainer();
 	
 	void Create(HWND){}//@mic no more used, delete from WindowData
 
@@ -106,8 +110,8 @@ struct TabContainer : WindowData
 
 	virtual void RecreateTarget();
 
-	GuiInterface* AddTab(GuiInterface*,int position=-1);
-	int RemoveTab(GuiInterface* tab);
+	Gui* AddTab(Gui*,int position=-1);
+	int RemoveTab(Gui* tab);
 
 	ID2D1Brush* SetColor(unsigned int color){brush->SetColor(D2D1::ColorF(color));return brush;}
 };
@@ -392,7 +396,6 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
-
 struct ScrollBar
 {
 	static const int SCROLLBAR_WIDTH=20;
@@ -402,7 +405,7 @@ struct ScrollBar
 
 
 
-struct TreeView : GuiInterface
+struct TreeView : GuiInterface<TreeView>
 {
 	TreeView(TabContainer*);
 	~TreeView();
@@ -415,6 +418,7 @@ struct TreeView : GuiInterface
 		TreeViewNode* parent;
 
 		Entity* entity;
+
 		float x;
 		float y;
 		bool expanded;
@@ -426,14 +430,15 @@ struct TreeView : GuiInterface
 		std::list<TreeViewNode> childs;
 
 		TreeViewNode();
-		~TreeViewNode();	
+		~TreeViewNode();
 
-		static void insert(TreeViewNode& node,Entity* entity,HDC hdc,float& width,float& height,TreeViewNode* parent=0,int expandUntilLevel=1);
-		static void update(TreeViewNode&,float& width,float& height);
-		static void drawlist(TreeViewNode&,TreeView* tv);
-		static void drawselection(TreeViewNode&,TreeView* tv);
-		static void clear(TreeViewNode&);
-		static bool onmousepressed(TreeViewNode& node,TreeView* tv,float& x,float& y,float& width,float& height);
+		void insert(Entity* entity,HDC hdc,float& width,float& height,TreeViewNode* parent=0,int expandUntilLevel=1);
+		void update(float& width,float& height);
+		void drawlist(TreeView* tv);
+		void drawselection(TreeView* tv);
+		void clear();
+		TreeViewNode* onmousepressed(TreeView* tv,float& x,float& y,float& width,float& height);
+		std::vector<Entity*> getselection();
 	};
 
 	TreeViewNode elements;
@@ -441,8 +446,7 @@ struct TreeView : GuiInterface
 	ID2D1BitmapRenderTarget* bitmaprenderer;
 	ID2D1Bitmap* bitmap;
 
-	ID2D1Bitmap* rightArrow;
-	ID2D1Bitmap* downArrow;
+	
 	
 	float bitmapWidth;
 	float bitmapHeight;
@@ -465,34 +469,173 @@ struct TreeView : GuiInterface
 
 
 
-struct Properties : GuiInterface
+struct Properties : GuiInterface<Properties>
 {
+
+	struct PropertiesNode
+	{
+		PropertiesNode* parent;
+
+		Entity* entity;
+
+		struct PanelData
+		{
+			String name;
+			ID2D1Bitmap* bitmap;
+			bool expanded;
+
+			PanelData(const char* nm):name(nm),bitmap(0),expanded(0){}
+		};
+
+		std::vector<PanelData> panels;
+
+		std::list<PropertiesNode> childs;
+		
+		PropertiesNode(){clear();}
+		~PropertiesNode(){clear();}
+
+		void insert(Entity* entity,HDC hdc,float& width,float& height,PropertiesNode* parent=0,int expandUntilLevel=1)
+		{
+			if(!entity)
+				return;
+
+			this->entity=entity;
+			this->parent=parent;
+
+			this->update(width,height);
+			
+			for(std::list<Entity*>::iterator eCh=entity->entity_childs.begin();eCh!=entity->entity_childs.end();eCh++)
+			{	
+				this->childs.push_back(PropertiesNode());
+				this->childs.back().insert(*eCh,hdc,width,height,this,expandUntilLevel);
+			}
+		}
+
+		void update(float& width,float& height)
+		{
+			this->panels.push_back(PanelData("Entity"));
+			PanelData& pdEntity=panels.back();
+
+			if(entity->GetBone())
+			{
+				this->panels.push_back(PanelData("Bone"));
+				PanelData& pdBone=panels.back();
+			}
+			if(entity->GetMesh())
+			{
+				this->panels.push_back(PanelData("Mesh"));
+				PanelData& pdMesh=panels.back();
+			}
+			if(entity->GetLight())
+			{
+				this->panels.push_back(PanelData("Light"));
+				PanelData& pdLight=panels.back();
+			}
+			if(entity->GetSkin())
+			{
+				this->panels.push_back(PanelData("Skin"));
+				PanelData& pdSkin=panels.back();
+			}
+		}
+
+		void draw(Properties* tv)
+		{
+			if(!entity)
+				return;
+
+			//tv->tab->renderer->BeginDraw();
+
+			
+
+			tv->tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tv->tab->width,(float)tv->tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
+
+			tv->tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT));
+
+			for(int i=0;i<(int)panels.size();i++)
+			{
+				tv->tab->renderer->DrawBitmap(panels[i].expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(0,i*20,20,20));
+				Direct2DGuiBase::DrawText(tv->tab->renderer,tv->tab->SetColor(TabContainer::COLOR_TEXT),panels[i].name,20,i*20,(float)tv->tab->width,20);
+			}
+
+			tv->tab->renderer->PopAxisAlignedClip();
+
+			//tv->tab->renderer->EndDraw();
+		}
+		void drawselection(Properties* tv)
+		{
+
+		}
+		void clear()
+		{
+			this->parent=0;
+			this->entity=0;
+
+			for(std::list<PropertiesNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
+				nCh->clear();
+
+			this->childs.clear();
+		}
+		PropertiesNode* onmousepressed(Properties* tv,float& x,float& y,float& width,float& height)
+		{
+
+		}
+		std::vector<Entity*> getselection()
+		{
+
+		}
+	}elements;
+	
+
 	Properties(TabContainer* tc)
 	{
 		this->tab=tc;
 		this->name="Properties";
 		
 		RecreateTarget();
+	};
+	
+	~Properties(){}
+
+	void OnPaint()
+	{
+		if(!tab->isRender)
+			tab->renderer->BeginDraw();
+
+		tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)tab->height),tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
+
+		this->DrawItems();
+
+		if(!tab->isRender)
+			tab->renderer->EndDraw();
 
 	};
-	~Properties(){};
-
-	std::vector<ID2D1Bitmap*> panels;
-
-	ID2D1Bitmap* rightArrow;
-	ID2D1Bitmap* downArrow;
-
-
-	void OnPaint(){};
+	
 	void OnSize(){};
 	void OnLMouseDown(){};
-	void OnEntitiesChange(){};
+	void OnEntitiesChange()
+	{
+		elements.clear();
+
+		Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
+
+		float w,h;
+		elements.insert(rootEntity,0,w=0,h=0,0,0);
+
+		this->OnPaint();
+	};
+	void OnEntitySelected(){};
 	void OnRun(){};
 	void OnReparent(){};
 
-	void DrawItems(){};
+	void DrawItems()
+	{
+		elements.draw(this);
+	};
 
-	void RecreateTarget(){};
+	void RecreateTarget()
+	{
+
+	}
 };
 
 

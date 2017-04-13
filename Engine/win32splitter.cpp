@@ -75,7 +75,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 					TabContainer* newChild=new TabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,hwnd);
 					SetWindowPos(childMovingTarget->hwnd,0,childMovingTargetRc.left,childMovingTargetRc.top,childMovingTargetRc.right-childMovingTargetRc.left,childMovingTargetRc.bottom-childMovingTargetRc.top,SWP_SHOWWINDOW);
 					
-					GuiInterface* reparentTab=childMovingRef->tabs[childMovingRefTabIdx];
+					Gui* reparentTab=childMovingRef->tabs[childMovingRefTabIdx];
 					childMovingRef->RemoveTab(reparentTab);
 					newChild->AddTab(reparentTab);
 				}
@@ -655,7 +655,7 @@ bool InitSplitter()
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=MainWindowProc;
-		wc.hbrBackground=CreateSolidBrush(RGB(255,0,0));
+		wc.hbrBackground=CreateSolidBrush(Gui::COLOR_GUI_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
 			__debugbreak();
@@ -698,6 +698,7 @@ bool InitSplitter()
 		InsertMenu(popupMenuCreate,4,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER,"Project Folder");
 		InsertMenu(popupMenuCreate,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_LOGGER,"Logger");
 		InsertMenu(popupMenuCreate,3,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_SCENEENTITIES,"Scene Entities");
+		InsertMenu(popupMenuCreate,6,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_ENTITYPROPERTIES,"EntityProperties");
 	}
 	InsertMenu(popupMenuRoot,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
 	InsertMenu(popupMenuRoot,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_REMOVE,"Remove Tab");

@@ -82,7 +82,9 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 	mouseDown(false),
 	isRender(false),
 	splitterContainer(0),
-	recreateTarget(false)
+	recreateTarget(false),
+	rightExpandos(0),
+	downExpandos(0)
 {
 	width=w;
 	height=h;
@@ -100,6 +102,11 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 	RecreateTarget();
 }
 
+TabContainer::~TabContainer()
+{
+	if(rightExpandos)rightExpandos->Release();
+	if(downExpandos)downExpandos->Release();
+}
 
 void TabContainer::OnSize(LPARAM lparam)
 {
@@ -112,13 +119,13 @@ void TabContainer::OnSize(LPARAM lparam)
 	this->OnPaint();
 }
 
-GuiInterface* TabContainer::AddTab(GuiInterface* gui,int position)
+Gui* TabContainer::AddTab(Gui* gui,int position)
 {
 	if(gui)
 	{
 		gui->tab=this;
 
-		std::vector<GuiInterface*>& tabs=this->tabs;
+		std::vector<Gui*>& tabs=this->tabs;
 
 		tabs.insert(position<0 ? tabs.end() : tabs.begin() + position,gui);
 		this->selected = position<0 ? (int)tabs.size()-1 : position;
@@ -133,15 +140,15 @@ GuiInterface* TabContainer::AddTab(GuiInterface* gui,int position)
 	return 0;
 }
 
-int TabContainer::RemoveTab(GuiInterface* gui)
+int TabContainer::RemoveTab(Gui* gui)
 {
 	if(gui)
 	{
 		gui->tab=0;
 
-		std::vector<GuiInterface*>& tabs=this->tabs;
+		std::vector<Gui*>& tabs=this->tabs;
 
-		std::vector<GuiInterface*>::iterator iIt=std::find(tabs.begin(),tabs.end(),gui);
+		std::vector<Gui*>::iterator iIt=std::find(tabs.begin(),tabs.end(),gui);
 
 		if(iIt!=tabs.end())
 		{
@@ -158,6 +165,8 @@ int TabContainer::RemoveTab(GuiInterface* gui)
 
 void TabContainer::RecreateTarget()
 {
+	HRESULT hr=S_OK;
+
 	if(!rawRightArrow)
 		Direct2DGuiBase::CreateRawBitmap(L"rightarrow.png",rawRightArrow);
 
@@ -167,9 +176,32 @@ void TabContainer::RecreateTarget()
 	if(renderer)renderer->Release();
 	if(brush)brush->Release();
 
+	if(rightExpandos)rightExpandos->Release();
+	if(downExpandos)downExpandos->Release();
+
 	renderer=Direct2DGuiBase::InitHWNDRenderer(hwnd);
 
+	if(!renderer)
+		__debugbreak();
+
 	renderer->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
+
+	if(!brush)
+		__debugbreak();
+
+	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+	bp.pixelFormat=renderer->GetPixelFormat();
+	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&rightExpandos);
+
+	if(!rightExpandos || hr!=S_OK)
+		__debugbreak();
+
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&downExpandos);
+
+	if(!downExpandos || hr!=S_OK)
+		__debugbreak();
 
 	if(tabs.size() && tabs[selected])
 		tabs[selected]->RecreateTarget();
@@ -278,6 +310,9 @@ void TabContainer::OnRMouseUp(LPARAM lparam)
 				case TAB_MENU_COMMAND_SCENEENTITIES:
 					this->AddTab(new TreeView(this));
 				break;
+				case TAB_MENU_COMMAND_ENTITYPROPERTIES:
+					this->AddTab(new Properties(this));
+					break;
 			}
 
 			break;

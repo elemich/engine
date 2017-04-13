@@ -4,7 +4,7 @@
 
 std::vector<RendererInterface*> RendererInterface::renderers;
 
-std::vector<GuiInterface*> GuiInterface::guiInterfacesPool;
+
 std::vector<Interface*> Interface::interfacesPool;
 
 Interface::Interface()
@@ -17,15 +17,18 @@ Interface::~Interface()
 	interfacesPool.erase(std::remove(interfacesPool.begin(),interfacesPool.end(),this)/*,interfacesPool.end()*/);
 }
 
+std::vector<Gui*> Gui::guiPool;
 
-GuiInterface::GuiInterface():
-tab(0)
+Gui::Gui()
 {
-	guiInterfacesPool.push_back(this);
+	guiPool.push_back(this);
+
+	name="Generic Gui";
+	tab=0;
 }
 
-GuiInterface::~GuiInterface()
+Gui::~Gui()
 {
-	guiInterfacesPool.erase(std::remove(guiInterfacesPool.begin(),guiInterfacesPool.end(),this),guiInterfacesPool.end());
+	guiPool.erase(std::remove(guiPool.begin(),guiPool.end(),this),guiPool.end());
 }
 

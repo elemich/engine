@@ -97,8 +97,8 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 							{
 								InitFbxSceneLoad(openfilename.lpstrFile);
 
-								for(int i=0;i<(int)GuiInterface::guiInterfacesPool.size();i++)
-									GuiInterface::guiInterfacesPool[i]->OnEntitiesChange();
+								for(int i=0;i<(int)Gui::guiPool.size();i++)
+									Gui::guiPool[i]->OnEntitiesChange();
 							}
 						}
 						break;

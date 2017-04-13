@@ -348,146 +348,146 @@ ID2D1RadialGradientBrush* Direct2DGuiBase::RadialGradientBrush(ID2D1RenderTarget
 
 TreeView::TreeViewNode::TreeViewNode()
 {
-	clear(*this);
+	clear();
 }
 TreeView::TreeViewNode::~TreeViewNode()
 {
-	clear(*this);
+	clear();
 }
 
-void TreeView::TreeViewNode::insert(TreeViewNode& node,Entity* entity,HDC hdc,float& width,float& height,TreeViewNode* parent,int expandUntilLevel)
+void TreeView::TreeViewNode::insert(Entity* entity,HDC hdc,float& width,float& height,TreeView::TreeViewNode* parent,int expandUntilLevel)
 {
 	if(!entity)
 		return;
 
-	height+= (parent && !parent->expanded) ? 0 : TREEVIEW_ROW_HEIGHT;
+	height+= (parent && !parent->expanded) ? 0 : TreeView::TREEVIEW_ROW_HEIGHT;
 
-	node.parent=parent;
-	node.entity=entity;
-	node.x=parent ? parent->x+TREEVIEW_ROW_ADVANCE: TREEVIEW_ROW_ADVANCE;
-	node.y=height-TREEVIEW_ROW_HEIGHT;
-	node.level=parent ? parent->level+1 : 0;
-	node.expanded=node.level<expandUntilLevel ? true : false;
-	node.selected=false;
+	this->parent=parent;
+	this->entity=entity;
+	this->x=parent ? parent->x+TreeView::TREEVIEW_ROW_ADVANCE: TreeView::TREEVIEW_ROW_ADVANCE;
+	this->y=height-TreeView::TREEVIEW_ROW_HEIGHT;
+	this->level=parent ? parent->level+1 : 0;
+	this->expanded=this->level<expandUntilLevel ? true : false;
+	this->selected=false;
 	
-	node.hasChilds=(int)entity->entity_childs.size();
+	this->hasChilds=(int)entity->entity_childs.size();
 
 	SIZE tSize;
 	GetTextExtentPoint32(hdc,entity->entity_name,entity->entity_name.Count(),&tSize);
 
-	node.textWidth=tSize.cx;
+	this->textWidth=tSize.cx;
 
 	if(!parent || parent && parent->expanded)
-		width=node.textWidth+node.x > width ? node.textWidth+node.x : width;
+		width=this->textWidth+this->x > width ? this->textWidth+this->x : width;
 	
 	for(std::list<Entity*>::iterator eCh=entity->entity_childs.begin();eCh!=entity->entity_childs.end();eCh++)
 	{	
-		node.childs.push_back(TreeViewNode());
-		insert(node.childs.back(),*eCh,hdc,width,height,&node,expandUntilLevel);
+		this->childs.push_back(TreeViewNode());
+		this->childs.back().insert(*eCh,hdc,width,height,this,expandUntilLevel);
 	}
 }
 
-void TreeView::TreeViewNode::update(TreeViewNode& node,float& width,float& height)
+void TreeView::TreeViewNode::update(float& width,float& height)
 {
-	if(!node.entity)
+	if(!this->entity)
 		return;
 
-	height+=node.parent ? (node.parent->expanded ? TREEVIEW_ROW_HEIGHT : 0) : TREEVIEW_ROW_HEIGHT;
+	height+=this->parent ? (this->parent->expanded ? TreeView::TREEVIEW_ROW_HEIGHT : 0) : TreeView::TREEVIEW_ROW_HEIGHT;
 
-	node.x=node.parent ? node.parent->x+TREEVIEW_ROW_ADVANCE : TREEVIEW_ROW_ADVANCE;
-	node.y=height-TREEVIEW_ROW_HEIGHT;
+	this->x=this->parent ? this->parent->x+TreeView::TREEVIEW_ROW_ADVANCE : TreeView::TREEVIEW_ROW_ADVANCE;
+	this->y=height-TreeView::TREEVIEW_ROW_HEIGHT;
 
-	width=node.parent ? (node.parent->expanded ? (node.textWidth+node.x > width ? node.textWidth+node.x : width) : width) : node.textWidth+node.x;
+	width=this->parent ? (this->parent->expanded ? (this->textWidth+this->x > width ? this->textWidth+this->x : width) : width) : this->textWidth+this->x;
 	
-	if(node.expanded)
+	if(this->expanded)
 	{
-		for(std::list<TreeViewNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
-			update(*nCh,width,height);
+		for(std::list<TreeViewNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
+			nCh->update(width,height);
 	}
 }
-void TreeView::TreeViewNode::drawlist(TreeViewNode& node,TreeView* tv)
+void TreeView::TreeViewNode::drawlist(TreeView* tv)
 {
-	if(!node.entity)
+	if(!this->entity)
 		return;
 
 	size_t resLen=0;
 	wchar_t resText[CHAR_MAX];
-	mbstowcs_s(&resLen,resText,CHAR_MAX,node.entity->entity_name,node.entity->entity_name.Count());
+	mbstowcs_s(&resLen,resText,CHAR_MAX,this->entity->entity_name,this->entity->entity_name.Count());
 
-	if(node.hasChilds)
-		tv->bitmaprenderer->DrawBitmap(node.expanded ? tv->downArrow : tv->rightArrow,D2D1::RectF(node.x-TREEVIEW_ROW_ADVANCE,node.y,node.x,node.y+TREEVIEW_ROW_HEIGHT));
+	if(this->hasChilds)
+		tv->bitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
-	tv->bitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(node.x,node.y,node.x+node.textWidth,node.y+TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
+	tv->bitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x,this->y,this->x+this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
 
-	if(node.expanded)
+	if(this->expanded)
 	{
-		for(std::list<TreeViewNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
-			drawlist(*nCh,tv);
+		for(std::list<TreeViewNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
+			nCh->drawlist(tv);
 	}
 }
 
-void TreeView::TreeViewNode::drawselection(TreeViewNode& node,TreeView* tv)
+void TreeView::TreeViewNode::drawselection(TreeView* tv)
 {
 	TabContainer* tabContainer=tv->tab;
 
-	if(node.selected)
-		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)node.y,(float)tabContainer->width,(float)node.y+TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+	if(this->selected)
+		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tabContainer->width,(float)this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
-	if(node.expanded)
+	if(this->expanded)
 	{
-		for(std::list<TreeViewNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
-			drawselection(*nCh,tv);
+		for(std::list<TreeViewNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
+			nCh->drawselection(tv);
 	}
 }
 
 
 
-bool TreeView::TreeViewNode::onmousepressed(TreeViewNode& node,TreeView* tv,float& x,float& y,float& width,float& height)
+TreeView::TreeViewNode* TreeView::TreeViewNode::onmousepressed(TreeView* tv,float& x,float& y,float& width,float& height)
 {
-	if(y>node.y && y<node.y+TREEVIEW_ROW_HEIGHT)
+	if(y>this->y && y<this->y+TreeView::TREEVIEW_ROW_HEIGHT)
 	{
-		if(node.hasChilds && x>node.x-TREEVIEW_ROW_ADVANCE && x<node.x)
+		if(this->hasChilds && x>this->x-TreeView::TREEVIEW_ROW_ADVANCE && x<this->x)
 		{
-			node.expanded=!node.expanded;
-			TreeViewNode::update(tv->elements,width=0,height=0);
-			return true;
+			this->expanded=!this->expanded;
+			return this;
 		}
 		else
-			node.selected=true;
+			this->selected=true;
 	}
 	else
-		node.selected=false;
+		this->selected=false;
 
-	if(node.expanded)
+	if(this->expanded)
 	{
-		for(std::list<TreeViewNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
+		for(std::list<TreeViewNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
 		{
-			if(onmousepressed(*nCh,tv,x,y,width,height))
-				return true;
+			TreeViewNode* childNode=nCh->onmousepressed(tv,x,y,width,height);
+			if(childNode)
+				return childNode;
 		}
 	}
 
-	return false;
+	return 0;
 }
 
 
 
-void TreeView::TreeViewNode::clear(TreeViewNode& node)
+void TreeView::TreeViewNode::clear()
 {
-	node.parent=0;
-	node.entity=0;
-	node.x=0;
-	node.y=0;
-	node.expanded=0;
-	node.selected=0;
-	node.textWidth=0;
-	node.level=0;
-	node.hasChilds=0;
+	this->parent=0;
+	this->entity=0;
+	this->x=0;
+	this->y=0;
+	this->expanded=0;
+	this->selected=0;
+	this->textWidth=0;
+	this->level=0;
+	this->hasChilds=0;
 
-	for(std::list<TreeViewNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
-		clear(*nCh);
+	for(std::list<TreeViewNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
+		nCh->clear();
 
-	node.childs.clear();
+	this->childs.clear();
 }
 
 
@@ -499,9 +499,7 @@ bitmaprenderer(0),
 bitmap(0),
 bitmapWidth((float)tc->width),
 bitmapHeight((float)tc->height),
-scrollY(0),
-rightArrow(0),
-downArrow(0)
+scrollY(0)
 {
 	tab=tc;
 
@@ -519,18 +517,13 @@ downArrow(0)
 
 void TreeView::RecreateTarget()
 {
-	if(rightArrow)rightArrow->Release();
-	if(downArrow)downArrow->Release();
-
-
 	DrawItems();
 }
 
 
 TreeView::~TreeView()
 {
-	if(rightArrow)rightArrow->Release();
-	if(downArrow)downArrow->Release();
+	
 }
 
 void TreeView::OnEntitiesChange()
@@ -538,13 +531,14 @@ void TreeView::OnEntitiesChange()
 	HDC hdc=GetDC(tab->hwnd);
 	int nLevels=0;
 
-	TreeViewNode::clear(elements);
+	elements.clear();
 
 	Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
 
-	TreeViewNode::insert(elements,rootEntity,GetDC(tab->hwnd),bitmapWidth=0,bitmapHeight=0,0);
+	elements.insert(rootEntity,GetDC(tab->hwnd),bitmapWidth=0,bitmapHeight=0,0);
 
 	this->DrawItems();
+	this->OnPaint();
 }
 
 void TreeView::OnSize()
@@ -558,7 +552,7 @@ void TreeView::OnLMouseDown()
 	float &mx=tab->mousex;
 	float &my=tab->mousey;
 
-	if(mx>frameWidth)
+	if(mx>frameWidth) //mouarse is on the scrollb
 	{
 		if(my>TabContainer::CONTAINER_HEIGHT && my<(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT))
 			scrollY=(scrollY-ScrollBar::SCROLLBAR_AMOUNT < 0 ? 0 : scrollY-ScrollBar::SCROLLBAR_AMOUNT);
@@ -571,14 +565,22 @@ void TreeView::OnLMouseDown()
 
 		this->OnPaint();
 	}
-	else
+	else// if(mx>TabContainer::CONTAINER_HEIGHT && mx<(TabContainer::CONTAINER_HEIGHT+frameHeight))//mouse is on the frame
 	{
 		my-=TabContainer::CONTAINER_HEIGHT-scrollY;
 
-		if(TreeViewNode::onmousepressed(elements,this,mx,my,bitmapWidth,bitmapHeight))
+		TreeViewNode* updatedNode=elements.onmousepressed(this,mx,my,bitmapWidth,bitmapHeight);
+
+		if(updatedNode)
+		{
+			elements.update(bitmapWidth=0,bitmapHeight=0);
 			this->DrawItems();
-		
+		}	
+	
 		this->OnPaint();
+
+		/*for(int i=0;i<(int)guiInterfacesPool.size();i++)
+			guiInterfacesPool[i]->OnSelected(sel);*/
 	}
 }
 
@@ -597,31 +599,16 @@ void TreeView::OnReparent()
 
 void TreeView::DrawItems()
 {
-	if(bitmaprenderer)
-		bitmaprenderer->Release();
+	if(bitmaprenderer)bitmaprenderer->Release();
+	
 
 	tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(bitmapWidth,bitmapHeight),&bitmaprenderer);
 
-	if(!bitmaprenderer)
-		bitmaprenderer->Release();
-
-	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=bitmaprenderer->GetPixelFormat();
-
-
-	bitmaprenderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&rightArrow);
-
-	if(!rightArrow)
-		__debugbreak();
-
-	bitmaprenderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&downArrow);
-
-	if(!downArrow)
-		__debugbreak();
+	D2D1_PIXEL_FORMAT pf=bitmaprenderer->GetPixelFormat();
 
 	bitmaprenderer->BeginDraw();
 
-	TreeViewNode::drawlist(elements,this);
+	elements.drawlist(this);
 
 	bitmaprenderer->DrawRectangle(D2D1::RectF(0,0,bitmapWidth,bitmapHeight),tab->SetColor(TabContainer::COLOR_TEXT));
 
@@ -631,8 +618,6 @@ void TreeView::DrawItems()
 
 	if(result!=S_OK)
 		__debugbreak();
-
-	this->OnPaint();
 }
 
 void TreeView::OnPaint()
@@ -640,14 +625,13 @@ void TreeView::OnPaint()
 	if(!tab->isRender)
 		tab->renderer->BeginDraw();
 
-
-	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tab->height),this->tab->SetColor(GuiInterface::COLOR_GUI_BACKGROUND));
+	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
 
 	tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
 	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-scrollY));
 
-	TreeViewNode::drawselection(elements,this);
+	elements.drawselection(this);
 
 	tab->renderer->DrawBitmap(bitmap);
 

@@ -1291,6 +1291,8 @@ void OpenGLRenderer::Render()
 
 	glEnable(GL_DEPTH_TEST);
 	
+	float col=0x80;
+
 	glClearColor(0.5,0.5,0.5,0);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
