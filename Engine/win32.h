@@ -1,5 +1,7 @@
 #ifndef WIN32_H
 #define WIN32_H
+#define WIN32_H
+#define WIN32_H
 
 #include "win32includes.h"
 
@@ -58,7 +60,7 @@ struct WindowData
 
 struct SplitterContainer;
 
-struct TabContainer : WindowData
+struct TabContainer : WindowData /*, Pool<TabContainer>*/
 {
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
@@ -114,6 +116,11 @@ struct TabContainer : WindowData
 	int RemoveTab(Gui* tab);
 
 	ID2D1Brush* SetColor(unsigned int color){brush->SetColor(D2D1::ColorF(color));return brush;}
+
+	Gui* GetCurrentGui()
+	{
+		return tabs[selected];
+	}
 };
 
 struct SplitterContainer 
@@ -340,6 +347,8 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface
 	void draw(Mesh*);
 	void draw(Skin*);
 	void draw(Bone*);
+	void draw(Skeleton*);
+	void draw(BoneSkeleton*);
 	void draw(Texture*);
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
@@ -361,6 +370,8 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface
 	void OnLMouseDown();
 	void OnEntitiesChange();
 	void OnRun();
+
+	RendererInterface* GetRenderer(){return this;}
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface
@@ -405,7 +416,7 @@ struct ScrollBar
 
 
 
-struct TreeView : GuiInterface<TreeView>
+struct TreeView : Gui
 {
 	TreeView(TabContainer*);
 	~TreeView();
@@ -469,7 +480,7 @@ struct TreeView : GuiInterface<TreeView>
 
 
 
-struct Properties : GuiInterface<Properties>
+struct Properties : Gui
 {
 
 	struct PropertiesNode

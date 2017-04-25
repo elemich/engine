@@ -3,6 +3,9 @@
 
 #include "primitives.h"
 
+
+
+/*
 struct Interface
 {
 	static std::vector<Interface*> interfacesPool;
@@ -15,10 +18,25 @@ struct Interface
 	virtual Interface* GetShader(){return 0;}
 };
 
+template <class T> struct Pool
+{
+	static std::vector<T*> pool;
+
+	Pool()
+	{
+		pool.push_back((T*)this);
+	}
+
+	~Pool()
+	{
+		pool.erase(std::find(pool.begin(),pool.end(),(T*)this));
+	}
+};
+
+template <class T> std::vector<T*> Pool<T>::pool;*/
 
 
-
-struct AppInterface : Interface
+struct AppInterface /*: Interface*/
 {
 	virtual int Init()=0;
 	virtual void Run()=0;
@@ -28,11 +46,11 @@ struct AppInterface : Interface
 	
 };
 
-struct RendererInterface : Interface
+struct RendererInterface/* : Interface*/
 {
 	virtual RendererInterface* GetRenderer(){return this;}
 	
-	static std::vector<RendererInterface*> renderers;
+	//static std::vector<RendererInterface*> renderers;
 
 
 	virtual char* Name()=0;
@@ -48,6 +66,8 @@ struct RendererInterface : Interface
 	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
 
 	
+	virtual void draw(Skeleton*)=0;
+	virtual void draw(BoneSkeleton*)=0;
 	virtual void draw(Bone*)=0;
 	virtual void draw(Mesh*)=0;
 	virtual void draw(Skin*)=0;
@@ -73,7 +93,7 @@ struct ShadersPool
 };
 
 
-struct ShaderInterface : Interface
+struct ShaderInterface/* : Interface*/
 {
 	static ShadersPool shadersPool;
 
@@ -119,7 +139,7 @@ struct ShaderInterface : Interface
 	virtual void SetByMatrixStack()=0;
 };
 
-struct InputInterface : Interface
+struct InputInterface/* : Interface*/
 {
 
 };

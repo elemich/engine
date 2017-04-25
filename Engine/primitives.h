@@ -331,13 +331,20 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	void zero();
 };
 
+struct Cluster;
+struct Influence;
+struct Keyframe;
+
 struct Entity;
 struct Root;
+struct Skeleton;
+struct BoneSkeleton;
 struct Bone;
 struct Mesh;
 struct Skin;
 struct Texture;
 struct Light;
+
 
 
 #endif //PRIMITIVES_H

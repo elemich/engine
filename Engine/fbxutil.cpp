@@ -2,14 +2,20 @@
 
 #pragma message (LOCATION " mesh needs other polygons type ?")		
 
-#include <map>
+
 
 FbxManager* fbxManager=0;
 const char* sceneFilename=0;
 
-std::map<FbxNode*,Entity*>				mapFromNodeToEntity;
 std::map<FbxSurfaceMaterial*,Material*>	mapFromFbxMaterialToMaterial;
 std::map<FbxTexture*,Texture*>			mapFromFbxTextureToTexture;
+
+std::map<FbxSkeleton*,BoneSkeleton*> mapFromSkeletonToBone;
+
+std::vector<Skeleton*>	total_skeletons;
+std::vector<Skin*>		total_skins;
+std::vector<Mesh*>		total_meshes;
+
 
 #define GENERATE_MISSING_KEYS 0
 #define GENERATE_INDEXED_GEOMETRY 1
@@ -91,48 +97,87 @@ FbxAMatrix GetGeometry(FbxNode* pNode)
 	return FbxAMatrix(lT, lR, lS);
 }
 
-
-Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
+void ExtractBone(FbxNode* fbxNode,std::vector<BoneSkeleton> &bones,BoneSkeleton& parent)
 {
+	
+}
+
+FbxNode* ExtractSkeleton(FbxNode* fbxNode,Skeleton* skeleton,BoneSkeleton* boneParent,std::map<FbxSkeleton*,BoneSkeleton*>& boneMap,std::vector<FbxGeometry*>& geometries)
+{
+	BoneSkeleton* bone=0;
+
+	if(fbxNode->GetSkeleton())
+	{
+		bone=new BoneSkeleton();
+
+		bone->parent=boneParent;
+
+		if(boneParent)
+			boneParent->childs.push_back(bone);
+		
+		bone->matrix=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
+
+		skeleton->bones.push_back(bone);
+
+		boneMap.insert(std::pair<FbxSkeleton*,BoneSkeleton*>(fbxNode->GetSkeleton(),bone));
+	}
+	if(fbxNode->GetGeometry())
+	{
+		geometries.push_back(fbxNode->GetGeometry());
+	}
+
+	int childCount=fbxNode->GetChildCount();
+
+	for(int i=0;i<childCount;i++)
+			ExtractSkeleton(fbxNode->GetChild(i),skeleton,bone,boneMap,geometries);
+
+	return !childCount ? fbxNode : 0;
+}
+
+
+bool processMapFbxToEntityFunc(FbxNode* fbxNode)
+{
+	bool processChild=true;
+
 	Entity* entity=0;
 
-	if(!parent)
+	if(fbxNode->GetSkeleton())
 	{
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-
-		Entity* rootNode=0;
-
-		if(!Entity::pool.size())
+		if(fbxNode->GetSkeleton()->GetSkeletonType()==FbxSkeleton::eRoot || fbxNode->GetSkeleton()->IsSkeletonRoot())
 		{
-			rootNode=new Root;
-			rootNode->entity_name="RootNode";
+			Skeleton* skeletonComponent=new Skeleton();
+
+			mapFromSkeletonToBone.clear();
+			std::vector<FbxGeometry*> geometries;
+
+			ExtractSkeleton(fbxNode,skeletonComponent,0,mapFromSkeletonToBone,geometries);
+
+			for(int i=0;i<(int)geometries.size();i++)
+			{
+				if(!geometries[i]->GetDeformerCount())
+				{
+					Mesh* mesh=new Mesh();
+					FillMesh(fbxNode,mesh);
+					skeletonComponent->skins.push_back((Skin*)mesh);
+				}
+				else
+				{
+					Skin* skin=new Skin();
+					FillSkin(fbxNode,skin);
+					skeletonComponent->skins.push_back(skin);
+				}
+			}
+
+			entity=new Entity;
+
+			skeletonComponent->entity=entity;
+
+			entity->components.push_back(skeletonComponent);
+
+			processChild=false;
 		}
 		else
-			rootNode=Entity::pool.front();
-
-		entity=new Root;
-
-		const char* begin=strrchr(sceneFilename,'\\');
-		const char* end=strrchr(begin,'.');
-
-		const char* bPtr=begin++;
-
-		int i=0;
-		while(++bPtr!=end)i++;
-
-		entity->entity_name=std::string(begin,i).c_str();
-
-		rootNode->entity_childs.push_back(entity);
-	}
-	else if(fbxNode->GetSkeleton())
-	{
-		/*if(fbxNode->GetSkeleton()->GetSkeletonType()==FbxSkeleton::eRoot || fbxNode->GetSkeleton()->IsSkeletonRoot())
-			__debugbreak();*/
-
-		Bone* bone=new Bone;
-		entity=bone;
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-		nBonesTotal++;
+			__debugbreak();
 	}
 	else if(fbxNode->GetGeometry())
 	{
@@ -140,201 +185,61 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 		if(deformerCount)//skin
 		{
+			__debugbreak();//should not go here
+
 			Skin* skin=new Skin;
-			entity=skin;
-			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-		}
-		else//mesh
-		{
-			Mesh* mesh=new Mesh;
-			entity=mesh;
-			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-		}
-
-		fbxNode->GetGeometry()->ComputeBBox();
-
-		FbxDouble3 bbMin=fbxNode->GetGeometry()->BBoxMin;
-		FbxDouble3 bbMax=fbxNode->GetGeometry()->BBoxMax;
-		
-		entity->entity_bbox.a.make((float)bbMin[0],(float)bbMin[1],(float)bbMin[2]);
-		entity->entity_bbox.b.make((float)bbMax[0],(float)bbMax[1],(float)bbMax[2]);
-	}
-	else if(fbxNode->GetLight())
-	{
-		Light* light=new Light;
-		entity=light;
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-	}
-	else
-	{
-		entity=new Entity;
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-	}
-
-	if(entity)
-	{
-		if(!entity->entity_name.Count())
-			entity->entity_name=fbxNode->GetName();
-
-		entity->entity_transform=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
-
-		ExtractAnimations(fbxNode,entity);
-		entity->entity_parent=parent;
-
-		if(!entity->entity_parent)
-		{
-			FbxAxisSystem as=fbxNode->GetScene()->GetGlobalSettings().GetAxisSystem();
-
-			int sign;
-
-			vec3 axes;
-
-			switch(as.GetUpVector(sign))
-			{
-			case FbxAxisSystem::eXAxis:
-				entity->entity_transform.rotate((float)sign * 90,0,0,1);
-				printf("upVector is X\n");
-				break;
-			case FbxAxisSystem::eYAxis:
-				printf("upVector is Y\n");
-				break;
-			case FbxAxisSystem::eZAxis:
-				axes=entity->entity_transform.axis(1,0,0);
-				entity->entity_transform.rotate((float)sign * 90,axes);
-				printf("upVector is Z\n");
-				break;
-			}
-		}
-
-		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
-
-		//set root bone if bone
-		if(entity->GetBone())
-		{
-			if(entity->entity_parent)
-			{
-				Bone* bone=(Bone*)entity->GetBone();
-
-				if(bone->entity_parent->GetBone())
-					bone->bone_root=((Bone*)bone->entity_parent->GetBone())->bone_root;
-				else
-					bone->bone_root=bone;
-			}
-		}
-	}
-
-	if(parent && entity)
-		parent->entity_childs.push_back(entity);
-
-	return entity;
-}
-
-Entity* processExtractSceneFunc(FbxNode* fbxNode,Entity* parent)
-{
-	Entity* entity=0;
-
-	if(!parent)
-		entity=mapFromNodeToEntity.at(fbxNode);
-	else if(fbxNode->GetSkeleton())
-	{
-		Bone* bone=(Bone*)mapFromNodeToEntity.at(fbxNode);
-		entity=(Bone*)bone;
-	}
-	else if(fbxNode->GetGeometry())
-	{
-		int deformerCount=fbxNode->GetGeometry()->GetDeformerCount();
-
-		Skin* skin=0;
-		Mesh* mesh=0;
-
-		if(deformerCount)//skin
-		{
-			skin=(Skin*)mapFromNodeToEntity.at(fbxNode);
 			FillSkin(fbxNode,skin);
-			entity=skin;
+
+			total_skins.push_back(skin);
 		}
 		else//mesh
 		{
-			mesh=(Mesh*)mapFromNodeToEntity.at(fbxNode);
+			entity=new Entity();
+
+			Mesh* mesh=new Mesh;
 			FillMesh(fbxNode,mesh);
-			entity=mesh;
-		}
 
-		for(int i=0;i<fbxNode->GetMaterialCount();i++)
-		{
-			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
+			mesh->entity=entity;
 
-			if(!material)
-				__debugbreak();
-
-			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
+			entity->components.push_back(mesh);
 		}
 	}
 	else if(fbxNode->GetLight())
 	{
-		Light* light=(Light*)mapFromNodeToEntity.at(fbxNode);
-		FillLight(fbxNode,light);
-		entity=(Light*)light;
-	}
-	else
-	{
-		entity=mapFromNodeToEntity.at(fbxNode);
+		//Light* light=new Light;
 	}
 
-	return entity;
+	return processChild;
 }
 
 
-
-Entity* processNodeRecursive1(FbxNode* fbxNode,Entity* parent)
-
+void processNodeRecursive(FbxNode* fbxNode)
 {
-	Entity* entity=0;
+	bool processChild=processMapFbxToEntityFunc(fbxNode);
 
-	if(!fbxNode)
-		return entity;
-
-	entity=processMapFbxToEntityFunc(fbxNode,parent);
+	if(!processChild)
+		return;
 
 	int nChilds=fbxNode->GetChildCount();
 
 	for(int i=0;i<nChilds;i++)
-		Entity* child=processNodeRecursive1(fbxNode->GetChild(i),entity);
-
-	return entity;
+		processNodeRecursive(fbxNode->GetChild(i));
 }
 
-Entity* processNodeRecursive2(FbxNode* fbxNode,Entity* parent)
-
-{
-	Entity* entity=0;
-
-	if(!fbxNode)
-		return entity;
-
-	entity=processExtractSceneFunc(fbxNode,parent);
-
-	int nChilds=fbxNode->GetChildCount();
-
-	for(int i=0;i<nChilds;i++)
-		Entity* child=processNodeRecursive2(fbxNode->GetChild(i),entity);
-
-	return entity;
-}
 
 void ParseAnimationCurve(Animation* a)
 {
 	float& amin=a->animation_start;
 	float& amax=a->animation_end;
 
-	for(int i=0;i<a->animation_curvegroups.Count();i++)
+	for(int i=0;i<(int)a->animation_curvegroups.size();i++)
 	{
 		float& start=a->animation_curvegroups[i]->curvegroup_start;
 		float& end=a->animation_curvegroups[i]->curvegroup_end;
 
 		CurveGroup* g=a->animation_curvegroups[i];
 
-		for(int j=0;j<g->curvegroup_keycurves.Count();j++)
+		for(int j=0;j<(int)g->curvegroup_keycurves.size();j++)
 		{
 				KeyCurve* c=g->curvegroup_keycurves[j];
 				if(c->keycurve_start!=start )
@@ -343,8 +248,8 @@ void ParseAnimationCurve(Animation* a)
 				{
 					Keyframe* key=new Keyframe;
 					key->time=end;
-					key->value=c->keycurve_keyframes[c->keycurve_keyframes.Count()-1]->value;
-					c->keycurve_keyframes.Append(key);
+					key->value=c->keycurve_keyframes[(int)c->keycurve_keyframes.size()-1]->value;
+					c->keycurve_keyframes.push_back(key);
 				}
 		}
 	}
@@ -374,86 +279,15 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			//DONTCANCEL AnimationTake(layer,fbxNode,animation,animname);
 		}
 
-		if(!curvegroup->curvegroup_keycurves.Count())
+		if(!(int)curvegroup->curvegroup_keycurves.size())
 			delete curvegroup;
 		else
 		{
-			entity->animation_curvegroups.Append(curvegroup);
+			entity->animation_curvegroups.push_back(curvegroup);
 			ParseAnimationCurve(entity);
 		}
 	}
 }
-
-		
-
-
-
-
-
-void InitFbxSceneLoad(char* fname)
-{
-	printf("Importing file %s\n",fname);
-
-	FbxIOSettings * fbxIOSettings=0;
-	FbxImporter* fbxImporter=0;
-	FbxScene* fbxScene=0;
-
-	sceneFilename=fname;
-
-	fbxManager=FbxManager::Create();
-
-	if(fbxManager)
-		fbxIOSettings = FbxIOSettings::Create(fbxManager, IOSROOT );
-
-	if(fbxIOSettings)
-		fbxManager->SetIOSettings(fbxIOSettings);
-
-	fbxImporter = FbxImporter::Create(fbxManager, "");
-
-	if(fbxImporter)
-		if(!fbxImporter->Initialize(fname, -1, fbxManager->GetIOSettings())) 
-		{
-			printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
-			printf("Error returned: %s\n", fbxImporter->GetStatus().GetErrorString());
-			return;
-		}
-
-	fbxScene = FbxScene::Create(fbxManager,"myScene");
-
-	if(fbxScene)
-	{
-		printf("importing fbx scene...");
-		if(fbxImporter->Import(fbxScene))
-		{
-			printf("ok\n");
-
-			GetSceneDetails(fbxScene);
-
-			ExtractTexturesandMaterials(fbxScene);
-
-			printf("acquiring fbx nodes structure...\n");
-			processNodeRecursive1(fbxScene->GetRootNode(),0);//acquire nodes structure
-			printf("filling acquired structures...\n");
-			processNodeRecursive2(fbxScene->GetRootNode(),0);//fill our structure
-			printf("...ready\n");
-		}
-		else
-			printf("error\n");
-	}
-
-	
-
-	if(fbxScene)fbxScene->Destroy(true);
-	if(fbxScene)fbxImporter->Destroy(true);
-	if(fbxScene)fbxIOSettings->Destroy(true);
-	if(fbxScene)fbxManager->Destroy();
-
-	mapFromNodeToEntity.clear();
-	mapFromFbxMaterialToMaterial.clear();
-	mapFromFbxTextureToTexture.clear();
-}
-
-
 
 void StoreKeyframes(Animation* animation,CurveGroup* curvegroup,EChannel channel,FbxAnimCurve* fbxAnimCurve)
 {
@@ -484,10 +318,10 @@ void StoreKeyframes(Animation* animation,CurveGroup* curvegroup,EChannel channel
 			keyframe->time=(float)fbxKey.GetTime().GetSecondDouble();
 			keyframe->value=fbxKey.GetValue();
 
-			curve->keycurve_keyframes.Append(keyframe);
+			curve->keycurve_keyframes.push_back(keyframe);
 		}
 
-		curvegroup->curvegroup_keycurves.Append(curve);
+		curvegroup->curvegroup_keycurves.push_back(curve);
 	}
 }
 
@@ -539,8 +373,6 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 	printf("checking for non-tri polygons...");
 
 	bool non_tri_check=true;
-
-	
 
 	while(non_tri_check)
 	{
@@ -675,6 +507,12 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 	
 }
 
+
+void FillSkeletonSkin(FbxNode* fbxNode,Skeleton* skeleton)
+{
+
+}
+
 void FillSkin(FbxNode* fbxNode,Skin* skin)
 {
 	if(!fbxNode)
@@ -700,7 +538,11 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 
 		Cluster& cluster=(Cluster&)skin->skin_clusters[i];
 
-		cluster.cluster_bone=(Bone*)mapFromNodeToEntity[fbxCluster->GetLink()];
+		//cluster.cluster_bone=(Bone*)mapFromNodeToEntity[fbxCluster->GetLink()];
+		cluster.cluster_bone=(BoneSkeleton*)mapFromSkeletonToBone[fbxCluster->GetLink()->GetSkeleton()];
+
+		if(fbxCluster->GetLink()!=fbxNode->GetParent())
+			__debugbreak();
 
 		if(!cluster.cluster_bone)
 			continue;
@@ -728,14 +570,14 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 
 		int* meshIndices=fbxMesh->GetPolygonVertices();
 
-		TDAutoArray< TDAutoArray<int> > finalIndices(cluster.cluster_ninfluences);
+		std::vector< std::vector<int> > finalIndices(cluster.cluster_ninfluences);
 
 		for(int i=0;i<cluster.cluster_ninfluences;i++)
 		{
 			for(int j=0;j<fbxMesh->GetPolygonVertexCount();j++)
 			{
 				if(cpidx[i]==meshIndices[j])
-					finalIndices[i].Append(j);
+					finalIndices[i].push_back(j);
 			}
 		}
 
@@ -743,7 +585,7 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 		{
 			Influence& influence=cluster.cluster_influences[influenceIdx];
 
-			influence.influence_ncontrolpointindex=finalIndices[influenceIdx].Count();
+			influence.influence_ncontrolpointindex=(int)finalIndices[influenceIdx].size();
 
 			if(!influence.influence_ncontrolpointindex)
 				__debugbreak();
@@ -904,3 +746,62 @@ void GetSceneDetails(FbxScene* lScene)
 	printf("\n");
 }
 
+void InitFbxSceneLoad(char* fname)
+{
+	printf("Importing file %s\n",fname);
+
+	FbxIOSettings * fbxIOSettings=0;
+	FbxImporter* fbxImporter=0;
+	FbxScene* fbxScene=0;
+
+	sceneFilename=fname;
+
+	fbxManager=FbxManager::Create();
+
+	if(fbxManager)
+		fbxIOSettings = FbxIOSettings::Create(fbxManager, IOSROOT );
+
+	if(fbxIOSettings)
+		fbxManager->SetIOSettings(fbxIOSettings);
+
+	fbxImporter = FbxImporter::Create(fbxManager, "");
+
+	if(fbxImporter)
+		if(!fbxImporter->Initialize(fname, -1, fbxManager->GetIOSettings())) 
+		{
+			printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
+			printf("Error returned: %s\n", fbxImporter->GetStatus().GetErrorString());
+			return;
+		}
+
+		fbxScene = FbxScene::Create(fbxManager,"myScene");
+
+		if(fbxScene)
+		{
+			printf("importing fbx scene...");
+			if(fbxImporter->Import(fbxScene))
+			{
+				printf("ok\n");
+
+				GetSceneDetails(fbxScene);
+
+				ExtractTexturesandMaterials(fbxScene);
+
+				printf("acquiring fbx nodes structure...\n");
+				processNodeRecursive(fbxScene->GetRootNode());//acquire nodes structure
+				printf("...ready\n");
+			}
+			else
+				printf("error\n");
+		}
+
+
+
+		if(fbxScene)fbxScene->Destroy(true);
+		if(fbxScene)fbxImporter->Destroy(true);
+		if(fbxScene)fbxIOSettings->Destroy(true);
+		if(fbxScene)fbxManager->Destroy();
+
+		mapFromFbxMaterialToMaterial.clear();
+		mapFromFbxTextureToTexture.clear();
+}
