@@ -187,6 +187,19 @@ struct Influence
 	Influence();
 };
 
+struct Bone;
+struct Cluster
+{
+	Bone* cluster_bone;
+
+	Influence	*cluster_influences;
+	int			cluster_ninfluences;
+
+	mat4		cluster_offset;
+
+	Cluster();
+};
+
 
 struct Keyframe
 {
@@ -209,7 +222,7 @@ struct KeyCurve
 
 	KeyCurve();
 
-	std::vector<Keyframe*>	keycurve_keyframes;
+	TDAutoArray<Keyframe*>	keycurve_keyframes;
 	EChannel		keycurve_channel;
 	float			keycurve_start;
 	float			keycurve_end;
@@ -225,7 +238,7 @@ struct CurveGroup
 {
 	CurveGroup();
 
-	std::vector<KeyCurve*> curvegroup_keycurves;
+	TDAutoArray<KeyCurve*> curvegroup_keycurves;
 
 	float curvegroup_start;
 	float curvegroup_end;
@@ -233,24 +246,13 @@ struct CurveGroup
 
 
 
-
-struct Component
-{
-	Entity* entity;
-
-	virtual void draw(RendererInterface*){};
-	virtual void update(){}
-	virtual int animate(float){return 0;}
-};
-
-
-struct Animation : Component
+struct Animation
 {
 	Animation();
 
 	virtual int animate(float)=0;
 
-	std::vector<CurveGroup*> animation_curvegroups;
+	TDAutoArray<CurveGroup*> animation_curvegroups;
 
 	int		animation_nprocessed;
 	float	animation_time;
@@ -268,7 +270,6 @@ struct Animation : Component
 	vec3 animation_scl;
 	vec3 animation_rot;
 };
-
 
 struct Entity : Animation
 {
@@ -303,14 +304,8 @@ struct Entity : Animation
 
 	bool operator==(const Entity& e){return this==&e;}
 
-	std::vector<Component*> components;
-	template <class T> T* GetComponent(){return 0;}
-	template <class T> std::vector<T*> GetComponents(){std::vector<T*> t;return t;}
-
 	Entity();
 	~Entity();
-
-	
 
 
 };
@@ -335,8 +330,10 @@ struct Bone : Entity
 	int animate(float);
 };
 
-struct Light : Component
+struct Light : Entity
 {
+
+
 	Light();
 
 	Light* GetLight(){return this;}
@@ -386,7 +383,7 @@ struct Light : Component
 	void draw(RendererInterface*);
 };
 
-struct Mesh : Component
+struct Mesh : Entity
 {
 	Mesh();
 
@@ -436,8 +433,6 @@ struct Mesh : Component
 
 	std::vector<Material*> mesh_materials;
 };
-
-
 
 struct Skin : Mesh
 {
@@ -519,33 +514,5 @@ struct TextureProcedural : Texture
 };
 
 
-struct BoneSkeleton
-{
-	BoneSkeleton* parent;
-	std::vector<BoneSkeleton*> childs;
-	mat4 matrix;
-};
-
-struct Skeleton : Component
-{
-	std::vector<BoneSkeleton*> bones;
-	std::vector<Skin*> skins;
-
-	void draw(RendererInterface*);
-	void update();
-	void animate();
-};
-
-struct Cluster
-{
-	BoneSkeleton* cluster_bone;
-
-	Influence	*cluster_influences;
-	int			cluster_ninfluences;
-
-	mat4		cluster_offset;
-
-	Cluster();
-};
 
 #endif //__ENTITY_HEADER__

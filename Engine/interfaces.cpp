@@ -2,10 +2,7 @@
 
 #include <algorithm>
 
-
-/*
 std::vector<RendererInterface*> RendererInterface::renderers;
-
 
 
 std::vector<Interface*> Interface::interfacesPool;
@@ -17,9 +14,8 @@ Interface::Interface()
 
 Interface::~Interface()
 {
-	interfacesPool.erase(std::remove(interfacesPool.begin(),interfacesPool.end(),this)/ *,interfacesPool.end()* /);
+	interfacesPool.erase(std::remove(interfacesPool.begin(),interfacesPool.end(),this)/*,interfacesPool.end()*/);
 }
-*/
 
 std::vector<Gui*> Gui::guiPool;
 

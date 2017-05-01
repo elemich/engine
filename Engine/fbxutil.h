@@ -6,7 +6,7 @@
 #include <fbxsdk.h>
 #include <fbxsdk\fileio\fbxiosettings.h>
 
-#include <map>
+
 
 struct cmat
 {
@@ -29,13 +29,12 @@ void StoreKeyframes(Animation*,CurveGroup* animation,EChannel channel,FbxAnimCur
 void ExtractAnimations(FbxNode*,Entity*);
 void ExtractTexturesandMaterials(FbxScene*);
 void GetSceneDetails(FbxScene*);
-FbxNode* ExtractSkeleton(FbxNode* fbxNode,Skeleton* skeleton,BoneSkeleton* boneParent,std::map<FbxSkeleton*,BoneSkeleton*>& boneMap,std::vector<FbxGeometry*>& geometries);
 
 bool AnimationPresent(FbxAnimLayer * pAnimLayer, FbxNode* pNode);
 bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,String &animnae);
 
-bool processMapFbxToEntityFunc(FbxNode* fbxNode);//return true if must process child (in case
-void processExtractSceneFunc(FbxNode* fbxNode);
+Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent);
+Entity* processExtractSceneFunc(FbxNode* fbxNode,Entity* parent);
 
 
 

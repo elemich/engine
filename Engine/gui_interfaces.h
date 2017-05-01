@@ -26,16 +26,9 @@ struct Gui
 	virtual void OnSelected(Entity*){}
 
 	virtual void RecreateTarget(){}
-
-	virtual Gui* GetLogger(){return 0;}
-	virtual Gui* GetFolderBrowser(){return 0;}
-	virtual Gui* GetSceneEntities(){return 0;}
-	virtual Gui* GetProperty(){return 0;}
-	virtual Gui* GetRendererViewport(){return 0;}
 };
 
-/*
-template <class T> struct GuiInterface : Gui
+template<class T> struct GuiInterface : Gui
 {
 	static std::vector<GuiInterface*> guiInterfacePool;
 
@@ -56,20 +49,20 @@ template <class T> struct GuiInterface : Gui
 	virtual GuiInterface* GetRendererViewport(){return 0;}
 };
 
-template<class T> std::vector<GuiInterface<T>*> GuiInterface<T>::guiInterfacePool;*/
+template<class T> std::vector<GuiInterface<T>*> GuiInterface<T>::guiInterfacePool;
 
 
-struct LoggerInterface : Gui
+struct LoggerInterface : GuiInterface<LoggerInterface>
 {
 	virtual LoggerInterface* GetLogger(){return this;}
 };
 
-struct FolderBrowserInterface : Gui
+struct FolderBrowserInterface : GuiInterface<FolderBrowserInterface>
 {
 	virtual FolderBrowserInterface* GetFolderBrowser(){return this;}
 };
 
-struct SceneEntitiesInterface : Gui
+struct SceneEntitiesInterface : GuiInterface<SceneEntitiesInterface>
 {
 	SceneEntitiesInterface* GetSceneEntitiesInterface(){return this;}
 	SceneEntitiesInterface* GetSceneEntities(){return 0;}
@@ -77,13 +70,13 @@ struct SceneEntitiesInterface : Gui
 	virtual void OnEntitiesChange()=0;
 };
 
-struct PropertyInterface : Gui
+struct PropertyInterface : GuiInterface<PropertyInterface>
 {
 	virtual PropertyInterface* GetProperty(){return this;}
 };
 
 
-struct RendererViewportInterface : Gui //should get the window handle from the WindowData class of the inherited class
+struct RendererViewportInterface : GuiInterface<RendererViewportInterface> //should get the window handle from the WindowData class of the inherited class
 {
 	virtual RendererViewportInterface* GetRendererViewport(){return this;}
 
@@ -98,8 +91,6 @@ struct RendererViewportInterface : Gui //should get the window handle from the W
 	virtual void OnMouseDown(int,int)=0;
 
 	///virtual operator RendererViewportInterface&()=0;
-
-	virtual RendererInterface* GetRenderer()=0;
 };
 
 

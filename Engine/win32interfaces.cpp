@@ -353,9 +353,9 @@ void App::Run()
 			DispatchMessage(&msg);
 		}
 
-		/*for(int i=0;i<((int)TabContainer::pool.size());i++)
+		/*for(int i=0;i<(int)RendererInterface::renderers.size();i++)
 		{
-			TabContainer::pool[i]->OnRun();		
+			RendererInterface::renderers[i]->Render();		
 		}*/
 	}
 

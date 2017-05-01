@@ -272,10 +272,18 @@ void TabContainer::OnLMouseDown(LPARAM lparam)
 
 void TabContainer::OnRun()
 {
-	RendererViewportInterface* rendererViewportInterface=(RendererViewportInterface*)GetCurrentGui()->GetRendererViewport();
+	/*if(tabcontainer_mouseDown)
+	{
+		if(tabcontainer_tabs[tabcontainer_selected])
+			tabcontainer_tabs[tabcontainer_selected]->OnRun();
+	}*/
 
-	if(rendererViewportInterface)
-		rendererViewportInterface->GetRenderer()->Render();
+	/*for(int i=0;i<(int)tabcontainer_tabs.size();i++)
+	{
+		GuiInterface* renderer=tabcontainer_tabs[i]->GetRendererViewport();
+		if(renderer)				
+			renderer->OnPaint();
+	}*/
 }
 
 void TabContainer::OnRMouseUp(LPARAM lparam)

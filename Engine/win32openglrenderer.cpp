@@ -200,8 +200,8 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 OpenGLRenderer::OpenGLRenderer(TabContainer* tc)
 {
-	this->Gui::name="OpenGL";
-	this->Gui::tab=tc;
+	this->GuiInterface::name="OpenGL";
+	this->GuiInterface::tab=tc;
 
 	RendererViewportInterface_viewScale=1.0f;
 	RendererViewportInterface_farPlane=3000.0f;
@@ -410,7 +410,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 
 	//SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
-	//renderers.push_back(this);
+	renderers.push_back(this);
 
 	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
 	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
@@ -1180,31 +1180,6 @@ void OpenGLRenderer::draw(Bone* bone)
 		vec3 b1p=bone->entity_world.position();
 		this->draw(b1p,b2p,bone->bone_color);
 	}
-}
-
-void OpenGLRenderer::draw(BoneSkeleton* bone)
-{
-	if(!bone)
-		return;
-
-	if(bone->parent)
-	{
-		vec3 b2p=bone->parent->matrix.position();
-		vec3 b1p=bone->matrix.position();
-		this->draw(b1p,b2p);
-	}
-
-	for(int i=0;i<(int)bone->childs.size();i++)
-		this->draw(bone->childs[i]);
-}
-
-void OpenGLRenderer::draw(Skeleton* skeleton)
-{
-	if(!skeleton)
-		return;
-
-	for(int i=0;i<(int)skeleton->bones.size();i++)
-		this->draw(skeleton->bones[i]);
 }
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}

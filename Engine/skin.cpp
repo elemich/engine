@@ -19,12 +19,13 @@ void Skin::draw(RendererInterface* renderer)
 {
 	//Entity::beginDraw();
 	renderer->draw(this);
+	Entity::draw(renderer);
 	//Entity::endDraw();
 }
 
 void Skin::update()
 {
-	//Entity::update();
+	Entity::update();
 
 	/*this->skin_vertexcache=0;
 	return;*/
@@ -47,7 +48,7 @@ void Skin::update()
 		if(!clu || (clu && !clu->cluster_bone))
 			continue;
 
-		mat4 palette=clu->cluster_offset * clu->cluster_bone->matrix;//entity_world;
+		mat4 palette=clu->cluster_offset * clu->cluster_bone->entity_world;
 
 		mat4 final;
 		final.zero();

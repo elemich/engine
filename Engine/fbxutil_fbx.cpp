@@ -377,9 +377,9 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
   localR  = pNode->LclRotation.Get();
   localS  = pNode->LclScaling.Get();
 
-  std::vector<lpFloat3TimeKey*> aTransKey;
-  std::vector<lpFloat3TimeKey*> aScaleKey;
-  std::vector<lpFloat3TimeKey*> aRotKey;
+  TDAutoArray<lpFloat3TimeKey*> aTransKey;
+  TDAutoArray<lpFloat3TimeKey*> aScaleKey;
+  TDAutoArray<lpFloat3TimeKey*> aRotKey;
 
 
 #define FOR_EACH(list, it)  \
@@ -402,7 +402,7 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 		scaleKey->time = floatTime;   
 		scaleKey->value.make(scale[0],scale[1],scale[2]);
 
-		aScaleKey.push_back(scaleKey);
+		aScaleKey.Append(scaleKey);
 
     FbxVector4 _trans = localMatrix.GetT();
     lpFloat3TimeKey *transKey=new lpFloat3TimeKey;
@@ -420,7 +420,7 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 
 		transKey->value.make(trans[0],trans[1],trans[2]);
 
-		aTransKey.push_back(transKey);
+		aTransKey.Append(transKey);
     
 		FbxVector4 _localRot = localMatrix.GetR();
 
@@ -430,7 +430,7 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 		rotKey->time = floatTime;   
 		rotKey->value.make(localRot[0],localRot[1],localRot[2]);
 
-		aRotKey.push_back(rotKey);
+		aRotKey.Append(rotKey);
 	}
 #if GENERATE_MISSING_KEYS
 
