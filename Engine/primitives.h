@@ -23,10 +23,12 @@ public:
 
 	~String();
 
-	void operator=(const char* s);
+	String& operator=(const char* s);
+	String& operator=(const String& s);
 	bool operator==(const char* s);
 	char operator[](int i);
-	String operator+(const char* b);
+	friend String operator+(const String a,const String& b);
+	String& operator+=(const String&);
 
 	operator char*()const;
 	operator float()const;
@@ -331,13 +333,20 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	void zero();
 };
 
+struct Cluster;
+struct Influence;
+struct Keyframe;
+
 struct Entity;
 struct Root;
+struct Skeleton;
+struct BoneSkeleton;
 struct Bone;
 struct Mesh;
 struct Skin;
 struct Texture;
 struct Light;
+
 
 
 #endif //PRIMITIVES_H

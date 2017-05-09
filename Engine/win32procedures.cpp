@@ -8,6 +8,16 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 
 	LPARAM result=0;
 
+	if(tc)
+	{
+		tc->hwnd=hwnd;
+		tc->msg=msg;
+		tc->wparam=wparam;
+		tc->lparam=lparam;
+	}
+	/*else
+		return DefWindowProc(hwnd,msg,wparam,lparam);*/
+
 	switch(msg)
 	{
 		case WM_CREATE:
@@ -17,7 +27,12 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 			LPCREATESTRUCT lpcs=(LPCREATESTRUCT)lparam;
 
 			if(lpcs)
-				SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)lpcs->lpCreateParams);
+			{
+				TabContainer* tabContainer=(TabContainer*)lpcs->lpCreateParams;
+				SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)tabContainer);
+				tabContainer->hwnd=hwnd;
+				tabContainer->RecreateTarget();
+			}
 		}
 		break;
 		case WM_ERASEBKGND:
@@ -29,13 +44,16 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 		break;
 		case WM_DESTROY:
 			printf("destroying\n");
-			delete tc;
+			tc->~TabContainer();
 			break;
 		case WM_WINDOWPOSCHANGED:
 			tc->OnWindowPosChanging(lparam);
 		break;
 		case WM_LBUTTONDOWN:
 			tc->OnLMouseDown(lparam);
+		break;
+		case WM_MOUSEWHEEL:
+			tc->OnMouseWheel();
 		break;
 		case WM_MOUSEMOVE:
 			tc->OnMouseMove(lparam);
@@ -74,6 +92,7 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 
 unsigned char* TabContainer::rawRightArrow=0;
 unsigned char* TabContainer::rawDownArrow=0;
+unsigned char* TabContainer::rawFolder=0;
 
 TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 	renderer(0),
@@ -82,9 +101,10 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 	mouseDown(false),
 	isRender(false),
 	splitterContainer(0),
-	recreateTarget(false),
+	recreateTarget(true),
 	rightExpandos(0),
-	downExpandos(0)
+	downExpandos(0),
+	folderIcon(0)
 {
 	width=w;
 	height=h;
@@ -104,19 +124,26 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 
 TabContainer::~TabContainer()
 {
-	if(rightExpandos)rightExpandos->Release();
-	if(downExpandos)downExpandos->Release();
+	D2DRELEASE(renderer);
+	D2DRELEASE(brush);
+	D2DRELEASE(rightExpandos);
+	D2DRELEASE(downExpandos);
+	D2DRELEASE(folderIcon);
 }
 
 void TabContainer::OnSize(LPARAM lparam)
 {
 	WindowData::OnSize(lparam);
+	
+	this->RecreateTarget();
+
 	renderer->Resize(D2D1::SizeU(width,height));
 
-	if(tabs.size() && tabs[selected])
-		tabs[selected]->OnSize();
+	if(this->GetSelected())
+		this->GetSelected()->OnSize();
 
 	this->OnPaint();
+	
 }
 
 Gui* TabContainer::AddTab(Gui* gui,int position)
@@ -127,10 +154,9 @@ Gui* TabContainer::AddTab(Gui* gui,int position)
 
 		std::vector<Gui*>& tabs=this->tabs;
 
-		tabs.insert(position<0 ? tabs.end() : tabs.begin() + position,gui);
+		tabs.insert(position<0 ? tabs.end() : (tabs.begin() + position),gui);
 		this->selected = position<0 ? (int)tabs.size()-1 : position;
 
-		
 		gui->OnReparent();
 
 		this->OnPaint();
@@ -154,7 +180,7 @@ int TabContainer::RemoveTab(Gui* gui)
 		{
 			int position=std::distance(tabs.begin(),iIt);
 			tabs.erase(iIt);
-			position>0 ? this->selected-- : this->selected++;
+			position>0 ? this->selected-- : 0;
 			
 			return position;
 		}
@@ -173,11 +199,19 @@ void TabContainer::RecreateTarget()
 	if(!rawDownArrow)
 		Direct2DGuiBase::CreateRawBitmap(L"downarrow.png",rawDownArrow);
 
-	if(renderer)renderer->Release();
-	if(brush)brush->Release();
+	if(!rawFolder)
+		Direct2DGuiBase::CreateRawBitmap(L"folder.png",rawFolder);
 
-	if(rightExpandos)rightExpandos->Release();
-	if(downExpandos)downExpandos->Release();
+	if(!this->recreateTarget)
+		return;
+
+
+	D2DRELEASE(renderer);
+	D2DRELEASE(brush);
+
+	D2DRELEASE(rightExpandos);
+	D2DRELEASE(downExpandos);
+	D2DRELEASE(folderIcon);
 
 	renderer=Direct2DGuiBase::InitHWNDRenderer(hwnd);
 
@@ -203,8 +237,15 @@ void TabContainer::RecreateTarget()
 	if(!downExpandos || hr!=S_OK)
 		__debugbreak();
 
-	if(tabs.size() && tabs[selected])
-		tabs[selected]->RecreateTarget();
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ARROW_STRIDE,bp,&folderIcon);
+
+	if(!folderIcon || hr!=S_OK)
+		__debugbreak();
+
+	if(this->GetSelected())
+		this->GetSelected()->RecreateTarget();
+
+	this->recreateTarget=false;
 }
 
 void TabContainer::OnWindowPosChanging(LPARAM lparam)
@@ -213,14 +254,18 @@ void TabContainer::OnWindowPosChanging(LPARAM lparam)
 
 	renderer->Resize(D2D1::SizeU(width,height));
 
-	if(tabs.size() && tabs[selected])
-		tabs[selected]->OnSize();
+	this->RecreateTarget();
+
+	if(this->GetSelected())
+		this->GetSelected()->OnSize();
 
 	this->OnPaint();
 }
 
 void TabContainer::OnMouseMove(LPARAM lparam)
 {
+	SetFocus(this->hwnd);
+
 	mousex=(float)LOWORD(lparam);
 	mousey=(float)HIWORD(lparam);
 
@@ -228,11 +273,20 @@ void TabContainer::OnMouseMove(LPARAM lparam)
 
 	if(mouseDown)
 		splitterContainer->CreateFloatingTab(this);
+
+	if(this->GetSelected())
+		this->GetSelected()->OnMouseMove();
 }
 
 void TabContainer::OnLMouseUp(LPARAM lparam)
 {
 	mouseDown=false;
+}
+
+void TabContainer::OnMouseWheel()
+{
+	if(this->GetSelected())
+		this->GetSelected()->OnMouseWheel();
 }
 
 void TabContainer::OnLMouseDown(LPARAM lparam)
@@ -312,7 +366,10 @@ void TabContainer::OnRMouseUp(LPARAM lparam)
 				break;
 				case TAB_MENU_COMMAND_ENTITYPROPERTIES:
 					this->AddTab(new Properties(this));
-					break;
+				break;
+				case TAB_MENU_COMMAND_PROJECTFOLDER:
+					this->AddTab(new Resources(this));
+				break;
 			}
 
 			break;
@@ -341,8 +398,8 @@ void TabContainer::OnPaint()
 	}
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	
-	if(tabs.size() && tabs[selected])
-		tabs[selected]->OnPaint();
+	if(this->GetSelected())
+		this->GetSelected()->OnPaint();
 
 	this->recreateTarget=(renderer->EndDraw() & D2DERR_RECREATE_TARGET) != 0;
 

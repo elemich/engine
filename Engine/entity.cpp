@@ -87,13 +87,13 @@ int Entity::animate(float ftime)
 
 	//return 1;
 
-	if(this->animation_animselected<this->animation_curvegroups.Count())
+	if(this->animation_animselected<(int)this->animation_curvegroups.size())
 	{
 		CurveGroup* curvegroup=this->animation_curvegroups[this->animation_animselected];
 
 		if(curvegroup)
 		{
-			int numcurves=curvegroup->curvegroup_keycurves.Count();
+			int numcurves=(int)curvegroup->curvegroup_keycurves.size();
 
 			vec3 poff,roff,soff(1,1,1);
 			float val=0;
@@ -102,7 +102,7 @@ int Entity::animate(float ftime)
 			{
 				KeyCurve &curve=*curvegroup->curvegroup_keycurves[curveIdx];
 
-				int			numCurveKeys=curve.keycurve_keyframes.Count();
+				int			numCurveKeys=(int)curve.keycurve_keyframes.size();
 				int			lastKeyIdx=numCurveKeys-1;
 
 				if(numCurveKeys==1)

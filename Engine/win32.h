@@ -3,6 +3,14 @@
 
 #include "win32includes.h"
 
+#define D2DRELEASE(_ptr) \
+	if(_ptr!=0)\
+	{\
+		printf("releasing d2d ptr %p\n",_ptr);\
+		_ptr->Release();\
+		_ptr=0;\
+	}\
+
 struct Direct2DGuiBase
 {
 	static ID2D1Factory *factory;
@@ -48,6 +56,10 @@ struct WindowData
 	HWND hwnd;
 	int width;
 	int height;
+
+	UINT msg;
+	WPARAM wparam;
+	LPARAM lparam;
 	
 	virtual void Create(HWND container)=0;
 
@@ -58,8 +70,30 @@ struct WindowData
 
 struct SplitterContainer;
 
-struct TabContainer : WindowData
+struct TabContainer : WindowData , TClassPool<TabContainer>
 {
+	std::vector<TabContainer*> siblings[4];
+
+	void LinkSibling(TabContainer* t,int pos)
+	{
+		if(!t)
+			return;
+
+		int reciprocal = pos<3 ? pos+2 : pos-2;
+
+		this->siblings[pos].push_back(t);
+		t->siblings[reciprocal].push_back(this);
+	}
+
+	void UnlinkSibling(TabContainer* t)
+	{
+		for(int i=0;i<4;i++)
+		{
+			this->siblings[i].erase(std::find(this->siblings[i].begin(),this->siblings[i].end(),t));
+			t->siblings[i].erase(std::find(t->siblings[i].begin(),t->siblings[i].end(),this));
+		}
+	}
+
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
 	static const unsigned int COLOR_TEXT=0xFFFFFF;
@@ -74,6 +108,7 @@ struct TabContainer : WindowData
 
 	static unsigned char* rawRightArrow;
 	static unsigned char* rawDownArrow;
+	static unsigned char* rawFolder;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
@@ -82,6 +117,7 @@ struct TabContainer : WindowData
 
 	ID2D1Bitmap* rightExpandos;
 	ID2D1Bitmap* downExpandos;
+	ID2D1Bitmap* folderIcon;
 
 	std::vector<Gui*> tabs;
 
@@ -107,6 +143,7 @@ struct TabContainer : WindowData
 	virtual void OnMouseMove(LPARAM lparam);
 	virtual void OnRMouseUp(LPARAM lparam);
 	virtual void OnRun();
+	virtual void OnMouseWheel();
 
 	virtual void RecreateTarget();
 
@@ -114,6 +151,11 @@ struct TabContainer : WindowData
 	int RemoveTab(Gui* tab);
 
 	ID2D1Brush* SetColor(unsigned int color){brush->SetColor(D2D1::ColorF(color));return brush;}
+
+	Gui* GetSelected()
+	{
+		return tabs.size() ? tabs[selected] : 0;
+	}
 };
 
 struct SplitterContainer 
@@ -267,22 +309,17 @@ struct Logger : WindowData , LoggerInterface
 };
 */
 
-struct App : AppInterface
+struct App : AppInterface , TStaticClass<App>
 {
 	MainAppContainerWindow mainAppWindow;
 	
-	PIDLIST_ABSOLUTE projectFolder;
-
-	App();
+	String projectFolder;
 
 	int Init();
 	void Close();
 
 	void CreateMainWindow();
 	void Run();
-
-
-	
 };
 
 struct OpenGLRenderer : RendererInterface , RendererViewportInterface
@@ -356,11 +393,14 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface
 	void OnMouseDown(int,int);
 
 
-	void OnPaint();
 	void OnSize();
 	void OnLMouseDown();
+	void OnMouseMove();
 	void OnEntitiesChange();
 	void OnRun();
+	void OnRender();
+	void OnPaint();
+	void OnMouseWheel();
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface
@@ -471,7 +511,6 @@ struct TreeView : GuiInterface<TreeView>
 
 struct Properties : GuiInterface<Properties>
 {
-
 	struct PropertiesNode
 	{
 		PropertiesNode* parent;
@@ -494,151 +533,103 @@ struct Properties : GuiInterface<Properties>
 		PropertiesNode(){clear();}
 		~PropertiesNode(){clear();}
 
-		void insert(Entity* entity,HDC hdc,float& width,float& height,PropertiesNode* parent=0,int expandUntilLevel=1)
-		{
-			if(!entity)
-				return;
+		void insert(Entity* entity,HDC hdc,float& width,float& height,PropertiesNode* parent=0,int expandUntilLevel=1);
 
-			this->entity=entity;
-			this->parent=parent;
+		void update(float& width,float& height);
 
-			this->update(width,height);
-			
-			for(std::list<Entity*>::iterator eCh=entity->entity_childs.begin();eCh!=entity->entity_childs.end();eCh++)
-			{	
-				this->childs.push_back(PropertiesNode());
-				this->childs.back().insert(*eCh,hdc,width,height,this,expandUntilLevel);
-			}
-		}
-
-		void update(float& width,float& height)
-		{
-			this->panels.push_back(PanelData("Entity"));
-			PanelData& pdEntity=panels.back();
-
-			if(entity->GetBone())
-			{
-				this->panels.push_back(PanelData("Bone"));
-				PanelData& pdBone=panels.back();
-			}
-			if(entity->GetMesh())
-			{
-				this->panels.push_back(PanelData("Mesh"));
-				PanelData& pdMesh=panels.back();
-			}
-			if(entity->GetLight())
-			{
-				this->panels.push_back(PanelData("Light"));
-				PanelData& pdLight=panels.back();
-			}
-			if(entity->GetSkin())
-			{
-				this->panels.push_back(PanelData("Skin"));
-				PanelData& pdSkin=panels.back();
-			}
-		}
-
-		void draw(Properties* tv)
-		{
-			if(!entity)
-				return;
-
-			//tv->tab->renderer->BeginDraw();
-
-			
-
-			tv->tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tv->tab->width,(float)tv->tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
-
-			tv->tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT));
-
-			for(int i=0;i<(int)panels.size();i++)
-			{
-				tv->tab->renderer->DrawBitmap(panels[i].expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(0,i*20,20,20));
-				Direct2DGuiBase::DrawText(tv->tab->renderer,tv->tab->SetColor(TabContainer::COLOR_TEXT),panels[i].name,20,i*20,(float)tv->tab->width,20);
-			}
-
-			tv->tab->renderer->PopAxisAlignedClip();
-
-			//tv->tab->renderer->EndDraw();
-		}
-		void drawselection(Properties* tv)
-		{
-
-		}
-		void clear()
-		{
-			this->parent=0;
-			this->entity=0;
-
-			for(std::list<PropertiesNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
-				nCh->clear();
-
-			this->childs.clear();
-		}
-		PropertiesNode* onmousepressed(Properties* tv,float& x,float& y,float& width,float& height)
-		{
-
-		}
-		std::vector<Entity*> getselection()
-		{
-
-		}
-	}elements;
-	
-
-	Properties(TabContainer* tc)
-	{
-		this->tab=tc;
-		this->name="Properties";
-		
-		RecreateTarget();
+		void draw(Properties* tv);
+		void drawselection(Properties* tv);
+		void clear();
+		PropertiesNode* onmousepressed(Properties* tv,float& x,float& y,float& width,float& height);
 	};
+
+	PropertiesNode elements;
 	
-	~Properties(){}
 
-	void OnPaint()
-	{
-		if(!tab->isRender)
-			tab->renderer->BeginDraw();
+	Properties(TabContainer* tc);
+	~Properties();
 
-		tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)tab->height),tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
-
-		this->DrawItems();
-
-		if(!tab->isRender)
-			tab->renderer->EndDraw();
-
-	};
-	
+	void OnPaint();
 	void OnSize(){};
 	void OnLMouseDown(){};
-	void OnEntitiesChange()
-	{
-		elements.clear();
-
-		Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
-
-		float w,h;
-		elements.insert(rootEntity,0,w=0,h=0,0,0);
-
-		this->OnPaint();
-	};
+	void OnEntitiesChange();
 	void OnEntitySelected(){};
 	void OnRun(){};
 	void OnReparent(){};
 
-	void DrawItems()
-	{
-		elements.draw(this);
-	};
+	void DrawItems();
 
-	void RecreateTarget()
-	{
-
-	}
+	void RecreateTarget(){}
 };
 
 
+struct Resources : GuiInterface<Resources>
+{
+	struct ResourceNode
+	{
+		ResourceNode* parent;
+
+		String fileName;
+
+		float x;
+		float y;
+		bool expanded;
+		bool selected;
+		int textWidth;
+		int level;
+		int hasChilds;
+		bool isDir;
+		DWORD lastModifiedLow;
+		DWORD lastModifiedHi;
+
+		std::list<ResourceNode> childsDirs;
+		std::list<ResourceNode> childsFiles;
+
+		ResourceNode(){clear();}
+		~ResourceNode(){clear();}
+
+		void insertDirectory(String &path,char *name,HANDLE handle,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
+		void insertFiles(WIN32_FIND_DATA &found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
+		void update(float& width,float& height);
+		void drawlist(Resources* tv);
+		void drawselection(Resources* tv);
+		void clear();
+		ResourceNode* onmousepressed(Resources* tv,float& x,float& y,float& width,float& height);
+	};
+
+	ResourceNode elements;
+
+	Resources(TabContainer* tc);
+	~Resources();
+
+	ID2D1BitmapRenderTarget* bitmaprenderer;
+	ID2D1Bitmap* leftBitmap;
+	ID2D1Bitmap* rightBitmap;
+
+
+
+	float leftBitmapWidth;
+	float leftBitmapHeight;
+	float rightBitmapWidth;
+	float rightBitmapHeight;
+	int leftScrollY;
+	int rightScrollY;
+	int leftFrameWidth;
+	int rightFrameWidth;
+	int frameHeight;
+	
+
+	void OnPaint();
+	void OnSize();
+	void OnLMouseDown();
+	void OnEntitiesChange();
+	void OnRun();
+	void OnReparent();
+
+	void DrawItems();
+
+	void RecreateTarget();
+};
 bool InitSplitter();
 
 

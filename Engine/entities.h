@@ -222,7 +222,7 @@ struct KeyCurve
 
 	KeyCurve();
 
-	TDAutoArray<Keyframe*>	keycurve_keyframes;
+	std::vector<Keyframe*>	keycurve_keyframes;
 	EChannel		keycurve_channel;
 	float			keycurve_start;
 	float			keycurve_end;
@@ -238,7 +238,7 @@ struct CurveGroup
 {
 	CurveGroup();
 
-	TDAutoArray<KeyCurve*> curvegroup_keycurves;
+	std::vector<KeyCurve*> curvegroup_keycurves;
 
 	float curvegroup_start;
 	float curvegroup_end;
@@ -252,7 +252,7 @@ struct Animation
 
 	virtual int animate(float)=0;
 
-	TDAutoArray<CurveGroup*> animation_curvegroups;
+	std::vector<CurveGroup*> animation_curvegroups;
 
 	int		animation_nprocessed;
 	float	animation_time;

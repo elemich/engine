@@ -1,7 +1,7 @@
 #include "primitives.h"
 
 String::String():data(0){}
-String::String(const char* s):data(0){if(!s){data=0;return;}data=new char[strlen(s)+1];strcpy(data,s);}
+
 String::String(int size,const char* s,...)
 {
 	__debugbreak();
@@ -13,18 +13,22 @@ String::String(int size,const char* s,...)
 	data=new char[strlen(t)+1];
 	strcpy(data,t);*/
 }
-String::String(const String& s)
+
+String::String(const char* s):data(0)
+{
+	if(s)
+	{
+		data=new char[strlen(s)+1];
+		strcpy(data,s);
+	}
+}
+
+String::String(const String& s):data(0)
 {
     if(s.data)
     {
         data=new char[strlen(s.Buf())+1];
         strcpy(data,s.Buf());
-        return;
-    }
-    else
-    {
-        data=0;
-        return;
     }
 }
 String::String(int number)
@@ -47,14 +51,22 @@ String::~String()
 	SAFEDELETEARRAY(data);
 }
 
-void String::operator=(const char* s)
+String& String::operator=(const char* s)
 {
     SAFEDELETEARRAY(data);
+
 	if(s)
 	{
 		data=new char[strlen(s)+1];
 		strcpy(data,s);
 	}
+	
+	return *this;
+}
+
+String& String::operator=(const String& s)
+{
+	return operator=(s.Buf());
 }
 
 bool String::operator==(const char* s)
@@ -70,15 +82,31 @@ char String::operator[](int i)
         return data[i];
     }
     else
-        return '\0';}
-String String::operator+(const char* b)
-{
-    char* ab=new char[Count()+strlen(b)+1];
-    strcpy(ab,Buf());
-    strcpy(&ab[Count()],b);
-    String s(ab);
-    return s;
+        return '\0';
 }
+
+String operator+(String a,const String& b)
+{
+	return a+=b;
+}
+
+String& String::operator+=(const String& str)
+{
+	int lena=Count();
+	int lenb=str.Count();
+
+	char* _data=new char[lena+lenb+1];
+	strcpy(_data,Buf());
+	strcpy(&_data[lena],str.Buf());
+
+	SAFEDELETEARRAY(this->data);
+
+	this->data=_data;
+
+	return *this;
+}
+
+
 
 String::operator float()const
 {

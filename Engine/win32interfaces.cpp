@@ -8,7 +8,6 @@
 WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
-App* ___app;
 
 /*
 //--------------------ProjectFolderBrowser-------------------------
@@ -293,14 +292,35 @@ void SceneEntities::Create(HWND container)
 //--------------------AppData-------------------------
 
 
-App::App()
-{
-	___app=this;
-}
 
 int App::Init()
 {
-	CoInitialize(0);
+	HRESULT result;
+	
+	result=CoInitialize(0);
+	
+	{
+		char _pszDisplayName[MAX_PATH]="";
+
+		BROWSEINFO bi={0};
+		bi.pszDisplayName=_pszDisplayName;
+		bi.lpszTitle="Select Project Directory";
+
+		PIDLIST_ABSOLUTE tmpProjectFolder=SHBrowseForFolder(&bi);
+
+		DWORD err=GetLastError();
+
+		if(tmpProjectFolder)
+		{
+			char path[MAX_PATH];
+
+			if(SHGetPathFromIDList(tmpProjectFolder,path))
+			{
+				this->projectFolder=path;
+			}
+		}
+	}
+
 
 	Direct2DGuiBase::Init(L"Verdana",10);
 
@@ -316,9 +336,13 @@ int App::Init()
 		error=-1;
 	}
 
+	
+
 	InitSplitter();
 
 	this->CreateMainWindow();
+
+	
 
 	return error;
 }
@@ -352,11 +376,15 @@ void App::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-
-		/*for(int i=0;i<(int)RendererInterface::renderers.size();i++)
+		//else
 		{
-			RendererInterface::renderers[i]->Render();		
-		}*/
+			for(int i=0;i<(int)RendererViewportInterface::Pool().size();i++)
+			{
+				if(RendererViewportInterface::Pool()[i]->IsSelected())
+					RendererViewportInterface::Pool()[i]->OnRender();
+			}
+		}
+		
 	}
 
 	this->Close();

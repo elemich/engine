@@ -327,14 +327,14 @@ void ParseAnimationCurve(Animation* a)
 	float& amin=a->animation_start;
 	float& amax=a->animation_end;
 
-	for(int i=0;i<a->animation_curvegroups.Count();i++)
+	for(int i=0;i<(int)a->animation_curvegroups.size();i++)
 	{
 		float& start=a->animation_curvegroups[i]->curvegroup_start;
 		float& end=a->animation_curvegroups[i]->curvegroup_end;
 
 		CurveGroup* g=a->animation_curvegroups[i];
 
-		for(int j=0;j<g->curvegroup_keycurves.Count();j++)
+		for(int j=0;j<(int)g->curvegroup_keycurves.size();j++)
 		{
 				KeyCurve* c=g->curvegroup_keycurves[j];
 				if(c->keycurve_start!=start )
@@ -343,8 +343,8 @@ void ParseAnimationCurve(Animation* a)
 				{
 					Keyframe* key=new Keyframe;
 					key->time=end;
-					key->value=c->keycurve_keyframes[c->keycurve_keyframes.Count()-1]->value;
-					c->keycurve_keyframes.Append(key);
+					key->value=c->keycurve_keyframes[(int)c->keycurve_keyframes.size()-1]->value;
+					c->keycurve_keyframes.push_back(key);
 				}
 		}
 	}
@@ -374,11 +374,11 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			//DONTCANCEL AnimationTake(layer,fbxNode,animation,animname);
 		}
 
-		if(!curvegroup->curvegroup_keycurves.Count())
+		if(!(int)curvegroup->curvegroup_keycurves.size())
 			delete curvegroup;
 		else
 		{
-			entity->animation_curvegroups.Append(curvegroup);
+			entity->animation_curvegroups.push_back(curvegroup);
 			ParseAnimationCurve(entity);
 		}
 	}
@@ -484,10 +484,10 @@ void StoreKeyframes(Animation* animation,CurveGroup* curvegroup,EChannel channel
 			keyframe->time=(float)fbxKey.GetTime().GetSecondDouble();
 			keyframe->value=fbxKey.GetValue();
 
-			curve->keycurve_keyframes.Append(keyframe);
+			curve->keycurve_keyframes.push_back(keyframe);
 		}
 
-		curvegroup->curvegroup_keycurves.Append(curve);
+		curvegroup->curvegroup_keycurves.push_back(curve);
 	}
 }
 
@@ -728,14 +728,14 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 
 		int* meshIndices=fbxMesh->GetPolygonVertices();
 
-		TDAutoArray< TDAutoArray<int> > finalIndices(cluster.cluster_ninfluences);
+		std::vector< std::vector<int> > finalIndices(cluster.cluster_ninfluences);
 
 		for(int i=0;i<cluster.cluster_ninfluences;i++)
 		{
 			for(int j=0;j<fbxMesh->GetPolygonVertexCount();j++)
 			{
 				if(cpidx[i]==meshIndices[j])
-					finalIndices[i].Append(j);
+					finalIndices[i].push_back(j);
 			}
 		}
 
@@ -743,7 +743,7 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 		{
 			Influence& influence=cluster.cluster_influences[influenceIdx];
 
-			influence.influence_ncontrolpointindex=finalIndices[influenceIdx].Count();
+			influence.influence_ncontrolpointindex=(int)finalIndices[influenceIdx].size();
 
 			if(!influence.influence_ncontrolpointindex)
 				__debugbreak();

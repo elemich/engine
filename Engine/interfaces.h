@@ -3,38 +3,20 @@
 
 #include "primitives.h"
 
-struct Interface
-{
-	static std::vector<Interface*> interfacesPool;
-
-	Interface();
-	~Interface();
-
-	virtual Interface* GetApp(){return 0;}
-	virtual Interface* GetRenderer(){return 0;}
-	virtual Interface* GetShader(){return 0;}
-};
 
 
 
 
-struct AppInterface : Interface
+
+struct AppInterface
 {
 	virtual int Init()=0;
 	virtual void Run()=0;
 	virtual void CreateMainWindow()=0;
-
-	virtual AppInterface* GetApp(){return this;}
-	
 };
 
-struct RendererInterface : Interface
+struct RendererInterface
 {
-	virtual RendererInterface* GetRenderer(){return this;}
-	
-	static std::vector<RendererInterface*> renderers;
-
-
 	virtual char* Name()=0;
 	virtual void Render()=0;
 
@@ -73,11 +55,9 @@ struct ShadersPool
 };
 
 
-struct ShaderInterface : Interface
+struct ShaderInterface
 {
 	static ShadersPool shadersPool;
-
-	virtual ShaderInterface* GetShader(){return this;}
 
 	virtual int GetProgram()=0;
 	virtual void SetProgram(int)=0;
@@ -119,7 +99,7 @@ struct ShaderInterface : Interface
 	virtual void SetByMatrixStack()=0;
 };
 
-struct InputInterface : Interface
+struct InputInterface
 {
 
 };

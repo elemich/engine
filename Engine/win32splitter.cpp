@@ -1,17 +1,10 @@
 #include "win32.h"
 
-extern App* ___app;
-
 
 #pragma message (LOCATION " beware to new POD initialization (parhentesized or not)")
 
 extern WNDPROC SystemOriginalTabControlProcedure;
 extern WNDPROC SystemOriginalSysTreeView32ControlProcedure;
-
-
-
-
-
 
 SplitterContainer::SplitterContainer():splitterSize(4)
 {
@@ -51,8 +44,12 @@ void SplitterContainer::OnLButtonDown(HWND hwnd,LPARAM lparam)
 		MapWindowRect(hittedWindow1,hwnd,&rc1);
 		MapWindowRect(hittedWindow2,hwnd,&rc2);
 
-		resizingWindows1=findWindoswAtPos(hwnd,rc1,edge1);
-		resizingWindows2=findWindoswAtPos(hwnd,rc2,edge2);
+		{
+			resizingWindows1=findWindoswAtPos(hwnd,rc1,edge1);
+			resizingWindows2=findWindoswAtPos(hwnd,rc2,edge2);
+		}
+
+		
 
 		SetCapture(hwnd);
 	}
@@ -74,10 +71,14 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 				{
 					TabContainer* newChild=new TabContainer(childMovingRc.left,childMovingRc.top,childMovingRc.right-childMovingRc.left,childMovingRc.bottom-childMovingRc.top,hwnd);
 					SetWindowPos(childMovingTarget->hwnd,0,childMovingTargetRc.left,childMovingTargetRc.top,childMovingTargetRc.right-childMovingTargetRc.left,childMovingTargetRc.bottom-childMovingTargetRc.top,SWP_SHOWWINDOW);
-					
+
+					childMovingTarget->LinkSibling(newChild,childMovingTargetAnchorPos);
+
 					Gui* reparentTab=childMovingRef->tabs[childMovingRefTabIdx];
 					childMovingRef->RemoveTab(reparentTab);
 					newChild->AddTab(reparentTab);
+
+					
 				}
 				else
 				{
@@ -207,9 +208,9 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 	{
 		if(!GetCapture())
 		{
-			int d=6;
+			int pixelDistance=6;
 
-			POINT probePoints[4]={{p.x-d,p.y},{p.x+d,p.y},{p.x,p.y-d},{p.x,p.y+d}};
+			POINT probePoints[4]={{p.x-pixelDistance,p.y},{p.x+pixelDistance,p.y},{p.x,p.y-pixelDistance},{p.x,p.y+pixelDistance}};
 
 			HWND hittedWindows[4]={0,0,0,0};
 

@@ -19,32 +19,41 @@ void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
 {
 	if(!factory)
 	{
-		if(S_OK!=D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &factory))
+		HRESULT res=S_OK;
+
+		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
+		if(S_OK!=res)
 			__debugbreak();
 
-		if(S_OK!=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&writer)))
+		res=D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &factory);
+		if(S_OK!=res)
 			__debugbreak();
 
-		if(S_OK!=writer->CreateTextFormat(fontName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,fontSize,L"",&texter))
+		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&writer));
+		if(S_OK!=res)
 			__debugbreak();
 
-		if(S_OK!=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager))
+		res=writer->CreateTextFormat(fontName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,fontSize,L"",&texter);
+		if(S_OK!=res)
 			__debugbreak();
+
+		
 
 		// Center the text horizontally and vertically.
 		//textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
 
-		if(S_OK!=texter->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER))
+		res=texter->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+		if(S_OK!=res)
 			__debugbreak();
 	}
 }
 
 void Direct2DGuiBase::Release()
 {
-	if(factory)factory->Release();
-	if(imager)imager->Release();
-	if(writer)writer->Release();
-	if(texter)texter->Release();
+	D2DRELEASE(factory);
+	D2DRELEASE(imager);
+	D2DRELEASE(writer);
+	D2DRELEASE(texter);
 };
 
 ID2D1HwndRenderTarget* Direct2DGuiBase::InitHWNDRenderer(HWND hwnd)
@@ -177,12 +186,12 @@ ID2D1Bitmap* Direct2DGuiBase::CreateRawBitmap(ID2D1RenderTarget*renderer,const w
 				
 	if (SUCCEEDED(hr))
 	{
-		if(imager)imager->Release();
-		if(pDecoder)pDecoder->Release();
-		if(pSource)pSource->Release();
-		if(pStream)pStream->Release();
-		if(pConverter)pConverter->Release();
-		if(pScaler)pScaler->Release();
+		D2DRELEASE(imager);
+		D2DRELEASE(pDecoder);
+		D2DRELEASE(pSource);
+		D2DRELEASE(pStream);
+		D2DRELEASE(pConverter);
+		D2DRELEASE(pScaler);
 	}
 
 	
@@ -200,10 +209,10 @@ void Direct2DGuiBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffe
 	IWICFormatConverter *pConverter = NULL;
 	IWICBitmapScaler *pScaler = NULL;
 
-	HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
+	HRESULT hr;/*= CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
 
 	if (!SUCCEEDED(hr))
-		__debugbreak();
+		__debugbreak();*/
 
 	hr = imager->CreateDecoderFromFilename(fname,NULL,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&pDecoder);
 
@@ -240,11 +249,11 @@ void Direct2DGuiBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffe
 
 	if (SUCCEEDED(hr))
 	{
-		if(pDecoder)pDecoder->Release();
-		if(pSource)pSource->Release();
-		if(pStream)pStream->Release();
-		if(pConverter)pConverter->Release();
-		if(pScaler)pScaler->Release();
+		D2DRELEASE(pDecoder);
+		D2DRELEASE(pSource);
+		D2DRELEASE(pStream);
+		D2DRELEASE(pConverter);
+		D2DRELEASE(pScaler);
 	}
 }
 
@@ -599,7 +608,7 @@ void TreeView::OnReparent()
 
 void TreeView::DrawItems()
 {
-	if(bitmaprenderer)bitmaprenderer->Release();
+	D2DRELEASE(bitmaprenderer);
 	
 
 	tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(bitmapWidth,bitmapHeight),&bitmaprenderer);
@@ -647,4 +656,475 @@ void TreeView::OnPaint()
 }
 
 
+
+
+
+
+
+
+
+
+
+
+void Properties::PropertiesNode::insert(Entity* entity,HDC hdc,float& width,float& height,PropertiesNode* parent,int expandUntilLevel)
+{
+	if(!entity)
+		return;
+
+	this->entity=entity;
+	this->parent=parent;
+
+	this->update(width,height);
+
+	for(std::list<Entity*>::iterator eCh=entity->entity_childs.begin();eCh!=entity->entity_childs.end();eCh++)
+	{	
+		this->childs.push_back(PropertiesNode());
+		this->childs.back().insert(*eCh,hdc,width,height,this,expandUntilLevel);
+	}
+}
+
+void Properties::PropertiesNode::update(float& width,float& height)
+{
+	this->panels.push_back(PanelData("Entity"));
+	PanelData& pdEntity=panels.back();
+
+	if(entity->GetBone())
+	{
+		this->panels.push_back(PanelData("Bone"));
+		PanelData& pdBone=panels.back();
+	}
+	if(entity->GetMesh())
+	{
+		this->panels.push_back(PanelData("Mesh"));
+		PanelData& pdMesh=panels.back();
+	}
+	if(entity->GetLight())
+	{
+		this->panels.push_back(PanelData("Light"));
+		PanelData& pdLight=panels.back();
+	}
+	if(entity->GetSkin())
+	{
+		this->panels.push_back(PanelData("Skin"));
+		PanelData& pdSkin=panels.back();
+	}
+}
+
+void Properties::PropertiesNode::draw(Properties* tv)
+{
+	if(!entity)
+		return;
+
+	//tv->tab->renderer->BeginDraw();
+
+
+
+	tv->tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tv->tab->width,(float)tv->tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
+
+	tv->tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT));
+
+	for(int i=0;i<(int)panels.size();i++)
+	{
+		tv->tab->renderer->DrawBitmap(panels[i].expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(0,i*20,20,20));
+		Direct2DGuiBase::DrawText(tv->tab->renderer,tv->tab->SetColor(TabContainer::COLOR_TEXT),panels[i].name,20,i*20,(float)tv->tab->width,20);
+	}
+
+	tv->tab->renderer->PopAxisAlignedClip();
+
+	//tv->tab->renderer->EndDraw();
+}
+void Properties::PropertiesNode::drawselection(Properties* tv)
+{
+
+}
+void Properties::PropertiesNode::clear()
+{
+	this->parent=0;
+	this->entity=0;
+
+	for(std::list<PropertiesNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
+		nCh->clear();
+
+	this->childs.clear();
+}
+
+Properties::PropertiesNode* Properties::PropertiesNode::onmousepressed(Properties* tv,float& x,float& y,float& width,float& height)
+{
+	return 0;
+}
+
+Properties::Properties(TabContainer* tc)
+{
+	this->tab=tc;
+	this->name="Properties";
+
+	RecreateTarget();
+};
+
+Properties::~Properties(){}
+
+void Properties::OnPaint()
+{
+	if(!tab->isRender)
+		tab->renderer->BeginDraw();
+
+	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)tab->height),tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
+
+	this->DrawItems();
+
+	if(!tab->isRender)
+		tab->renderer->EndDraw();
+
+};
+
+void Properties::OnEntitiesChange()
+{
+	elements.clear();
+
+	Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
+
+	float w,h;
+	elements.insert(rootEntity,0,w=0,h=0,0,0);
+
+	this->OnPaint();
+};
+
+void Properties::DrawItems()
+{
+	elements.draw(this);
+};
+
+
+
+void Resources::ResourceNode::clear()
+{
+	this->parent=0;
+	this->x=0;
+	this->y=0;
+	this->expanded=0;
+	this->selected=0;
+	this->textWidth=0;
+	this->level=0;
+	this->hasChilds=0;
+
+	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+		nCh->clear();
+
+	this->childsDirs.clear();
+}
+
+void Resources::ResourceNode::insertDirectory(String &fullPath,char* currentFilename,HANDLE parentHandle,HDC hdc,float& width,float& height,ResourceNode* parent,int expandUntilLevel)
+{
+	WIN32_FIND_DATA		found,skipFound;
+
+	if(!parentHandle)
+	{
+		parentHandle=FindFirstFile((fullPath + "\\*").Buf(),&skipFound); //. dir
+		
+		if(!parentHandle || INVALID_HANDLE_VALUE == parentHandle)
+			__debugbreak();
+		else
+			FindNextFile(parentHandle,&skipFound);
+	}
+	
+	this->isDir = true;
+
+	fileName= !parent ? fullPath : currentFilename;
+
+	height+= (parent && !parent->expanded) ? 0 : TreeView::TREEVIEW_ROW_HEIGHT;
+
+	this->parent=parent;
+	this->x=parent ? parent->x+TreeView::TREEVIEW_ROW_ADVANCE : TreeView::TREEVIEW_ROW_ADVANCE;
+	this->y=height-TreeView::TREEVIEW_ROW_HEIGHT;
+	this->level=parent ? parent->level+1 : 0;
+	this->expanded=this->level<expandUntilLevel ? true : false;
+	this->selected=false;
+	this->hasChilds = 0;
+
+	parent ? parent->hasChilds++ : 0;
+
+	SIZE tSize;
+	GetTextExtentPoint32(hdc,found.cFileName,strlen(found.cFileName),&tSize);
+
+	this->textWidth=tSize.cx;
+
+	if(!parent || parent && parent->expanded)
+		width=this->textWidth+this->x > width ? this->textWidth+this->x : width;
+
+	while(FindNextFile(parentHandle,&found))
+	{
+		if(found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+			continue;
+
+		if(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		{
+			String dir=fullPath + "\\" + found.cFileName;
+
+			this->childsDirs.push_back(ResourceNode());
+			this->childsDirs.back().insertDirectory(dir,found.cFileName,0,hdc,width,height,this,expandUntilLevel);
+		}
+		else
+		{
+			this->childsFiles.push_back(ResourceNode());
+			float fakeWidth=0,fakeHeight=0;
+			this->childsFiles.back().insertFiles(found,hdc,fakeWidth,fakeHeight,this,expandUntilLevel);
+		}
+	}
+
+	FindClose(parentHandle);
+}
+
+void Resources::ResourceNode::insertFiles(WIN32_FIND_DATA& found,HDC hdc,float& width,float& height,ResourceNode* parent,int expandUntilLevel)
+{
+	this->isDir = true;
+
+	fileName=found.cFileName;
+
+	height+= (parent && !parent->expanded) ? 0 : TreeView::TREEVIEW_ROW_HEIGHT;
+
+	this->parent=parent;
+	this->x=parent ? parent->x+TreeView::TREEVIEW_ROW_ADVANCE : TreeView::TREEVIEW_ROW_ADVANCE;
+	this->y=height-TreeView::TREEVIEW_ROW_HEIGHT;
+	this->level=parent ? parent->level+1 : 0;
+	this->expanded=this->level<expandUntilLevel ? true : false;
+	this->selected=false;
+	this->hasChilds = 0;
+
+	SIZE tSize;
+	GetTextExtentPoint32(hdc,found.cFileName,strlen(found.cFileName),&tSize);
+
+	this->textWidth=tSize.cx;
+
+	if(!parent || parent && parent->expanded)
+		width=this->textWidth+this->x > width ? this->textWidth+this->x : width;
+}
+
+void Resources::ResourceNode::update(float& width,float& height)
+{
+	height+=this->parent ? (this->parent->expanded ? TreeView::TREEVIEW_ROW_HEIGHT : 0) : TreeView::TREEVIEW_ROW_HEIGHT;
+
+	this->x=this->parent ? this->parent->x+TreeView::TREEVIEW_ROW_ADVANCE : TreeView::TREEVIEW_ROW_ADVANCE;
+	this->y=height-TreeView::TREEVIEW_ROW_HEIGHT;
+
+	width=this->parent ? (this->parent->expanded ? (this->textWidth+this->x > width ? this->textWidth+this->x : width) : width) : this->textWidth+this->x;
+
+	if(this->expanded)
+	{
+		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+			nCh->update(width,height);
+	}
+}
+void Resources::ResourceNode::drawlist(Resources* tv)
+{
+	size_t resLen=0;
+	wchar_t resText[CHAR_MAX];
+	mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
+
+	if(this->hasChilds)
+		tv->bitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+		
+	tv->bitmaprenderer->DrawBitmap(tv->tab->folderIcon,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+
+	tv->bitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
+
+	if(this->expanded)
+	{
+		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+			nCh->drawlist(tv);
+	}
+}
+
+void Resources::ResourceNode::drawselection(Resources* tv)
+{
+	TabContainer* tabContainer=tv->tab;
+
+	if(this->selected)
+		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tabContainer->width,(float)this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+
+	if(this->expanded)
+	{
+		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+			nCh->drawselection(tv);
+	}
+}
+
+
+
+Resources::ResourceNode* Resources::ResourceNode::onmousepressed(Resources* tv,float& x,float& y,float& width,float& height)
+{
+	if(y>this->y && y<this->y+TreeView::TREEVIEW_ROW_HEIGHT)
+	{
+		if(this->hasChilds && x>this->x-TreeView::TREEVIEW_ROW_ADVANCE && x<this->x)
+		{
+			this->expanded=!this->expanded;
+			return this;
+		}
+		else
+			this->selected=true;
+	}
+	else
+		this->selected=false;
+
+	if(this->expanded)
+	{
+		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+		{
+			ResourceNode* childNode=nCh->onmousepressed(tv,x,y,width,height);
+			if(childNode)
+				return childNode;
+		}
+	}
+
+	return 0;
+}
+
+Resources::Resources(TabContainer* tc):
+bitmaprenderer(0),
+leftBitmap(0),
+leftBitmapWidth((float)tc->width),
+leftBitmapHeight((float)tc->height),
+leftScrollY(0)
+{
+	tab=tc;
+
+	leftFrameWidth=tab->width-20;
+	frameHeight=tab->height-30;
+
+	this->name="Project";
+
+	this->RecreateTarget();
+
+	OnEntitiesChange();
+}
+
+void Resources::RecreateTarget()
+{
+	DrawItems();
+}
+
+
+Resources::~Resources()
+{
+	
+}
+
+void Resources::OnEntitiesChange()
+{
+	HDC hdc=GetDC(tab->hwnd);
+	int nLevels=0;
+
+	elements.clear();
+
+	Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
+
+	elements.insertDirectory(App::instance->projectFolder,0,0,GetDC(tab->hwnd),leftBitmapWidth=0,leftBitmapHeight=0,0);
+
+	this->DrawItems();
+	this->OnPaint();
+}
+
+void Resources::OnSize()
+{
+	leftFrameWidth=tab->width-ScrollBar::SCROLLBAR_WIDTH;
+	frameHeight=tab->height-TabContainer::CONTAINER_HEIGHT;
+}
+
+void Resources::OnLMouseDown()
+{
+	float &mx=tab->mousex;
+	float &my=tab->mousey;
+
+	if(mx>leftFrameWidth) //mouarse is on the scrollb
+	{
+		if(my>TabContainer::CONTAINER_HEIGHT && my<(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT))
+			leftScrollY=(leftScrollY-ScrollBar::SCROLLBAR_AMOUNT < 0 ? 0 : leftScrollY-ScrollBar::SCROLLBAR_AMOUNT);
+		else if(my>(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT) && my<frameHeight)
+		{
+
+		}
+		else if(my>frameHeight)
+			leftScrollY+=ScrollBar::SCROLLBAR_AMOUNT;
+
+		this->OnPaint();
+	}
+	else// if(mx>TabContainer::CONTAINER_HEIGHT && mx<(TabContainer::CONTAINER_HEIGHT+frameHeight))//mouse is on the frame
+	{
+		my-=TabContainer::CONTAINER_HEIGHT-leftScrollY;
+
+		ResourceNode* updatedNode=elements.onmousepressed(this,mx,my,leftBitmapWidth,leftBitmapHeight);
+
+		if(updatedNode)
+		{
+			elements.update(leftBitmapWidth=0,leftBitmapHeight=0);
+			this->DrawItems();
+		}	
+	
+		this->OnPaint();
+
+		/*for(int i=0;i<(int)guiInterfacesPool.size();i++)
+			guiInterfacesPool[i]->OnSelected(sel);*/
+	}
+}
+
+void Resources::OnRun()
+{
+	if(tab->mouseDown)
+		this->OnLMouseDown();
+}
+
+void Resources::OnReparent()
+{
+	this->OnSize();
+	this->RecreateTarget();
+	this->DrawItems();
+}
+
+void Resources::DrawItems()
+{
+	if(bitmaprenderer)bitmaprenderer->Release();
+	
+
+	tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(leftBitmapWidth,leftBitmapHeight),&bitmaprenderer);
+
+	D2D1_PIXEL_FORMAT pf=bitmaprenderer->GetPixelFormat();
+
+	bitmaprenderer->BeginDraw();
+
+	elements.drawlist(this);
+
+	bitmaprenderer->DrawRectangle(D2D1::RectF(0,0,leftBitmapWidth,leftBitmapHeight),tab->SetColor(TabContainer::COLOR_TEXT));
+
+	bitmaprenderer->EndDraw();
+
+	LRESULT result=bitmaprenderer->GetBitmap(&leftBitmap);
+
+	if(result!=S_OK)
+		__debugbreak();
+}
+
+void Resources::OnPaint()
+{
+	if(!tab->isRender)
+		tab->renderer->BeginDraw();
+
+	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)leftFrameWidth,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
+
+	tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)leftFrameWidth,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
+
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollY));
+
+	elements.drawselection(this);
+
+	tab->renderer->DrawBitmap(leftBitmap);
+
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+
+	tab->renderer->PopAxisAlignedClip();
+
+	tab->renderer->FillRectangle(D2D1::RectF((float)leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT),this->tab->SetColor(TabContainer::COLOR_TAB_SELECTED));
+	tab->renderer->FillRectangle(D2D1::RectF((float)leftFrameWidth,(float)(tab->height-ScrollBar::SCROLLBAR_TIP_HEIGHT),(float)(tab->width),(float)(tab->height)),this->tab->SetColor(TabContainer::COLOR_TAB_SELECTED));
+
+	if(!tab->isRender)
+		tab->renderer->EndDraw();
+}
 

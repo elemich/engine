@@ -5,82 +5,65 @@
 
 struct TabContainer;
 
-struct Gui
+struct Gui : TClassPool<Gui>
 {
 	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
-
-	static std::vector<Gui*> guiPool;
-
+	
 	String name;
 	TabContainer* tab;
 
-	Gui();
-	~Gui();
+	Gui()
+	{
+		name="Generic Gui";
+		tab=0;
+	}
+
+	~Gui(){};
 
 	virtual void OnPaint(){}
 	virtual void OnEntitiesChange(){}
 	virtual void OnSize(){}
 	virtual void OnLMouseDown(){}
+	virtual void OnMouseMove(){}
 	virtual void OnRun(){}
 	virtual void OnReparent(){this->OnSize();}
 	virtual void OnSelected(Entity*){}
+	virtual void OnRender(){}
+	virtual void OnMouseWheel(){}
 
 	virtual void RecreateTarget(){}
+
+	bool IsSelected();
+
+	static std::vector<Gui*>& GuiPool(){return pool;}
 };
 
-template<class T> struct GuiInterface : Gui
+template<class T> struct GuiInterface : Gui , TClassPool<GuiInterface<T>>
 {
-	static std::vector<GuiInterface*> guiInterfacePool;
-
-	GuiInterface()
-	{
-		guiInterfacePool.push_back(this);	
-	}
-
-	~GuiInterface()
-	{
-		guiInterfacePool.erase(std::remove(guiInterfacePool.begin(),guiInterfacePool.end(),this),guiInterfacePool.end());
-	}
-
-	virtual GuiInterface* GetLogger(){return 0;}
-	virtual GuiInterface* GetFolderBrowser(){return 0;}
-	virtual GuiInterface* GetSceneEntities(){return 0;}
-	virtual GuiInterface* GetProperty(){return 0;}
-	virtual GuiInterface* GetRendererViewport(){return 0;}
+	static std::vector<GuiInterface<T>*>& Pool(){return TClassPool<GuiInterface<T>>::pool;}
 };
-
-template<class T> std::vector<GuiInterface<T>*> GuiInterface<T>::guiInterfacePool;
 
 
 struct LoggerInterface : GuiInterface<LoggerInterface>
 {
-	virtual LoggerInterface* GetLogger(){return this;}
 };
 
 struct FolderBrowserInterface : GuiInterface<FolderBrowserInterface>
 {
-	virtual FolderBrowserInterface* GetFolderBrowser(){return this;}
 };
 
 struct SceneEntitiesInterface : GuiInterface<SceneEntitiesInterface>
 {
-	SceneEntitiesInterface* GetSceneEntitiesInterface(){return this;}
-	SceneEntitiesInterface* GetSceneEntities(){return 0;}
-
 	virtual void OnEntitiesChange()=0;
 };
 
 struct PropertyInterface : GuiInterface<PropertyInterface>
 {
-	virtual PropertyInterface* GetProperty(){return this;}
 };
 
 
 struct RendererViewportInterface : GuiInterface<RendererViewportInterface> //should get the window handle from the WindowData class of the inherited class
 {
-	virtual RendererViewportInterface* GetRendererViewport(){return this;}
-
-
 	float RendererViewportInterface_viewScale;
 	float RendererViewportInterface_farPlane;
 
@@ -89,8 +72,6 @@ struct RendererViewportInterface : GuiInterface<RendererViewportInterface> //sho
 	virtual void OnViewportSize(int,int)=0;
 	virtual void OnMouseMotion(int,int,bool leftButtonDown,bool altIsDown)=0;
 	virtual void OnMouseDown(int,int)=0;
-
-	///virtual operator RendererViewportInterface&()=0;
 };
 
 

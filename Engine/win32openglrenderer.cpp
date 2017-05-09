@@ -410,8 +410,6 @@ void OpenGLRenderer::Create(HWND hwnd)
 
 	//SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
-	renderers.push_back(this);
-
 	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
 	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
 	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
@@ -1184,6 +1182,13 @@ void OpenGLRenderer::draw(Bone* bone)
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
+void OpenGLRenderer::OnMouseWheel()
+{
+	short int delta = GET_WHEEL_DELTA_WPARAM(tab->wparam);
+
+	this->OnMouseWheel(delta);
+}
+
 void OpenGLRenderer::OnMouseWheel(float factor)
 {
 	RendererViewportInterface_viewScale+=-signof(factor)*(RendererViewportInterface_viewScale*0.1f);
@@ -1195,8 +1200,14 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	float halfH=((rc.bottom-rc.top)/2.0f)*RendererViewportInterface_viewScale;
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
+}
 
-	//printf("wiewScale %3.2f\n",RendererViewportInterface_viewScale);
+void OpenGLRenderer::OnMouseMove()
+{
+	bool panButtonIsDown=(tab->wparam & MK_LBUTTON)!=0;
+	bool rotateButtonIsDown=(tab->wparam & MK_CONTROL)!=0;
+
+	this->OnMouseMotion(tab->mousex,tab->mousey,panButtonIsDown,rotateButtonIsDown);
 }
 
 void OpenGLRenderer::OnMouseRightDown()
@@ -1214,7 +1225,7 @@ void OpenGLRenderer::OnViewportSize(int width,int height)
 	MatrixStack::SetProjectionMatrix(p);
 }
 
-void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown)
+void OpenGLRenderer::OnMouseMotion(int x,int y,bool panButtonDown,bool rotateIsDown)
 {
 	vec2 &pos=InputManager::mouseInput.mouse_pos;
 	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
@@ -1223,14 +1234,14 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 	pos.x=(float)x;
 	pos.y=(float)y;
 
-	if(leftButtonDown && GetFocus()==this->tab->hwnd)
+	if(panButtonDown/* && GetFocus()==this->tab->hwnd*/)
 	{
 		float dX=(pos.x-oldpos.x);
 		float dY=(pos.y-oldpos.y);
 
 		mat4& modelview=MatrixStack::modelview;
 
-		if(altIsDown)
+		if(rotateIsDown)
 		{
 			mat4 mX;
 
@@ -1269,6 +1280,13 @@ void OpenGLRenderer::OnMouseDown(int,int)
 }
 
 
+
+
+
+void OpenGLRenderer::OnRender()
+{
+	this->Render();
+}
 
 void OpenGLRenderer::OnPaint()
 {
@@ -1334,8 +1352,7 @@ void OpenGLRenderer::OnSize()
 	this->width=tab->width;
 	this->height=(tab->height-TabContainer::CONTAINER_HEIGHT);
 
-	if(openglrenderer_bitmap)
-		openglrenderer_bitmap->Release();
+	D2DRELEASE(openglrenderer_bitmap);
 
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 	bp.pixelFormat=tab->renderer->GetPixelFormat();
