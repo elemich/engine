@@ -1196,10 +1196,13 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	RECT rc;
 	GetClientRect(this->tab->hwnd,&rc);
 
-	float halfW=((rc.right-rc.left)/2.0f)*RendererViewportInterface_viewScale;
-	float halfH=((rc.bottom-rc.top)/2.0f)*RendererViewportInterface_viewScale;
+	float halfW=this->GetProjectionHalfWidth();
+	float halfH=this->GetProjectionHalfHeight();
+
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
+
+	//printf("wiewScale %3.2f\n",RendererViewportInterface_viewScale);
 }
 
 void OpenGLRenderer::OnMouseMove()
@@ -1219,13 +1222,15 @@ void OpenGLRenderer::OnMouseRightDown()
 void OpenGLRenderer::OnViewportSize(int width,int height)
 {
 	glViewport(0,0,width,height);glCheckError();
-	float halfW=(width/2.0f)*RendererViewportInterface_viewScale;
-	float halfH=(height/2.0f)*RendererViewportInterface_viewScale;
+	
+	float halfW=this->GetProjectionHalfWidth();
+	float halfH=this->GetProjectionHalfHeight();
+
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
 }
 
-void OpenGLRenderer::OnMouseMotion(int x,int y,bool panButtonDown,bool rotateIsDown)
+void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown)
 {
 	vec2 &pos=InputManager::mouseInput.mouse_pos;
 	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
@@ -1234,14 +1239,14 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool panButtonDown,bool rotateIsD
 	pos.x=(float)x;
 	pos.y=(float)y;
 
-	if(panButtonDown/* && GetFocus()==this->tab->hwnd*/)
+	if(leftButtonDown && GetFocus()==this->tab->hwnd)
 	{
 		float dX=(pos.x-oldpos.x);
 		float dY=(pos.y-oldpos.y);
 
 		mat4& modelview=MatrixStack::modelview;
 
-		if(rotateIsDown)
+		if(altIsDown)
 		{
 			mat4 mX;
 
@@ -1278,9 +1283,6 @@ void OpenGLRenderer::OnMouseDown(int,int)
 {
 
 }
-
-
-
 
 
 void OpenGLRenderer::OnRender()
@@ -1346,13 +1348,25 @@ void OpenGLRenderer::Render()
 }
 
 
+float OpenGLRenderer::GetProjectionHalfWidth()
+{
+	return (this->width/2.0f)*this->RendererViewportInterface_viewScale;
+}
+float OpenGLRenderer::GetProjectionHalfHeight()
+{
+	return -(this->height/2.0f)*this->RendererViewportInterface_viewScale;
+}
 
 void OpenGLRenderer::OnSize()
 {
 	this->width=tab->width;
 	this->height=(tab->height-TabContainer::CONTAINER_HEIGHT);
 
-	D2DRELEASE(openglrenderer_bitmap);
+	float halfW=this->GetProjectionHalfWidth();
+	float halfH=this->GetProjectionHalfHeight();
+
+	if(openglrenderer_bitmap)
+		openglrenderer_bitmap->Release();
 
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 	bp.pixelFormat=tab->renderer->GetPixelFormat();
@@ -1369,8 +1383,6 @@ void OpenGLRenderer::OnSize()
 	glViewport(0,0,width,height);glCheckError();
 	glScissor(0,0,width,height);glCheckError();
 
-	float halfW=(width/2.0f)*RendererViewportInterface_viewScale;
-	float halfH=(height/2.0f)*RendererViewportInterface_viewScale;
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
 }

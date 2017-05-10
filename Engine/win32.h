@@ -391,6 +391,8 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface
 	void OnViewportSize(int width,int height);
 	void OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown);
 	void OnMouseDown(int,int);
+	float GetProjectionHalfWidth();
+	float GetProjectionHalfHeight();
 
 
 	void OnSize();
@@ -579,30 +581,35 @@ struct Resources : GuiInterface<Resources>
 		int level;
 		int hasChilds;
 		bool isDir;
-		DWORD lastModifiedLow;
-		DWORD lastModifiedHi;
 
 		std::list<ResourceNode> childsDirs;
 		std::list<ResourceNode> childsFiles;
 
 		ResourceNode(){clear();}
 		~ResourceNode(){clear();}
-
-		void insertDirectory(String &path,char *name,HANDLE handle,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
-		void insertFiles(WIN32_FIND_DATA &found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
+			
+		void insert(String &path,char *name,HANDLE handle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
 		void update(float& width,float& height);
-		void drawlist(Resources* tv);
-		void drawselection(Resources* tv);
+		void drawdirlist(Resources* tv);
+		void drawfilelist(Resources* tv);
+		void drawdirselection(Resources* tv);
+		void drawfileselection(Resources* tv);
 		void clear();
 		ResourceNode* onmousepressed(Resources* tv,float& x,float& y,float& width,float& height);
+
+		static bool ScanDir(const char* dir,HANDLE&,WIN32_FIND_DATA& data,int opt=-1);
 	};
 
-	ResourceNode elements;
+	ResourceNode leftElements;
+	ResourceNode rightElements;
+	std::vector<ResourceNode*> selectedDirs;
+	std::vector<ResourceNode*> selectedFiles;
 
 	Resources(TabContainer* tc);
 	~Resources();
 
-	ID2D1BitmapRenderTarget* bitmaprenderer;
+	ID2D1BitmapRenderTarget* leftbitmaprenderer;
+	ID2D1BitmapRenderTarget* rightbitmaprenderer;
 	ID2D1Bitmap* leftBitmap;
 	ID2D1Bitmap* rightBitmap;
 

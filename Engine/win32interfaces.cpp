@@ -322,6 +322,7 @@ int App::Init()
 	}
 
 
+
 	Direct2DGuiBase::Init(L"Verdana",10);
 
 	int error=ERROR_SUCCESS;

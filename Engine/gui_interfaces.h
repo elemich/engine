@@ -72,6 +72,9 @@ struct RendererViewportInterface : GuiInterface<RendererViewportInterface> //sho
 	virtual void OnViewportSize(int,int)=0;
 	virtual void OnMouseMotion(int,int,bool leftButtonDown,bool altIsDown)=0;
 	virtual void OnMouseDown(int,int)=0;
+	virtual float GetProjectionHalfWidth()=0;
+	virtual float GetProjectionHalfHeight()=0;
+
 };
 
 
