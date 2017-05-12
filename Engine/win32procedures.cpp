@@ -90,11 +90,12 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 }
 
 
+unsigned char* TabContainer::rawUpArrow=0;
 unsigned char* TabContainer::rawRightArrow=0;
 unsigned char* TabContainer::rawDownArrow=0;
 unsigned char* TabContainer::rawFolder=0;
 
-TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
+TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	renderer(0),
 	brush(0),
 	selected(0),
@@ -102,6 +103,7 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 	isRender(false),
 	splitterContainer(0),
 	recreateTarget(true),
+	upExpandos(0),
 	rightExpandos(0),
 	downExpandos(0),
 	folderIcon(0)
@@ -109,7 +111,7 @@ TabContainer::TabContainer(int x,int y,int w,int h,HWND parent):
 	width=w;
 	height=h;
 
-	hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,x,y,w,h,parent,0,0,this);
+	hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,(int)x,(int)y,(int)w,(int)h,parent,0,0,this);
 
 	if(!hwnd)
 		__debugbreak();
@@ -137,7 +139,7 @@ void TabContainer::OnSize(LPARAM lparam)
 	
 	this->RecreateTarget();
 
-	renderer->Resize(D2D1::SizeU(width,height));
+	renderer->Resize(D2D1::SizeU((int)width,(int)height));
 
 	if(this->GetSelected())
 		this->GetSelected()->OnSize();
@@ -193,6 +195,9 @@ void TabContainer::RecreateTarget()
 {
 	HRESULT hr=S_OK;
 
+	if(!rawUpArrow)
+		Direct2DGuiBase::CreateRawBitmap(L"uparrow.png",rawUpArrow);
+
 	if(!rawRightArrow)
 		Direct2DGuiBase::CreateRawBitmap(L"rightarrow.png",rawRightArrow);
 
@@ -209,6 +214,7 @@ void TabContainer::RecreateTarget()
 	D2DRELEASE(renderer);
 	D2DRELEASE(brush);
 
+	D2DRELEASE(upExpandos);
 	D2DRELEASE(rightExpandos);
 	D2DRELEASE(downExpandos);
 	D2DRELEASE(folderIcon);
@@ -226,6 +232,11 @@ void TabContainer::RecreateTarget()
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 	bp.pixelFormat=renderer->GetPixelFormat();
 	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&upExpandos);
+
+	if(!upExpandos || hr!=S_OK)
+		__debugbreak();
 
 	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&rightExpandos);
 
@@ -252,7 +263,7 @@ void TabContainer::OnWindowPosChanging(LPARAM lparam)
 {
 	WindowData::OnWindowPosChanging(lparam);
 
-	renderer->Resize(D2D1::SizeU(width,height));
+	renderer->Resize(D2D1::SizeU((int)width,(int)height));
 
 	this->RecreateTarget();
 
@@ -274,6 +285,9 @@ void TabContainer::OnMouseMove(LPARAM lparam)
 	if(mouseDown)
 		splitterContainer->CreateFloatingTab(this);
 
+	if(this->mousey<=TabContainer::CONTAINER_HEIGHT)
+		return;
+
 	if(this->GetSelected())
 		this->GetSelected()->OnMouseMove();
 }
@@ -281,10 +295,16 @@ void TabContainer::OnMouseMove(LPARAM lparam)
 void TabContainer::OnLMouseUp(LPARAM lparam)
 {
 	mouseDown=false;
+
+	if(this->GetSelected())
+		this->GetSelected()->OnLMouseUp();
 }
 
 void TabContainer::OnMouseWheel()
 {
+	if(this->mousey<=TabContainer::CONTAINER_HEIGHT)
+		return;
+
 	if(this->GetSelected())
 		this->GetSelected()->OnMouseWheel();
 }
@@ -292,8 +312,6 @@ void TabContainer::OnMouseWheel()
 void TabContainer::OnLMouseDown(LPARAM lparam)
 {
 	OnMouseMove(lparam);
-
-	
 
 	float &x=this->mousex;
 	float &y=this->mousey;

@@ -54,8 +54,8 @@ struct Direct2DGuiBase
 struct WindowData
 {
 	HWND hwnd;
-	int width;
-	int height;
+	float width;
+	float height;
 
 	UINT msg;
 	WPARAM wparam;
@@ -64,7 +64,7 @@ struct WindowData
 	virtual void Create(HWND container)=0;
 
 	virtual void OnSize(LPARAM lparam){width=LOWORD(lparam),height=HIWORD(lparam);}
-	virtual void OnWindowPosChanging(LPARAM lparam){width=((LPWINDOWPOS)lparam)->cx,height=((LPWINDOWPOS)lparam)->cy;}
+	virtual void OnWindowPosChanging(LPARAM lparam){width=(float)((LPWINDOWPOS)lparam)->cx,height=(float)((LPWINDOWPOS)lparam)->cy;}
 
 };
 
@@ -106,6 +106,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	static const int CONTAINER_ARROW_STRIDE=CONTAINER_ARROW_WH*4;
 	
 
+	static unsigned char* rawUpArrow;
 	static unsigned char* rawRightArrow;
 	static unsigned char* rawDownArrow;
 	static unsigned char* rawFolder;
@@ -115,6 +116,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	ID2D1HwndRenderTarget* renderer;
 	ID2D1SolidColorBrush*  brush;
 
+	ID2D1Bitmap* upExpandos;
 	ID2D1Bitmap* rightExpandos;
 	ID2D1Bitmap* downExpandos;
 	ID2D1Bitmap* folderIcon;
@@ -130,7 +132,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 
 	float mousex,mousey;
 
-	TabContainer(int x,int y,int w,int h,HWND parent);
+	TabContainer(float x,float y,float w,float h,HWND parent);
 	~TabContainer();
 	
 	void Create(HWND){}//@mic no more used, delete from WindowData
@@ -146,6 +148,8 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	virtual void OnMouseWheel();
 
 	virtual void RecreateTarget();
+
+	
 
 	Gui* AddTab(Gui*,int position=-1);
 	int RemoveTab(Gui* tab);
@@ -438,11 +442,28 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
-struct ScrollBar
+struct ScrollBar : GuiInterface<ScrollBar>
 {
 	static const int SCROLLBAR_WIDTH=20;
 	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
 	static const int SCROLLBAR_AMOUNT=10;
+
+	float x,y,width,height;
+	float scroller,scrollerFactor;
+	float scrollerClick;
+
+	ScrollBar(TabContainer*);
+	~ScrollBar();
+
+	void Set(float _x,float _y,float _width,float _height);
+	void SetScrollerFactor(float contentHeight,float containerHeight);
+	void SetScrollerPosition(float contentHeight);
+	float GetScrollValue();
+
+	float OnPressed();
+	void OnReleased();
+	bool OnScrolled();
+	void OnPaint();
 };
 
 
@@ -488,13 +509,12 @@ struct TreeView : GuiInterface<TreeView>
 	ID2D1BitmapRenderTarget* bitmaprenderer;
 	ID2D1Bitmap* bitmap;
 
-	
+	ScrollBar scrollBar;
 	
 	float bitmapWidth;
 	float bitmapHeight;
-	int scrollY;
-	int frameWidth;
-	int frameHeight;
+	float frameWidth;
+	float frameHeight;
 
 	void OnPaint();
 	void OnSize();
@@ -579,23 +599,24 @@ struct Resources : GuiInterface<Resources>
 		bool selected;
 		int textWidth;
 		int level;
-		int hasChilds;
-		bool isDir;
+		int nChilds;
+		int isDir;
 
 		std::list<ResourceNode> childsDirs;
-		std::list<ResourceNode> childsFiles;
 
 		ResourceNode(){clear();}
 		~ResourceNode(){clear();}
 			
-		void insert(String &path,char *name,HANDLE handle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
+		void insertDirectory(String &path,HANDLE handle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
+		void insertFiles(Resources::ResourceNode& directory,HDC hdc,float& width,float& height);
 		void update(float& width,float& height);
 		void drawdirlist(Resources* tv);
 		void drawfilelist(Resources* tv);
 		void drawdirselection(Resources* tv);
 		void drawfileselection(Resources* tv);
 		void clear();
-		ResourceNode* onmousepressed(Resources* tv,float& x,float& y,float& width,float& height);
+		ResourceNode* onmousepressedLeftPane(Resources* tv,float& x,float& y,float& width,float& height);
+		ResourceNode* onmousepressedRightPane(Resources* tv,float& x,float& y,float& width,float& height);
 
 		static bool ScanDir(const char* dir,HANDLE&,WIN32_FIND_DATA& data,int opt=-1);
 	};
@@ -613,29 +634,37 @@ struct Resources : GuiInterface<Resources>
 	ID2D1Bitmap* leftBitmap;
 	ID2D1Bitmap* rightBitmap;
 
-
+	ScrollBar leftScrollBar;
+	ScrollBar rightScrollBar;
 
 	float leftBitmapWidth;
 	float leftBitmapHeight;
 	float rightBitmapWidth;
 	float rightBitmapHeight;
-	int leftScrollY;
-	int rightScrollY;
-	int leftFrameWidth;
-	int rightFrameWidth;
-	int frameHeight;
+	float leftFrameWidth;
+	float frameHeight;
+	bool lMouseDown;
+	bool splitterMoving;
 	
 
 	void OnPaint();
 	void OnSize();
 	void OnLMouseDown();
+	void OnMouseWheel();
+	void OnLMouseUp();
+	void OnMouseMove();
 	void OnEntitiesChange();
 	void OnRun();
 	void OnReparent();
 
 	void DrawItems();
+	void DrawLeftItems();
+	void DrawRightItems();
 
 	void RecreateTarget();
+
+	void SetLeftScrollBar();
+	void SetRightScrollBar();
 };
 bool InitSplitter();
 

@@ -96,8 +96,12 @@ String& String::operator+=(const String& str)
 	int lenb=str.Count();
 
 	char* _data=new char[lena+lenb+1];
-	strcpy(_data,Buf());
-	strcpy(&_data[lena],str.Buf());
+
+	if(lena)
+		strcpy(_data,Buf());
+	
+	if(lenb)
+		strcpy(&_data[lena],str.Buf());
 
 	SAFEDELETEARRAY(this->data);
 

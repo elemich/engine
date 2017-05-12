@@ -355,6 +355,117 @@ ID2D1RadialGradientBrush* Direct2DGuiBase::RadialGradientBrush(ID2D1RenderTarget
 }
 
 
+
+ScrollBar::ScrollBar(TabContainer* tc)
+{
+	this->tab=tc;
+	this->Set(0,0,10,10);
+	this->scroller=0;
+	this->scrollerClick=-1;
+}
+ScrollBar::~ScrollBar()
+{
+	
+}
+
+void ScrollBar::Set(float _x,float _y,float _width,float _height)
+{
+	x=_x,y=_y,width=_width,height=_height;
+}
+
+void ScrollBar::SetScrollerFactor(float contentHeight,float containerHeight)
+{
+	this->scrollerFactor = (contentHeight<containerHeight) ? 1.0f : containerHeight/contentHeight;
+}
+
+void ScrollBar::SetScrollerPosition(float position)
+{
+	if(scrollerFactor==1.0f)
+		return;
+
+	scroller+=position>0 ? ScrollBar::SCROLLBAR_AMOUNT : -ScrollBar::SCROLLBAR_AMOUNT;
+}
+
+float ScrollBar::GetScrollValue()
+{
+	return 1.0f/this->scrollerFactor * scroller;;
+}
+
+void ScrollBar::OnReleased()
+{
+	if(this->scrollerClick>=0)
+		ReleaseCapture();
+	this->scrollerClick=-1;
+	
+}
+
+
+float ScrollBar::OnPressed()
+{
+	if(scrollerFactor==1.0f)
+		return scroller;
+
+	float scrollerRun=(height-y)-(ScrollBar::SCROLLBAR_TIP_HEIGHT*2);
+	float scrollerHeight=scrollerRun*scrollerFactor;
+
+	if(this->tab->mousey>TabContainer::CONTAINER_HEIGHT && this->tab->mousey<(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT))
+	{
+		scroller=(scroller-ScrollBar::SCROLLBAR_AMOUNT < 0 ? 0 : scroller-ScrollBar::SCROLLBAR_AMOUNT);
+	}
+	else if(this->tab->mousey>(scroller+y+ScrollBar::SCROLLBAR_TIP_HEIGHT) && this->tab->mousey<((scroller+y+ScrollBar::SCROLLBAR_TIP_HEIGHT)+scrollerHeight))
+	{
+		scrollerClick=this->tab->mousey-y-ScrollBar::SCROLLBAR_TIP_HEIGHT-scroller;
+		SetCapture(this->tab->hwnd);
+	}
+	else if(this->tab->mousey>(height-ScrollBar::SCROLLBAR_TIP_HEIGHT))
+	{
+		scroller+=ScrollBar::SCROLLBAR_AMOUNT;
+	}
+
+	return scroller;
+}
+
+bool ScrollBar::OnScrolled()
+{
+	if(scrollerFactor==1.0f || scrollerClick<0)
+		return false;
+
+	float scrollerRun=(height-y)-(ScrollBar::SCROLLBAR_TIP_HEIGHT*2);
+	float scrollerHeight=scrollerRun*scrollerFactor;
+
+	float mouseY=this->tab->mousey-y-ScrollBar::SCROLLBAR_TIP_HEIGHT;
+
+	float newPosition=mouseY-scrollerClick;
+
+	if(newPosition>=0 && newPosition<(height-ScrollBar::SCROLLBAR_TIP_HEIGHT)+scrollerHeight)
+		scroller=mouseY-scrollerClick;
+	else
+		printf("");
+
+	return true;
+}
+void ScrollBar::OnPaint()
+{
+	float scrollerRun=(height-y)-(ScrollBar::SCROLLBAR_TIP_HEIGHT*2);
+
+	float scrollerHeight=scrollerRun*scrollerFactor;
+
+	tab->renderer->DrawBitmap(tab->upExpandos,D2D1::RectF(x,y,x+ScrollBar::SCROLLBAR_WIDTH,y+ScrollBar::SCROLLBAR_TIP_HEIGHT));
+
+	float scrollerY=scroller+y+ScrollBar::SCROLLBAR_TIP_HEIGHT;
+	float scrollerY2=scrollerY+scrollerHeight;
+
+	tab->renderer->FillRectangle(D2D1::RectF(x,scrollerY,x+ScrollBar::SCROLLBAR_WIDTH,scrollerY2),this->tab->SetColor(D2D1::ColorF::Black));
+
+	tab->renderer->DrawBitmap(tab->downExpandos,D2D1::RectF(x,height-ScrollBar::SCROLLBAR_TIP_HEIGHT,x+ScrollBar::SCROLLBAR_WIDTH,height));
+}
+
+
+
+
+
+
+
 TreeView::TreeViewNode::TreeViewNode()
 {
 	clear();
@@ -508,7 +619,7 @@ bitmaprenderer(0),
 bitmap(0),
 bitmapWidth((float)tc->width),
 bitmapHeight((float)tc->height),
-scrollY(0)
+scrollBar(tc)
 {
 	tab=tc;
 
@@ -519,7 +630,7 @@ scrollY(0)
 
 	this->RecreateTarget();
 
-	
+	scrollBar.SetScrollerFactor(bitmapHeight,frameHeight);
 
 	OnEntitiesChange();
 }
@@ -546,6 +657,8 @@ void TreeView::OnEntitiesChange()
 
 	elements.insert(rootEntity,GetDC(tab->hwnd),bitmapWidth=0,bitmapHeight=0,0);
 
+	scrollBar.SetScrollerFactor(bitmapHeight,this->frameHeight);
+
 	this->DrawItems();
 	this->OnPaint();
 }
@@ -554,6 +667,8 @@ void TreeView::OnSize()
 {
 	frameWidth=tab->width-ScrollBar::SCROLLBAR_WIDTH;
 	frameHeight=tab->height-TabContainer::CONTAINER_HEIGHT;
+
+	scrollBar.Set(frameWidth-ScrollBar::SCROLLBAR_WIDTH,(float)TabContainer::CONTAINER_HEIGHT,(frameWidth-ScrollBar::SCROLLBAR_WIDTH)+ScrollBar::SCROLLBAR_WIDTH,frameHeight);
 }
 
 void TreeView::OnLMouseDown()
@@ -563,26 +678,19 @@ void TreeView::OnLMouseDown()
 
 	if(mx>frameWidth) //mouarse is on the scrollb
 	{
-		if(my>TabContainer::CONTAINER_HEIGHT && my<(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT))
-			scrollY=(scrollY-ScrollBar::SCROLLBAR_AMOUNT < 0 ? 0 : scrollY-ScrollBar::SCROLLBAR_AMOUNT);
-		else if(my>(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT) && my<frameHeight)
-		{
-
-		}
-		else if(my>frameHeight)
-			scrollY+=ScrollBar::SCROLLBAR_AMOUNT;
-
+		scrollBar.OnPressed();
 		this->OnPaint();
 	}
 	else// if(mx>TabContainer::CONTAINER_HEIGHT && mx<(TabContainer::CONTAINER_HEIGHT+frameHeight))//mouse is on the frame
 	{
-		my-=TabContainer::CONTAINER_HEIGHT-scrollY;
+		my-=TabContainer::CONTAINER_HEIGHT-scrollBar.scroller;
 
 		TreeViewNode* updatedNode=elements.onmousepressed(this,mx,my,bitmapWidth,bitmapHeight);
 
 		if(updatedNode)
 		{
 			elements.update(bitmapWidth=0,bitmapHeight=0);
+			scrollBar.SetScrollerFactor(bitmapHeight,this->frameHeight);
 			this->DrawItems();
 		}	
 	
@@ -638,7 +746,7 @@ void TreeView::OnPaint()
 
 	tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-scrollY));
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-scrollBar.scroller));
 
 	elements.drawselection(this);
 
@@ -648,8 +756,7 @@ void TreeView::OnPaint()
 
 	tab->renderer->PopAxisAlignedClip();
 
-	tab->renderer->FillRectangle(D2D1::RectF((float)frameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT),this->tab->SetColor(TabContainer::COLOR_TAB_SELECTED));
-	tab->renderer->FillRectangle(D2D1::RectF((float)frameWidth,(float)(tab->height-ScrollBar::SCROLLBAR_TIP_HEIGHT),(float)(tab->width),(float)(tab->height)),this->tab->SetColor(TabContainer::COLOR_TAB_SELECTED));
+	scrollBar.OnPaint();
 
 	if(!tab->isRender)
 		tab->renderer->EndDraw();
@@ -805,7 +912,8 @@ void Resources::ResourceNode::clear()
 	this->selected=0;
 	this->textWidth=0;
 	this->level=0;
-	this->hasChilds=0;
+	this->nChilds=0;
+	this->isDir=false;
 
 	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
 		nCh->clear();
@@ -838,6 +946,8 @@ bool Resources::ResourceNode::ScanDir(const char* dir,HANDLE& handle,WIN32_FIND_
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
+		printf("filename %s\n",data.cFileName);
+
 		if(opt<0)		//returns data with no filter
 			return true;
 
@@ -852,19 +962,16 @@ bool Resources::ResourceNode::ScanDir(const char* dir,HANDLE& handle,WIN32_FIND_
 	}
 
 	FindClose(handle);
+	handle=0;
 	return false;
 }
 
-void Resources::ResourceNode::insert(String &fullPath,char* currentFilename,HANDLE parentHandle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent,int expandUntilLevel)
+void Resources::ResourceNode::insertDirectory(String &fullPath,HANDLE parentHandle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent,int expandUntilLevel)
 {
-	if(!parentHandle)
-		ScanDir(fullPath,parentHandle,found,0);
-	
-	this->isDir = found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
-
-	fileName= !parent ? fullPath : currentFilename;
+	fileName= !parent ? fullPath : found.cFileName;
 
 	height+= (parent && !parent->expanded) ? 0 : TreeView::TREEVIEW_ROW_HEIGHT;
+	
 
 	this->parent=parent;
 	this->x=parent ? parent->x+TreeView::TREEVIEW_ROW_ADVANCE : TreeView::TREEVIEW_ROW_ADVANCE;
@@ -872,19 +979,22 @@ void Resources::ResourceNode::insert(String &fullPath,char* currentFilename,HAND
 	this->level=parent ? parent->level+1 : 0;
 	this->expanded=this->level<expandUntilLevel ? true : false;
 	this->selected=false;
-	this->hasChilds = 0;
+	this->nChilds = 0;
+	this->isDir = true;
 
-	parent ? parent->hasChilds++ : 0;
+	parent ? parent->nChilds++ : 0;
+
+	const char* pText=!parent ? fullPath.Buf() : found.cFileName;
 
 	SIZE tSize;
-	GetTextExtentPoint32(hdc,found.cFileName,strlen(found.cFileName),&tSize);
+	GetTextExtentPoint32(hdc,pText,strlen(pText),&tSize);
 
 	this->textWidth=tSize.cx;
 
 	if(!parent || parent && parent->expanded)
 		width=this->textWidth+this->x > width ? this->textWidth+this->x : width;
 
-	while(ScanDir(0,parentHandle,found))
+	while(ScanDir(fullPath,parentHandle,found))
 	{
 		if(found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
@@ -894,8 +1004,72 @@ void Resources::ResourceNode::insert(String &fullPath,char* currentFilename,HAND
 			String dir=fullPath + "\\" + found.cFileName;
 
 			this->childsDirs.push_back(ResourceNode());
-			this->childsDirs.back().insert(dir,found.cFileName,0,found,hdc,width,height,this,expandUntilLevel);
+			this->childsDirs.back().insertDirectory(dir,0,found,hdc,width,height,this,expandUntilLevel);
 		}
+
+		
+	}
+}
+
+
+void Resources::ResourceNode::insertFiles(Resources::ResourceNode& directory,HDC hdc,float& width,float& height)
+{
+	this->clear();
+
+	HANDLE handle=0;
+	WIN32_FIND_DATA found;
+
+	String fullPath;
+
+	//get fileName full path
+	{ 
+		std::vector<String> vFullPath;
+
+		vFullPath.push_back(directory.fileName);
+		ResourceNode* pNode=directory.parent;
+		while(pNode)
+		{
+			vFullPath.push_back(pNode->fileName);
+			pNode=pNode->parent;
+		}
+
+		int vSize=(int)vFullPath.size();
+
+		for(int i=vSize-1;i>=0;i--)
+		{
+			if(i != vSize-1)
+				fullPath+="\\";
+			fullPath+=vFullPath[i];
+			
+
+		}
+	}
+
+	while(ScanDir(fullPath,handle,found))
+	{
+		this->childsDirs.push_back(ResourceNode());
+		ResourceNode& node=this->childsDirs.back();
+
+
+		node.fileName= found.cFileName;
+
+		height+=TreeView::TREEVIEW_ROW_HEIGHT;
+
+		node.parent=&directory;
+		node.x=0;
+		node.y=height-TreeView::TREEVIEW_ROW_HEIGHT;
+		node.level=0;
+		node.expanded=false;
+		node.selected=false;
+		node.nChilds = 0;
+		node.isDir = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
+
+		SIZE tSize;
+		GetTextExtentPoint32(hdc,node.fileName,node.fileName.Count(),&tSize);
+
+		node.textWidth=tSize.cx;
+
+		width=node.textWidth+node.x > width ? node.textWidth+node.x : width;
 	}
 }
 
@@ -921,7 +1095,7 @@ void Resources::ResourceNode::drawdirlist(Resources* tv)
 	wchar_t resText[CHAR_MAX];
 	mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
 
-	if(this->hasChilds)
+	if(this->nChilds)
 		tv->leftbitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 		
 	tv->leftbitmaprenderer->DrawBitmap(tv->tab->folderIcon,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
@@ -941,16 +1115,16 @@ void Resources::ResourceNode::drawfilelist(Resources* tv)
 	wchar_t resText[CHAR_MAX];
 	mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
 
-	
-	tv->leftbitmaprenderer->DrawBitmap(tv->tab->folderIcon,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+	if(this->nChilds)
+		tv->rightbitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
-	tv->leftbitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
+	tv->rightbitmaprenderer->DrawBitmap(tv->tab->folderIcon,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
-	if(this->expanded)
-	{
-		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-			nCh->drawfilelist(tv);
-	}
+	tv->rightbitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
+
+
+	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+		nCh->drawfilelist(tv);
 }
 
 void Resources::ResourceNode::drawdirselection(Resources* tv)
@@ -958,7 +1132,7 @@ void Resources::ResourceNode::drawdirselection(Resources* tv)
 	TabContainer* tabContainer=tv->tab;
 
 	if(this->selected)
-		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tabContainer->width,(float)this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tv->leftFrameWidth,(float)this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 	if(this->expanded)
 	{
@@ -968,17 +1142,35 @@ void Resources::ResourceNode::drawdirselection(Resources* tv)
 }
 
 
+void Resources::ResourceNode::drawfileselection(Resources* tv)
+{
+	TabContainer* tabContainer=tv->tab;
 
-Resources::ResourceNode* Resources::ResourceNode::onmousepressed(Resources* tv,float& x,float& y,float& width,float& height)
+	if(this->selected)
+		tabContainer->renderer->FillRectangle(D2D1::RectF(tv->leftFrameWidth,this->y,tabContainer->width,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+
+	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+		nCh->drawfileselection(tv);
+}
+
+
+
+Resources::ResourceNode* Resources::ResourceNode::onmousepressedLeftPane(Resources* tv,float& x,float& y,float& width,float& height)
 {
 	if(y>this->y && y<this->y+TreeView::TREEVIEW_ROW_HEIGHT)
 	{
-		if(this->hasChilds && x>this->x-TreeView::TREEVIEW_ROW_ADVANCE && x<this->x)
+		if(this->nChilds && x>this->x-TreeView::TREEVIEW_ROW_ADVANCE && x<this->x)
 		{
 			this->expanded=!this->expanded;
+			return this;
 		}
 		else
+		{
 			this->selected=true;
+			tv->rightElements.insertFiles(*this,GetDC(tv->tab->hwnd),tv->rightBitmapWidth=0,tv->rightBitmapHeight=0);
+			tv->rightScrollBar.SetScrollerFactor(tv->rightBitmapHeight,tv->frameHeight);
+			tv->DrawRightItems();
+		}
 	}
 	else
 		this->selected=false;
@@ -989,25 +1181,59 @@ Resources::ResourceNode* Resources::ResourceNode::onmousepressed(Resources* tv,f
 
 		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
 		{
-			if(resNode=nCh->onmousepressed(tv,x,y,width,height))
+			if((resNode=nCh->onmousepressedLeftPane(tv,x,y,width,height)))  //((a=b))
 				return resNode;
 		}
 	}
+
+	return 0;
+}
+
+Resources::ResourceNode* Resources::ResourceNode::onmousepressedRightPane(Resources* tv,float& x,float& y,float& width,float& height)
+{
+	if(y>this->y && y<this->y+TreeView::TREEVIEW_ROW_HEIGHT)
+	{
+		this->selected=true;
+	}
+	else
+		this->selected=false;
+
+	ResourceNode* resNode=0;
+
+	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
+	{
+		if((resNode=nCh->onmousepressedRightPane(tv,x,y,width,height)))  //((a=b))
+			return resNode;
+	}
+
+	return 0;
 }
 
 Resources::Resources(TabContainer* tc):
 leftbitmaprenderer(0),
 rightbitmaprenderer(0),
 leftBitmap(0),
-leftBitmapWidth((float)tc->width),
-leftBitmapHeight((float)tc->height),
-leftScrollY(0),
-leftFrameWidth(100)
+rightBitmap(0),
+leftBitmapWidth(0),
+leftBitmapHeight(0),
+rightBitmapWidth(0),
+rightBitmapHeight(0),
+leftFrameWidth(100),
+lMouseDown(false),
+splitterMoving(false),
+leftScrollBar(tc),
+rightScrollBar(tc)
 {
 	tab=tc;
 
 	leftFrameWidth=(tab->width-20)/2;
 	frameHeight=tab->height-30;
+
+	
+
+	this->SetLeftScrollBar();
+	this->SetRightScrollBar();
+	
 
 	this->name="Project";
 
@@ -1021,6 +1247,17 @@ leftFrameWidth(100)
 void Resources::RecreateTarget()
 {
 	
+}
+
+void Resources::SetLeftScrollBar()
+{
+	leftScrollBar.Set(this->leftFrameWidth-4-ScrollBar::SCROLLBAR_WIDTH,(float)TabContainer::CONTAINER_HEIGHT,this->leftFrameWidth-4,this->tab->height);
+	leftScrollBar.SetScrollerFactor(leftBitmapHeight,frameHeight);
+}
+void Resources::SetRightScrollBar()
+{
+	rightScrollBar.Set(this->tab->width-ScrollBar::SCROLLBAR_WIDTH,(float)TabContainer::CONTAINER_HEIGHT,this->tab->width,this->tab->height);
+	rightScrollBar.SetScrollerFactor(rightBitmapHeight,frameHeight);
 }
 
 
@@ -1038,7 +1275,11 @@ void Resources::OnEntitiesChange()
 
 	Entity* rootEntity=Entity::pool.size() ? Entity::pool.front() : 0;
 
-	leftElements.insert(App::instance->projectFolder,0,0,WIN32_FIND_DATA(),GetDC(tab->hwnd),leftBitmapWidth=0,leftBitmapHeight=0,0);
+	leftElements.insertDirectory(App::instance->projectFolder,0,WIN32_FIND_DATA(),GetDC(tab->hwnd),leftBitmapWidth=0,leftBitmapHeight=0,0);
+	rightElements.insertFiles(leftElements,GetDC(tab->hwnd),rightBitmapWidth=0,rightBitmapHeight=0);
+
+	this->SetLeftScrollBar();
+	this->SetRightScrollBar();
 
 	this->DrawItems();
 	this->OnPaint();
@@ -1046,8 +1287,61 @@ void Resources::OnEntitiesChange()
 
 void Resources::OnSize()
 {
-	leftFrameWidth=tab->width-ScrollBar::SCROLLBAR_WIDTH;
 	frameHeight=tab->height-TabContainer::CONTAINER_HEIGHT;
+
+	if(this->leftFrameWidth<this->tab->width-ScrollBar::SCROLLBAR_WIDTH)
+		this->leftFrameWidth=(this->tab->width-ScrollBar::SCROLLBAR_WIDTH)/2.0f;
+
+	this->SetLeftScrollBar();
+	this->SetRightScrollBar();
+}
+
+void Resources::OnMouseMove()
+{
+	if(this->splitterMoving)
+	{
+		this->leftFrameWidth=this->tab->mousex;
+		this->SetLeftScrollBar();
+		this->OnPaint();
+	}
+	else
+	{
+		if(tab->mousex>=this->leftFrameWidth-4 && tab->mousex<=this->leftFrameWidth)
+		{
+			SetCursor(LoadCursor(0,IDC_SIZEWE));
+		}
+		else
+		{
+			SetCursor(LoadCursor(0,IDC_ARROW));
+		}
+	}
+
+	if(leftScrollBar.OnScrolled() || rightScrollBar.OnScrolled())
+		this->OnPaint();
+}
+
+void Resources::OnMouseWheel()
+{
+	short int delta = GET_WHEEL_DELTA_WPARAM(tab->wparam);
+
+	if(this->tab->mousex<(this->leftFrameWidth-4))
+	{
+		leftScrollBar.SetScrollerPosition(-delta);
+	}
+	else if(this->tab->mousex>(this->leftFrameWidth+4))
+	{
+		rightScrollBar.SetScrollerPosition(-delta);
+	}
+
+	this->OnPaint();
+}
+
+void Resources::OnLMouseUp()
+{
+	lMouseDown=false;
+	splitterMoving=false;
+	leftScrollBar.OnReleased();
+	rightScrollBar.OnReleased();
 }
 
 void Resources::OnLMouseDown()
@@ -1055,36 +1349,47 @@ void Resources::OnLMouseDown()
 	float &mx=tab->mousex;
 	float &my=tab->mousey;
 
-	if(mx>leftFrameWidth) //mouarse is on the scrollb
+	lMouseDown=true;
+
+	if(mx<(this->leftFrameWidth-4-ScrollBar::SCROLLBAR_WIDTH))
 	{
-		if(my>TabContainer::CONTAINER_HEIGHT && my<(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT))
-			leftScrollY=(leftScrollY-ScrollBar::SCROLLBAR_AMOUNT < 0 ? 0 : leftScrollY-ScrollBar::SCROLLBAR_AMOUNT);
-		else if(my>(TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT) && my<frameHeight)
-		{
+		my-=TabContainer::CONTAINER_HEIGHT-leftScrollBar.scroller;
 
-		}
-		else if(my>frameHeight)
-			leftScrollY+=ScrollBar::SCROLLBAR_AMOUNT;
-
-		this->OnPaint();
-	}
-	else// if(mx>TabContainer::CONTAINER_HEIGHT && mx<(TabContainer::CONTAINER_HEIGHT+frameHeight))//mouse is on the frame
-	{
-		my-=TabContainer::CONTAINER_HEIGHT-leftScrollY;
-
-		ResourceNode* expandedModified=leftElements.onmousepressed(this,mx,my,leftBitmapWidth,leftBitmapHeight);
+		ResourceNode* expandedModified=leftElements.onmousepressedLeftPane(this,mx,my,leftBitmapWidth,leftBitmapHeight);
 
 		if(expandedModified)
 		{
 			leftElements.update(leftBitmapWidth=0,leftBitmapHeight=0);
-			this->DrawItems();
+			leftScrollBar.SetScrollerFactor(leftBitmapHeight,this->frameHeight);
+			this->DrawLeftItems();
 		}	
 	
 		this->OnPaint();
-
-		/*for(int i=0;i<(int)guiInterfacesPool.size();i++)
-			guiInterfacesPool[i]->OnSelected(sel);*/
 	}
+	else if(mx<this->leftFrameWidth-4)//left scrollbar
+	{
+		leftScrollBar.OnPressed();
+		this->OnPaint();
+	}
+	else if(mx<this->leftFrameWidth)//splitter
+	{
+		printf("on the splitter\n");
+		splitterMoving=true;
+	}
+	else if(mx<(this->tab->width-ScrollBar::SCROLLBAR_WIDTH))//right pane
+	{
+		my-=TabContainer::CONTAINER_HEIGHT-rightScrollBar.scroller;
+
+		printf("on the right pane\n");
+		rightElements.onmousepressedRightPane(this,mx,my,rightBitmapWidth,rightBitmapHeight);
+		this->OnPaint();
+	}
+	else//right scrollbar
+	{
+		rightScrollBar.OnPressed();
+		this->OnPaint();
+	}
+	
 }
 
 void Resources::OnRun()
@@ -1100,22 +1405,16 @@ void Resources::OnReparent()
 	this->DrawItems();
 }
 
-void Resources::DrawItems()
+void Resources::DrawLeftItems()
 {
-	D2DRELEASE(leftbitmaprenderer);
-	D2DRELEASE(rightbitmaprenderer);
-
 	LRESULT result;
-	
+
+	D2DRELEASE(leftbitmaprenderer);
+
 	result=tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(leftBitmapWidth,leftBitmapHeight),&leftbitmaprenderer);
 
 	if(result!=S_OK)
 		__debugbreak();
-
-	result=tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(rightBitmapWidth,rightBitmapHeight),&rightbitmaprenderer);
-
-	if(result!=S_OK)
-		__debugbreak();	
 
 	D2D1_PIXEL_FORMAT pf=leftbitmaprenderer->GetPixelFormat();
 
@@ -1133,12 +1432,22 @@ void Resources::DrawItems()
 
 	if(result!=S_OK)
 		__debugbreak();
+}
 
+void Resources::DrawRightItems()
+{
+	LRESULT result;
 	//draw right pane
+	D2DRELEASE(rightbitmaprenderer);
+
+	result=tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(rightBitmapWidth,rightBitmapHeight),&rightbitmaprenderer);
+
+	if(result!=S_OK)
+		__debugbreak();
 
 	rightbitmaprenderer->BeginDraw();
 
-	leftElements.drawdirlist(this);
+	rightElements.drawfilelist(this);
 
 	rightbitmaprenderer->DrawRectangle(D2D1::RectF(0,0,rightBitmapWidth,rightBitmapHeight),tab->SetColor(TabContainer::COLOR_TEXT));
 
@@ -1150,18 +1459,24 @@ void Resources::DrawItems()
 		__debugbreak();
 }
 
+void Resources::DrawItems()
+{
+	this->DrawLeftItems();
+	this->DrawRightItems();
+}
+
 void Resources::OnPaint()
 {
 	if(!tab->isRender)
 		tab->renderer->BeginDraw();
 
-	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)leftFrameWidth,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
+	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
 
 	//dirs hierarchy
 
-	tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)100,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
+	tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollY));
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollBar.GetScrollValue()));
 
 	leftElements.drawdirselection(this);
 
@@ -1170,23 +1485,24 @@ void Resources::OnPaint()
 	tab->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
 	tab->renderer->PopAxisAlignedClip();
+
+	leftScrollBar.OnPaint();
 
 	//files hierarchy
 
-	tab->renderer->PushAxisAlignedClip(D2D1::RectF(leftFrameWidth+4,(float)TabContainer::CONTAINER_HEIGHT,(float)leftFrameWidth+4+100,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
+	tab->renderer->PushAxisAlignedClip(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tab->width,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollY));
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
 
-	leftElements.drawdirselection(this);
+	rightElements.drawfileselection(this);
 
-	tab->renderer->DrawBitmap(leftBitmap);
+	tab->renderer->DrawBitmap(rightBitmap,D2D1::RectF(this->leftFrameWidth,0,this->leftFrameWidth+this->rightBitmapWidth,this->rightBitmapHeight));
 
 	tab->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
 	tab->renderer->PopAxisAlignedClip();
 
-	tab->renderer->FillRectangle(D2D1::RectF((float)leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)TabContainer::CONTAINER_HEIGHT+ScrollBar::SCROLLBAR_TIP_HEIGHT),this->tab->SetColor(TabContainer::COLOR_TAB_SELECTED));
-	tab->renderer->FillRectangle(D2D1::RectF((float)leftFrameWidth,(float)(tab->height-ScrollBar::SCROLLBAR_TIP_HEIGHT),(float)(tab->width),(float)(tab->height)),this->tab->SetColor(TabContainer::COLOR_TAB_SELECTED));
+	rightScrollBar.OnPaint();
 
 	if(!tab->isRender)
 		tab->renderer->EndDraw();

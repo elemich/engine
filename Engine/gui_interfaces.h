@@ -24,6 +24,7 @@ struct Gui : TClassPool<Gui>
 	virtual void OnEntitiesChange(){}
 	virtual void OnSize(){}
 	virtual void OnLMouseDown(){}
+	virtual void OnLMouseUp(){};
 	virtual void OnMouseMove(){}
 	virtual void OnRun(){}
 	virtual void OnReparent(){this->OnSize();}
