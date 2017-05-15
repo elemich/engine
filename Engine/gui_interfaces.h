@@ -8,6 +8,7 @@ struct TabContainer;
 struct Gui : TClassPool<Gui>
 {
 	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
+	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
 	
 	String name;
 	TabContainer* tab;

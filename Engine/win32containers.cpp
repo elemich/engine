@@ -7,6 +7,28 @@ WNDPROC SystemOriginalTabControlProcedure;
 ContainerWindow::ContainerWindow():ContainerWindow_currentVisibleChildIdx(0){}
 void ContainerWindow::Create(HWND container){}
 
+void ContainerWindow::OnSize()
+{
+
+
+
+	switch(wparam)
+	{
+	case WMSZ_LEFT:
+
+	break;
+	case WMSZ_TOP:
+
+	break;
+	case WMSZ_RIGHT:
+
+	break;
+	case WMSZ_BOTTOM:
+
+	break;
+	}
+}
+
 std::vector<ContainerWindow> MainAppContainerWindow::windows;
 
 MainAppContainerWindow::MainAppContainerWindow(){};
@@ -29,11 +51,6 @@ void MainAppContainerWindow::Create(HWND)
 	if(tabContainer)
 		tabContainer->AddTab(new OpenGLRenderer(tabContainer));
 
-	/*CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_OPENGLWINDOW);
-	CreateNewPanel(firstTabContainerChild,TAB_MENU_COMMAND_SCENEENTITIES);
-
-	*/
-
 	ShowWindow(hwnd,true);
 }
 
@@ -47,6 +64,9 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 	LRESULT result=0;
 
+	if(mainw)
+		mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
+
 	switch(msg)
 	{
 		case WM_CREATE:
@@ -59,18 +79,26 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			PostQuitMessage(1);
 		break;
+		case WM_SIZING:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
+			mainw->OnSize();
+		break;
 		/*case WM_ERASEBKGND:
 			return (LRESULT)1;*/
 		case WM_LBUTTONDOWN:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
 			mainw->OnLButtonDown(hwnd,lparam);
 		break;
 		case WM_LBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
 			mainw->OnLButtonUp(hwnd);
 		break;
 		case WM_MOUSEMOVE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
 			mainw->OnMouseMove(hwnd,lparam);
 		break;
 		case WM_COMMAND:
@@ -113,55 +141,4 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 	return result;
 }
 
-
-LRESULT CALLBACK TabProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
-{
-	ContainerWindow* cw=(ContainerWindow*)GetWindowLongPtr(GetParent(hwnd),GWL_USERDATA);
-
-	LRESULT result=0;
-
-	/*switch(msg)
-	{
-		case WM_LBUTTONDOWN:
-			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			cw->OnTabContainerLButtonDown(hwnd);
-		break;
-		/ *case WM_MOUSEWHEEL:
-		{
-			
-			printf("tabcontainerwindow");
-			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			SendMessage(GetDlgItem(hwnd,cw->ContainerWindow_currentVisibleChildIdx),WM_MOUSEWHEEL,0,0);
-		}
-		break;* /
-		/ *case WM_MOUSEMOVE:
-			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			SetFocus(hwnd);
-		break;* /
-		case WM_LBUTTONUP:
-			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			cw->OnTabContainerLButtonUp(hwnd);
-			cw->ContainerWindow_currentVisibleChildIdx=cw->childMovingRefTabIdx;
-		break;
-		/ *case WM_SIZING:
-			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			break;* /
-		case WM_SIZE:
-		case WM_WINDOWPOSCHANGED:	
-			//result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			cw->OnTabContainerSize(hwnd);
-		break;
-		
-		case WM_RBUTTONUP:	
-		{	
-			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-			cw->CreateNewPanel(hwnd,cw->OnTabContainerRButtonUp(hwnd,lparam));
-		}
-		break;
-		default:
-			result=CallWindowProc(SystemOriginalTabControlProcedure,hwnd,msg,wparam,lparam);
-		
-	}*/
-	return result;
-}
 

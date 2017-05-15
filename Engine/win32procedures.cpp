@@ -1,6 +1,6 @@
 #include "win32.h"
 
-
+#pragma message(LOCATION " remember to use WindowData::CopyProcedureData to properly synchronize messages by the wndproc and the window herself")
 
 LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
@@ -9,14 +9,7 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 	LPARAM result=0;
 
 	if(tc)
-	{
-		tc->hwnd=hwnd;
-		tc->msg=msg;
-		tc->wparam=wparam;
-		tc->lparam=lparam;
-	}
-	/*else
-		return DefWindowProc(hwnd,msg,wparam,lparam);*/
+		tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 
 	switch(msg)
 	{
@@ -36,41 +29,43 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 		}
 		break;
 		case WM_ERASEBKGND:
-			/*if(tc->splitterContainer->childMovingRef)
+			/*if(tc->splitterContainer->floatingTabRef)
 				tc->OnPaint();*/
 			return 1;
 		case WM_SIZE:
-			tc->OnSize(lparam);
+			tc->OnSize();
 		break;
 		case WM_DESTROY:
 			printf("destroying\n");
 			tc->~TabContainer();
 			break;
 		case WM_WINDOWPOSCHANGED:
-			tc->OnWindowPosChanging(lparam);
+			tc->OnWindowPosChanging();
 		break;
 		case WM_LBUTTONDOWN:
-			tc->OnLMouseDown(lparam);
+			tc->OnLMouseDown();
 		break;
 		case WM_MOUSEWHEEL:
 			tc->OnMouseWheel();
 		break;
 		case WM_MOUSEMOVE:
-			tc->OnMouseMove(lparam);
+			tc->OnMouseMove();
 		break;
 		case WM_NCHITTEST:
-			if(tc->splitterContainer->childMovingRef)
+			if(tc->splitterContainer->floatingTabRef)
 				return HTTRANSPARENT;
 			else 
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
 			break;
 		case WM_LBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			tc->OnLMouseUp(lparam);
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
+			tc->OnLMouseUp();
 		break;
 		case WM_RBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			tc->OnRMouseUp(lparam);
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
+			tc->OnRMouseUp();
 		break;
 		case WM_PAINT:
 		{
@@ -96,6 +91,7 @@ unsigned char* TabContainer::rawDownArrow=0;
 unsigned char* TabContainer::rawFolder=0;
 
 TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
+	parentContainer(0),
 	renderer(0),
 	brush(0),
 	selected(0),
@@ -116,6 +112,9 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	if(!hwnd)
 		__debugbreak();
 
+	this->parentContainer=(ContainerWindow*)GetWindowLongPtr(parent,GWL_USERDATA);
+	this->parentContainer->tabContainers.push_back(this);
+
 	splitterContainer=(SplitterContainer*)(ContainerWindow*)GetWindowLongPtr(GetParent(hwnd),GWL_USERDATA);
 
 	if(!splitterContainer)
@@ -126,6 +125,8 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 
 TabContainer::~TabContainer()
 {
+	this->parentContainer->tabContainers.erase(std::find(parentContainer->tabContainers.begin(),parentContainer->tabContainers.end(),this));
+
 	D2DRELEASE(renderer);
 	D2DRELEASE(brush);
 	D2DRELEASE(rightExpandos);
@@ -133,9 +134,9 @@ TabContainer::~TabContainer()
 	D2DRELEASE(folderIcon);
 }
 
-void TabContainer::OnSize(LPARAM lparam)
+void TabContainer::OnSize()
 {
-	WindowData::OnSize(lparam);
+	WindowData::OnSize();
 	
 	this->RecreateTarget();
 
@@ -259,9 +260,9 @@ void TabContainer::RecreateTarget()
 	this->recreateTarget=false;
 }
 
-void TabContainer::OnWindowPosChanging(LPARAM lparam)
+void TabContainer::OnWindowPosChanging()
 {
-	WindowData::OnWindowPosChanging(lparam);
+	WindowData::OnWindowPosChanging();
 
 	renderer->Resize(D2D1::SizeU((int)width,(int)height));
 
@@ -273,7 +274,7 @@ void TabContainer::OnWindowPosChanging(LPARAM lparam)
 	this->OnPaint();
 }
 
-void TabContainer::OnMouseMove(LPARAM lparam)
+void TabContainer::OnMouseMove()
 {
 	SetFocus(this->hwnd);
 
@@ -292,7 +293,7 @@ void TabContainer::OnMouseMove(LPARAM lparam)
 		this->GetSelected()->OnMouseMove();
 }
 
-void TabContainer::OnLMouseUp(LPARAM lparam)
+void TabContainer::OnLMouseUp()
 {
 	mouseDown=false;
 
@@ -309,9 +310,9 @@ void TabContainer::OnMouseWheel()
 		this->GetSelected()->OnMouseWheel();
 }
 
-void TabContainer::OnLMouseDown(LPARAM lparam)
+void TabContainer::OnLMouseDown()
 {
-	OnMouseMove(lparam);
+	this->OnMouseMove();
 
 	float &x=this->mousex;
 	float &y=this->mousey;
@@ -358,9 +359,9 @@ void TabContainer::OnRun()
 	}*/
 }
 
-void TabContainer::OnRMouseUp(LPARAM lparam)
+void TabContainer::OnRMouseUp()
 {
-	OnMouseMove(lparam);
+	this->OnMouseMove();
 
 	float &x=this->mousex;
 	float &y=this->mousey;

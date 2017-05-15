@@ -60,40 +60,100 @@ struct WindowData
 	UINT msg;
 	WPARAM wparam;
 	LPARAM lparam;
+
+
+	operator HWND(){return this->hwnd;}
+	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l){hwnd=h,msg=m,wparam=w,lparam=l;}
 	
 	virtual void Create(HWND container)=0;
+	
 
-	virtual void OnSize(LPARAM lparam){width=LOWORD(lparam),height=HIWORD(lparam);}
-	virtual void OnWindowPosChanging(LPARAM lparam){width=(float)((LPWINDOWPOS)lparam)->cx,height=(float)((LPWINDOWPOS)lparam)->cy;}
+	virtual void OnSize(){width=LOWORD(lparam),height=HIWORD(lparam);}
+	virtual void OnWindowPosChanging(){width=(float)((LPWINDOWPOS)lparam)->cx,height=(float)((LPWINDOWPOS)lparam)->cy;}
 
 };
 
 struct SplitterContainer;
+struct ContainerWindow;
 
 struct TabContainer : WindowData , TClassPool<TabContainer>
 {
-	std::vector<TabContainer*> siblings[4];
+	ContainerWindow* parentContainer;
+
+	std::list<TabContainer*> siblings[4];
 
 	void LinkSibling(TabContainer* t,int pos)
 	{
 		if(!t)
 			return;
 
-		int reciprocal = pos<3 ? pos+2 : pos-2;
+		int reciprocal = pos<2 ? pos+2 : pos-2;
 
 		this->siblings[pos].push_back(t);
 		t->siblings[reciprocal].push_back(this);
 	}
 
-	void UnlinkSibling(TabContainer* t)
+	void UnlinkSibling(TabContainer* t=0)
 	{
+		RECT rc;
+		GetClientRect(this->hwnd,&rc);
+
+		if(t)
+		{
+			for(int i=0;i<4;i++)
+				t->siblings[i].remove(this);
+		}
+		
+
 		for(int i=0;i<4;i++)
 		{
-			this->siblings[i].erase(std::find(this->siblings[i].begin(),this->siblings[i].end(),t));
-			t->siblings[i].erase(std::find(t->siblings[i].begin(),t->siblings[i].end(),this));
+			if(t)
+			{
+				this->siblings[i].remove(t);
+			}
+			else
+			{
+				for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
+				{
+					TabContainer* tabToUnlinkFromThis=(*it);
+
+					for(int i=0;i<4;i++)
+						tabToUnlinkFromThis->siblings[i].remove(this);
+				}
+
+				this->siblings[i].clear();
+			}
 		}
 	}
 
+	TabContainer* FindSameSizeSibling()
+	{
+		for(int i=0;i<4;i++)
+		{
+			for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
+			{
+				TabContainer* tabContainer=(*it);
+
+				if(tabContainer->width==this->width || tabContainer->height==this->height)
+					return tabContainer;
+			}
+		}
+
+		return 0;
+	}
+
+	int FindSiblingPosition(TabContainer* t)
+	{
+		for(int i=0;i<4;i++)
+		{
+			if(std::find(this->siblings[i].begin(),this->siblings[i].end(),t)!=this->siblings[i].end())
+				return i;
+		}
+
+		return -1;
+	}
+
+	
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
 	static const unsigned int COLOR_TEXT=0xFFFFFF;
@@ -134,16 +194,18 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 
 	TabContainer(float x,float y,float w,float h,HWND parent);
 	~TabContainer();
+
+	
 	
 	void Create(HWND){}//@mic no more used, delete from WindowData
 
 	virtual void OnPaint();
-	virtual void OnSize(LPARAM lparam);
-	virtual void OnWindowPosChanging(LPARAM lparam);
-	virtual void OnLMouseDown(LPARAM lparam);
-	virtual void OnLMouseUp(LPARAM lparam);
-	virtual void OnMouseMove(LPARAM lparam);
-	virtual void OnRMouseUp(LPARAM lparam);
+	virtual void OnSize();
+	virtual void OnWindowPosChanging();
+	virtual void OnLMouseDown();
+	virtual void OnLMouseUp();
+	virtual void OnMouseMove();
+	virtual void OnRMouseUp();
 	virtual void OnRun();
 	virtual void OnMouseWheel();
 
@@ -164,24 +226,22 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 
 struct SplitterContainer 
 {
-	std::vector<TabContainer*> containers;
+	std::vector<TabContainer*> tabContainers;
 
 	static HMENU popupMenuRoot;
 	static HMENU popupMenuCreate;
 
-	int tabContainerCount;
-
 	TabContainer* currentTabContainer;
 
-	TabContainer* childMovingRef;
-	TabContainer* childMoving;
-	TabContainer* childMovingTarget;
-	int  childMovingRefTabIdx;
-	int  childMovingRefTabCount;
-	int  childMovingTargetAnchorPos;
-	int	 childMovingTargetAnchorTabIndex;
-	RECT childMovingRc;
-	RECT childMovingTargetRc;
+	TabContainer* floatingTabRef;
+	TabContainer* floatingTab;
+	TabContainer* floatingTabTarget;
+	int  floatingTabRefTabIdx;
+	int  floatingTabRefTabCount;
+	int  floatingTabTargetAnchorPos;
+	int	 floatingTabTargetAnchorTabIndex;
+	RECT floatingTabRc;
+	RECT floatingTabTargetRc;
 
 	const int   splitterSize;
 	LPCSTR		splitterCursor;
@@ -200,33 +260,15 @@ struct SplitterContainer
 	void OnMouseMove(HWND,LPARAM);
 	void OnSize(HWND,WPARAM,LPARAM);
 
-	HWND GetWindowBelowMouse(HWND,WPARAM,LPARAM);
-
 	void CreateFloatingTab(TabContainer*);
 	void DestroyFloatingTab();
 	int OnTabContainerRButtonUp(HWND,LPARAM);
 	void OnTabContainerSize(HWND);
 
-	int GetTabSelectionIdx(HWND);
-	void SetTabSelectionIdx(HWND hwnd,int idx);
-	HWND GetTabSelectionWindow(HWND hwnd);
-
-
-	RECT GetTabContainerClientSize(HWND);
-	void EnableAndShowTabContainerChild(HWND hwnd,int idx);
-
-
 	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
-	//std::vector<HWND> findAttachedWindos(HWND mainWindow,RECT &srcRect,int rectPosition);
 
-	HWND CreateTabContainer(int x,int y,int w,int h,HWND parent);
-	int	 CreateTabChildren(HWND parent,char* text=0,int pos=-1,HWND from=0);
-	void RemoveTabChildren(HWND hwnd,int idx);
-	void ReparentTabChildren(HWND src,HWND dst,int idx);
 	void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
 	void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
-
-	bool CreateNewPanel(HWND,int popupMenuItem);
 };
 
 
@@ -238,6 +280,7 @@ struct ContainerWindow : WindowData , SplitterContainer
 
 	void Create(HWND hwnd=0);
 	void OnCreate(HWND);
+	void OnSize();
 };
 
 struct MainAppContainerWindow : ContainerWindow
