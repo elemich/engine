@@ -208,6 +208,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	virtual void OnRMouseUp();
 	virtual void OnRun();
 	virtual void OnMouseWheel();
+	virtual void OnResizeContainer();
 
 	virtual void RecreateTarget();
 
@@ -222,11 +223,13 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	{
 		return tabs.size() ? tabs[selected] : 0;
 	}
+
+	
 };
 
 struct SplitterContainer 
 {
-	std::vector<TabContainer*> tabContainers;
+	ContainerWindow* GetContainer(){return (ContainerWindow*)this;}
 
 	static HMENU popupMenuRoot;
 	static HMENU popupMenuCreate;
@@ -274,12 +277,20 @@ struct SplitterContainer
 
 struct ContainerWindow : WindowData , SplitterContainer
 {
+	std::vector<TabContainer*> tabContainers;
+
 	int ContainerWindow_currentVisibleChildIdx;
+
+	int resizeDiffHeight;
+	int resizeDiffWidth;
+	int resizeEnumType;
+
 
 	ContainerWindow();
 
 	void Create(HWND hwnd=0);
 	void OnCreate(HWND);
+	void OnSizing();
 	void OnSize();
 };
 
@@ -369,7 +380,7 @@ struct App : AppInterface , TStaticClass<App>
 	void Run();
 };
 
-struct OpenGLRenderer : RendererInterface , RendererViewportInterface
+struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPool<OpenGLRenderer>
 {
 	static GLuint vertexArrayObject;
 	static GLuint vertexBufferObject;

@@ -112,6 +112,8 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	if(!hwnd)
 		__debugbreak();
 
+	HWND parentWindow=GetParent(hwnd);
+
 	this->parentContainer=(ContainerWindow*)GetWindowLongPtr(parent,GWL_USERDATA);
 	this->parentContainer->tabContainers.push_back(this);
 
@@ -194,6 +196,9 @@ int TabContainer::RemoveTab(Gui* gui)
 
 void TabContainer::RecreateTarget()
 {
+	if(!this->recreateTarget)
+		return;
+
 	HRESULT hr=S_OK;
 
 	if(!rawUpArrow)
@@ -208,8 +213,7 @@ void TabContainer::RecreateTarget()
 	if(!rawFolder)
 		Direct2DGuiBase::CreateRawBitmap(L"folder.png",rawFolder);
 
-	if(!this->recreateTarget)
-		return;
+	
 
 
 	D2DRELEASE(renderer);
@@ -264,14 +268,14 @@ void TabContainer::OnWindowPosChanging()
 {
 	WindowData::OnWindowPosChanging();
 
-	renderer->Resize(D2D1::SizeU((int)width,(int)height));
-
 	this->RecreateTarget();
+
+	renderer->Resize(D2D1::SizeU((int)width,(int)height));
 
 	if(this->GetSelected())
 		this->GetSelected()->OnSize();
 
-	this->OnPaint();
+	//this->OnPaint();
 }
 
 void TabContainer::OnMouseMove()
@@ -398,12 +402,16 @@ void TabContainer::OnRMouseUp()
 
 void TabContainer::OnPaint()
 {
+	printf("painting %p\n",this);
+
 	if(this->recreateTarget)
 		this->RecreateTarget();
 	
 	isRender=true;
 
 	renderer->BeginDraw();
+
+	renderer->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 
 	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -425,3 +433,28 @@ void TabContainer::OnPaint()
 	isRender=false;
 }
 
+void TabContainer::OnResizeContainer()
+{
+	RECT rc;
+
+	GetClientRect(this->hwnd,&rc);
+	MapWindowRect(this->hwnd,this->parentContainer->hwnd,&rc);
+
+	switch(this->parentContainer->resizeEnumType)
+	{
+		case 0:
+			SetWindowPos(this->hwnd,0,0,rc.top,rc.right+this->parentContainer->resizeDiffWidth,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
+			break;
+		case 1:
+			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right-rc.left,rc.bottom+this->parentContainer->resizeDiffHeight,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
+			break;
+		case 2:
+			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right+this->parentContainer->resizeDiffWidth,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
+			break;
+		case 3:
+			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right-rc.left,rc.bottom+this->parentContainer->resizeDiffHeight,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
+		break;
+		default:
+			__debugbreak();
+	}
+}

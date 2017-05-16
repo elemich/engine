@@ -65,7 +65,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 		{
 			if(floatingTabTarget)
 			{
-				if(floatingTabTargetAnchorPos!=-1)
+				if(floatingTabTargetAnchorPos>=0)
 				{
 					TabContainer* newTabContainer=0;
 
@@ -191,7 +191,7 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 
 		HWND target=ChildWindowFromPointEx(hwnd,cp,CWP_SKIPDISABLED);
 
-		if(target!=floatingTab->hwnd && /*floatingTabTarget!=floatingTabRef*/(floatingTabRefTabCount==1 ? target!=floatingTabRef->hwnd : true))
+		if(target!=GetParent(*floatingTab) && target!=floatingTab->hwnd && /*floatingTabTarget!=floatingTabRef*/(floatingTabRefTabCount==1 ? target!=floatingTabRef->hwnd : true))
 		{
 			floatingTabTarget=(TabContainer*)GetWindowLongPtr(target,GWL_USERDATA);
 
@@ -246,6 +246,8 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 				floatingTabTargetRc.bottom=floatingTabRc.top-splitterSize;
 				anchor=1;
 			}
+			else
+				floatingTabTargetAnchorPos=-1;
 
 			
 
@@ -273,8 +275,10 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 		}
 		else
 		{
+			UpdateWindow(floatingTabRef->hwnd);
 			SetWindowPos(floatingTab->hwnd,0,p.x-(floatingTabScaledWidthX)/2,p.y-(floatingTabScaledWidthY)/2,floatingTabScaledWidthX,floatingTabScaledWidthY,SWP_SHOWWINDOW);
 			floatingTabTarget=0;
+			floatingTabTargetAnchorPos=-1;
 		}
 	}
 	else

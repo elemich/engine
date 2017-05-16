@@ -4,28 +4,48 @@
 
 WNDPROC SystemOriginalTabControlProcedure;
 
-ContainerWindow::ContainerWindow():ContainerWindow_currentVisibleChildIdx(0){}
+ContainerWindow::ContainerWindow()
+{
+	ContainerWindow_currentVisibleChildIdx=0;
+	resizeDiffHeight=0;
+	resizeDiffWidth=0;
+	resizeEnumType=-1;
+}
 void ContainerWindow::Create(HWND container){}
+
+void ContainerWindow::OnSizing()
+{
+	LPRECT sz=(LPRECT)this->lparam;
+
+	RECT trc;
+	GetWindowRect(this->hwnd,&trc);
+
+	this->resizeDiffWidth=(sz->right-sz->left)-(trc.right-trc.left);
+	this->resizeDiffHeight=(sz->bottom-sz->top)-(trc.bottom-trc.top);
+
+	switch(this->wparam)
+	{
+	case WMSZ_LEFT:this->resizeEnumType=0;break;
+	case WMSZ_TOP:this->resizeEnumType=1;break;
+	case WMSZ_RIGHT:this->resizeEnumType=2;break;
+	case WMSZ_BOTTOM:this->resizeEnumType=3;break;
+	default:
+		__debugbreak();
+	}
+}
 
 void ContainerWindow::OnSize()
 {
+	if(this->resizeEnumType<0)
+		return;
 
+	std::vector<TabContainer*>::iterator tvec;
+	std::list<TabContainer*>::iterator   tlst;
 
-
-	switch(wparam)
+	for(tvec=this->tabContainers.begin();tvec!=this->tabContainers.end();tvec++)
 	{
-	case WMSZ_LEFT:
-
-	break;
-	case WMSZ_TOP:
-
-	break;
-	case WMSZ_RIGHT:
-
-	break;
-	case WMSZ_BOTTOM:
-
-	break;
+		if((*tvec)->siblings[this->resizeEnumType].empty())
+			(*tvec)->OnResizeContainer();
 	}
 }
 
@@ -80,6 +100,11 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			PostQuitMessage(1);
 		break;
 		case WM_SIZING:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
+			mainw->OnSizing();
+		break;
+		case WM_SIZE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->CopyProcedureData(hwnd,msg,wparam,lparam);
 			mainw->OnSize();

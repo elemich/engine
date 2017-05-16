@@ -1467,14 +1467,18 @@ void Resources::DrawItems()
 
 void Resources::OnPaint()
 {
+	
+
 	if(!tab->isRender)
 		tab->renderer->BeginDraw();
 
-	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
+	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tab->width,(float)tab->height),this->tab->SetColor(Gui::COLOR_MAIN_BACKGROUND));
 
 	//dirs hierarchy
 
 	tab->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
+
+	tab->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
 
 	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollBar.GetScrollValue()));
 
@@ -1492,7 +1496,9 @@ void Resources::OnPaint()
 
 	tab->renderer->PushAxisAlignedClip(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tab->width,(float)tab->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
+	tab->renderer->FillRectangle(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tab->width,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
+
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(10,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
 
 	rightElements.drawfileselection(this);
 
