@@ -36,7 +36,6 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 			tc->OnSize();
 		break;
 		case WM_DESTROY:
-			printf("destroying\n");
 			tc->~TabContainer();
 			break;
 		case WM_WINDOWPOSCHANGED:
@@ -71,7 +70,6 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 		{
 			PAINTSTRUCT ps;
 			BeginPaint(hwnd,&ps);
-			
 			tc->OnPaint();
 			EndPaint(hwnd,&ps);
 		}
@@ -102,7 +100,8 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	upExpandos(0),
 	rightExpandos(0),
 	downExpandos(0),
-	folderIcon(0)
+	folderIcon(0),
+	nPainted(0)
 {
 	width=w;
 	height=h;
@@ -111,6 +110,8 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 
 	if(!hwnd)
 		__debugbreak();
+
+	printf("creating TabContainer %p\n",this);
 
 	HWND parentWindow=GetParent(hwnd);
 
@@ -127,6 +128,8 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 
 TabContainer::~TabContainer()
 {
+	printf("deleting TabContainer %p\n",this);
+
 	this->parentContainer->tabContainers.erase(std::find(parentContainer->tabContainers.begin(),parentContainer->tabContainers.end(),this));
 
 	D2DRELEASE(renderer);
@@ -196,8 +199,8 @@ int TabContainer::RemoveTab(Gui* gui)
 
 void TabContainer::RecreateTarget()
 {
-	if(!this->recreateTarget)
-		return;
+	/*if(!this->recreateTarget)
+		return;*/
 
 	HRESULT hr=S_OK;
 
@@ -262,6 +265,8 @@ void TabContainer::RecreateTarget()
 		this->GetSelected()->RecreateTarget();
 
 	this->recreateTarget=false;
+
+	printf("tab %p target recreated\n",this);
 }
 
 void TabContainer::OnWindowPosChanging()
@@ -274,8 +279,6 @@ void TabContainer::OnWindowPosChanging()
 
 	if(this->GetSelected())
 		this->GetSelected()->OnSize();
-
-	//this->OnPaint();
 }
 
 void TabContainer::OnMouseMove()
@@ -402,7 +405,8 @@ void TabContainer::OnRMouseUp()
 
 void TabContainer::OnPaint()
 {
-	printf("painting %p\n",this);
+	/*if(nPainted>1)
+		return;*/
 
 	if(this->recreateTarget)
 		this->RecreateTarget();
@@ -411,7 +415,7 @@ void TabContainer::OnPaint()
 
 	renderer->BeginDraw();
 
-	renderer->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+	renderer->Clear(D2D1::ColorF(Gui::COLOR_GUI_BACKGROUND));
 
 	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -428,9 +432,16 @@ void TabContainer::OnPaint()
 	if(this->GetSelected())
 		this->GetSelected()->OnPaint();
 
+	renderer->DrawRectangle(D2D1::RectF(0,0,this->width,this->height),this->SetColor(D2D1::ColorF::Red));
+
 	this->recreateTarget=(renderer->EndDraw() & D2DERR_RECREATE_TARGET) != 0;
 
+	/*if(this->recreateTarget)
+		__debugbreak();*/
+
 	isRender=false;
+
+	nPainted++;
 }
 
 void TabContainer::OnResizeContainer()
@@ -440,19 +451,39 @@ void TabContainer::OnResizeContainer()
 	GetClientRect(this->hwnd,&rc);
 	MapWindowRect(this->hwnd,this->parentContainer->hwnd,&rc);
 
+	int size=0;
+	int diff=0;
+	int side=0;
+
 	switch(this->parentContainer->resizeEnumType)
 	{
 		case 0:
-			SetWindowPos(this->hwnd,0,0,rc.top,rc.right+this->parentContainer->resizeDiffWidth,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
+			side=(rc.right-rc.left);
+			diff=this->parentContainer->resizeDiffWidth;
+			size=side+diff;
+			SetWindowPos(this->hwnd,0,0,rc.top,size,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
+			this->parentContainer->resizeCheckWidth+=size;
 			break;
 		case 1:
-			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right-rc.left,rc.bottom+this->parentContainer->resizeDiffHeight,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
+			side=rc.bottom;
+			diff=this->parentContainer->resizeDiffHeight;
+			size=side+diff;
+			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right-rc.left,size,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
+			this->parentContainer->resizeCheckHeight+=size;
 			break;
 		case 2:
-			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right+this->parentContainer->resizeDiffWidth,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
+			side=(rc.right-rc.left);
+			diff=this->parentContainer->resizeDiffWidth;
+			size=side+diff;
+			SetWindowPos(this->hwnd,0,rc.left,rc.top,size,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
+			this->parentContainer->resizeCheckWidth+=size;
 			break;
 		case 3:
-			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right-rc.left,rc.bottom+this->parentContainer->resizeDiffHeight,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
+			side=rc.bottom;
+			diff=this->parentContainer->resizeDiffHeight;
+			size=side+diff;
+			SetWindowPos(this->hwnd,0,rc.left,rc.top,rc.right-rc.left,size,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
+			this->parentContainer->resizeCheckHeight+=size;
 		break;
 		default:
 			__debugbreak();

@@ -61,7 +61,6 @@ struct WindowData
 	WPARAM wparam;
 	LPARAM lparam;
 
-
 	operator HWND(){return this->hwnd;}
 	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l){hwnd=h,msg=m,wparam=w,lparam=l;}
 	
@@ -192,6 +191,8 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 
 	float mousex,mousey;
 
+	int nPainted;
+
 	TabContainer(float x,float y,float w,float h,HWND parent);
 	~TabContainer();
 
@@ -284,7 +285,8 @@ struct ContainerWindow : WindowData , SplitterContainer
 	int resizeDiffHeight;
 	int resizeDiffWidth;
 	int resizeEnumType;
-
+	int resizeCheckWidth;
+	int resizeCheckHeight;
 
 	ContainerWindow();
 
@@ -393,12 +395,10 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPo
 	static GLuint renderBufferColor;
 	static GLuint renderBufferDepth;
 
-	unsigned char* buffer;
+	unsigned char* renderBuffer;
 
 	HGLRC hglrc;
-	HDC sourceDc;
 	HDC   hdc;
-	HBITMAP hbitmap;
 
 	int width;
 	int height;
@@ -409,8 +409,8 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPo
 
 	std::vector<OpenGLRenderer*> shared_renderers;
 
-	ID2D1BitmapRenderTarget* openglrenderer_bitmapRenderTarget;
-	ID2D1Bitmap* openglrenderer_bitmap;
+	ID2D1BitmapRenderTarget* bitmapTarget;
+	ID2D1Bitmap* renderBitmap;
 
 	OpenGLRenderer(TabContainer*);
 

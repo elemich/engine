@@ -2,6 +2,7 @@
 
 #pragma message (LOCATION " processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
 #pragma message (LOCATION " multiple opengl context needs glew32mx.lib")
+#pragma message (LOCATION " TODO: move OpenGL bitmap render in the RendererViewportInterface cause is for the gui only")
 
 GLuint OpenGLRenderer::vertexArrayObject=0;
 GLuint OpenGLRenderer::vertexBufferObject=0;
@@ -208,11 +209,11 @@ width(0),
 	RendererViewportInterface_viewScale=1.0f;
 	RendererViewportInterface_farPlane=3000.0f;
 
-	openglrenderer_bitmapRenderTarget=0;
-	openglrenderer_bitmap=0;
+	bitmapTarget=0;
+	renderBitmap=0;
 
 	hglrc=0;
-	buffer=0;
+	renderBuffer=0;
 
 	if(tab->hwnd)
 		this->Create(tab->hwnd);
@@ -225,7 +226,7 @@ char* OpenGLRenderer::Name()
 
 void OpenGLRenderer::Create(HWND hwnd)
 {
-	sourceDc=GetDC(hwnd);
+	hdc=GetDC(hwnd);
 
 	RECT r;
 	GetClientRect(hwnd,&r);
@@ -233,20 +234,11 @@ void OpenGLRenderer::Create(HWND hwnd)
 	width=r.right-r.left;
 	height=r.bottom-r.top;
 
-	hdc=CreateCompatibleDC(sourceDc);
-
-	hbitmap=CreateCompatibleBitmap(sourceDc,width,height);
-
-	SelectObject(hdc,hbitmap);
-
-	HDC rcDc=sourceDc;
-	hdc=sourceDc;
-
 	DWORD error=0;
 
 	for(int i=0;i<1;i++)
 	{
-		if(!rcDc)
+		if(!hdc)
 			MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
 
 		PIXELFORMATDESCRIPTOR pfd={0};
@@ -258,7 +250,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 		pfd.cDepthBits=32;
 		pfd.cStencilBits=32;
 
-		int pixelFormat = ChoosePixelFormat(rcDc,&pfd);
+		int pixelFormat = ChoosePixelFormat(hdc,&pfd);
 
 		error=GetLastError();
 
@@ -268,13 +260,13 @@ void OpenGLRenderer::Create(HWND hwnd)
 		if(pixelFormat==0)
 			__debugbreak();
 
-		if(!SetPixelFormat(rcDc,pixelFormat,&pfd))
+		if(!SetPixelFormat(hdc,pixelFormat,&pfd))
 			__debugbreak();
 
-		if(!(hglrc = wglCreateContext(rcDc)))
+		if(!(hglrc = wglCreateContext(hdc)))
 			__debugbreak();
 
-		if(!wglMakeCurrent(rcDc,hglrc))
+		if(!wglMakeCurrent(hdc,hglrc))
 			__debugbreak();
 
 		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
@@ -359,7 +351,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 	int pixelFormat;
 	UINT numFormats;
 
-	if(!wglChoosePixelFormatARB(rcDc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
+	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
 		__debugbreak();
 
 	
@@ -371,10 +363,10 @@ void OpenGLRenderer::Create(HWND hwnd)
 		0,        //End
 	};
 
-	if(!(hglrc = wglCreateContextAttribsARB(rcDc, 0, versionAttribList)))
+	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
 		__debugbreak();
 	
-	if(!wglMakeCurrent(rcDc,hglrc))
+	if(!wglMakeCurrent(hdc,hglrc))
 		__debugbreak();
 
 	//wglMakeCurrent(TClassPool<OpenGLRenderer>::pool[0]->hdc, TClassPool<OpenGLRenderer>::pool[0]->hglrc);
@@ -456,6 +448,8 @@ OpenGLRenderer* OpenGLRenderer::CreateSharedContext(HWND container)
 
 void OpenGLRenderer::ChangeContext()
 {
+	return;
+
 	if(!hglrc || !hdc)
 	{
 		__debugbreak();
@@ -1329,18 +1323,32 @@ void OpenGLRenderer::OnMouseDown(int,int)
 
 void OpenGLRenderer::OnRender()
 {
+	//printf("GLRENDER\n");
+
 	this->Render();
+	this->OnPaint();
 }
 
 void OpenGLRenderer::OnPaint()
 {
-	if(!openglrenderer_bitmap)
+	//printf("GLPAINT\n");
+
+	this->Render();
+
+	if(!renderBitmap)
 		return;
+
+	glReadBuffer(GL_BACK);glCheckError();
+	glReadPixels(0,0,width,height,GL_BGRA,GL_UNSIGNED_BYTE,renderBuffer);glCheckError();//@mic should implement pbo for performance
+
+	renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,width,height),renderBuffer,width*4);
 
 	if(!tab->isRender)
 		tab->renderer->BeginDraw();
 
-	tab->renderer->DrawBitmap(openglrenderer_bitmap,D2D1::RectF(0,30,(float)width,(float)height+30));
+	tab->renderer->DrawBitmap(renderBitmap,D2D1::RectF(0,TabContainer::CONTAINER_HEIGHT,(float)width,(float)height+30));
+
+	tab->renderer->DrawRectangle(D2D1::RectF(1,TabContainer::CONTAINER_HEIGHT,width-1,tab->height-1),tab->SetColor(D2D1::ColorF::Yellow));
 
 	if(!tab->isRender)
 		tab->renderer->EndDraw();
@@ -1377,13 +1385,6 @@ void OpenGLRenderer::Render()
 	processNode(this,Entity::pool,Entity::pool.begin(),1,0);
 	processNode(this,Entity::pool,Entity::pool.begin(),2,0);
 	processNode(this,Entity::pool,Entity::pool.begin(),3,0);
-
-	glReadBuffer(GL_BACK);glCheckError();
-	glReadPixels(0,0,width,height,GL_BGRA,GL_UNSIGNED_BYTE,buffer);glCheckError();//@mic should implement pbo for performance
-
-	openglrenderer_bitmap->CopyFromMemory(&D2D1::RectU(0,0,width,height),buffer,width*4);
-
-	this->OnPaint();
 }
 
 
@@ -1409,20 +1410,20 @@ void OpenGLRenderer::OnSize()
 	float halfW=this->GetProjectionHalfWidth();
 	float halfH=this->GetProjectionHalfHeight();
 
-	if(openglrenderer_bitmap)
-		openglrenderer_bitmap->Release();
-
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 	bp.pixelFormat=tab->renderer->GetPixelFormat();
 
-	tab->renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&openglrenderer_bitmap);
+	D2DRELEASE(renderBitmap);
+	SAFEDELETE(renderBuffer);
+
+	tab->renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&renderBitmap);
 	
-	if(!openglrenderer_bitmap)
+	if(!renderBitmap)
 		__debugbreak();
 
-	if(buffer)
-		delete [] buffer;
-	buffer=new unsigned char[width*height*4];
+	
+
+	renderBuffer=new unsigned char[width*height*4];
 
 	glViewport(0,0,width,height);glCheckError();
 	glScissor(0,0,width,height);glCheckError();

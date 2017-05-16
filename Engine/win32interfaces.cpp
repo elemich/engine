@@ -379,11 +379,12 @@ void App::Run()
 		}
 		//else
 		{
-			/*for(int i=0;i<(int)RendererViewportInterface::Pool().size();i++)
+			for(int i=0;i<(int)RendererViewportInterface::Pool().size();i++)
 			{
 				if(RendererViewportInterface::Pool()[i]->IsSelected())
 					RendererViewportInterface::Pool()[i]->OnRender();
-			}*/
+					//RendererViewportInterface::Pool()[i]->OnPaint();
+			}
 		}
 		
 	}

@@ -10,6 +10,8 @@ ContainerWindow::ContainerWindow()
 	resizeDiffHeight=0;
 	resizeDiffWidth=0;
 	resizeEnumType=-1;
+	resizeCheckWidth=0;
+	resizeCheckHeight=0;
 }
 void ContainerWindow::Create(HWND container){}
 
@@ -36,8 +38,13 @@ void ContainerWindow::OnSizing()
 
 void ContainerWindow::OnSize()
 {
+	WindowData::OnSize();
+
 	if(this->resizeEnumType<0)
 		return;
+
+	this->resizeCheckWidth=0;
+	this->resizeCheckHeight=0;
 
 	std::vector<TabContainer*>::iterator tvec;
 	std::list<TabContainer*>::iterator   tlst;
@@ -89,6 +96,10 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 	switch(msg)
 	{
+		/*case WM_PAINT:
+			//result=DefWindowProc(hwnd,msg,wparam,lparam);
+			printf("main painting\n");
+		break;*/
 		case WM_CREATE:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
