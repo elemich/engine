@@ -50,10 +50,10 @@ void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
 
 void Direct2DGuiBase::Release()
 {
-	D2DRELEASE(factory);
-	D2DRELEASE(imager);
-	D2DRELEASE(writer);
-	D2DRELEASE(texter);
+	SAFERELEASE(factory);
+	SAFERELEASE(imager);
+	SAFERELEASE(writer);
+	SAFERELEASE(texter);
 };
 
 ID2D1HwndRenderTarget* Direct2DGuiBase::InitHWNDRenderer(HWND hwnd)
@@ -186,12 +186,12 @@ ID2D1Bitmap* Direct2DGuiBase::CreateRawBitmap(ID2D1RenderTarget*renderer,const w
 				
 	if (SUCCEEDED(hr))
 	{
-		D2DRELEASE(imager);
-		D2DRELEASE(pDecoder);
-		D2DRELEASE(pSource);
-		D2DRELEASE(pStream);
-		D2DRELEASE(pConverter);
-		D2DRELEASE(pScaler);
+		SAFERELEASE(imager);
+		SAFERELEASE(pDecoder);
+		SAFERELEASE(pSource);
+		SAFERELEASE(pStream);
+		SAFERELEASE(pConverter);
+		SAFERELEASE(pScaler);
 	}
 
 	
@@ -249,11 +249,11 @@ void Direct2DGuiBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffe
 
 	if (SUCCEEDED(hr))
 	{
-		D2DRELEASE(pDecoder);
-		D2DRELEASE(pSource);
-		D2DRELEASE(pStream);
-		D2DRELEASE(pConverter);
-		D2DRELEASE(pScaler);
+		SAFERELEASE(pDecoder);
+		SAFERELEASE(pSource);
+		SAFERELEASE(pStream);
+		SAFERELEASE(pConverter);
+		SAFERELEASE(pScaler);
 	}
 }
 
@@ -450,14 +450,14 @@ void ScrollBar::OnPaint()
 
 	float scrollerHeight=scrollerRun*scrollerFactor;
 
-	tab->renderer->DrawBitmap(tab->upExpandos,D2D1::RectF(x,y,x+ScrollBar::SCROLLBAR_WIDTH,y+ScrollBar::SCROLLBAR_TIP_HEIGHT));
+	tab->renderer->DrawBitmap(tab->iconUp,D2D1::RectF(x,y,x+ScrollBar::SCROLLBAR_WIDTH,y+ScrollBar::SCROLLBAR_TIP_HEIGHT));
 
 	float scrollerY=scroller+y+ScrollBar::SCROLLBAR_TIP_HEIGHT;
 	float scrollerY2=scrollerY+scrollerHeight;
 
 	tab->renderer->FillRectangle(D2D1::RectF(x,scrollerY,x+ScrollBar::SCROLLBAR_WIDTH,scrollerY2),this->tab->SetColor(D2D1::ColorF::Black));
 
-	tab->renderer->DrawBitmap(tab->downExpandos,D2D1::RectF(x,height-ScrollBar::SCROLLBAR_TIP_HEIGHT,x+ScrollBar::SCROLLBAR_WIDTH,height));
+	tab->renderer->DrawBitmap(tab->iconDown,D2D1::RectF(x,height-ScrollBar::SCROLLBAR_TIP_HEIGHT,x+ScrollBar::SCROLLBAR_WIDTH,height));
 }
 
 
@@ -535,7 +535,7 @@ void TreeView::TreeViewNode::drawlist(TreeView* tv)
 	mbstowcs_s(&resLen,resText,CHAR_MAX,this->entity->entity_name,this->entity->entity_name.Count());
 
 	if(this->hasChilds)
-		tv->bitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+		tv->bitmaprenderer->DrawBitmap(this->expanded ? tv->tab->iconDown : tv->tab->iconRight,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
 	tv->bitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x,this->y,this->x+this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
 
@@ -643,7 +643,7 @@ void TreeView::RecreateTarget()
 
 TreeView::~TreeView()
 {
-	
+	printf("destrouying treeview %p\n",this);
 }
 
 void TreeView::OnEntitiesChange()
@@ -716,7 +716,7 @@ void TreeView::OnReparent()
 
 void TreeView::DrawItems()
 {
-	D2DRELEASE(bitmaprenderer);
+	SAFERELEASE(bitmaprenderer);
 	
 
 	tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(bitmapWidth,bitmapHeight),&bitmaprenderer);
@@ -832,7 +832,7 @@ void Properties::PropertiesNode::draw(Properties* tv)
 
 	for(int i=0;i<(int)panels.size();i++)
 	{
-		tv->tab->renderer->DrawBitmap(panels[i].expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(0,i*20.0f,20.0f,20.0f));
+		tv->tab->renderer->DrawBitmap(panels[i].expanded ? tv->tab->iconDown : tv->tab->iconRight,D2D1::RectF(0,i*20.0f,20.0f,20.0f));
 		Direct2DGuiBase::DrawText(tv->tab->renderer,tv->tab->SetColor(TabContainer::COLOR_TEXT),panels[i].name,20.0f,i*20.0f,(float)tv->tab->width,20.0f);
 	}
 
@@ -868,7 +868,10 @@ Properties::Properties(TabContainer* tc)
 	RecreateTarget();
 };
 
-Properties::~Properties(){}
+Properties::~Properties()
+{
+	printf("destrouying properties %p\n",this);
+}
 
 void Properties::OnPaint()
 {
@@ -1061,7 +1064,7 @@ void Resources::ResourceNode::insertFiles(Resources::ResourceNode& directory,HDC
 		node.level=0;
 		node.expanded=false;
 		node.selected=false;
-		node.nChilds = 0;
+		node.nChilds = this->nChilds++;
 		node.isDir = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 
 		SIZE tSize;
@@ -1096,9 +1099,9 @@ void Resources::ResourceNode::drawdirlist(Resources* tv)
 	mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
 
 	if(this->nChilds)
-		tv->leftbitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+		tv->leftbitmaprenderer->DrawBitmap(this->expanded ? tv->tab->iconDown : tv->tab->iconRight,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 		
-	tv->leftbitmaprenderer->DrawBitmap(tv->tab->folderIcon,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+	tv->leftbitmaprenderer->DrawBitmap(tv->tab->iconFolder,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
 	tv->leftbitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
 
@@ -1111,17 +1114,19 @@ void Resources::ResourceNode::drawdirlist(Resources* tv)
 
 void Resources::ResourceNode::drawfilelist(Resources* tv)
 {
-	size_t resLen=0;
-	wchar_t resText[CHAR_MAX];
-	mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
+	if(this->parent)
+	{
+		size_t resLen=0;
+		wchar_t resText[CHAR_MAX];
+		mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
 
-	if(this->nChilds)
-		tv->rightbitmaprenderer->DrawBitmap(this->expanded ? tv->tab->downExpandos : tv->tab->rightExpandos,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+		if(this->nChilds)
+			tv->rightbitmaprenderer->DrawBitmap(this->expanded ? tv->tab->iconDown : tv->tab->iconRight,D2D1::RectF(this->x-TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
-	tv->rightbitmaprenderer->DrawBitmap(tv->tab->folderIcon,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
+		tv->rightbitmaprenderer->DrawBitmap(this->isDir ? tv->tab->iconFolder : tv->tab->iconFile,D2D1::RectF(this->x,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y+TreeView::TREEVIEW_ROW_HEIGHT));
 
-	tv->rightbitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
-
+		tv->rightbitmaprenderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + TreeView::TREEVIEW_ROW_ADVANCE,this->y,this->x + TreeView::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tv->tab->SetColor(TabContainer::COLOR_TEXT));
+	}
 
 	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
 		nCh->drawfilelist(tv);
@@ -1132,7 +1137,7 @@ void Resources::ResourceNode::drawdirselection(Resources* tv)
 	TabContainer* tabContainer=tv->tab;
 
 	if(this->selected)
-		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tv->leftFrameWidth,(float)this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+		tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tv->leftFrameWidth-ScrollBar::SCROLLBAR_WIDTH-4,(float)this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 	if(this->expanded)
 	{
@@ -1147,7 +1152,7 @@ void Resources::ResourceNode::drawfileselection(Resources* tv)
 	TabContainer* tabContainer=tv->tab;
 
 	if(this->selected)
-		tabContainer->renderer->FillRectangle(D2D1::RectF(tv->leftFrameWidth,this->y,tabContainer->width,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+		tabContainer->renderer->FillRectangle(D2D1::RectF(tv->leftFrameWidth,this->y,tabContainer->width-ScrollBar::SCROLLBAR_WIDTH,this->y+TreeView::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
 		nCh->drawfileselection(tv);
@@ -1246,7 +1251,7 @@ rightScrollBar(tc)
 
 void Resources::RecreateTarget()
 {
-	
+	DrawItems();
 }
 
 void Resources::SetLeftScrollBar()
@@ -1263,7 +1268,7 @@ void Resources::SetRightScrollBar()
 
 Resources::~Resources()
 {
-	
+	printf("destrouying resources %p\n",this);
 }
 
 void Resources::OnEntitiesChange()
@@ -1289,7 +1294,7 @@ void Resources::OnSize()
 {
 	frameHeight=tab->height-TabContainer::CONTAINER_HEIGHT;
 
-	if(this->leftFrameWidth<this->tab->width-ScrollBar::SCROLLBAR_WIDTH)
+	if(this->leftFrameWidth>this->tab->width)
 		this->leftFrameWidth=(this->tab->width-ScrollBar::SCROLLBAR_WIDTH)/2.0f;
 
 	this->SetLeftScrollBar();
@@ -1409,7 +1414,7 @@ void Resources::DrawLeftItems()
 {
 	LRESULT result;
 
-	D2DRELEASE(leftbitmaprenderer);
+	SAFERELEASE(leftbitmaprenderer);
 
 	result=tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(leftBitmapWidth,leftBitmapHeight),&leftbitmaprenderer);
 
@@ -1438,7 +1443,7 @@ void Resources::DrawRightItems()
 {
 	LRESULT result;
 	//draw right pane
-	D2DRELEASE(rightbitmaprenderer);
+	SAFERELEASE(rightbitmaprenderer);
 
 	result=tab->renderer->CreateCompatibleRenderTarget(D2D1::SizeF(rightBitmapWidth,rightBitmapHeight),&rightbitmaprenderer);
 
@@ -1498,7 +1503,7 @@ void Resources::OnPaint()
 
 	tab->renderer->FillRectangle(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tab->width,(float)tab->height),this->tab->SetColor(Gui::COLOR_GUI_BACKGROUND));
 
-	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(10,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
+	tab->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
 
 	rightElements.drawfileselection(this);
 
@@ -1511,6 +1516,9 @@ void Resources::OnPaint()
 	rightScrollBar.OnPaint();
 
 	if(!tab->isRender)
-		tab->renderer->EndDraw();
+	{
+		if(tab->renderer->EndDraw() & D2DERR_RECREATE_TARGET)
+			tab->recreateTarget=true;
+	}
 }
 

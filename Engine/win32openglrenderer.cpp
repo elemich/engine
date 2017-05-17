@@ -1372,7 +1372,7 @@ void OpenGLRenderer::Render()
 
 	glEnable(GL_DEPTH_TEST);
 	
-	glClearColor(0.3,0.3,0.3,0);glCheckError();
+	glClearColor(0.3f,0.3f,0.3f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
 	MatrixStack::SetShaderMatrix();
@@ -1413,7 +1413,7 @@ void OpenGLRenderer::OnSize()
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 	bp.pixelFormat=tab->renderer->GetPixelFormat();
 
-	D2DRELEASE(renderBitmap);
+	SAFERELEASE(renderBitmap);
 	SAFEDELETE(renderBuffer);
 
 	tab->renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&renderBitmap);

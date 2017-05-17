@@ -36,8 +36,8 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 			tc->OnSize();
 		break;
 		case WM_DESTROY:
-			tc->~TabContainer();
-			break;
+			printf("window %p of TabContainer %p destroyed\n",hwnd,tc);
+		break;
 		case WM_WINDOWPOSCHANGED:
 			tc->OnWindowPosChanging();
 		break;
@@ -87,6 +87,7 @@ unsigned char* TabContainer::rawUpArrow=0;
 unsigned char* TabContainer::rawRightArrow=0;
 unsigned char* TabContainer::rawDownArrow=0;
 unsigned char* TabContainer::rawFolder=0;
+unsigned char* TabContainer::rawFile=0;
 
 TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	parentContainer(0),
@@ -97,10 +98,11 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	isRender(false),
 	splitterContainer(0),
 	recreateTarget(true),
-	upExpandos(0),
-	rightExpandos(0),
-	downExpandos(0),
-	folderIcon(0),
+	iconUp(0),
+	iconRight(0),
+	iconDown(0),
+	iconFolder(0),
+	iconFile(0),
 	nPainted(0)
 {
 	width=w;
@@ -130,13 +132,94 @@ TabContainer::~TabContainer()
 {
 	printf("deleting TabContainer %p\n",this);
 
+	if(!this->FindAndGrowSibling())
+		this->UnlinkSibling();
+
+	for(int i=0;i<(int)this->tabs.size();i++)
+		delete this->tabs[i];
+
 	this->parentContainer->tabContainers.erase(std::find(parentContainer->tabContainers.begin(),parentContainer->tabContainers.end(),this));
 
-	D2DRELEASE(renderer);
-	D2DRELEASE(brush);
-	D2DRELEASE(rightExpandos);
-	D2DRELEASE(downExpandos);
-	D2DRELEASE(folderIcon);
+	SAFERELEASE(renderer);
+	SAFERELEASE(brush);
+	SAFERELEASE(iconRight);
+	SAFERELEASE(iconDown);
+	SAFERELEASE(iconFolder);
+	SAFERELEASE(iconFile);
+
+	DestroyWindow(this->hwnd);
+}
+
+
+void TabContainer::LinkSibling(TabContainer* t,int pos)
+{
+	if(!t)
+		return;
+
+	int reciprocal = pos<2 ? pos+2 : pos-2;
+
+	this->siblings[pos].push_back(t);
+	t->siblings[reciprocal].push_back(this);
+}
+
+void TabContainer::UnlinkSibling(TabContainer* t)
+{
+	RECT rc;
+	GetClientRect(this->hwnd,&rc);
+
+	if(t)
+	{
+		for(int i=0;i<4;i++)
+			t->siblings[i].remove(this);
+	}
+
+
+	for(int i=0;i<4;i++)
+	{
+		if(t)
+		{
+			this->siblings[i].remove(t);
+		}
+		else
+		{
+			for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
+			{
+				TabContainer* tabToUnlinkFromThis=(*it);
+
+				for(int i=0;i<4;i++)
+					tabToUnlinkFromThis->siblings[i].remove(this);
+			}
+
+			this->siblings[i].clear();
+		}
+	}
+}
+
+TabContainer* TabContainer::FindSiblingOfSameSize()
+{
+	for(int i=0;i<4;i++)
+	{
+		for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
+		{
+			TabContainer* tabContainer=(*it);
+
+			if(tabContainer->width==this->width || tabContainer->height==this->height)
+				return tabContainer;
+		}
+	}
+
+	return 0;
+}
+
+int TabContainer::FindSiblingPosition(TabContainer* t)
+{
+	for(int i=0;i<4;i++)
+	{
+		if(std::find(this->siblings[i].begin(),this->siblings[i].end(),t)!=this->siblings[i].end())
+			return i;
+	}
+
+	return -1;
 }
 
 void TabContainer::OnSize()
@@ -154,6 +237,47 @@ void TabContainer::OnSize()
 	
 }
 
+bool TabContainer::FindAndGrowSibling()
+{
+	TabContainer* growingTab=this->FindSiblingOfSameSize();
+
+	if(growingTab)
+	{
+		int tabReflinkPosition=this->FindSiblingPosition(growingTab);
+
+		RECT growingTabRc,thisRc;
+		GetClientRect(growingTab->hwnd,&growingTabRc);
+		GetClientRect(this->hwnd,&thisRc);
+		MapWindowRect(growingTab->hwnd,GetParent(growingTab->hwnd),&growingTabRc);
+		MapWindowRect(this->hwnd,GetParent(growingTab->hwnd),&thisRc);
+
+		switch(tabReflinkPosition)
+		{
+		case 0:
+			SetWindowPos(growingTab->hwnd,0,growingTabRc.left,thisRc.top,thisRc.right-growingTabRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
+			break;
+		case 1:
+			SetWindowPos(growingTab->hwnd,0,thisRc.left,growingTabRc.top,thisRc.right-thisRc.left,thisRc.bottom-growingTabRc.top,SWP_SHOWWINDOW);
+			break;
+		case 2:
+			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,growingTabRc.right-thisRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
+			break;
+		case 3:
+			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,thisRc.right-thisRc.left,growingTabRc.bottom-thisRc.top,SWP_SHOWWINDOW);
+			break;
+		default:
+			__debugbreak();
+			break;
+		}
+
+		this->UnlinkSibling();
+
+		return true;
+	}
+
+	return false;
+}
+
 Gui* TabContainer::AddTab(Gui* gui,int position)
 {
 	if(gui)
@@ -165,7 +289,7 @@ Gui* TabContainer::AddTab(Gui* gui,int position)
 		tabs.insert(position<0 ? tabs.end() : (tabs.begin() + position),gui);
 		this->selected = position<0 ? (int)tabs.size()-1 : position;
 
-		gui->OnReparent();
+		gui->OnSize();
 
 		this->OnPaint();
 
@@ -189,9 +313,13 @@ int TabContainer::RemoveTab(Gui* gui)
 			int position=std::distance(tabs.begin(),iIt);
 			tabs.erase(iIt);
 			position>0 ? this->selected-- : 0;
+
+			this->OnPaint();
 			
 			return position;
 		}
+
+		
 	}
 	return -1;
 }
@@ -216,16 +344,20 @@ void TabContainer::RecreateTarget()
 	if(!rawFolder)
 		Direct2DGuiBase::CreateRawBitmap(L"folder.png",rawFolder);
 
+	if(!rawFile)
+		Direct2DGuiBase::CreateRawBitmap(L"file.png",rawFile);
+
 	
 
 
-	D2DRELEASE(renderer);
-	D2DRELEASE(brush);
+	SAFERELEASE(renderer);
+	SAFERELEASE(brush);
 
-	D2DRELEASE(upExpandos);
-	D2DRELEASE(rightExpandos);
-	D2DRELEASE(downExpandos);
-	D2DRELEASE(folderIcon);
+	SAFERELEASE(iconUp);
+	SAFERELEASE(iconRight);
+	SAFERELEASE(iconDown);
+	SAFERELEASE(iconFolder);
+	SAFERELEASE(iconFile);
 
 	renderer=Direct2DGuiBase::InitHWNDRenderer(hwnd);
 
@@ -241,24 +373,29 @@ void TabContainer::RecreateTarget()
 	bp.pixelFormat=renderer->GetPixelFormat();
 	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&upExpandos);
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconUp);
 
-	if(!upExpandos || hr!=S_OK)
+	if(!iconUp || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&rightExpandos);
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconRight);
 
-	if(!rightExpandos || hr!=S_OK)
+	if(!iconRight || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ARROW_STRIDE,bp,&downExpandos);
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconDown);
 
-	if(!downExpandos || hr!=S_OK)
+	if(!iconDown || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ARROW_WH,TabContainer::CONTAINER_ARROW_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ARROW_STRIDE,bp,&folderIcon);
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFolder);
 
-	if(!folderIcon || hr!=S_OK)
+	if(!iconFolder || hr!=S_OK)
+		__debugbreak();
+
+	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFile,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFile);
+
+	if(!iconFile || hr!=S_OK)
 		__debugbreak();
 
 	if(this->GetSelected())
@@ -279,6 +416,8 @@ void TabContainer::OnWindowPosChanging()
 
 	if(this->GetSelected())
 		this->GetSelected()->OnSize();
+
+	this->OnPaint();
 }
 
 void TabContainer::OnMouseMove()
@@ -317,6 +456,14 @@ void TabContainer::OnMouseWheel()
 		this->GetSelected()->OnMouseWheel();
 }
 
+void TabContainer::SelectTab()
+{
+	if(this->GetSelected())
+		this->GetSelected()->OnSize();
+
+	this->OnPaint();
+}
+
 void TabContainer::OnLMouseDown()
 {
 	this->OnMouseMove();
@@ -334,10 +481,11 @@ void TabContainer::OnLMouseDown()
 			{
 				selected=i;
 
+				printf("tab %p selected: %d\n",this,selected);
+
 				mouseDown=true;
 
-				if(prevSel!=selected)
-					this->OnPaint();
+				this->SelectTab();
 
 				break;
 			}
@@ -345,8 +493,8 @@ void TabContainer::OnLMouseDown()
 	}
 	else
 	{
-		if(tabs[selected])
-			tabs[selected]->OnLMouseDown();
+		if(this->GetSelected())
+			this->GetSelected()->OnLMouseDown();
 	}
 }
 
@@ -395,6 +543,14 @@ void TabContainer::OnRMouseUp()
 				break;
 				case TAB_MENU_COMMAND_PROJECTFOLDER:
 					this->AddTab(new Resources(this));
+				break;
+				case TAB_MENU_COMMAND_REMOVE:
+					if((int)this->pool.size()>1)
+					{
+						printf("total TabContainer before destroying: %d\n",(int)this->pool.size());
+						this->~TabContainer();
+						printf("total TabContainer after destroying: %d\n",(int)this->pool.size());
+					}
 				break;
 			}
 

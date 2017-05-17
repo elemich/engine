@@ -9,16 +9,21 @@
 
 #define SAFEDELETE(_ptr) \
 	if(_ptr!=0){\
-	printf("SAFEDELETE(%p)\n",_ptr);\
 	delete _ptr;\
 	_ptr=0;}\
 	
 
 #define SAFEDELETEARRAY(_ptr) \
 	if(_ptr!=0){\
-	printf("SAFEDELETEARRAY(%p)\n",_ptr);\
 	delete [] _ptr;\
 	_ptr=0;}\
+
+#define SAFERELEASE(_ptr) \
+	if(_ptr!=0)\
+	{\
+	_ptr->Release();\
+	_ptr=0;\
+	}\
 	
 
 template<class T,int size> struct TNumberedVectorInterface

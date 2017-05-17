@@ -31,6 +31,27 @@ String::String(const String& s):data(0)
         strcpy(data,s.Buf());
     }
 }
+
+String::String(const wchar_t* s):data(0)
+{
+	if(s)
+	{
+		int size=wcslen(s);
+		
+		if(!size)
+			return;
+
+		data=new char[size+1];
+
+		size_t checkSize;
+
+		wcstombs_s(&checkSize,data,size,s,size);
+
+		if((int)checkSize!=size)
+			__debugbreak();
+	}
+}
+
 String::String(int number)
 {
     char n[100];

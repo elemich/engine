@@ -3,14 +3,6 @@
 
 #include "win32includes.h"
 
-#define D2DRELEASE(_ptr) \
-	if(_ptr!=0)\
-	{\
-		printf("releasing d2d ptr %p\n",_ptr);\
-		_ptr->Release();\
-		_ptr=0;\
-	}\
-
 struct Direct2DGuiBase
 {
 	static ID2D1Factory *factory;
@@ -81,76 +73,11 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 
 	std::list<TabContainer*> siblings[4];
 
-	void LinkSibling(TabContainer* t,int pos)
-	{
-		if(!t)
-			return;
-
-		int reciprocal = pos<2 ? pos+2 : pos-2;
-
-		this->siblings[pos].push_back(t);
-		t->siblings[reciprocal].push_back(this);
-	}
-
-	void UnlinkSibling(TabContainer* t=0)
-	{
-		RECT rc;
-		GetClientRect(this->hwnd,&rc);
-
-		if(t)
-		{
-			for(int i=0;i<4;i++)
-				t->siblings[i].remove(this);
-		}
-		
-
-		for(int i=0;i<4;i++)
-		{
-			if(t)
-			{
-				this->siblings[i].remove(t);
-			}
-			else
-			{
-				for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
-				{
-					TabContainer* tabToUnlinkFromThis=(*it);
-
-					for(int i=0;i<4;i++)
-						tabToUnlinkFromThis->siblings[i].remove(this);
-				}
-
-				this->siblings[i].clear();
-			}
-		}
-	}
-
-	TabContainer* FindSameSizeSibling()
-	{
-		for(int i=0;i<4;i++)
-		{
-			for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
-			{
-				TabContainer* tabContainer=(*it);
-
-				if(tabContainer->width==this->width || tabContainer->height==this->height)
-					return tabContainer;
-			}
-		}
-
-		return 0;
-	}
-
-	int FindSiblingPosition(TabContainer* t)
-	{
-		for(int i=0;i<4;i++)
-		{
-			if(std::find(this->siblings[i].begin(),this->siblings[i].end(),t)!=this->siblings[i].end())
-				return i;
-		}
-
-		return -1;
-	}
+	void LinkSibling(TabContainer* t,int pos);
+	void UnlinkSibling(TabContainer* t=0);
+	TabContainer* FindSiblingOfSameSize();
+	int FindSiblingPosition(TabContainer* t);
+	bool FindAndGrowSibling();
 
 	
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
@@ -161,24 +88,26 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	static const int TAB_WIDTH=80;
 	static const int TAB_HEIGHT=25;
 
-	static const int CONTAINER_ARROW_WH=20;
-	static const int CONTAINER_ARROW_STRIDE=CONTAINER_ARROW_WH*4;
+	static const int CONTAINER_ICON_WH=20;
+	static const int CONTAINER_ICON_STRIDE=CONTAINER_ICON_WH*4;
 	
 
 	static unsigned char* rawUpArrow;
 	static unsigned char* rawRightArrow;
 	static unsigned char* rawDownArrow;
 	static unsigned char* rawFolder;
+	static unsigned char* rawFile;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
 	ID2D1HwndRenderTarget* renderer;
 	ID2D1SolidColorBrush*  brush;
 
-	ID2D1Bitmap* upExpandos;
-	ID2D1Bitmap* rightExpandos;
-	ID2D1Bitmap* downExpandos;
-	ID2D1Bitmap* folderIcon;
+	ID2D1Bitmap* iconUp;
+	ID2D1Bitmap* iconRight;
+	ID2D1Bitmap* iconDown;
+	ID2D1Bitmap* iconFolder;
+	ID2D1Bitmap* iconFile;
 
 	std::vector<Gui*> tabs;
 
@@ -225,6 +154,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 		return tabs.size() ? tabs[selected] : 0;
 	}
 
+	void SelectTab();
 	
 };
 

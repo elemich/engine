@@ -47,8 +47,6 @@ void SplitterContainer::OnLButtonDown(HWND hwnd,LPARAM lparam)
 			resizingWindows2=findWindoswAtPos(hwnd,rc2,edge2);
 		}
 
-		
-
 		SetCapture(hwnd);
 	}
 }
@@ -73,41 +71,8 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 					{
 						newTabContainer=floatingTabRef;
 
-						TabContainer* growingTab=floatingTabRef->FindSameSizeSibling();
-						
-						if(growingTab)
-						{
-							int tabReflinkPosition=floatingTabRef->FindSiblingPosition(growingTab);
-
-							RECT growingTabRc,floatingTabRefRc;
-							GetClientRect(growingTab->hwnd,&growingTabRc);
-							GetClientRect(floatingTabRef->hwnd,&floatingTabRefRc);
-							MapWindowRect(growingTab->hwnd,GetParent(growingTab->hwnd),&growingTabRc);
-							MapWindowRect(floatingTabRef->hwnd,GetParent(growingTab->hwnd),&floatingTabRefRc);
-
-							switch(tabReflinkPosition)
-							{
-								case 0:
-									SetWindowPos(growingTab->hwnd,0,growingTabRc.left,floatingTabRefRc.top,floatingTabRefRc.right-growingTabRc.left,floatingTabRefRc.bottom-floatingTabRefRc.top,SWP_SHOWWINDOW);
-								break;
-								case 1:
-									SetWindowPos(growingTab->hwnd,0,floatingTabRefRc.left,growingTabRc.top,floatingTabRefRc.right-floatingTabRefRc.left,floatingTabRefRc.bottom-growingTabRc.top,SWP_SHOWWINDOW);
-								break;
-								case 2:
-									SetWindowPos(growingTab->hwnd,0,floatingTabRefRc.left,floatingTabRefRc.top,growingTabRc.right-floatingTabRefRc.left,floatingTabRefRc.bottom-floatingTabRefRc.top,SWP_SHOWWINDOW);
-								break;
-								case 3:
-									SetWindowPos(growingTab->hwnd,0,floatingTabRefRc.left,floatingTabRefRc.top,floatingTabRefRc.right-floatingTabRefRc.left,growingTabRc.bottom-floatingTabRefRc.top,SWP_SHOWWINDOW);
-								break;
-								default:
-									__debugbreak();
-								break;
-							}
-						}
-						else
+						if(!newTabContainer->FindAndGrowSibling())
 							__debugbreak();
-
-						floatingTabTarget->UnlinkSibling(newTabContainer);
 
 						RECT floatingTabTargetRc;
 						GetClientRect(floatingTabTarget->hwnd,&floatingTabTargetRc);
@@ -143,11 +108,12 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 					else
 					{
 						newTabContainer=new TabContainer((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top),hwnd);
-						SetWindowPos(floatingTabTarget->hwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
-					
+						
 						Gui* reparentTab=floatingTabRef->tabs[floatingTabRefTabIdx];
 						floatingTabRef->RemoveTab(reparentTab);
-						newTabContainer->AddTab(reparentTab);					
+						newTabContainer->AddTab(reparentTab);
+						
+						SetWindowPos(floatingTabTarget->hwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);					
 					}
 
 					floatingTabTarget->LinkSibling(newTabContainer,floatingTabTargetAnchorPos);
@@ -414,12 +380,12 @@ void SplitterContainer::DestroyFloatingTab()
 {
 	if(floatingTabRef)
 	{
-		DestroyWindow(floatingTab->hwnd);//remove floating window
+		printf("deleting floating TabContainer %p\n",this);
+
+		floatingTab->~TabContainer();//remove floating window
 		floatingTabRef->mouseDown=false;
 		floatingTabRef=0;
 		floatingTab=0;
-
-		printf("%p deleting childmoving\n",this);
 	}
 }
 

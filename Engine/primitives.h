@@ -8,6 +8,16 @@
 
 #define LOCATION " @mic (" __FILE__ " : " PRINTF(__LINE__) ")"
 
+struct StringWide
+{
+	wchar_t *data;
+
+	StringWide():data(0){};
+	~StringWide(){SAFEDELETEARRAY(data);}
+
+	operator const wchar_t*(){return data;}
+};
+
 struct String
 {
 private:
@@ -18,6 +28,7 @@ public:
 	String(const char* s);
 	String(int,const char* s,...);
 	String(const String& s);
+	String(const wchar_t* s);
 	String(int number);
 	String(float scalar);
 
