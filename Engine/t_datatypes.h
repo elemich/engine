@@ -6,6 +6,9 @@
 #include <vector>
 #include <list>
 #include <cstdio>
+#include <typeinfo>
+#include <algorithm>
+#include <functional>
 
 #define SAFEDELETE(_ptr) \
 	if(_ptr!=0){\
@@ -26,6 +29,20 @@
 	}\
 	
 
+
+template <typename T> struct PtrHierarchyNode
+{
+	T* parent;
+	std::vector<T*> childs;
+
+	PtrHierarchyNode():parent(0){}
+
+	/*void BroadcastToChilds(void (T::*_func)())
+	{
+		for_each(this->childs.begin(),this->childs.end(),std::mem_fun(_func));
+	}*/
+};
+
 template<class T,int size> struct TNumberedVectorInterface
 {
 	T v[size];
@@ -45,7 +62,7 @@ template <class T> struct TStaticClass
 template <class T> T* TStaticClass<T>::instance=0;
 
 
-template <class T> struct TClassPool
+template <typename T> struct TClassPool
 {
 	static std::vector<T*> pool;
 
@@ -58,9 +75,13 @@ template <class T> struct TClassPool
 	{
 		pool.erase(std::find(pool.begin(),pool.end(),(T*)this));
 	}
+
+	
 };
 
 template <class T> std::vector<T*> TClassPool<T>::pool;
+
+template<typename T> std::vector<T*>& GetPool(){return TClassPool<T>::pool;}
 
 
 template<class T> struct SmartPointer

@@ -8,6 +8,8 @@
 
 #define LOCATION " @mic (" __FILE__ " : " PRINTF(__LINE__) ")"
 
+
+
 struct StringWide
 {
 	wchar_t *data;
@@ -69,8 +71,8 @@ namespace VectorMathNamespace
 	float* scale(float *c,const float *a ,const float *b,int dim );
 	float angleg(const float *a,const float *b,int dim);
 	float angler(const float *a,const float *b,int dim);
-	float* minimum(float *c,float *a,float *b,int dim);
-	float* maximum(float *c,float *a,float *b,int dim);
+	float* minimum(float *c,const float *a,const float *b,int dim);
+	float* maximum(float *c,const float *a,const float *b,int dim);
 	bool equal(const float *a,const float *b,int dim);
 	//String stringize(const float *a,int dim);
 	void print(float* v);
@@ -161,23 +163,23 @@ struct vec4 : TNumberedVectorInterface<float,4>
 
 	vec4();
 	vec4(const vec4& a);
-	vec4(vec3& a);
 	vec4(float fv[4]);
 	vec4(float x,float y,float z,float t);
 	vec4(float x,float y,float z);
-	vec4& operator=(vec4& a);
-	vec4& operator=(vec3& a);
-	vec4 operator+(vec4& a);
-	vec4 operator-(vec4& a);
+	vec4& operator=(const vec4& a);
+	vec4& operator=(const vec3& a);
+	vec4 operator+(const vec4& a);
+	vec4& operator+=(const vec4& a);
+	vec4 operator-(const vec4& a);
 	void scale(float f);
 	void scale(vec4 a);
-	bool operator==(vec4& a);
-	bool operator!=(vec4& a);
+	bool operator==(const vec4& a);
+	bool operator!=(const vec4& a);
 	float& operator[](int i);
-	vec4 minimum(vec4& a);
-	vec4 maximum(vec4& a);
+	vec4 minimum(const vec4& a);
+	vec4 maximum(const vec4& a);
 	float length();
-	static float dot(vec4& a,vec4& b);
+	static float dot(const vec4& a,const vec4& b);
 	void normalize();
 	void make(float a,float b,float c,float d);
 	void negate();

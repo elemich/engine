@@ -22,7 +22,7 @@ struct Direct2DGuiBase
 	static ID2D1EllipseGeometry* CreateEllipse(float x,float y, float w,float h);
 	static ID2D1PathGeometry* CreatePathGeometry();
 	static ID2D1Bitmap* CreateRawBitmap(ID2D1RenderTarget*renderer,const wchar_t* fname);
-	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer);
+	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
 	static ID2D1SolidColorBrush* SolidColorBrush(ID2D1RenderTarget* renderer,float r,float g,float b,float a);
 	static ID2D1LinearGradientBrush* LinearGradientBrush(ID2D1RenderTarget* renderer,float x1,float y1,float x2,float y2,float position,float r,float g,float b,float a,D2D1::Matrix3x2F mtx=D2D1::Matrix3x2F::Identity());
@@ -38,10 +38,11 @@ struct Direct2DGuiBase
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h);
 
-
 	static bool OnSize(ID2D1Geometry* geometry,D2D1::Matrix3x2F& mtx,float x,float y);
 	static bool OnSize(ID2D1Geometry* geometry,float x,float y);
 };
+
+
 
 struct WindowData
 {
@@ -67,7 +68,7 @@ struct WindowData
 struct SplitterContainer;
 struct ContainerWindow;
 
-struct TabContainer : WindowData , TClassPool<TabContainer>
+struct TabContainer : WindowData , GuiInterface , TClassPool<TabContainer>
 {
 	ContainerWindow* parentContainer;
 
@@ -82,7 +83,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
-	static const unsigned int COLOR_TEXT=0xFFFFFF;
+	
 
 	static const int CONTAINER_HEIGHT=30;
 	static const int TAB_WIDTH=80;
@@ -109,7 +110,7 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	ID2D1Bitmap* iconFolder;
 	ID2D1Bitmap* iconFile;
 
-	std::vector<Gui*> tabs;
+	std::vector<GuiTab*> tabs;
 
 	SplitterContainer* splitterContainer;
 	
@@ -122,10 +123,13 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 
 	int nPainted;
 
+	bool buttonLeftMouseDown;
+	bool buttonControlDown;
+
 	TabContainer(float x,float y,float w,float h,HWND parent);
 	~TabContainer();
 
-	
+	operator TabContainer& (){return *this;}
 	
 	void Create(HWND){}//@mic no more used, delete from WindowData
 
@@ -136,25 +140,33 @@ struct TabContainer : WindowData , TClassPool<TabContainer>
 	virtual void OnLMouseUp();
 	virtual void OnMouseMove();
 	virtual void OnRMouseUp();
-	virtual void OnRun();
+	virtual void OnUpdate();
 	virtual void OnMouseWheel();
 	virtual void OnResizeContainer();
 
-	virtual void RecreateTarget();
+	virtual void OnRecreateTarget();
 
 	
+	GuiTab* AddTab(GuiTab*,int position=-1);
+	int RemoveTab(GuiTab* tab);
 
-	Gui* AddTab(Gui*,int position=-1);
-	int RemoveTab(Gui* tab);
+	ID2D1Brush* SetColor(unsigned int color)
+	{
+		brush->SetColor(D2D1::ColorF(color));
+		return brush;
+	}
 
-	ID2D1Brush* SetColor(unsigned int color){brush->SetColor(D2D1::ColorF(color));return brush;}
-
-	Gui* GetSelected()
+	GuiTab* GetSelected()
 	{
 		return tabs.size() ? tabs[selected] : 0;
 	}
 
 	void SelectTab();
+
+	void BroadcastToSelected(void (GuiTab::*func)());
+
+	void BeginDraw();
+	void EndDraw();
 	
 };
 
@@ -196,8 +208,6 @@ struct SplitterContainer
 
 	void CreateFloatingTab(TabContainer*);
 	void DestroyFloatingTab();
-	int OnTabContainerRButtonUp(HWND,LPARAM);
-	void OnTabContainerSize(HWND);
 
 	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
 
@@ -330,8 +340,8 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPo
 	HGLRC hglrc;
 	HDC   hdc;
 
-	int width;
-	int height;
+	float width;
+	float height;
 
 #if USE_MULTIPLE_OPENGL_CONTEXTS
 	GLEWContext* glewContext;
@@ -377,8 +387,8 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPo
 	void OnMouseWheel(float);
 	void OnMouseRightDown();
 	void OnViewportSize(int width,int height);
-	void OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown);
-	void OnMouseDown(int,int);
+	void OnMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown);
+	void OnMouseDown(float,float);
 	float GetProjectionHalfWidth();
 	float GetProjectionHalfHeight();
 
@@ -387,7 +397,7 @@ struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPo
 	void OnLMouseDown();
 	void OnMouseMove();
 	void OnEntitiesChange();
-	void OnRun();
+	void OnUpdate();
 	void OnRender();
 	void OnPaint();
 	void OnMouseWheel();
@@ -426,72 +436,73 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
-struct ScrollBar : GuiInterface<ScrollBar>
+
+
+
+
+
+struct SceneEntityPropertyNode
 {
-	static const int SCROLLBAR_WIDTH=20;
-	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
-	static const int SCROLLBAR_AMOUNT=10;
+	SceneEntityPropertyNode* parent;
 
-	float x,y,width,height;
-	float scroller,scrollerFactor;
-	float scrollerClick;
+	Entity* entity;
 
-	ScrollBar(TabContainer*);
-	~ScrollBar();
+	GuiTabElement root;
 
-	void Set(float _x,float _y,float _width,float _height);
-	void SetScrollerFactor(float contentHeight,float containerHeight);
-	void SetScrollerPosition(float contentHeight);
-	float GetScrollValue();
+	SceneEntityPropertyNode(){clear();}
+	~SceneEntityPropertyNode(){clear();}
 
-	float OnPressed();
-	void OnReleased();
-	bool OnScrolled();
-	void OnPaint();
+	void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* parent=0,int expandUntilLevel=1);
+	void update(float& width,float& height);
+	void clear();
+};
+
+struct SceneEntityNode
+{
+	SceneEntityNode* parent;
+
+	Entity* entity;
+
+	float x;
+	float y;
+	bool expanded;
+	bool selected;
+	int textWidth;
+	int level;
+	int hasChilds;
+
+	std::list<SceneEntityNode> childs;
+
+	SceneEntityPropertyNode properties;
+
+	SceneEntityNode();
+	~SceneEntityNode();
+
+	void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityNode* parent=0,int expandUntilLevel=1);
+	void update(float& width,float& height);
+	void clear();
 };
 
 
 
-struct TreeView : GuiInterface<TreeView>
+struct Properties : GuiTab
 {
-	TreeView(TabContainer*);
-	~TreeView();
+	Properties(TabContainer* tc);
+	~Properties();
+
+	void OnPaint();
+	void OnSelected();
+};
+
+struct SceneViewer : GuiTab
+{
+	SceneViewer(TabContainer*);
+	~SceneViewer();
 
 	static const int TREEVIEW_ROW_HEIGHT=20;
 	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
 
-	struct TreeViewNode
-	{
-		TreeViewNode* parent;
-
-		Entity* entity;
-
-		float x;
-		float y;
-		bool expanded;
-		bool selected;
-		int textWidth;
-		int level;
-		int hasChilds;
-
-		std::list<TreeViewNode> childs;
-
-		TreeViewNode();
-		~TreeViewNode();
-
-		void insert(Entity* entity,HDC hdc,float& width,float& height,TreeViewNode* parent=0,int expandUntilLevel=1);
-		void update(float& width,float& height);
-		void drawlist(TreeView* tv);
-		void drawselection(TreeView* tv);
-		void clear();
-		TreeViewNode* onmousepressed(TreeView* tv,float& x,float& y,float& width,float& height);
-		std::vector<Entity*> getselection();
-	};
-
-	TreeViewNode elements;
-
-	ID2D1BitmapRenderTarget* bitmaprenderer;
-	ID2D1Bitmap* bitmap;
+	SceneEntityNode elements;
 
 	ScrollBar scrollBar;
 	
@@ -504,72 +515,21 @@ struct TreeView : GuiInterface<TreeView>
 	void OnSize();
 	void OnLMouseDown();
 	void OnEntitiesChange();
-	void OnRun();
+	void OnUpdate();
 	void OnReparent();
+	void OnRecreateTarget();
 
-	void DrawItems();
-
-	void RecreateTarget();
-
+	SceneEntityNode* OnNodePressed(SceneEntityNode& node);
+	void DrawNodeSelectionRecursive(SceneEntityNode& node);
+	void DrawNodeRecursive(SceneEntityNode&);
 };
 
 
 
-struct Properties : GuiInterface<Properties>
-{
-	struct PropertiesNode
-	{
-		PropertiesNode* parent;
-
-		Entity* entity;
-
-		struct PanelData
-		{
-			String name;
-			ID2D1Bitmap* bitmap;
-			bool expanded;
-
-			PanelData(const char* nm):name(nm),bitmap(0),expanded(0){}
-		};
-
-		std::vector<PanelData> panels;
-
-		std::list<PropertiesNode> childs;
-		
-		PropertiesNode(){clear();}
-		~PropertiesNode(){clear();}
-
-		void insert(Entity* entity,HDC hdc,float& width,float& height,PropertiesNode* parent=0,int expandUntilLevel=1);
-
-		void update(float& width,float& height);
-
-		void draw(Properties* tv);
-		void drawselection(Properties* tv);
-		void clear();
-		PropertiesNode* onmousepressed(Properties* tv,float& x,float& y,float& width,float& height);
-	};
-
-	PropertiesNode elements;
-	
-
-	Properties(TabContainer* tc);
-	~Properties();
-
-	void OnPaint();
-	void OnSize(){};
-	void OnLMouseDown(){};
-	void OnEntitiesChange();
-	void OnEntitySelected(){};
-	void OnRun(){};
-	void OnReparent(){};
-
-	void DrawItems();
-
-	void RecreateTarget(){}
-};
 
 
-struct Resources : GuiInterface<Resources>
+
+struct Resources : GuiTab
 {
 	struct ResourceNode
 	{
@@ -596,8 +556,6 @@ struct Resources : GuiInterface<Resources>
 		void update(float& width,float& height);
 		void drawdirlist(Resources* tv);
 		void drawfilelist(Resources* tv);
-		void drawdirselection(Resources* tv);
-		void drawfileselection(Resources* tv);
 		void clear();
 		ResourceNode* onmousepressedLeftPane(Resources* tv,float& x,float& y,float& width,float& height);
 		ResourceNode* onmousepressedRightPane(Resources* tv,float& x,float& y,float& width,float& height);
@@ -612,11 +570,6 @@ struct Resources : GuiInterface<Resources>
 
 	Resources(TabContainer* tc);
 	~Resources();
-
-	ID2D1BitmapRenderTarget* leftbitmaprenderer;
-	ID2D1BitmapRenderTarget* rightbitmaprenderer;
-	ID2D1Bitmap* leftBitmap;
-	ID2D1Bitmap* rightBitmap;
 
 	ScrollBar leftScrollBar;
 	ScrollBar rightScrollBar;
@@ -638,14 +591,14 @@ struct Resources : GuiInterface<Resources>
 	void OnLMouseUp();
 	void OnMouseMove();
 	void OnEntitiesChange();
-	void OnRun();
+	void OnUpdate();
 	void OnReparent();
 
 	void DrawItems();
 	void DrawLeftItems();
 	void DrawRightItems();
 
-	void RecreateTarget();
+	void OnRecreateTarget();
 
 	void SetLeftScrollBar();
 	void SetRightScrollBar();

@@ -27,8 +27,8 @@ String::String(const String& s):data(0)
 {
     if(s.data)
     {
-        data=new char[strlen(s.Buf())+1];
-        strcpy(data,s.Buf());
+        data=new char[strlen(s.data)+1];
+        strcpy(data,s.data);
     }
 }
 
@@ -138,7 +138,10 @@ String::operator float()const
     return (float)atof(data);
 }
 
-String::operator char*()const{return data;}
+String::operator char*()const
+{
+	return data;
+}
 int String::Count()const{return data ? strlen(data) : 0;}
 const char* String::Buf()const{return data;}
 
@@ -275,7 +278,7 @@ float* VectorMathNamespace::scale(float *b ,const float *a ,float s,int dim)
 
 
 
-float* VectorMathNamespace::minimum(float *c,float *a,float *b,int dim)
+float* VectorMathNamespace::minimum(float *c,const float *a,const float *b,int dim)
 {
     for(int i=0;i<dim;i++)
     c[i]=(a[i]<b[i] ? a[i] : b[i]);
@@ -284,7 +287,7 @@ float* VectorMathNamespace::minimum(float *c,float *a,float *b,int dim)
 }
 
 
-float* VectorMathNamespace::maximum(float *c,float *a,float *b,int dim)
+float* VectorMathNamespace::maximum(float *c,const float *a,const float *b,int dim)
 {
     for(int i=0;i<dim;i++)
     c[i]=(a[i]>b[i] ? a[i] : b[i]);
@@ -357,31 +360,36 @@ vec3& vec3::normalize(){VectorMathNamespace::normalize(v,v,3);return *this;}
 vec3& vec3::make(float a,float b,float c){VectorMathNamespace::make(v,3,a,b,c);return *this;}
 //vec3& make(double a,double b,double c){VectorMathNamespace::make(v,3,(float)a,(float)b,(float)c);return *this;}
 vec3& vec3::negate(){VectorMathNamespace::negate(v,v,3);return *this;}
-String vec3::stringize(){char str[100];/*sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);*/String s(str);return s;}
+String vec3::stringize(){
+	char str[100];
+	sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);
+	
+	return String(str);}
 vec3::operator float* (){return v;}
 vec3::operator void* (){return v;}
-vec3::operator char* (){return stringize();}
+vec3::operator char* ()
+{return (char*)stringize().Buf();}
 bool vec3::iszero(){return (v[0]==0 && v[1]==0 && v[2]==0);}
 
 vec4::vec4():x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,0,0,0,0);}
 vec4::vec4(const vec4& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,a.v,4);}
-vec4::vec4(vec3& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,a[0],a[1],a[2],1.0f);}
 vec4::vec4(float fv[4]):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,fv,4);}
 vec4::vec4(float x,float y,float z,float t):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,x,y,z,t);}
 vec4::vec4(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,x,y,z,1.0f);}
-vec4& vec4::operator=(vec4& a){VectorMathNamespace::copy(v,a.v,4);return *this;}
-vec4& vec4::operator=(vec3& a){VectorMathNamespace::copy(v,a.v,3);v[3]=1.0f;return *this;}
-vec4 vec4::operator+(vec4& a){vec4 r;VectorMathNamespace::sum(r,a.v,v,4);return r;}
-vec4 vec4::operator-(vec4& a){vec4 r;VectorMathNamespace::subtract(r,a.v,v,4);return r;}
+vec4& vec4::operator=(const vec4& a){VectorMathNamespace::copy(v,a.v,4);return *this;}
+vec4& vec4::operator=(const vec3& a){VectorMathNamespace::copy(v,a.v,3);v[3]=1.0f;return *this;}
+vec4 vec4::operator+(const vec4& a){vec4 r;VectorMathNamespace::sum(r,a.v,v,4);return r;}
+vec4& vec4::operator+=(const vec4& a){VectorMathNamespace::sum(v,v,a.v,4);return *this;}
+vec4 vec4::operator-(const vec4& a){vec4 r;VectorMathNamespace::subtract(r,a.v,v,4);return r;}
 void vec4::scale(float f){VectorMathNamespace::scale(v,v,f,4);}
 void vec4::scale(vec4 a){VectorMathNamespace::scale(v,a.v,v,4);}
-bool vec4::operator==(vec4& a){return VectorMathNamespace::equal(a.v,v,4);}
-bool vec4::operator!=(vec4& a){return !VectorMathNamespace::equal(a.v,v,4);}
+bool vec4::operator==(const vec4& a){return VectorMathNamespace::equal(a.v,v,4);}
+bool vec4::operator!=(const vec4& a){return !VectorMathNamespace::equal(a.v,v,4);}
 float& vec4::operator[](int i){return v[i];}
-vec4 vec4::minimum(vec4& a){vec4 r; VectorMathNamespace::minimum(r,a.v,v,4);return r;}
-vec4 vec4::maximum(vec4& a){vec4 r; VectorMathNamespace::maximum(r,a.v,v,4);return r;}
+vec4 vec4::minimum(const vec4& a){vec4 r; VectorMathNamespace::minimum(r,a.v,v,4);return r;}
+vec4 vec4::maximum(const vec4& a){vec4 r; VectorMathNamespace::maximum(r,a.v,v,4);return r;}
 float vec4::length(){return VectorMathNamespace::length(v,4);}
-float vec4::dot(vec4& a,vec4& b){return VectorMathNamespace::dot(a.v,b.v,4);}
+float vec4::dot(const vec4& a,const vec4& b){return VectorMathNamespace::dot(a.v,b.v,4);}
 void vec4::normalize(){VectorMathNamespace::normalize(v,v,4);}
 void vec4::make(float a,float b,float c,float d){VectorMathNamespace::make(v,4,a,b,c,d);}
 void vec4::negate(){VectorMathNamespace::negate(v,v,4);}

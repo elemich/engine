@@ -73,7 +73,7 @@ void MainAppContainerWindow::Create(HWND)
 
 	RECT rc;
 	GetClientRect(hwnd,&rc);
-	TabContainer* tabContainer=new TabContainer(0,0,rc.right-rc.left,rc.bottom-rc.top,hwnd);
+	TabContainer* tabContainer=new TabContainer(0.0f,0.0f,(float)rc.right-rc.left,(float)rc.bottom-rc.top,hwnd);
 
 	if(tabContainer)
 		tabContainer->AddTab(new OpenGLRenderer(tabContainer));
@@ -161,8 +161,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 							{
 								InitFbxSceneLoad(openfilename.lpstrFile);
 
-								for(int i=0;i<(int)Gui::GuiPool().size();i++)
-									Gui::GuiPool()[i]->OnEntitiesChange();
+								GuiInterface::Broadcast(&GuiInterface::OnEntitiesChange);
 							}
 						}
 						break;

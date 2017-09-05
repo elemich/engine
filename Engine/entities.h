@@ -289,7 +289,7 @@ struct Entity : Animation
 	int		 animate(float);
 
 	Entity*					entity_parent;
-	std::list<Entity*>	entity_childs;		
+	std::list<Entity*>		entity_childs;		
 
 	mat4					entity_transform;
 	mat4					entity_world;

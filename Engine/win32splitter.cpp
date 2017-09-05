@@ -101,7 +101,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 							SetWindowPos(floatingTabRef->hwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top+floatingTabTargetRcHeight/2,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-(floatingTabTargetRc.top+(floatingTabTargetRcHeight/2)),SWP_SHOWWINDOW);
 						break;
 						default:
-							__debugbreak;
+							__debugbreak();
 						break;
 						}
 					}
@@ -109,7 +109,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 					{
 						newTabContainer=new TabContainer((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top),hwnd);
 						
-						Gui* reparentTab=floatingTabRef->tabs[floatingTabRefTabIdx];
+						GuiTab* reparentTab=floatingTabRef->tabs[floatingTabRefTabIdx];
 						floatingTabRef->RemoveTab(reparentTab);
 						newTabContainer->AddTab(reparentTab);
 						
@@ -424,7 +424,7 @@ bool InitSplitter()
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=MainWindowProc;
-		wc.hbrBackground=CreateSolidBrush(Gui::COLOR_MAIN_BACKGROUND);
+		wc.hbrBackground=CreateSolidBrush(GuiTab::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
 			__debugbreak();

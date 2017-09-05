@@ -200,11 +200,11 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 
 OpenGLRenderer::OpenGLRenderer(TabContainer* tc):
-width(0),
+RendererViewportInterface(tc),
+	width(0),
 	height(0)
 {
-	this->GuiInterface::name="OpenGL";
-	this->GuiInterface::tab=tc;
+	this->name="OpenGL";
 
 	RendererViewportInterface_viewScale=1.0f;
 	RendererViewportInterface_farPlane=3000.0f;
@@ -215,8 +215,8 @@ width(0),
 	hglrc=0;
 	renderBuffer=0;
 
-	if(tab->hwnd)
-		this->Create(tab->hwnd);
+	if(tabContainer->hwnd)
+		this->Create(tabContainer->hwnd);
 }
 
 char* OpenGLRenderer::Name()
@@ -231,8 +231,8 @@ void OpenGLRenderer::Create(HWND hwnd)
 	RECT r;
 	GetClientRect(hwnd,&r);
 
-	width=r.right-r.left;
-	height=r.bottom-r.top;
+	width=(float)(int)(r.right-r.left);
+	height=(float)(int)(r.bottom-r.top);
 
 	DWORD error=0;
 
@@ -1210,7 +1210,7 @@ void OpenGLRenderer::OnMouseWheel()
 {
 	this->ChangeContext();
 
-	short int delta = GET_WHEEL_DELTA_WPARAM(tab->wparam);
+	short int delta = GET_WHEEL_DELTA_WPARAM(tabContainer->wparam);
 
 	this->OnMouseWheel(delta);
 }
@@ -1222,7 +1222,7 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	RendererViewportInterface_viewScale+=-signof(factor)*(RendererViewportInterface_viewScale*0.1f);
 
 	RECT rc;
-	GetClientRect(this->tab->hwnd,&rc);
+	GetClientRect(this->tabContainer->hwnd,&rc);
 
 	float halfW=this->GetProjectionHalfWidth();
 	float halfH=this->GetProjectionHalfHeight();
@@ -1237,10 +1237,7 @@ void OpenGLRenderer::OnMouseMove()
 {
 	this->ChangeContext();
 
-	bool panButtonIsDown=(tab->wparam & MK_LBUTTON)!=0;
-	bool rotateButtonIsDown=(tab->wparam & MK_CONTROL)!=0;
-
-	this->OnMouseMotion(tab->mousex,tab->mousey,panButtonIsDown,rotateButtonIsDown);
+	this->OnMouseMotion(tabContainer->mousex,tabContainer->mousey,this->tabContainer->buttonLeftMouseDown,this->tabContainer->buttonControlDown);
 }
 
 void OpenGLRenderer::OnMouseRightDown()
@@ -1264,7 +1261,7 @@ void OpenGLRenderer::OnViewportSize(int width,int height)
 	MatrixStack::SetProjectionMatrix(p);
 }
 
-void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDown)
+void OpenGLRenderer::OnMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown)
 {
 	this->ChangeContext();
 
@@ -1275,7 +1272,7 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 	pos.x=(float)x;
 	pos.y=(float)y;
 
-	if(leftButtonDown && GetFocus()==this->tab->hwnd)
+	if(leftButtonDown && GetFocus()==this->tabContainer->hwnd)
 	{
 		float dX=(pos.x-oldpos.x);
 		float dY=(pos.y-oldpos.y);
@@ -1315,7 +1312,7 @@ void OpenGLRenderer::OnMouseMotion(int x,int y,bool leftButtonDown,bool altIsDow
 }
 
 
-void OpenGLRenderer::OnMouseDown(int,int)
+void OpenGLRenderer::OnMouseDown(float,float)
 {
 	this->ChangeContext();
 }
@@ -1339,19 +1336,19 @@ void OpenGLRenderer::OnPaint()
 		return;
 
 	glReadBuffer(GL_BACK);glCheckError();
-	glReadPixels(0,0,width,height,GL_BGRA,GL_UNSIGNED_BYTE,renderBuffer);glCheckError();//@mic should implement pbo for performance
+	glReadPixels(0,0,(int)width,(int)height,GL_BGRA,GL_UNSIGNED_BYTE,renderBuffer);glCheckError();//@mic should implement pbo for performance
 
-	renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,width,height),renderBuffer,width*4);
+	renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)width,(int)height),renderBuffer,(int)(width*4));
 
-	if(!tab->isRender)
-		tab->renderer->BeginDraw();
+	if(!tabContainer->isRender)
+		tabContainer->renderer->BeginDraw();
 
-	tab->renderer->DrawBitmap(renderBitmap,D2D1::RectF(0,TabContainer::CONTAINER_HEIGHT,(float)width,(float)height+30));
+	tabContainer->renderer->DrawBitmap(renderBitmap,D2D1::RectF(0.0f,(float)TabContainer::CONTAINER_HEIGHT,width,height+30));
 
-	tab->renderer->DrawRectangle(D2D1::RectF(1,TabContainer::CONTAINER_HEIGHT,width-1,tab->height-1),tab->SetColor(D2D1::ColorF::Yellow));
+	tabContainer->renderer->DrawRectangle(D2D1::RectF(1.0f,(float)TabContainer::CONTAINER_HEIGHT + 0.5f,(float)width-1.0f,(float)tabContainer->height-1.0f),tabContainer->SetColor(D2D1::ColorF::Yellow));
 
-	if(!tab->isRender)
-		tab->renderer->EndDraw();
+	if(!tabContainer->isRender)
+		tabContainer->renderer->EndDraw();
 }
 
 
@@ -1372,7 +1369,7 @@ void OpenGLRenderer::Render()
 
 	glEnable(GL_DEPTH_TEST);
 	
-	glClearColor(0.3f,0.3f,0.3f,0.0f);glCheckError();
+	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
 	MatrixStack::SetShaderMatrix();
@@ -1404,29 +1401,29 @@ void OpenGLRenderer::OnSize()
 
 	this->ChangeContext();
 
-	this->width=(int)tab->width;
-	this->height=(tab->height-TabContainer::CONTAINER_HEIGHT);
+	this->width=tabContainer->width;
+	this->height=(tabContainer->height-TabContainer::CONTAINER_HEIGHT);
 
 	float halfW=this->GetProjectionHalfWidth();
 	float halfH=this->GetProjectionHalfHeight();
 
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=tab->renderer->GetPixelFormat();
+	bp.pixelFormat=tabContainer->renderer->GetPixelFormat();
 
 	SAFERELEASE(renderBitmap);
 	SAFEDELETE(renderBuffer);
 
-	tab->renderer->CreateBitmap(D2D1::SizeU(width,height),bp,&renderBitmap);
+	tabContainer->renderer->CreateBitmap(D2D1::SizeU((int)width,(int)height),bp,&renderBitmap);
 	
 	if(!renderBitmap)
 		__debugbreak();
 
 	
 
-	renderBuffer=new unsigned char[width*height*4];
+	renderBuffer=new unsigned char[(int)(width*height*4)];
 
-	glViewport(0,0,width,height);glCheckError();
-	glScissor(0,0,width,height);glCheckError();
+	glViewport(0,0,(int)this->width,(int)this->height);glCheckError();
+	glScissor(0,0,(int)this->width,(int)this->height);glCheckError();
 
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
@@ -1439,7 +1436,7 @@ void OpenGLRenderer::OnEntitiesChange()
 {
 
 }
-void OpenGLRenderer::OnRun()
+void OpenGLRenderer::OnUpdate()
 {
 
 }
