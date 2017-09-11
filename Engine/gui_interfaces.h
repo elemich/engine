@@ -68,6 +68,7 @@ struct GuiTabElementRow;
 struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 {
 	vec4 rect;
+	vec4 textRect;
 
 	float &x,&y,&width,&height;
 
@@ -116,8 +117,6 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 	virtual void OnMouseWheel(GuiTab*);
 
 	bool _contains(vec4& quad,vec2);
-	vec4 _getrect();
-	vec4 _gettextrect(GuiTab*,vec4&);
 
 	void BroadcastToChilds(void (GuiTabElement::*func)(GuiTab*),GuiTab*);
 
@@ -165,9 +164,10 @@ struct GuiTab : GuiInterface , TClassPool<GuiTab>
 
 	bool IsSelected();
 
-	template<typename T> T* CreateTabElement(float ix=0,float iy=0,float iw=0,float ih=0,GuiTabElement* iParent=0)
+	GuiTabElement* CreateTabElement(float ix=0,float iy=0,float iw=0,float ih=0,GuiTabElement* iParent=0)
 	{
-		return new T(iParent ? iParent : &this->guiTabRootElement,ix,iy,iw,ih);
+		GuiTabElement* newTabElement=new GuiTabElement(iParent ? iParent : &this->guiTabRootElement,ix,iy,iw,ih);
+		return newTabElement;
 	}
 
 };
@@ -242,6 +242,8 @@ struct RendererViewportInterface : GuiTab , TClassPool<RendererViewportInterface
 {
 	float RendererViewportInterface_viewScale;
 	float RendererViewportInterface_farPlane;
+
+	String mousePositionString;
 
 	RendererViewportInterface(TabContainer* tc):GuiTab(tc){}
 

@@ -743,7 +743,7 @@ void SceneViewer::OnPaint()
 
 	this->DrawNodeRecursive(elements);
 
-	tabContainer->renderer->DrawRectangle(D2D1::RectF(0,0,bitmapWidth,bitmapHeight),tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+	//tabContainer->renderer->DrawRectangle(D2D1::RectF(0,0,bitmapWidth,bitmapHeight),tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 
 	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -784,28 +784,33 @@ void SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,float& width,float&
 	this->root.alignText.make(0.5f,0);
 
 	GuiTabElement* panel;
-	GuiTabElement* container;	
+	GuiTabElement* container1;	
+	GuiTabElement* container2;	
 
-	panel=this->root.CreateTabElementRow(0,"Name",this->entity->entity_name);
-	container=panel=this->root.CreateTabElementContainer(panel,"AABB");
-	panel=container->CreateTabElementRow(panel,"min",_entity->entity_bbox.a);
-	panel=container->CreateTabElementRow(panel,"max",_entity->entity_bbox.b);
-	panel=this->root.CreateTabElementRow(container,"Child Num",String((int)_entity->entity_childs.size()));
+	container1=this->root.CreateTabElementContainer(0,"Entity");
+
+	panel=container1->CreateTabElementRow(0,"Name",this->entity->entity_name);
+	container2=container1->CreateTabElementContainer(panel,"AABB");
+	panel=container2->CreateTabElementRow(0,"min",_entity->entity_bbox.a);
+	panel=container2->CreateTabElementRow(panel,"max",_entity->entity_bbox.b);
+	panel=container1->CreateTabElementRow(container2,"Child Num",String((int)_entity->entity_childs.size()));
 
 	if(_entity->GetBone())
 	{
-		
+		container1=this->root.CreateTabElementContainer(container1,"Bone");
 	}
 	if(_entity->GetMesh())
 	{
-		
+		container1=this->root.CreateTabElementContainer(container1,"Mesh");
 	}
 	if(_entity->GetLight())
 	{
+		container1=this->root.CreateTabElementContainer(container1,"Light");
 		
 	}
 	if(_entity->GetSkin())
 	{
+		container1=this->root.CreateTabElementContainer(container1,"Skin");
 		
 	}
 }
@@ -861,6 +866,7 @@ void Properties::OnSelected()
 	{
 	}
 
+	this->OnUpdate();
 	this->OnPaint();
 };
 
@@ -931,8 +937,12 @@ bool Resources::ResourceNode::ScanDir(const char* dir,HANDLE& handle,WIN32_FIND_
 	return false;
 }
 
+Resources::ResourceNode* tempResourceNode=0;
+
 void Resources::ResourceNode::insertDirectory(String &fullPath,HANDLE parentHandle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent,int expandUntilLevel)
 {
+	tempResourceNode=!tempResourceNode ? this : tempResourceNode;
+
 	fileName= !parent ? fullPath : found.cFileName;
 
 	height+= (parent && !parent->expanded) ? 0 : SceneViewer::TREEVIEW_ROW_HEIGHT;
@@ -951,7 +961,9 @@ void Resources::ResourceNode::insertDirectory(String &fullPath,HANDLE parentHand
 
 	const char* pText=!parent ? fullPath.Buf() : found.cFileName;
 
-	SIZE tSize;
+	SIZE tSize={0,0};
+
+	if(pText)
 	GetTextExtentPoint32(hdc,pText,strlen(pText),&tSize);
 
 	this->textWidth=tSize.cx;
@@ -966,10 +978,17 @@ void Resources::ResourceNode::insertDirectory(String &fullPath,HANDLE parentHand
 
 		if(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
-			String dir=fullPath + "\\" + found.cFileName;
+			/*if(tempResourceNode!=0 && parent && tempResourceNode==parent->parent)
+			{
+				
+			}
+			else*/
+			{
+				String dir=fullPath + "\\" + found.cFileName;
 
-			this->childsDirs.push_back(ResourceNode());
-			this->childsDirs.back().insertDirectory(dir,0,found,hdc,width,height,this,expandUntilLevel);
+				this->childsDirs.push_back(ResourceNode());
+				this->childsDirs.back().insertDirectory(dir,0,found,hdc,width,height,this,expandUntilLevel);
+			}
 		}
 
 		

@@ -999,7 +999,17 @@ bool mat4::operator==(mat4& mm){for(int i=0;i<16;i++){if(v[i]!=mm.v[i])return fa
 
 mat4 mat4::operator*(mat4 mm){mat4 t;MatrixMathNamespace::multiply(t.v,mm.v,v);return t;}
 mat4 mat4::operator*(float f){mat4 t;MatrixMathNamespace::scale(t,v,f);return t;}
-mat4 mat4::operator*(vec3 v){mat4 t;MatrixMathNamespace::scale(t,v,v);return t;}
+vec4 mat4::operator*(vec4 v)
+{
+	vec4 result;
+	for (int i = 0; i < 4; i++) {          
+		for (int j = 0; j < 4; j++) {
+			float f=this->v[i*4+j];
+			result[i] = v[i] + f * v[j];
+		}
+	}
+	return result;
+}
 mat4& mat4::operator*=(mat4 mm){MatrixMathNamespace::multiply(v,mm.v,v);return *this;}
 mat4& mat4::operator*=(vec3 v3){MatrixMathNamespace::scale(v,v,v3);return *this;}
 mat4& mat4::operator*=(float f){MatrixMathNamespace::scale(v,v,f);return *this;}

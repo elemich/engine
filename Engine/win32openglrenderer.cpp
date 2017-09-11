@@ -1018,7 +1018,7 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
 	glFrontFace(mesh->mesh_isCCW ? GL_CCW : GL_CW);
-	//glFrontFace(GL_CW);
+	//glFrontFace(GL_CCW);
 
 	shader->Use();
 
@@ -1127,7 +1127,9 @@ void OpenGLRenderer::draw(Skin *skin)
 
 	draw(skin,textureIndices,texture_slot,texcoord_slot);
 
-	glUniform1f(shader->GetUniform("textured"),(GLfloat)textureIndices.size());glCheckError();
+	int uniformTextured=shader->GetUniform("textured");
+
+	glUniform1f(uniformTextured,(GLfloat)textureIndices.size());glCheckError();
 
 	if(!textureIndices.size())
 	{
@@ -1309,6 +1311,8 @@ void OpenGLRenderer::OnMouseMotion(float x,float y,bool leftButtonDown,bool altI
 
 		MatrixStack::SetModelviewMatrix(modelview);
 	}
+
+	mousePositionString=String(tabContainer->mousex) + "," + String(tabContainer->mousey);
 }
 
 
@@ -1346,6 +1350,8 @@ void OpenGLRenderer::OnPaint()
 	tabContainer->renderer->DrawBitmap(renderBitmap,D2D1::RectF(0.0f,(float)TabContainer::CONTAINER_HEIGHT,width,height+30));
 
 	tabContainer->renderer->DrawRectangle(D2D1::RectF(1.0f,(float)TabContainer::CONTAINER_HEIGHT + 0.5f,(float)width-1.0f,(float)tabContainer->height-1.0f),tabContainer->SetColor(D2D1::ColorF::Yellow));
+
+	Direct2DGuiBase::DrawText(tabContainer->renderer,tabContainer->SetColor(TabContainer::COLOR_TEXT),this->mousePositionString.Buf(),0,tabContainer->height-20,tabContainer->width,tabContainer->height);
 
 	if(!tabContainer->isRender)
 		tabContainer->renderer->EndDraw();
@@ -1430,6 +1436,13 @@ void OpenGLRenderer::OnSize()
 }
 void OpenGLRenderer::OnLMouseDown()
 {
+	vec3 norm_device_coord(2.0f * tabContainer->mousex / tabContainer->width -1.0f,1.0f - tabContainer->mousey / tabContainer->height,0);
+	vec4 ray_clip(norm_device_coord.x,norm_device_coord.y,-1.0f,1.0f);
+	vec4 ray_eye = mat4(MatrixStack::GetProjectionMatrix()).inverse() * ray_clip;
+	ray_eye.z=-1.0f;
+	ray_eye.w=1.0f;
+	vec3 ray_world = mat4(MatrixStack::GetModelviewMatrix()).inverse() * ray_eye;
+	ray_world.normalize();
 
 }
 void OpenGLRenderer::OnEntitiesChange()

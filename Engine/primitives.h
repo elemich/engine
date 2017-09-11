@@ -300,7 +300,7 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	mat4& operator=(mat3);
 	mat4 operator*(mat4);
 	mat4 operator*(float);
-	mat4 operator*(vec3);
+	vec4 operator*(vec4);
 	mat4& operator*=(mat4);
 	mat4& operator*=(float);
 	mat4& operator*=(vec3);

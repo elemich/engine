@@ -138,17 +138,32 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 	{
 		int deformerCount=fbxNode->GetGeometry()->GetDeformerCount();
 
+		Skin* skin=0;
+		Mesh* mesh=0;
+
 		if(deformerCount)//skin
 		{
-			Skin* skin=new Skin;
+			skin=new Skin;
 			entity=skin;
+			FillSkin(fbxNode,skin);
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		}
 		else//mesh
 		{
-			Mesh* mesh=new Mesh;
+			mesh=new Mesh;
 			entity=mesh;
+			FillMesh(fbxNode,mesh);
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
+		}
+
+		for(int i=0;i<fbxNode->GetMaterialCount();i++)
+		{
+			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
+
+			if(!material)
+				__debugbreak();
+
+			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
 		}
 
 		fbxNode->GetGeometry()->ComputeBBox();
@@ -433,8 +448,8 @@ void InitFbxSceneLoad(char* fname)
 
 			printf("acquiring fbx nodes structure...\n");
 			processNodeRecursive1(fbxScene->GetRootNode(),0);//acquire nodes structure
-			printf("filling acquired structures...\n");
-			processNodeRecursive2(fbxScene->GetRootNode(),0);//fill our structure
+			/*printf("filling acquired structures...\n");
+			processNodeRecursive2(fbxScene->GetRootNode(),0);//fill our structure*/
 			printf("...ready\n");
 		}
 		else
@@ -771,7 +786,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 		TextureFile* texture=new TextureFile;
 		texture->filename=fbxfiletexture->GetFileName();
 
-		if(!texture->load(texture->filename))
+		if(texture->load(texture->filename))
 		{
 			printf("extracting texture %s %d,%d:%d\n",name,texture->GetWidth(),texture->GetHeight(),texture->GetBpp());
 		}
