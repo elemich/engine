@@ -441,21 +441,7 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 
 
 
-struct SceneEntityPropertyNode
-{
-	SceneEntityPropertyNode* parent;
 
-	Entity* entity;
-
-	GuiTabElement root;
-
-	SceneEntityPropertyNode(){clear();}
-	~SceneEntityPropertyNode(){clear();}
-
-	void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* parent=0,int expandUntilLevel=1);
-	void update(float& width,float& height);
-	void clear();
-};
 
 struct SceneEntityNode
 {
@@ -473,7 +459,22 @@ struct SceneEntityNode
 
 	std::list<SceneEntityNode> childs;
 
-	SceneEntityPropertyNode properties;
+	struct SceneEntityPropertyNode
+	{
+		SceneEntityPropertyNode* parent;
+
+		Entity* entity;
+
+		GuiTabElement root;
+
+		SceneEntityPropertyNode(){clear();}
+		~SceneEntityPropertyNode(){clear();}
+
+		void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* parent=0,int expandUntilLevel=1);
+		void update(float& width,float& height);
+		void clear();
+
+	}properties;
 
 	SceneEntityNode();
 	~SceneEntityNode();
@@ -525,7 +526,21 @@ struct SceneViewer : GuiTab
 };
 
 
+struct EqSolver : GuiTab
+{
+	mat4 mat;
+	mat4 sol;
 
+	EqSolver(TabContainer* tab):
+		GuiTab(tab)
+	{
+		name="EqSolver";
+
+		this->guiTabRootElement.CreateTabElementRow(0,"Equation System",String("0,0,0,0\n0,0,0,0\n0,0,0,0\n0,0,0,0"));
+	}
+
+
+};
 
 
 

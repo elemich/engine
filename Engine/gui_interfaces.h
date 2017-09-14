@@ -188,6 +188,7 @@ struct GuiTabElementRowString : GuiTabElementRow
 };
 
 
+
 struct ScrollBar
 {
 	static const int SCROLLBAR_WIDTH=20;

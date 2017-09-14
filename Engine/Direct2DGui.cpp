@@ -765,7 +765,7 @@ void SceneViewer::OnPaint()
 
 
 
-void SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* _parent,int expandUntilLevel)
+void SceneEntityNode::SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,float& width,float& height,SceneEntityNode::SceneEntityPropertyNode* _parent,int expandUntilLevel)
 {
 	if(!_entity)
 		return;
@@ -795,33 +795,45 @@ void SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,float& width,float&
 	panel=container2->CreateTabElementRow(panel,"max",_entity->entity_bbox.b);
 	panel=container1->CreateTabElementRow(container2,"Child Num",String((int)_entity->entity_childs.size()));
 
-	if(_entity->GetBone())
+	Bone* bone=_entity->GetBone();
+	Mesh* mesh=_entity->GetMesh();
+	Skin* skin=_entity->GetSkin();
+	Light* light=_entity->GetLight();
+
+
+	if(bone)
 	{
 		container1=this->root.CreateTabElementContainer(container1,"Bone");
 	}
-	if(_entity->GetMesh())
+	if(mesh)
 	{
 		container1=this->root.CreateTabElementContainer(container1,"Mesh");
+		panel=container1->CreateTabElementRow(0,"Controlpoints",String(mesh->mesh_ncontrolpoints));
+		panel=container1->CreateTabElementRow(panel,"Normals",String(mesh->mesh_nnormals));
+		panel=container1->CreateTabElementRow(panel,"Polygons",String(mesh->mesh_npolygons));
+		panel=container1->CreateTabElementRow(panel,"Texcoord",String(mesh->mesh_ntexcoord));
+		panel=container1->CreateTabElementRow(panel,"Vertexindices",String(mesh->mesh_nvertexindices));
 	}
-	if(_entity->GetLight())
+	if(skin)
+	{
+		container1=this->root.CreateTabElementContainer(container1,"Skin");
+		panel=container1->CreateTabElementRow(0,"Clusters",String(skin->skin_nclusters));
+		panel=container1->CreateTabElementRow(panel,"Textures",String(skin->skin_ntextures));
+	}
+	if(light)
 	{
 		container1=this->root.CreateTabElementContainer(container1,"Light");
 		
 	}
-	if(_entity->GetSkin())
-	{
-		container1=this->root.CreateTabElementContainer(container1,"Skin");
-		
-	}
 }
 
-void SceneEntityPropertyNode::update(float& width,float& height)
+void SceneEntityNode::SceneEntityPropertyNode::update(float& width,float& height)
 {
 	
 }
 
 
-void SceneEntityPropertyNode::clear()
+void SceneEntityNode::SceneEntityPropertyNode::clear()
 {
 	this->parent=0;
 	this->entity=0;

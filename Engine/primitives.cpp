@@ -372,6 +372,7 @@ vec3::operator char* ()
 bool vec3::iszero(){return (v[0]==0 && v[1]==0 && v[2]==0);}
 
 vec4::vec4():x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,0,0,0,0);}
+vec4::vec4(const vec3& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,a.v,3);w=0;}
 vec4::vec4(const vec4& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,a.v,4);}
 vec4::vec4(float fv[4]):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,fv,4);}
 vec4::vec4(float x,float y,float z,float t):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,x,y,z,t);}
@@ -381,6 +382,7 @@ vec4& vec4::operator=(const vec3& a){VectorMathNamespace::copy(v,a.v,3);v[3]=1.0
 vec4 vec4::operator+(const vec4& a){vec4 r;VectorMathNamespace::sum(r,a.v,v,4);return r;}
 vec4& vec4::operator+=(const vec4& a){VectorMathNamespace::sum(v,v,a.v,4);return *this;}
 vec4 vec4::operator-(const vec4& a){vec4 r;VectorMathNamespace::subtract(r,a.v,v,4);return r;}
+vec4& vec4::operator-=(vec4& a){VectorMathNamespace::subtract(v,v,a.v,4);return *this;}
 void vec4::scale(float f){VectorMathNamespace::scale(v,v,f,4);}
 void vec4::scale(vec4 a){VectorMathNamespace::scale(v,a.v,v,4);}
 bool vec4::operator==(const vec4& a){return VectorMathNamespace::equal(a.v,v,4);}
@@ -1103,3 +1105,107 @@ void AABB::Shrink(AABB ab)
 	a.x=a.x<ab.a.x?ab.a.x:a.x; a.y=a.y<ab.a.y?ab.a.y:a.y; a.z=a.z<ab.a.z?ab.a.z:a.z;
 	b.x=b.x>ab.b.x?ab.b.x:b.x; b.y=b.y>ab.b.y?ab.b.y:b.y; b.z=b.z>ab.b.z?ab.b.z:b.z;
 }
+
+bool isPointOnPlane(vec4 plane,vec3 point)
+{
+	return -plane.w==plane.x*point.x+plane.y*point.y+plane.z*point.z;
+}
+
+bool isPointOnLine(vec3 a,vec3 b,vec3 point)
+{
+	vec3	aa(a.x,b.x,0),
+			bb(a.y,b.y,0),
+			cc(a.z,b.z,1);
+
+	float* line[3]=
+	{
+		aa,bb,cc
+	};
+
+
+	vec3 result;
+
+	eqSolve(result,3,3,line);
+
+	return true;
+}
+
+vec4 plane(vec3 a,vec3 b,vec3 c)
+{
+	vec3 ab=b-a;
+	vec3 ac=c-a;
+
+	vec4 abxac=vec3::cross(ab,ac);
+
+	abxac.w=-(abxac.x*a.x+abxac.y*a.y+abxac.z*a.z);
+
+	return abxac;
+}
+
+
+void printEqSys(int nrow,int ncol,float** eqsys)
+{
+	for(int i=0;i<nrow;i++)
+		for(int j=0;j<ncol;j++)
+		{
+			printf("%3.2f ",eqsys[i][j]);
+			if(j==ncol-1)
+				printf("\n");
+			if(i==nrow-1 && j==ncol-1)
+				printf("\n");
+		}
+}
+
+void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
+{	
+	printEqSys(nrow,ncol,_eqsys);
+
+	float** eqsys=new float*[nrow];
+
+	for(int i=0;i<nrow;i++)
+	{
+		eqsys[i]=new float[ncol];
+		memcpy(eqsys[i],&_eqsys[i][0],ncol*sizeof(float));
+	}
+	
+	printEqSys(nrow,ncol,eqsys);
+
+	for(int i=0;i<nrow;i++)
+	{
+		if(eqsys[i][i]!=0)
+			VectorMathNamespace::scale(&eqsys[i][0],&eqsys[i][0],1.0f/eqsys[i][i],ncol);
+
+		for(int j=0;j<ncol-1;j++)
+		{
+			if(i==j)
+			{
+				for(int k=0;k<nrow;k++)
+				{
+					if(k!=i && eqsys[k][j] && eqsys[i][j])
+					{
+						float *p=new float[ncol];
+						memcpy(p,&eqsys[i][0],ncol*sizeof(float));
+
+						VectorMathNamespace::scale(p,p,eqsys[k][j],ncol);
+						VectorMathNamespace::subtract(&eqsys[k][0],&eqsys[k][0],p,ncol);
+						delete p;
+					}	
+				}
+			}
+		}
+	}
+
+	printEqSys(nrow,ncol,eqsys);
+
+	result[ncol-1]=0;
+
+	for(int i=0;i<nrow;i++)
+		result[i]=eqsys[i][ncol-1];
+	
+	for(int i=0;i<nrow;i++)
+		delete [] eqsys[i];
+
+	delete [] eqsys;
+}
+
+

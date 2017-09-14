@@ -162,6 +162,7 @@ struct vec4 : TNumberedVectorInterface<float,4>
 	float &x,&y,&z,&w;
 
 	vec4();
+	vec4(const vec3& a);
 	vec4(const vec4& a);
 	vec4(float fv[4]);
 	vec4(float x,float y,float z,float t);
@@ -171,6 +172,7 @@ struct vec4 : TNumberedVectorInterface<float,4>
 	vec4 operator+(const vec4& a);
 	vec4& operator+=(const vec4& a);
 	vec4 operator-(const vec4& a);
+	vec4& operator-=(vec4& a);
 	void scale(float f);
 	void scale(vec4 a);
 	bool operator==(const vec4& a);
@@ -345,6 +347,16 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	mat4& ortho(float left, float right,float bottom, float top,float near, float far);
 	void zero();
 };
+
+
+
+vec4 plane(vec3 a,vec3 b,vec3 c);
+bool isPointOnPlane(vec4 plane,vec3 point);
+bool isPointOnLine(vec3 a,vec3 b,vec3 point);
+void eqSolve(float* result,int nrow,int ncol,float** eqsys);
+
+void printEqSys(int nrow,int ncol,float** eqsys);
+
 
 struct Cluster;
 struct Influence;

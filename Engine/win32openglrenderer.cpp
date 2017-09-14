@@ -1434,6 +1434,58 @@ void OpenGLRenderer::OnSize()
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
 }
+
+
+
+/*
+class Ray 
+{ 
+public: 
+	Ray(const vec3 &orig, const vec3 &dir) : orig(orig), dir(dir) 
+	{ 
+		invdir = 1 / dir; 
+		sign[0] = (invdir.x < 0); 
+		sign[1] = (invdir.y < 0); 
+		sign[2] = (invdir.z < 0); 
+	} 
+	vec3 orig, dir;       // ray orig and dir 
+	vec3 invdir; 
+	int sign[3]; 
+}; 
+
+bool intersect(AABB &bounds,const Ray &r) const 
+{ 
+	float tmin, tmax, tymin, tymax, tzmin, tzmax; 
+
+	tmin = (bounds[r.sign[0]].x - r.orig.x) * r.invdir.x; 
+	tmax = (bounds[1-r.sign[0]].x - r.orig.x) * r.invdir.x; 
+	tymin = (bounds[r.sign[1]].y - r.orig.y) * r.invdir.y; 
+	tymax = (bounds[1-r.sign[1]].y - r.orig.y) * r.invdir.y; 
+
+	if ((tmin > tymax) || (tymin > tmax)) 
+		return false; 
+	if (tymin > tmin) 
+		tmin = tymin; 
+	if (tymax < tmax) 
+		tmax = tymax; 
+
+	tzmin = (bounds[r.sign[2]].z - r.orig.z) * r.invdir.z; 
+	tzmax = (bounds[1-r.sign[2]].z - r.orig.z) * r.invdir.z; 
+
+	if ((tmin > tzmax) || (tzmin > tmax)) 
+		return false; 
+	if (tzmin > tmin) 
+		tmin = tzmin; 
+	if (tzmax < tmax) 
+		tmax = tzmax; 
+
+	return true; 
+}
+*/
+
+
+
+
 void OpenGLRenderer::OnLMouseDown()
 {
 	vec3 norm_device_coord(2.0f * tabContainer->mousex / tabContainer->width -1.0f,1.0f - tabContainer->mousey / tabContainer->height,0);
@@ -1443,6 +1495,8 @@ void OpenGLRenderer::OnLMouseDown()
 	ray_eye.w=1.0f;
 	vec3 ray_world = mat4(MatrixStack::GetModelviewMatrix()).inverse() * ray_eye;
 	ray_world.normalize();
+
+	
 
 }
 void OpenGLRenderer::OnEntitiesChange()
