@@ -151,7 +151,7 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			bool controlButtonIsDown=(wparam & MK_CONTROL)!=0;
 
 			if(renderer)
-				renderer->OnMouseMotion(p.x,p.y,leftButtonIsDown,controlButtonIsDown);
+				renderer->OnRendererMouseMotion(p.x,p.y,leftButtonIsDown,controlButtonIsDown);
 
 			SetFocus(hwnd);//for sending mousewheel to this window
 		}
@@ -163,20 +163,20 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			short int delta = GET_WHEEL_DELTA_WPARAM(wparam);
 
 			if(renderer && wparam && lparam)
-				renderer->OnMouseWheel(delta);
+				renderer->OnRendererMouseWheel(delta);
 		
 		}
 		break;
 		case WM_RBUTTONDOWN:
 			if(renderer)
-				renderer->OnMouseRightDown();
+				renderer->OnRendererMouseRightDown();
 		break;
 		case WM_SIZE:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 
 			if(renderer)
-				renderer->OnViewportSize(LOWORD(lparam),HIWORD(lparam));
+				renderer->OnRendererViewportSize(LOWORD(lparam),HIWORD(lparam));
 		}
 		break;
 		/*case WM_LBUTTONDOWN:
@@ -1212,16 +1212,16 @@ void OpenGLRenderer::draw(Bone* bone)
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
-void OpenGLRenderer::OnMouseWheel()
+void OpenGLRenderer::OnGuiMouseWheel()
 {
 	this->ChangeContext();
 
 	short int delta = GET_WHEEL_DELTA_WPARAM(tabContainer->wparam);
 
-	this->OnMouseWheel(delta);
+	this->OnRendererMouseWheel(delta);
 }
 
-void OpenGLRenderer::OnMouseWheel(float factor)
+void OpenGLRenderer::OnRendererMouseWheel(float factor)
 {
 	this->ChangeContext();
 
@@ -1230,8 +1230,8 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	RECT rc;
 	GetClientRect(this->tabContainer->hwnd,&rc);
 
-	float halfW=this->GetProjectionHalfWidth();
-	float halfH=this->GetProjectionHalfHeight();
+	float halfW=this->GetRendererProjectionHalfWidth();
+	float halfH=this->GetRendererProjectionHalfHeight();
 
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
@@ -1239,14 +1239,14 @@ void OpenGLRenderer::OnMouseWheel(float factor)
 	//printf("wiewScale %3.2f\n",RendererViewportInterface_viewScale);
 }
 
-void OpenGLRenderer::OnMouseMove()
+void OpenGLRenderer::OnGuiMouseMove()
 {
 	this->ChangeContext();
 
-	this->OnMouseMotion(tabContainer->mousex,tabContainer->mousey,this->tabContainer->buttonLeftMouseDown,this->tabContainer->buttonControlDown);
+	this->OnRendererMouseMotion(tabContainer->mousex,tabContainer->mousey,this->tabContainer->buttonLeftMouseDown,this->tabContainer->buttonControlDown);
 }
 
-void OpenGLRenderer::OnMouseRightDown()
+void OpenGLRenderer::OnRendererMouseRightDown()
 {
 	this->ChangeContext();
 
@@ -1254,20 +1254,20 @@ void OpenGLRenderer::OnMouseRightDown()
 	MatrixStack::SetModelviewMatrix(m);
 }
 
-void OpenGLRenderer::OnViewportSize(int width,int height)
+void OpenGLRenderer::OnRendererViewportSize(int width,int height)
 {
 	this->ChangeContext();
 
 	glViewport(0,0,width,height);glCheckError();
 	
-	float halfW=this->GetProjectionHalfWidth();
-	float halfH=this->GetProjectionHalfHeight();
+	float halfW=this->GetRendererProjectionHalfWidth();
+	float halfH=this->GetRendererProjectionHalfHeight();
 
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
 }
 
-void OpenGLRenderer::OnMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown)
+void OpenGLRenderer::OnRendererMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown)
 {
 	this->ChangeContext();
 
@@ -1316,30 +1316,24 @@ void OpenGLRenderer::OnMouseMotion(float x,float y,bool leftButtonDown,bool altI
 		MatrixStack::SetModelviewMatrix(modelview);
 	}
 
-	mousePositionString=String(tabContainer->mousex) + "," + String(tabContainer->mousey);
+	mousePositionString=" " + String(tabContainer->mousex) + "," + String(tabContainer->mousey);
 }
 
 
-void OpenGLRenderer::OnMouseDown(float,float)
+void OpenGLRenderer::OnRendererMouseDown(float,float)
 {
 	this->ChangeContext();
 }
 
 
-void OpenGLRenderer::OnRender()
+void OpenGLRenderer::OnGuiRender()
 {
-	//printf("GLRENDER\n");
-
 	this->Render();
-	this->OnPaint();
+	this->OnGuiPaint();
 }
 
-void OpenGLRenderer::OnPaint()
+void OpenGLRenderer::OnGuiPaint()
 {
-	//printf("GLPAINT\n");
-
-	this->Render();
-
 	if(!renderBitmap)
 		return;
 
@@ -1393,16 +1387,16 @@ void OpenGLRenderer::Render()
 }
 
 
-float OpenGLRenderer::GetProjectionHalfWidth()
+float OpenGLRenderer::GetRendererProjectionHalfWidth()
 {
 	return (this->width/2.0f)*this->RendererViewportInterface_viewScale;
 }
-float OpenGLRenderer::GetProjectionHalfHeight()
+float OpenGLRenderer::GetRendererProjectionHalfHeight()
 {
 	return -(this->height/2.0f)*this->RendererViewportInterface_viewScale;
 }
 
-void OpenGLRenderer::OnSize()
+void OpenGLRenderer::OnGuiSize()
 {
 	/*if(OpenGLRenderer::Pool().size()>1 && this==OpenGLRenderer::Pool()[1])
 		__debugbreak();*/
@@ -1412,8 +1406,8 @@ void OpenGLRenderer::OnSize()
 	this->width=tabContainer->width;
 	this->height=(tabContainer->height-TabContainer::CONTAINER_HEIGHT);
 
-	float halfW=this->GetProjectionHalfWidth();
-	float halfH=this->GetProjectionHalfHeight();
+	float halfW=this->GetRendererProjectionHalfWidth();
+	float halfH=this->GetRendererProjectionHalfHeight();
 
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 	bp.pixelFormat=tabContainer->renderer->GetPixelFormat();
@@ -1488,7 +1482,7 @@ bool intersect(AABB &bounds,const Ray &r) const
 
 
 
-void OpenGLRenderer::OnLMouseDown()
+void OpenGLRenderer::OnGuiLMouseDown()
 {
 	vec3 norm_device_coord(2.0f * tabContainer->mousex / tabContainer->width -1.0f,1.0f - tabContainer->mousey / tabContainer->height,0);
 	vec4 ray_clip(norm_device_coord.x,norm_device_coord.y,-1.0f,1.0f);
@@ -1505,7 +1499,7 @@ void OpenGLRenderer::OnEntitiesChange()
 {
 
 }
-void OpenGLRenderer::OnUpdate()
+void OpenGLRenderer::OnGuiUpdate()
 {
 	if(Entity::pool.size())
 		Entity::pool.front()->update();

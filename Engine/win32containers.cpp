@@ -57,6 +57,11 @@ void ContainerWindow::OnSize()
 	}
 }
 
+void ContainerWindow::OnGuiPaint()
+{
+	
+}
+
 std::vector<ContainerWindow> MainAppContainerWindow::windows;
 
 MainAppContainerWindow::MainAppContainerWindow(){};
@@ -164,7 +169,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 							{
 								InitFbxSceneLoad(openfilename.lpstrFile);
 
-								GuiInterface::Broadcast(&GuiInterface::OnEntitiesChange);
+								GuiInterface::BroadcastToGui(&GuiInterface::OnEntitiesChange);
 							}
 						}
 						break;

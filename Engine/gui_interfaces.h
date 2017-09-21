@@ -32,21 +32,21 @@ struct GuiInterface  : TPoolVector<GuiInterface>
 	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
 	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 
-	virtual void OnPaint(){}
+	virtual void OnElementPaint(){}
 	virtual void OnEntitiesChange(){}
-	virtual void OnSize(){}
-	virtual void OnLMouseDown(){}
-	virtual void OnLMouseUp(){};
-	virtual void OnMouseMove(){}
-	virtual void OnUpdate(){}
-	virtual void OnReparent(){}
-	virtual void OnSelected(){}
-	virtual void OnRender(){}
-	virtual void OnMouseWheel(){}
+	virtual void OnElementSize(){}
+	virtual void OnGuiLMouseDown(){}
+	virtual void OnGuiLMouseUp(){};
+	virtual void OnGuiMouseMove(){}
+	virtual void OnGuiUpdate(){}
+	virtual void OnGuiReparent(){}
+	virtual void OnGuiSelected(){}
+	virtual void OnGuiRender(){}
+	virtual void OnGuiMouseWheel(){}
 
-	virtual void OnRecreateTarget(){}
+	virtual void OnGuiRecreateTarget(){}
 
-	static void Broadcast(void (GuiInterface::*func)());
+	static void BroadcastToGui(void (GuiInterface::*func)());
 };
 
 
@@ -69,6 +69,7 @@ struct GuiTabImage
 
 
 struct GuiTabElementRow;
+
 
 struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 {
@@ -155,17 +156,17 @@ struct GuiTab : GuiInterface , TPoolVector<GuiTab>
 
 	~GuiTab();
 
-	virtual void OnPaint();
+	virtual void OnGuiPaint();
 	virtual void OnEntitiesChange();
-	virtual void OnSize();
-	virtual void OnLMouseDown();
-	virtual void OnLMouseUp();
-	virtual void OnMouseMove();
-	virtual void OnUpdate();
-	virtual void OnReparent();
-	virtual void OnSelected();
-	virtual void OnRender();
-	virtual void OnMouseWheel();
+	virtual void OnGuiSize();
+	virtual void OnGuiLMouseDown();
+	virtual void OnGuiLMouseUp();
+	virtual void OnGuiMouseMove();
+	virtual void OnGuiUpdate();
+	virtual void OnGuiReparent();
+	virtual void OnGuiSelected();
+	virtual void OnGuiRender();
+	virtual void OnGuiMouseWheel();
 
 	bool IsSelected();
 
@@ -245,7 +246,7 @@ struct GuiButton : GuiTabElement
 
 
 
-struct RendererViewportInterface : TPoolVector<RendererViewportInterface> 
+struct RendererViewportInterface
 {
 	float RendererViewportInterface_viewScale;
 	float RendererViewportInterface_farPlane;
@@ -254,13 +255,13 @@ struct RendererViewportInterface : TPoolVector<RendererViewportInterface>
 
 	RendererViewportInterface():RendererViewportInterface_viewScale(0),RendererViewportInterface_farPlane(0){}
 
-	virtual void OnMouseWheel(float)=0;
-	virtual void OnMouseRightDown()=0;
-	virtual void OnViewportSize(int,int)=0;
-	virtual void OnMouseMotion(float,float,bool leftButtonDown,bool altIsDown)=0;
-	virtual void OnMouseDown(float,float)=0;
-	virtual float GetProjectionHalfWidth()=0;
-	virtual float GetProjectionHalfHeight()=0;
+	virtual void OnRendererMouseWheel(float)=0;
+	virtual void OnRendererMouseRightDown()=0;
+	virtual void OnRendererViewportSize(int,int)=0;
+	virtual void OnRendererMouseMotion(float,float,bool leftButtonDown,bool altIsDown)=0;
+	virtual void OnRendererMouseDown(float,float)=0;
+	virtual float GetRendererProjectionHalfWidth()=0;
+	virtual float GetRendererProjectionHalfHeight()=0;
 
 };
 

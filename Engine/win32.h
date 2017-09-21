@@ -132,19 +132,20 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 	
 	void Create(HWND){}//@mic no more used, delete from WindowData
 
-	virtual void OnPaint();
-	virtual void OnSize();
+	virtual void OnGuiPaint();
+	virtual void OnGuiSize();
 	virtual void OnWindowPosChanging();
-	virtual void OnLMouseDown();
-	virtual void OnLMouseUp();
-	virtual void OnMouseMove();
+	virtual void OnGuiLMouseDown();
+	virtual void OnGuiLMouseUp();
+	virtual void OnGuiMouseMove();
 	virtual void OnRMouseUp();
-	virtual void OnUpdate();
-	virtual void OnMouseWheel();
+	virtual void OnGuiUpdate();
+	virtual void OnGuiRender();
+	virtual void OnGuiMouseWheel();
 	virtual void OnResizeContainer();
 	
 
-	virtual void OnRecreateTarget();
+	virtual void OnGuiRecreateTarget();
 
 	
 	GuiTab* AddTab(GuiTab*,int position=-1);
@@ -216,7 +217,7 @@ struct SplitterContainer
 };
 
 
-struct ContainerWindow : WindowData , SplitterContainer
+struct ContainerWindow : WindowData , SplitterContainer , GuiInterface
 {
 	std::vector<TabContainer*> tabContainers;
 
@@ -234,6 +235,8 @@ struct ContainerWindow : WindowData , SplitterContainer
 	void OnCreate(HWND);
 	void OnSizing();
 	void OnSize();
+	void OnGuiPaint();
+	
 };
 
 struct App;
@@ -336,23 +339,24 @@ struct OpenGLRenderer : GuiTab , RendererInterface , RendererViewportInterface ,
 	operator RendererViewportInterface&(){return *this;}*/
 
 	
-	void OnMouseWheel(float);
-	void OnMouseRightDown();
-	void OnViewportSize(int width,int height);
-	void OnMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown);
-	void OnMouseDown(float,float);
-	float GetProjectionHalfWidth();
-	float GetProjectionHalfHeight();
+	void OnRendererMouseWheel(float);
+	void OnRendererMouseRightDown();
+	void OnRendererViewportSize(int width,int height);
+	void OnRendererMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown);
+	void OnRendererMouseDown(float,float);
+	float GetRendererProjectionHalfWidth();
+	float GetRendererProjectionHalfHeight();
 
 
-	void OnSize();
-	void OnLMouseDown();
-	void OnMouseMove();
+	void OnGuiSize();
+	void OnGuiLMouseDown();
+	void OnGuiMouseMove();
 	void OnEntitiesChange();
-	void OnUpdate();
-	void OnRender();
-	void OnPaint();
-	void OnMouseWheel();
+	void OnGuiUpdate();
+	void OnGuiRender();
+	void OnGuiPaint();
+	void OnGuiMouseWheel();
+
 };
 
 struct DirectXRenderer : WindowData ,  RendererInterface
@@ -418,18 +422,12 @@ struct SceneEntityNode
 		Entity* entity;
 
 		GuiTabElement root;
-
-		SceneEntityPropertyNode(){clear();}
-		~SceneEntityPropertyNode(){clear();}
-
+		
 		void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* parent=0,int expandUntilLevel=1);
 		void update(float& width,float& height);
 		void clear();
 
 	}properties;
-
-	SceneEntityNode();
-	~SceneEntityNode();
 
 	void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityNode* parent=0,int expandUntilLevel=1);
 	void update(float& width,float& height);
@@ -443,8 +441,8 @@ struct Properties : GuiTab
 	Properties(TabContainer* tc);
 	~Properties();
 
-	void OnPaint();
-	void OnSelected();
+	void OnGuiPaint();
+	void OnGuiSelected();
 };
 
 struct SceneViewer : GuiTab
@@ -464,15 +462,15 @@ struct SceneViewer : GuiTab
 	float frameWidth;
 	float frameHeight;
 
-	void OnPaint();
-	void OnSize();
-	void OnLMouseDown();
+	void OnGuiPaint();
+	void OnGuiSize();
+	void OnGuiLMouseDown();
 	void OnEntitiesChange();
-	void OnUpdate();
-	void OnReparent();
-	void OnRecreateTarget();
+	void OnGuiUpdate();
+	void OnGuiReparent();
+	void OnGuiRecreateTarget();
 
-	SceneEntityNode* OnNodePressed(SceneEntityNode& node);
+	bool OnNodePressed(SceneEntityNode& node,SceneEntityNode*& expChanged,SceneEntityNode*& selChanged);
 	void DrawNodeSelectionRecursive(SceneEntityNode& node);
 	void DrawNodeRecursive(SceneEntityNode&);
 };
@@ -551,21 +549,21 @@ struct Resources : GuiTab
 	bool splitterMoving;
 	
 
-	void OnPaint();
-	void OnSize();
-	void OnLMouseDown();
-	void OnMouseWheel();
-	void OnLMouseUp();
-	void OnMouseMove();
+	void OnGuiPaint();
+	void OnGuiSize();
+	void OnGuiLMouseDown();
+	void OnGuiMouseWheel();
+	void OnGuiLMouseUp();
+	void OnGuiMouseMove();
 	void OnEntitiesChange();
-	void OnUpdate();
-	void OnReparent();
+	void OnGuiUpdate();
+	void OnGuiReparent();
 
 	void DrawItems();
 	void DrawLeftItems();
 	void DrawRightItems();
 
-	void OnRecreateTarget();
+	void OnGuiRecreateTarget();
 
 	void SetLeftScrollBar();
 	void SetRightScrollBar();

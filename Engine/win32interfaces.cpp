@@ -261,8 +261,8 @@ void App::Run()
 				{
 					if(GetPool<TabContainer>()[i]->GetSelected())
 					{
-						GetPool<TabContainer>()[i]->OnUpdate();
-						GetPool<TabContainer>()[i]->OnPaint();
+						GetPool<TabContainer>()[i]->OnGuiUpdate();
+						GetPool<TabContainer>()[i]->OnGuiRender();
 					}
 				}
 

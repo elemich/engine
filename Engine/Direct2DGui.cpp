@@ -473,16 +473,6 @@ void ScrollBar::OnPaint()
 
 
 
-
-SceneEntityNode::SceneEntityNode()
-{
-	clear();
-}
-SceneEntityNode::~SceneEntityNode()
-{
-	clear();
-}
-
 void SceneEntityNode::insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityNode* parent,int expandUntilLevel)
 {
 	if(!entity)
@@ -557,10 +547,8 @@ void SceneEntityNode::clear()
 	this->level=0;
 	this->hasChilds=0;
 
-	for(std::list<SceneEntityNode>::iterator nCh=this->childs.begin();nCh!=this->childs.end();nCh++)
-		nCh->clear();
-
-	this->childs.clear();
+	if(!this->childs.empty())
+		this->childs.clear();
 }
 
 
@@ -580,7 +568,7 @@ scrollBar(tc)
 
 	this->name="Entities";
 
-	this->OnRecreateTarget();
+	this->OnGuiRecreateTarget();
 
 	scrollBar.Set(frameWidth,0,20,frameHeight);
 	scrollBar.SetScrollerFactor(bitmapHeight,frameHeight);
@@ -588,9 +576,9 @@ scrollBar(tc)
 	OnEntitiesChange();
 }
 
-void SceneViewer::OnRecreateTarget()
+void SceneViewer::OnGuiRecreateTarget()
 {
-	GuiTab::OnRecreateTarget();
+	GuiTab::OnGuiRecreateTarget();
 }
 
 
@@ -611,13 +599,11 @@ void SceneViewer::OnEntitiesChange()
 	elements.insert(rootEntity,GetDC(tabContainer->hwnd),bitmapWidth=0,bitmapHeight=0,0);
 
 	scrollBar.SetScrollerFactor(bitmapHeight,this->frameHeight);
-
-	this->OnPaint();
 }
 
-void SceneViewer::OnSize()
+void SceneViewer::OnGuiSize()
 {
-	GuiTab::OnSize();
+	GuiTab::OnGuiSize();
 
 	frameWidth=tabContainer->width-ScrollBar::SCROLLBAR_WIDTH;
 	frameHeight=tabContainer->height;
@@ -625,31 +611,51 @@ void SceneViewer::OnSize()
 	scrollBar.Set(frameWidth,(float)TabContainer::CONTAINER_HEIGHT,frameWidth+ScrollBar::SCROLLBAR_WIDTH,frameHeight);
 }
 
-SceneEntityNode* SceneViewer::OnNodePressed(SceneEntityNode& node)
+void unselectAllNodes(SceneEntityNode& node)
 {
-	if(this->tabContainer->mousey>node.y && this->tabContainer->mousey<node.y+SceneViewer::TREEVIEW_ROW_HEIGHT)
+	node.selected=false;
+
+	for(std::list<SceneEntityNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
 	{
-		if(node.hasChilds && this->tabContainer->mousex>node.x-SceneViewer::TREEVIEW_ROW_ADVANCE && this->tabContainer->mousex<node.x)
+		unselectAllNodes(*nCh);
+	}
+}
+
+bool SceneViewer::OnNodePressed(SceneEntityNode& node,SceneEntityNode*& expChanged,SceneEntityNode*& selChanged)
+{
+	float mousey=tabContainer->mousey-TabContainer::CONTAINER_HEIGHT-scrollBar.scroller;
+
+	bool hittedRow=mousey>node.y && mousey<node.y+SceneViewer::TREEVIEW_ROW_HEIGHT;
+	bool hittedExpandos= node.hasChilds && (this->tabContainer->mousex>node.x-SceneViewer::TREEVIEW_ROW_ADVANCE && this->tabContainer->mousex<node.x);
+
+	if(hittedRow)
+	{
+		if(!hittedExpandos)
 		{
-			node.expanded=!node.expanded;
-			return &node;
+			unselectAllNodes(this->elements);
+
+			if(!node.selected)
+			{
+				node.selected=true;
+				selChanged=&node;
+
+				return true;
+			}
 		}
 		else
 		{
-			node.selected=true;
-			Editor::selection.push_back(&node);
+			node.expanded=!node.expanded;
+			expChanged=&node;
+			return &node;
 		}
 	}
-	else
-		node.selected=false;
 
 	if(node.expanded)
 	{
 		for(std::list<SceneEntityNode>::iterator nCh=node.childs.begin();nCh!=node.childs.end();nCh++)
 		{
-			SceneEntityNode* childNode=this->OnNodePressed(*nCh);
-			if(childNode)
-				return childNode;
+			if(this->OnNodePressed(*nCh,expChanged,selChanged))
+				return true;
 		}
 	}
 
@@ -657,49 +663,50 @@ SceneEntityNode* SceneViewer::OnNodePressed(SceneEntityNode& node)
 }
 
 
-void SceneViewer::OnLMouseDown()
+void SceneViewer::OnGuiLMouseDown()
 {
-	float &mx=tabContainer->mousex;
-	float &my=tabContainer->mousey;
-
-	if(mx>frameWidth) //mouarse is on the scrollb
+	if(tabContainer->mousex>frameWidth)
 	{
 		scrollBar.OnPressed();
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
-	else// if(mx>TabContainer::CONTAINER_HEIGHT && mx<(TabContainer::CONTAINER_HEIGHT+frameHeight))//mouse is on the frame
+	else
 	{
-		my-=TabContainer::CONTAINER_HEIGHT-scrollBar.scroller;
+		SceneEntityNode* expChanged=0;
+		SceneEntityNode* selChanged=0;
 
-		if(!tabContainer->buttonControlDown)
-			Editor::selection.clear();
-
-		SceneEntityNode* updatedNode=this->OnNodePressed(elements);
-
-		if(updatedNode)
+		if(this->OnNodePressed(elements,expChanged,selChanged))
 		{
 			elements.update(bitmapWidth=0,bitmapHeight=0);
 			scrollBar.SetScrollerFactor(bitmapHeight,this->frameHeight);
+
+			if(selChanged)
+			{
+				if(!tabContainer->buttonControlDown)
+					Editor::selection.clear();
+
+				Editor::selection.push_back(selChanged);
+
+				GuiInterface::BroadcastToGui(&GuiInterface::OnGuiSelected);
+			}
 		}	
 
-		GuiInterface::Broadcast(&GuiInterface::OnSelected);
-
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
 }
 
-void SceneViewer::OnUpdate()
+void SceneViewer::OnGuiUpdate()
 {
-	if(tabContainer->mouseDown)
-		this->OnLMouseDown();
+	/*if(tabContainer->mouseDown)
+		this->OnGuiLMouseDown();*/
 
 }
 
-void SceneViewer::OnReparent()
+void SceneViewer::OnGuiReparent()
 {
 	this->scrollBar.OnReparent(this->tabContainer);
-	this->OnSize();
-	this->OnRecreateTarget();
+	this->OnGuiSize();
+	this->OnGuiRecreateTarget();
 }
 
 void SceneViewer::DrawNodeSelectionRecursive(SceneEntityNode& node)
@@ -739,7 +746,7 @@ void SceneViewer::DrawNodeRecursive(SceneEntityNode& node)
 }
 
 
-void SceneViewer::OnPaint()
+void SceneViewer::OnGuiPaint()
 {
 	tabContainer->BeginDraw();
 
@@ -855,9 +862,9 @@ Properties::Properties(TabContainer* tc):
 	this->name="Properties";
 	this->guiTabRootElement.name+="_Properties";
 
-	OnRecreateTarget();
+	OnGuiRecreateTarget();
 
-	this->OnSelected();
+	this->OnGuiSelected();
 };
 
 Properties::~Properties()
@@ -865,12 +872,12 @@ Properties::~Properties()
 	printf("destroying properties %p\n",this);
 }
 
-void Properties::OnPaint()
+void Properties::OnGuiPaint()
 {
-	GuiTab::OnPaint();
+	GuiTab::OnGuiPaint();
 };
 
-void Properties::OnSelected()
+void Properties::OnGuiSelected()
 {
 	this->guiTabRootElement.childs.clear();
 
@@ -886,8 +893,8 @@ void Properties::OnSelected()
 	{
 	}
 
-	this->OnSize();
-	this->OnPaint();
+	this->OnGuiSize();
+	this->OnGuiPaint();
 };
 
 
@@ -1231,12 +1238,12 @@ rightScrollBar(tc)
 
 	this->OnEntitiesChange();
 
-	this->OnRecreateTarget();
+	this->OnGuiRecreateTarget();
 
 	this->DrawItems();
 }
 
-void Resources::OnRecreateTarget()
+void Resources::OnGuiRecreateTarget()
 {
 	DrawItems();
 }
@@ -1274,10 +1281,10 @@ void Resources::OnEntitiesChange()
 	this->SetRightScrollBar();
 
 	this->DrawItems();
-	this->OnPaint();
+	this->OnGuiPaint();
 }
 
-void Resources::OnSize()
+void Resources::OnGuiSize()
 {
 	frameHeight=tabContainer->height-TabContainer::CONTAINER_HEIGHT;
 
@@ -1288,13 +1295,13 @@ void Resources::OnSize()
 	this->SetRightScrollBar();
 }
 
-void Resources::OnMouseMove()
+void Resources::OnGuiMouseMove()
 {
 	if(this->splitterMoving)
 	{
 		this->leftFrameWidth=this->tabContainer->mousex;
 		this->SetLeftScrollBar();
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
 	else
 	{
@@ -1309,10 +1316,10 @@ void Resources::OnMouseMove()
 	}
 
 	if(leftScrollBar.OnScrolled() || rightScrollBar.OnScrolled())
-		this->OnPaint();
+		this->OnGuiPaint();
 }
 
-void Resources::OnMouseWheel()
+void Resources::OnGuiMouseWheel()
 {
 	short int delta = GET_WHEEL_DELTA_WPARAM(tabContainer->wparam);
 
@@ -1325,10 +1332,10 @@ void Resources::OnMouseWheel()
 		rightScrollBar.SetScrollerPosition((float)-delta);
 	}
 
-	this->OnPaint();
+	this->OnGuiPaint();
 }
 
-void Resources::OnLMouseUp()
+void Resources::OnGuiLMouseUp()
 {
 	lMouseDown=false;
 	splitterMoving=false;
@@ -1336,7 +1343,7 @@ void Resources::OnLMouseUp()
 	rightScrollBar.OnReleased();
 }
 
-void Resources::OnLMouseDown()
+void Resources::OnGuiLMouseDown()
 {
 	float &mx=tabContainer->mousex;
 	float &my=tabContainer->mousey;
@@ -1356,12 +1363,12 @@ void Resources::OnLMouseDown()
 			this->DrawLeftItems();
 		}	
 	
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
 	else if(mx<this->leftFrameWidth-4)//left scrollbar
 	{
 		leftScrollBar.OnPressed();
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
 	else if(mx<this->leftFrameWidth)//splitter
 	{
@@ -1374,28 +1381,28 @@ void Resources::OnLMouseDown()
 
 		printf("on the right pane\n");
 		rightElements.onmousepressedRightPane(this,mx,my,rightBitmapWidth,rightBitmapHeight);
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
 	else//right scrollbar
 	{
 		rightScrollBar.OnPressed();
-		this->OnPaint();
+		this->OnGuiPaint();
 	}
 	
 }
 
-void Resources::OnUpdate()
+void Resources::OnGuiUpdate()
 {
 	if(tabContainer->mouseDown)
-		this->OnLMouseDown();
+		this->OnGuiLMouseDown();
 }
 
-void Resources::OnReparent()
+void Resources::OnGuiReparent()
 {
 	this->leftScrollBar.OnReparent(this->tabContainer);
 	this->rightScrollBar.OnReparent(this->tabContainer);
-	this->OnSize();
-	this->OnRecreateTarget();
+	this->OnGuiSize();
+	this->OnGuiRecreateTarget();
 	this->DrawItems();
 }
 
@@ -1414,7 +1421,7 @@ void Resources::DrawItems()
 	
 }
 
-void Resources::OnPaint()
+void Resources::OnGuiPaint()
 {
 	
 

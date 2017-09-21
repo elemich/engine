@@ -5,7 +5,7 @@
 
 std::vector<SceneEntityNode*> Editor::selection;
 
-void GuiInterface::Broadcast(void (GuiInterface::*func)())
+void GuiInterface::BroadcastToGui(void (GuiInterface::*func)())
 {
 	for_each(pool.begin(),pool.end(),std::mem_fun(func));
 }
@@ -30,25 +30,24 @@ GuiTab::~GuiTab()
 bool GuiTab::IsSelected(){return (tabContainer && tabContainer->GetSelected()==this);}
 
 
-void GuiTab::OnPaint(){this->guiTabRootElement.OnPaint(this);}
+void GuiTab::OnGuiPaint(){this->guiTabRootElement.OnPaint(this);}
 void GuiTab::OnEntitiesChange(){this->guiTabRootElement.OnEntitiesChange(this);}
-void GuiTab::OnSize()
+void GuiTab::OnGuiSize()
 {
 	this->guiTabRootElement.x=0;
 	this->guiTabRootElement.y=TabContainer::CONTAINER_HEIGHT;
 	this->guiTabRootElement.width=this->tabContainer->width;
 	this->guiTabRootElement.height=this->tabContainer->height-TabContainer::CONTAINER_HEIGHT;
-
 	this->guiTabRootElement.OnSize(this);
 }
-void GuiTab::OnLMouseDown(){this->guiTabRootElement.OnLMouseDown(this);}
-void GuiTab::OnLMouseUp(){this->guiTabRootElement.OnLMouseUp(this);};
-void GuiTab::OnMouseMove(){this->guiTabRootElement.OnMouseMove(this);}
-void GuiTab::OnUpdate(){this->guiTabRootElement.OnUpdate(this);}
-void GuiTab::OnReparent(){this->guiTabRootElement.OnReparent(this);}
-void GuiTab::OnSelected(){this->guiTabRootElement.OnSelected(this);}
-void GuiTab::OnRender(){this->guiTabRootElement.OnRender(this);}
-void GuiTab::OnMouseWheel(){this->guiTabRootElement.OnMouseWheel(this);}
+void GuiTab::OnGuiLMouseDown(){this->guiTabRootElement.OnLMouseDown(this);}
+void GuiTab::OnGuiLMouseUp(){this->guiTabRootElement.OnLMouseUp(this);};
+void GuiTab::OnGuiMouseMove(){this->guiTabRootElement.OnMouseMove(this);}
+void GuiTab::OnGuiUpdate(){this->guiTabRootElement.OnUpdate(this);}
+void GuiTab::OnGuiReparent(){this->guiTabRootElement.OnReparent(this);}
+void GuiTab::OnGuiSelected(){this->guiTabRootElement.OnSelected(this);}
+void GuiTab::OnGuiRender(){/*this->guiTabRootElement.OnGuiRender(this);*/}
+void GuiTab::OnGuiMouseWheel(){this->guiTabRootElement.OnMouseWheel(this);}
 
 
 GuiTabElement::GuiTabElement(GuiTabElement* iParent,float ix, float iy, float iw,float ih,vec2 _alignPos,vec2 _alignRect,vec2 _alignText):
@@ -178,16 +177,15 @@ void GuiTabElement::OnPaint(GuiTab* tab)
 
 void GuiTabElement::OnMouseMove(GuiTab* tab)
 {
-	bool isInside=_contains(this->rect,vec2(tab->tabContainer->mousex,tab->tabContainer->mousey));
+	bool _oldHover=this->hovering;
+	bool _curHover=_contains(this->rect,vec2(tab->tabContainer->mousex,tab->tabContainer->mousey));
 
-	bool updateDraw=isInside!=this->hovering;
+	if(parent && _curHover)
+		parent->hovering=false;
+	
+	this->hovering=_curHover;
 
-	this->hovering=isInside;
-
-	if(updateDraw)
-		this->OnPaint(tab);
-
-	if(isInside && this->container!=0)
+	if(_curHover && this->container!=0)
 		this->BroadcastToChilds(&GuiTabElement::OnMouseMove,tab);
 }
 
@@ -259,21 +257,18 @@ void GuiTabElement::OnSize(GuiTab* tab)
 	{
 		GuiTabElement* te=this->childs.back();
 
-		this->rect.w=te->rect.y+te->rect.w;
+		this->rect.w=te->rect.y+te->rect.w-this->rect.y;
 	}
 
 	
 }
 void GuiTabElement::OnLMouseDown(GuiTab* tab)
 {
-	bool isInside=_contains(this->rect,vec2(tab->tabContainer->mousex,tab->tabContainer->mousey));
-
-	bool paintConditions = isInside!=this->pressing && isInside==true;
 	bool bContainerButtonPressed=0;
 
-	this->pressing=isInside;
+	this->pressing=this->hovering;
 
-	if(isInside)
+	if(this->hovering)
 	{
 		this->checked=!this->checked;
 
@@ -286,34 +281,25 @@ void GuiTabElement::OnLMouseDown(GuiTab* tab)
 				this->container=!this->container;
 		}
 
-		
+		if(bContainerButtonPressed)
+		{
+			tab->OnGuiSize();
+			tab->OnGuiPaint();
+		}
 	}
 
-	if(isInside && this->container!=0)
+	if(this->container!=0)
 		this->BroadcastToChilds(&GuiTabElement::OnLMouseDown,tab);
-	
-	if(bContainerButtonPressed)
-	{
-		tab->OnSize();
-		tab->OnPaint();
-
-	}
 		
 
 	
 }
 void GuiTabElement::OnLMouseUp(GuiTab* tab)
 {
-	bool isInside=_contains(this->rect,vec2(tab->tabContainer->mousex,tab->tabContainer->mousey));
+	this->pressing = this->hovering ? false : this->pressing;
 
-	this->pressing = isInside ? false : this->pressing;
-
-	if(isInside && this->container!=0)
+	if(this->hovering && this->container!=0)
 		this->BroadcastToChilds(&GuiTabElement::OnLMouseUp,tab);
-
-	this->OnPaint(tab);
-
-	
 }
 
 void GuiTabElement::OnReparent(GuiTab* tab){this->BroadcastToChilds(&GuiTabElement::OnReparent,tab);}
