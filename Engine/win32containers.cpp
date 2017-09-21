@@ -39,6 +39,7 @@ void ContainerWindow::OnSizing()
 void ContainerWindow::OnSize()
 {
 	WindowData::OnSize();
+	//SplitterContainer::OnSize(this->hwnd,this->wparam,this->lparam);
 
 	if(this->resizeEnumType<0)
 		return;
@@ -141,6 +142,8 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			{
 				if(!HIWORD(wparam))//menu notification
 				{
+					mainw->application->threadLockedEntities=true;
+
 					SetFocus(hwnd);
 
 					switch(LOWORD(wparam))
@@ -166,6 +169,8 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 						}
 						break;
 					}
+
+					mainw->application->threadLockedEntities=false;
 				}
 			}
 		break;

@@ -8,290 +8,123 @@
 WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
-
-/*
-//--------------------ProjectFolderBrowser-------------------------
-
-
-ProjectFolderBrowser::ProjectFolderBrowser()
+void WindowData::LinkSibling(WindowData* t,int pos)
 {
-	browser=0;
-}
-ProjectFolderBrowser::~ProjectFolderBrowser()
-{
-
-}
-
-PIDLIST_ABSOLUTE ProjectFolderBrowser::SelectProjectFolder()
-{
-	char _pszDisplayName[MAX_PATH];
-
-	BROWSEINFO bi={0};
-	bi.pszDisplayName=_pszDisplayName;
-	bi.lpszTitle="Select Project Directory";
-
-	return SHBrowseForFolder(&bi); 
-}
-
-
-
-void ProjectFolderBrowser::Create(HWND container)
-{
-	PIDLIST_ABSOLUTE projectFolder=SelectProjectFolder();
-
-	if(!projectFolder)
-		return;
-	
-	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	hr = CoCreateInstance(CLSID_ExplorerBrowser, NULL, CLSCTX_INPROC,IID_PPV_ARGS(&browser));
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	FOLDERSETTINGS fs = {0};
-	fs.ViewMode = FVM_DETAILS;
-	fs.fFlags = FWF_AUTOARRANGE;
-
-	RECT tabcontrol_rectangle={50,50,101,101};//WHGetClientRect(container);
-
-	hr = browser->Initialize(container, &tabcontrol_rectangle, &fs);
-
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	browser->SetOptions(EBO_NOWRAPPERWINDOW|EBO_SHOWFRAMES);
-	browser->BrowseToIDList(projectFolder,SBSP_DEFBROWSER);
-
-	/ *INameSpaceTreeControl2* shellItem;
-	hr=browser->GetCurrentView(EP_NavPane,(void**)&shellItem);
-
-	if (!SUCCEEDED(hr))
-		__debugbreak();* /
-
-	
-
-	hr=IUnknown_GetWindow(browser,&hwnd);
-
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	if(BROWSER_DEBUG)
-		printf("browser window %p\n",hwnd);
-}
-
-
-
-//--------------------ProjectFolderBrowser2-------------------------
-
-ProjectFolderBrowser2::ProjectFolderBrowser2()
-{
-	browser=0;
-}
-ProjectFolderBrowser2::~ProjectFolderBrowser2()
-{
-
-}
-
-PIDLIST_ABSOLUTE ProjectFolderBrowser2::SelectProjectFolder()
-{
-	char _pszDisplayName[MAX_PATH];
-
-	BROWSEINFO bi={0};
-	bi.pszDisplayName=_pszDisplayName;
-	bi.lpszTitle="Select Project Directory";
-
-	return SHBrowseForFolder(&bi); 
-}
-
-
-
-void ProjectFolderBrowser2::Create(HWND container)
-{
-	PIDLIST_ABSOLUTE projectFolder=SelectProjectFolder();
-
-	if(!projectFolder)
+	if(!t)
 		return;
 
-	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-	if (!SUCCEEDED(hr))
-		__debugbreak();
+	int reciprocal = pos<2 ? pos+2 : pos-2;
 
-	hr = CoCreateInstance(CLSID_NamespaceTreeControl, NULL, CLSCTX_INPROC,IID_PPV_ARGS(&browser));
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	browser->SetControlStyle(NSTCS_HASEXPANDOS|NSTCS_SPRINGEXPAND|NSTCS_ROOTHASEXPANDO,NSTCS_HASEXPANDOS|NSTCS_SPRINGEXPAND);
-
-	const NSTCSTYLE style = NSTCS_HASEXPANDOS |            // Show expandos
-		NSTCS_ROOTHASEXPANDO |         // Root nodes have expandos
-		NSTCS_FADEINOUTEXPANDOS |      // Fade-in-out based on focus
-		NSTCS_NOINFOTIP |              // Don't show infotips
-		NSTCS_ALLOWJUNCTIONS |         // Show folders such as zip folders and libraries
-		NSTCS_SHOWSELECTIONALWAYS |    // Show selection when NSC doesn't have focus
-		NSTCS_FULLROWSELECT;           // Select full width of item
-
-	RECT tabcontrol_rectangle={50,50,100,100};//WHGetClientRect(container);
-
-	hr = browser->Initialize(container, &tabcontrol_rectangle, style);
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	IShellItem* shellItem;
-	hr=SHCreateShellItem(0,0,projectFolder,&shellItem);
-	//hr=SHCreateItemWithParent(0,);
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	browser->AppendRoot(shellItem, SHCONTF_CHECKING_FOR_CHILDREN|SHCONTF_FOLDERS, NSTCRS_HIDDEN | NSTCRS_EXPANDED, NULL); // ignore result
-	
-	hr=IUnknown_GetWindow(browser,&hwnd);
-
-	if (!SUCCEEDED(hr))
-		__debugbreak();
-
-	if(BROWSER_DEBUG)
-		printf("browser window %p\n",hwnd);
-
-	
+	this->siblings[pos].push_back(t);
+	t->siblings[reciprocal].push_back(this);
 }
 
-//--------------------SceneEntities-------------------------
-
-
-
-
-LRESULT CALLBACK SceneEntitiesProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+void WindowData::UnlinkSibling(WindowData* t)
 {
-	SceneEntities* se=(SceneEntities*)GetWindowLongPtr(hwnd,GWL_USERDATA);
+	RECT rc;
+	GetClientRect(this->hwnd,&rc);
 
-	LRESULT result=CallWindowProc(SystemOriginalSysTreeView32ControlProcedure,hwnd,msg,wparam,lparam);
-
-	switch(msg)
+	if(t)
 	{
-	case WM_MOUSEMOVE:
-		SetFocus(hwnd);
-	break;
+		for(int i=0;i<4;i++)
+			t->siblings[i].remove(this);
 	}
 
-	return result;
-}
 
-INT_PTR CALLBACK SceneEntitiesDialogProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
-{
-	INT_PTR result=false;//DefDlgProc(hwnd,msg,wparam,lparam);
-
-	switch(msg)
+	for(int i=0;i<4;i++)
 	{
-	case WM_ERASEBKGND:
-		return true;
-	case WM_SIZE:
+		if(t)
 		{
-			HWND tabContainer=GetParent(hwnd);
-
-			ContainerWindow* cw=(ContainerWindow*)GetWindowLongPtr(GetParent(tabContainer),GWL_USERDATA);
-
-			int width=LOWORD(lparam);
-			int height=HIWORD(lparam);
-
-			RECT statusRect;
-			GetClientRect(GetDlgItem(hwnd,IDC_STATUSDOWN),&statusRect);
-			int statusHeight=statusRect.bottom-statusRect.top;
-
-			HDWP hdwp=BeginDeferWindowPos(4);
-			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_STATUSUP),0,0,0,width,statusHeight,SWP_SHOWWINDOW);
-			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_ENTITIES),0,0,statusHeight,width,height-2*statusHeight,SWP_SHOWWINDOW);
-			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_STATUSDOWN),0,0,height-statusHeight,width,statusHeight,SWP_SHOWWINDOW);
-			DeferWindowPos(hdwp,GetDlgItem(hwnd,IDC_EXPAND),HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW);
-			EndDeferWindowPos(hdwp);
+			this->siblings[i].remove(t);
 		}
-	break;
+		else
+		{
+			for(std::list<WindowData*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
+			{
+				WindowData* tabToUnlinkFromThis=(*it);
+
+				for(int i=0;i<4;i++)
+					tabToUnlinkFromThis->siblings[i].remove(this);
+			}
+
+			this->siblings[i].clear();
+		}
+	}
+}
+
+WindowData* WindowData::FindSiblingOfSameSize()
+{
+	for(int i=0;i<4;i++)
+	{
+		for(std::list<WindowData*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
+		{
+			WindowData* tabContainer=(*it);
+
+			if(tabContainer->width==this->width || tabContainer->height==this->height)
+				return tabContainer;
+		}
 	}
 
-	return result;
+	return 0;
 }
 
-
-SceneEntities::SceneEntities()
+int WindowData::FindSiblingPosition(WindowData* t)
 {
+	for(int i=0;i<4;i++)
+	{
+		if(std::find(this->siblings[i].begin(),this->siblings[i].end(),t)!=this->siblings[i].end())
+			return i;
+	}
 
+	return -1;
 }
 
-SceneEntities::~SceneEntities()
+bool WindowData::FindAndGrowSibling()
 {
-	
+	WindowData* growingTab=this->FindSiblingOfSameSize();
+
+	if(growingTab)
+	{
+		int tabReflinkPosition=this->FindSiblingPosition(growingTab);
+
+		RECT growingTabRc,thisRc;
+		GetClientRect(growingTab->hwnd,&growingTabRc);
+		GetClientRect(this->hwnd,&thisRc);
+		MapWindowRect(growingTab->hwnd,GetParent(growingTab->hwnd),&growingTabRc);
+		MapWindowRect(this->hwnd,GetParent(growingTab->hwnd),&thisRc);
+
+		switch(tabReflinkPosition)
+		{
+		case 0:
+			SetWindowPos(growingTab->hwnd,0,growingTabRc.left,thisRc.top,thisRc.right-growingTabRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
+			break;
+		case 1:
+			SetWindowPos(growingTab->hwnd,0,thisRc.left,growingTabRc.top,thisRc.right-thisRc.left,thisRc.bottom-growingTabRc.top,SWP_SHOWWINDOW);
+			break;
+		case 2:
+			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,growingTabRc.right-thisRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
+			break;
+		case 3:
+			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,thisRc.right-thisRc.left,growingTabRc.bottom-thisRc.top,SWP_SHOWWINDOW);
+			break;
+		default:
+			__debugbreak();
+			break;
+		}
+
+		this->UnlinkSibling();
+
+		return true;
+	}
+
+	return false;
 }
 
-void ProcessEntity(SceneEntities& se,Entity* e,int itemIdx,HTREEITEM parent)
-{
-	if(!e)
-		return;
+///////////////////////////////////////// APP
 
-	TVITEM tvi={0};
-	TVINSERTSTRUCT tvis={0};
+DWORD WINAPI threadGuiTabFunc(LPVOID);
 
-	tvi.mask=TVIF_TEXT|TVIF_PARAM|TVIF_CHILDREN;
-	tvi.pszText=(CHAR*)e->entity_name.Buf();
-	tvi.cchTextMax=e->entity_name.Count();
-	tvi.lParam=(LPARAM)e;
-	tvi.cChildren=e->entity_childs.size() ? 1 : 0;
-
-	int parentIndex=e->entity_parent ? (itemIdx - e->entity_parent->entity_childs.size()) : 0;
-
-	tvis.hParent=parent;//se.items[parentIndex];
-	//tvis.hInsertAfter=parent;//se.items[parentIndex];
-	tvis.item=tvi;
-
-	HTREEITEM item=(HTREEITEM)SendMessage(GetDlgItem(se.hwnd,IDC_ENTITIES),TVM_INSERTITEM,0,(LPARAM)&tvis);
-
-	se.items.push_back(item);
-
-	itemIdx++;
-
-	for(std::list<Entity*>::iterator ChildNode=e->entity_childs.begin();ChildNode!=e->entity_childs.end();ChildNode++,itemIdx++)
-		ProcessEntity(se,*ChildNode,itemIdx,item);
-}
-
-void SceneEntities::Expand()
-{
-	for(int i=0;i<(int)items.size();i++)
-		SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_EXPAND,TVE_EXPAND,(LPARAM)items[i]);
-
-}
-
-void SceneEntities::Fill()
-{
-	items.clear();
-
-	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_DELETEITEM,0,0);//delete all items
-
-	HTREEITEM parent=TVI_ROOT;
-
-	std::list<Entity*>::iterator eList=Entity::pool.begin();
-
-	if(eList!=Entity::pool.end())
-		ProcessEntity(*this,*eList,0,parent);
-
-	Expand();
-}
-
-void SceneEntities::Create(HWND container)
-{
-	hwnd=CreateDialog(0,MAKEINTRESOURCE(IDD_SCENEENTITIESDIALOG),container,SceneEntitiesDialogProc);
-
-	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_FADEINOUTEXPANDOS,(LPARAM)TVS_EX_FADEINOUTEXPANDOS);
-	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_DOUBLEBUFFER,(LPARAM)TVS_EX_DOUBLEBUFFER);
-	SendMessage(GetDlgItem(hwnd,IDC_ENTITIES),TVM_SETEXTENDEDSTYLE,(WPARAM)TVS_EX_NOINDENTSTATE,(LPARAM)TVS_EX_NOINDENTSTATE);
-
-	SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
-
-	Fill();
-}*/
-
-//--------------------AppData-------------------------
-
-
+int App::threadGuiTab=0;
 
 int App::Init()
 {
@@ -341,15 +174,20 @@ int App::Init()
 
 	InitSplitter();
 
-	this->CreateMainWindow();
+	if(!threadGuiTab)
+			CreateThread(0,0,threadGuiTabFunc,this,0,(DWORD*)&threadGuiTab);
 
-	
+
+	this->CreateMainWindow();
 
 	return error;
 }
 
 void App::Close()
 {
+	if(TPoolVector<GuiTab>::pool.size()==1 && threadGuiTab)
+		ExitThread(threadGuiTab);
+
 	Direct2DGuiBase::Release();
 	CoUninitialize();
 }
@@ -358,8 +196,44 @@ void App::CreateMainWindow()
 {
 	
 	mainAppWindow.Create();
+	mainAppWindow.application=this;
 }
 
+bool sem=0;
+
+App::App():
+threadLockedEntities(true),
+threadUpdateNeeded(true),
+threadPaintNeeded(false)
+{}
+
+DWORD WINAPI threadGuiTabFunc(LPVOID _app)
+{
+
+	/*App* app=(App*)_app;
+	while(true)
+	{
+		if(!app->threadLockedEntities && app->threadUpdateNeeded)
+		{
+			app->threadPaintNeeded=false;
+			sem=true;
+
+			for(int i=0;i<(int)GetPool<TabContainer>().size();i++)
+			{
+				if(GetPool<TabContainer>()[i]->GetSelected())
+				{
+					GetPool<TabContainer>()[i]->OnUpdate();
+				}
+			}
+
+			app->threadUpdateNeeded=false;
+			app->threadPaintNeeded=true;
+		}
+	}*/
+	
+
+	return 0;
+}
 
 void App::Run()
 {
@@ -377,16 +251,26 @@ void App::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-		//else
+		else
 		{
-			for(int i=0;i<(int)GetPool<RendererViewportInterface>().size();i++)
+			/*if(!threadLockedEntities && this->threadPaintNeeded)
 			{
-				if(GetPool<RendererViewportInterface>()[i]->IsSelected())
-					GetPool<RendererViewportInterface>()[i]->OnRender();
-					//RendererViewportInterface::Pool()[i]->OnPaint();
-			}
+				this->threadUpdateNeeded=false;
+				sem=true;*/
+				for(int i=0;i<(int)GetPool<TabContainer>().size();i++)
+				{
+					if(GetPool<TabContainer>()[i]->GetSelected())
+					{
+						GetPool<TabContainer>()[i]->OnUpdate();
+						GetPool<TabContainer>()[i]->OnPaint();
+					}
+				}
+
+				/*this->threadPaintNeeded=false;
+				this->threadUpdateNeeded=true;
+			}*/
+			
 		}
-		
 	}
 
 	this->Close();

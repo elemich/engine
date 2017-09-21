@@ -8,19 +8,7 @@
 
 std::list<Entity*> Entity::pool;
 
-float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
-{
-	float P = (v3 - v2) - (v0 - v1);
-	float Q = (v0 - v1) - P;
-	float R = v2 - v0;
-	float S = v1;
 
-	float x2 = x * x;
-	float x3 = x2 * x;
-
-
-	return P * x3 + Q * x2 + R * x + S;
-}
 
 Entity::Entity():entity_parent(0)
 {
@@ -32,6 +20,22 @@ Entity::Entity():entity_parent(0)
 	nUpdated=0;
 }
 
+
+
+
+std::vector<EntityComponent*> Entity::findComponents(EntityComponent* (EntityComponent::*isa)()) 
+{
+	std::vector<EntityComponent*> retComp;
+
+	for(int i=0;i<(int)this->components.size();i++)
+	{
+		if((this->components[i]->*isa)())
+			retComp.push_back((this->components[i]->*isa)());
+	}
+
+	return retComp;
+}
+
 Entity::~Entity()
 {
 	pool.remove(this);
@@ -39,7 +43,46 @@ Entity::~Entity()
 
 void Entity::update()
 {
-	this->entity_world = this->entity_parent ? (this->animation_transform * this->entity_parent->entity_world) : this->animation_transform;
+	if(this->nDrawed>=1 && this->nUpdated>=1)
+	{
+		this->nAnimated=0;
+		this->nUpdated=0;
+		this->nDrawed=0;
+	}
+
+	
+	if(this->nUpdated>1)
+	{
+		return;
+	}
+	this->entity_world = this->entity_parent ? (this->entity_transform * this->entity_parent->entity_world) : this->entity_transform;
+
+
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
+		if((*it)->GetAnim())
+			(*it)->update();
+	}
+
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
+		if((*it)->GetBone())
+			(*it)->update();
+	}
+
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
+		if((*it)->GetMesh())
+			(*it)->update();
+	}
+
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
+		if((*it)->GetSkin())
+			(*it)->update();
+	}
+
+	
+
+	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
+		(*it)->update();
+
 	this->nUpdated++;
 }
 
@@ -56,112 +99,20 @@ void Entity::endDraw()
 
 void Entity::draw(RendererInterface* renderer)
 {	
-	nDrawed++;
-}
-
-void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
-{
-	if(!val)
+	if(this->nDrawed>1)
+	{
 		return;
-
-	switch(channel)
-	{
-		case TRANSLATEX:poff[0]	= val; break;
-		case TRANSLATEY:poff[1]	= val; break;
-		case TRANSLATEZ:poff[2]	= val; break;
-		case ROTATEX:roff[0] = val; break;
-		case ROTATEY:roff[1] = val; break;
-		case ROTATEZ:roff[2] = val; break;
-		case SCALEX:soff[0]	= val; break;
-		case SCALEY:soff[1]	= val; break;
-		case SCALEZ:soff[2]	= val; break;
 	}
+	//beginDraw();
+
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
+		(*it)->draw(renderer);
+
+	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
+		(*it)->draw(renderer);
+
+	//endDraw();
+
+	this->nDrawed++;
 }
 
-int Entity::animate(float ftime)
-{
-	int keyIdx=0;
-	this->animation_nprocessed=0;
-
-	this->animation_transform=this->entity_transform;
-
-	//return 1;
-
-	if(this->animation_animselected<(int)this->animation_curvegroups.size())
-	{
-		CurveGroup* curvegroup=this->animation_curvegroups[this->animation_animselected];
-
-		if(curvegroup)
-		{
-			int numcurves=(int)curvegroup->curvegroup_keycurves.size();
-
-			vec3 poff,roff,soff(1,1,1);
-			float val=0;
-
-			for(int curveIdx=0;curveIdx<numcurves;curveIdx++)
-			{
-				KeyCurve &curve=*curvegroup->curvegroup_keycurves[curveIdx];
-
-				int			numCurveKeys=(int)curve.keycurve_keyframes.size();
-				int			lastKeyIdx=numCurveKeys-1;
-
-				if(numCurveKeys==1)
-				{
-					val=curve.keycurve_keyframes[0]->value;
-					copychannel(curve.keycurve_channel,val,poff,roff,soff);
-				}
-				else
-				{
-					for (keyIdx = 0; keyIdx < numCurveKeys; keyIdx++)
-					{
-						if(keyIdx!=lastKeyIdx)
-						{
-							if(!(ftime>=curve.keycurve_keyframes[keyIdx]->time && ftime<=curve.keycurve_keyframes[keyIdx+1]->time))
-								continue;
-
-							Keyframe	*a=curve.keycurve_keyframes[(keyIdx>0 ? keyIdx-1 : keyIdx)];
-							Keyframe	*b=curve.keycurve_keyframes[keyIdx];
-							Keyframe	*c=curve.keycurve_keyframes[keyIdx+1];
-							Keyframe	*d=curve.keycurve_keyframes[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
-
-							float		t=(ftime - b->time) / (c->time - b->time);
-
-							val=cubic_interpolation(a->value,b->value,c->value,d->value,t);
-
-							this->animation_nprocessed++;
-
-							copychannel(curve.keycurve_channel,val,poff,roff,soff);
-
-							break;
-						}
-						else
-						{
-							val=curve.keycurve_keyframes[lastKeyIdx]->value;
-							copychannel(curve.keycurve_channel,val,poff,roff,soff);
-						}
-					}
-				}
-			}
-
-			mat4 sm,rm,tm;
-
-			if(poff.iszero())
-				tm.translate(this->entity_transform.position());
-			else
-				tm.translate(poff);
-
-			sm.scale(soff);
-
-			rm.rotate(-roff[2],0,0,1);
-			rm.rotate(-roff[1],0,1,0);
-			rm.rotate(-roff[0],1,0,0);
-
-			this->animation_transform=rm*sm*tm;
-		}
-
-	}
-
-	this->nAnimated++;
-
-	return this->animation_nprocessed;
-}

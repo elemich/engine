@@ -26,30 +26,11 @@ Bone::Bone()
 
 void Bone::update()
 {
-	Entity::update();
 }	
 
 void Bone::draw(RendererInterface* renderer)
 {
-	Entity::draw(renderer);
 	renderer->draw(this);
-}
-
-int Bone::animate(float ftime)
-{
-	if(this == this->bone_root)
-		this->animation_time = this->animation_nprocessed ? this->animation_time+0.02f : 0.0f;
-	else
-		this->animation_time = this->bone_root->animation_time;
-
-	Entity::animate(this->animation_time);
-
-#pragma message (LOCATION " this->animation_time+=0.03f must be moved away from Bone::animate")
-
-	if(this->bone_root != this)
-		this->bone_root->animation_nprocessed+=this->animation_nprocessed;
-
-	return this->animation_nprocessed;
 }
 
 

@@ -25,7 +25,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh);
 void FillMaterial(FbxNode*,Material*);
 void FillLight(FbxNode* fbxNode,Light* light);
 
-void StoreKeyframes(Animation*,CurveGroup* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
+void StoreKeyframes(float& animationStart,float& animationEnd,CurveGroup* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
 void ExtractAnimations(FbxNode*,Entity*);
 void ExtractTexturesandMaterials(FbxScene*);
 void GetSceneDetails(FbxScene*);
@@ -34,7 +34,6 @@ bool AnimationPresent(FbxAnimLayer * pAnimLayer, FbxNode* pNode);
 bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,String &animnae);
 
 Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent);
-Entity* processExtractSceneFunc(FbxNode* fbxNode,Entity* parent);
 
 
 

@@ -48,30 +48,30 @@ template<class T,int size> struct TNumberedVectorInterface
 	T v[size];
 };
 
-template <class T> struct TStaticClass
+template <class T> struct TStaticInstance
 {
 	static T* instance;
 
-	TStaticClass()
+	TStaticInstance()
 	{
 		if(!instance)
 			instance=(T*)this;
 	}
 };
 
-template <class T> T* TStaticClass<T>::instance=0;
+template <class T> T* TStaticInstance<T>::instance=0;
 
 
-template <typename T> struct TClassPool
+template <typename T> struct TPoolVector
 {
 	static std::vector<T*> pool;
 
-	TClassPool()
+	TPoolVector()
 	{
 		pool.push_back((T*)this);
 	}
 
-	~TClassPool()
+	~TPoolVector()
 	{
 		pool.erase(std::find(pool.begin(),pool.end(),(T*)this));
 	}
@@ -79,9 +79,9 @@ template <typename T> struct TClassPool
 	
 };
 
-template <class T> std::vector<T*> TClassPool<T>::pool;
+template <class T> std::vector<T*> TPoolVector<T>::pool;
 
-template<typename T> std::vector<T*>& GetPool(){return TClassPool<T>::pool;}
+template<typename T> std::vector<T*>& GetPool(){return TPoolVector<T>::pool;}
 
 
 template<class T> struct SmartPointer

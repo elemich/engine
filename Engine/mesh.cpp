@@ -67,22 +67,18 @@ std::vector<Material*>& Mesh::GetMaterials()
 
 void Mesh::update()
 {
-	Entity::update();
+	//this->entity->update();
 }
 
 void Mesh::draw(RendererInterface* renderer)
 {
-	Entity::beginDraw();
-
-	AABB &bbox=entity_bbox;
+	AABB &bbox=this->entity->entity_bbox;
 	//AABB aabb(this->entity_world.transform(bbox.a),this->entity_world.transform(bbox.b));
 	//renderer->draw(aabb,vec3(1,0,0));	
 
 	renderer->draw(bbox,vec3(1,1,0));
 
 	renderer->draw(this);
-	Entity::draw(renderer);
-	Entity::endDraw();
 }
 
 

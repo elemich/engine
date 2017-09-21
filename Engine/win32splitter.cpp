@@ -112,6 +112,8 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 						GuiTab* reparentTab=floatingTabRef->tabs[floatingTabRefTabIdx];
 						floatingTabRef->RemoveTab(reparentTab);
 						newTabContainer->AddTab(reparentTab);
+
+						
 						
 						SetWindowPos(floatingTabTarget->hwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);					
 					}
@@ -372,7 +374,7 @@ void SplitterContainer::CreateFloatingTab(TabContainer* tab)
 
 	EnableWindow(floatingTab->hwnd,false);
 
-	printf("creating childmoving %p\n",floatingTab);
+	printf("creating floating TabContainer %p\n",floatingTab);
 
 }
 

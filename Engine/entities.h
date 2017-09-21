@@ -244,49 +244,36 @@ struct CurveGroup
 	float curvegroup_end;
 };
 
-
-
-struct Animation
+struct EntityComponent
 {
-	Animation();
+	Entity* entity;
 
-	virtual int animate(float)=0;
+	EntityComponent():entity(0){}
 
-	std::vector<CurveGroup*> animation_curvegroups;
+	virtual EntityComponent* GetRoot(){return 0;}
+	virtual EntityComponent* GetBone(){return 0;}
+	virtual EntityComponent* GetMesh(){return 0;}
+	virtual EntityComponent* GetSkin(){return 0;}
+	virtual EntityComponent* GetLight(){return 0;}
+	virtual EntityComponent* GetAnim(){return 0;}
 
-	int		animation_nprocessed;
-	float	animation_time;
-	bool	animation_direction;
-
-	float	animation_start;
-	float	animation_end;
-
-	EAnimationState animation_state;
-
-	int animation_animselected;
-	mat4 animation_transform;
-
-	vec3 animation_pos;
-	vec3 animation_scl;
-	vec3 animation_rot;
+	virtual void update(){}
+	virtual void draw(RendererInterface* ri){}
 };
 
-struct Entity : Animation
+
+
+struct Entity 
 {
 	static std::list<Entity*> pool;
 	static Entity* Find(const char*,bool exact=true);
 
-	virtual Root* GetRoot(){return 0;}
-	virtual Bone* GetBone(){return 0;}
-	virtual Mesh* GetMesh(){return 0;}
-	virtual Skin* GetSkin(){return 0;}
-	virtual Light* GetLight(){return 0;}
+	
 
 	virtual void beginDraw();
 	virtual void draw(RendererInterface*);
 	virtual void endDraw();
 	virtual void update();
-	int		 animate(float);
 
 	Entity*					entity_parent;
 	std::list<Entity*>		entity_childs;		
@@ -307,36 +294,83 @@ struct Entity : Animation
 	Entity();
 	~Entity();
 
+	std::vector<EntityComponent*> components;
+	EntityComponent* findComponent(EntityComponent* (EntityComponent::*isa)())
+	{
+		for(int i=0;i<(int)this->components.size();i++)
+		{
+			if((this->components[i]->*isa)())
+				return ((this->components[i]->*isa)());
+		}
 
+		return 0;
+	}
+	std::vector<EntityComponent*> findComponents(EntityComponent* (EntityComponent::*isa)());
 };
 
-struct Root : Entity
+struct Root : EntityComponent
 {
-	Root* GetRoot(){return this;}
+	EntityComponent* GetRoot(){return this;}
 };
 
-struct Bone : Entity
+struct Animation : EntityComponent
+{
+	Animation();
+
+	Entity* entity;
+
+	virtual EntityComponent* GetAnim(){return this;}
+
+	std::vector<CurveGroup*> animation_curvegroups;
+
+	int		animation_nprocessed;
+	float	animation_time;
+	bool	animation_direction;
+
+	float	animation_start;
+	float	animation_end;
+
+	EAnimationState animation_state;
+
+	int animation_animselected;
+	mat4 animation_transform;
+
+	vec3 animation_pos;
+	vec3 animation_scl;
+	vec3 animation_rot;
+
+	float ftime;
+
+	void update();
+};
+
+struct AnimationController : EntityComponent
+{
+	std::vector<Animation*> animations;
+
+	void update();
+	void draw(RendererInterface*);
+};
+
+struct Bone : EntityComponent
 {
 	Bone();
 
-	Entity* bone_root;
+	Bone* bone_root;
 
 	vec3    bone_color;
 
-	Bone* GetBone(){return this;}
+	virtual EntityComponent* GetBone(){return this;}
 
 	void draw(RendererInterface*);
 	void update();
-	int animate(float);
 };
 
-struct Light : Entity
+struct Light : EntityComponent
 {
-
-
 	Light();
 
-	Light* GetLight(){return this;}
+	EntityComponent* GetLight(){return this;}
 	
 	ELight	LightType();
 	EDecay	DecayType();
@@ -383,11 +417,11 @@ struct Light : Entity
 	void draw(RendererInterface*);
 };
 
-struct Mesh : Entity
+struct Mesh : EntityComponent
 {
 	Mesh();
 
-	Mesh* GetMesh(){return this;}
+	EntityComponent* GetMesh(){return this;}
 
 	virtual void draw(RendererInterface*);
 	virtual void update();
@@ -438,7 +472,7 @@ struct Skin : Mesh
 {
 	Skin();
 
-	Skin* GetSkin(){return this;}
+	EntityComponent* GetSkin(){return this;}
 
 
 	void		draw(RendererInterface*);

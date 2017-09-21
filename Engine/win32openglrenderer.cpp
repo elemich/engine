@@ -96,9 +96,9 @@ int processNode(RendererInterface* renderer,std::list<Entity*>& entitiesPool,std
 		
 		switch(type)
 		{
-			case 0:
+			/*case 0:
 				retValue+=entity->animate(time);
-			break;
+			break;*/
 			case 1:
 				entity->update();
 			break;
@@ -200,7 +200,7 @@ LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 
 OpenGLRenderer::OpenGLRenderer(TabContainer* tc):
-RendererViewportInterface(tc),
+	GuiTab(tc),
 	width(0),
 	height(0)
 {
@@ -1198,10 +1198,14 @@ void OpenGLRenderer::draw(Bone* bone)
 	if(!bone)
 		return;
 
-	if(bone->entity_parent->GetBone())
+	Bone* ec=(Bone*)bone->entity->entity_parent->findComponent(&EntityComponent::GetBone);
+	
+	if(ec)
 	{
-		vec3 b2p=bone->entity_parent->entity_world.position();
-		vec3 b1p=bone->entity_world.position();
+		Bone* bone=(Bone*)ec;
+
+		vec3 b2p=bone->entity->entity_parent->entity_world.position();
+		vec3 b1p=bone->entity->entity_world.position();
 		this->draw(b1p,b2p,bone->bone_color);
 	}
 }
@@ -1384,10 +1388,8 @@ void OpenGLRenderer::Render()
 	draw(vec3(0,0,0),vec3(1000,0,0));
 	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
 
-	processNode(this,Entity::pool,Entity::pool.begin(),0,0);
-	processNode(this,Entity::pool,Entity::pool.begin(),1,0);
-	processNode(this,Entity::pool,Entity::pool.begin(),2,0);
-	processNode(this,Entity::pool,Entity::pool.begin(),3,0);
+	if(Entity::pool.size())
+		Entity::pool.front()->draw(this);
 }
 
 
@@ -1505,5 +1507,6 @@ void OpenGLRenderer::OnEntitiesChange()
 }
 void OpenGLRenderer::OnUpdate()
 {
-
+	if(Entity::pool.size())
+		Entity::pool.front()->update();
 }

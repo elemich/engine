@@ -18,7 +18,9 @@ struct Editor
 };
 
 
-struct GuiInterface  : TClassPool<GuiInterface>
+
+
+struct GuiInterface  : TPoolVector<GuiInterface>
 {
 	String name;
 
@@ -62,6 +64,9 @@ struct GuiTabImage
 
 	operator bool () {return image!=0;}
 };
+
+
+
 
 struct GuiTabElementRow;
 
@@ -137,18 +142,18 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 	{
 		this->alignPos=aP,this->alignText=aT,this->alignRect=fP;
 	}
-
-	
 };
 
-struct GuiTab : GuiInterface , TClassPool<GuiTab>
+struct GuiTab : GuiInterface , TPoolVector<GuiTab>
 {
 	TabContainer* tabContainer;
 	GuiTabElement guiTabRootElement;
 
+	
+
 	GuiTab(TabContainer* tc);
 
-	~GuiTab(){}
+	~GuiTab();
 
 	virtual void OnPaint();
 	virtual void OnEntitiesChange();
@@ -213,6 +218,7 @@ struct ScrollBar
 	void OnReleased();
 	bool OnScrolled();
 	void OnPaint();
+	void OnReparent(TabContainer*);
 };
 
 
@@ -239,14 +245,14 @@ struct GuiButton : GuiTabElement
 
 
 
-struct RendererViewportInterface : GuiTab , TClassPool<RendererViewportInterface> 
+struct RendererViewportInterface : TPoolVector<RendererViewportInterface> 
 {
 	float RendererViewportInterface_viewScale;
 	float RendererViewportInterface_farPlane;
 
 	String mousePositionString;
 
-	RendererViewportInterface(TabContainer* tc):GuiTab(tc){}
+	RendererViewportInterface():RendererViewportInterface_viewScale(0),RendererViewportInterface_farPlane(0){}
 
 	virtual void OnMouseWheel(float)=0;
 	virtual void OnMouseRightDown()=0;

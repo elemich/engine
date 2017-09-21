@@ -96,21 +96,26 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 {
 	Entity* entity=0;
 
-	if(!parent)
+	Bone* bone=0;
+
+	if(!parent)//create the root and add a child to it
 	{
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 
 		Entity* rootNode=0;
+		EntityComponent* component=0;
 
 		if(!Entity::pool.size())
 		{
-			rootNode=new Root;
+			rootNode=new Entity;
 			rootNode->entity_name="RootNode";
 		}
 		else
 			rootNode=Entity::pool.front();
 
-		entity=new Root;
+		entity=new Entity;
+		
+		parent=rootNode;
 
 		const char* begin=strrchr(sceneFilename,'\\');
 		const char* end=strrchr(begin,'.');
@@ -121,16 +126,17 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		while(++bPtr!=end)i++;
 
 		entity->entity_name=std::string(begin,i).c_str();
-
-		rootNode->entity_childs.push_back(entity);
+	
 	}
 	else if(fbxNode->GetSkeleton())
 	{
 		/*if(fbxNode->GetSkeleton()->GetSkeletonType()==FbxSkeleton::eRoot || fbxNode->GetSkeleton()->IsSkeletonRoot())
 			__debugbreak();*/
 
-		Bone* bone=new Bone;
-		entity=bone;
+		entity=new Entity;
+		bone=new Bone;
+		bone->entity=entity;
+		entity->components.push_back(bone);
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		nBonesTotal++;
 	}
@@ -141,17 +147,21 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		Skin* skin=0;
 		Mesh* mesh=0;
 
+		entity=new Entity;
+
 		if(deformerCount)//skin
 		{
 			skin=new Skin;
-			entity=skin;
+			skin->entity=entity;
+			entity->components.push_back(skin);
 			FillSkin(fbxNode,skin);
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		}
 		else//mesh
 		{
 			mesh=new Mesh;
-			entity=mesh;
+			mesh->entity=entity;
+			entity->components.push_back(mesh);
 			FillMesh(fbxNode,mesh);
 			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 		}
@@ -176,8 +186,10 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 	}
 	else if(fbxNode->GetLight())
 	{
+		entity=new Entity;
 		Light* light=new Light;
-		entity=light;
+		light->entity=entity;
+		entity->components.push_back(light);
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
 	else
@@ -188,6 +200,7 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 	if(entity)
 	{
+		
 		if(!entity->entity_name.Count())
 			entity->entity_name=fbxNode->GetName();
 
@@ -224,14 +237,12 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
 
 		//set root bone if bone
-		if(entity->GetBone())
+		if(bone)
 		{
-			if(entity->entity_parent)
+			if(bone->entity->entity_parent)
 			{
-				Bone* bone=(Bone*)entity->GetBone();
-
-				if(bone->entity_parent->GetBone())
-					bone->bone_root=((Bone*)bone->entity_parent->GetBone())->bone_root;
+				if(bone->entity->entity_parent->findComponent(&EntityComponent::GetBone))
+					bone->bone_root=((Bone*)bone->entity->entity_parent->findComponent(&EntityComponent::GetBone))->bone_root;
 				else
 					bone->bone_root=bone;
 			}
@@ -244,60 +255,6 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 	return entity;
 }
 
-Entity* processExtractSceneFunc(FbxNode* fbxNode,Entity* parent)
-{
-	Entity* entity=0;
-
-	if(!parent)
-		entity=mapFromNodeToEntity.at(fbxNode);
-	else if(fbxNode->GetSkeleton())
-	{
-		Bone* bone=(Bone*)mapFromNodeToEntity.at(fbxNode);
-		entity=(Bone*)bone;
-	}
-	else if(fbxNode->GetGeometry())
-	{
-		int deformerCount=fbxNode->GetGeometry()->GetDeformerCount();
-
-		Skin* skin=0;
-		Mesh* mesh=0;
-
-		if(deformerCount)//skin
-		{
-			skin=(Skin*)mapFromNodeToEntity.at(fbxNode);
-			FillSkin(fbxNode,skin);
-			entity=skin;
-		}
-		else//mesh
-		{
-			mesh=(Mesh*)mapFromNodeToEntity.at(fbxNode);
-			FillMesh(fbxNode,mesh);
-			entity=mesh;
-		}
-
-		for(int i=0;i<fbxNode->GetMaterialCount();i++)
-		{
-			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
-
-			if(!material)
-				__debugbreak();
-
-			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
-		}
-	}
-	else if(fbxNode->GetLight())
-	{
-		Light* light=(Light*)mapFromNodeToEntity.at(fbxNode);
-		FillLight(fbxNode,light);
-		entity=(Light*)light;
-	}
-	else
-	{
-		entity=mapFromNodeToEntity.at(fbxNode);
-	}
-
-	return entity;
-}
 
 
 
@@ -319,23 +276,6 @@ Entity* processNodeRecursive1(FbxNode* fbxNode,Entity* parent)
 	return entity;
 }
 
-Entity* processNodeRecursive2(FbxNode* fbxNode,Entity* parent)
-
-{
-	Entity* entity=0;
-
-	if(!fbxNode)
-		return entity;
-
-	entity=processExtractSceneFunc(fbxNode,parent);
-
-	int nChilds=fbxNode->GetChildCount();
-
-	for(int i=0;i<nChilds;i++)
-		Entity* child=processNodeRecursive2(fbxNode->GetChild(i),entity);
-
-	return entity;
-}
 
 void ParseAnimationCurve(Animation* a)
 {
@@ -370,20 +310,23 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 	for(int animStackIdx=0;animStackIdx<fbxNode->GetScene()->GetSrcObjectCount<FbxAnimStack>();animStackIdx++)
 	{
 		CurveGroup* curvegroup=new CurveGroup;
+
+		float	animStart=0,
+				animEnd=0;
 		
 		for(int animLayerIdx=0;animLayerIdx<fbxNode->GetScene()->GetSrcObject<FbxAnimStack>(animStackIdx)->GetSrcObjectCount<FbxAnimLayer>();animLayerIdx++)
 		{
 			FbxAnimLayer* layer=fbxNode->GetScene()->GetSrcObject<FbxAnimStack>(animStackIdx)->GetSrcObject<FbxAnimLayer>(animLayerIdx);
 
-			StoreKeyframes(entity,curvegroup,TRANSLATEX,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
-			StoreKeyframes(entity,curvegroup,TRANSLATEY,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
-			StoreKeyframes(entity,curvegroup,TRANSLATEZ,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
-			StoreKeyframes(entity,curvegroup,ROTATEX,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
-			StoreKeyframes(entity,curvegroup,ROTATEY,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
-			StoreKeyframes(entity,curvegroup,ROTATEZ,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
-			StoreKeyframes(entity,curvegroup,SCALEX,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
-			StoreKeyframes(entity,curvegroup,SCALEY,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
-			StoreKeyframes(entity,curvegroup,SCALEZ,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
+			StoreKeyframes(animStart,animEnd,curvegroup,TRANSLATEX,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
+			StoreKeyframes(animStart,animEnd,curvegroup,TRANSLATEY,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
+			StoreKeyframes(animStart,animEnd,curvegroup,TRANSLATEZ,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
+			StoreKeyframes(animStart,animEnd,curvegroup,ROTATEX,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
+			StoreKeyframes(animStart,animEnd,curvegroup,ROTATEY,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
+			StoreKeyframes(animStart,animEnd,curvegroup,ROTATEZ,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
+			StoreKeyframes(animStart,animEnd,curvegroup,SCALEX,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
+			StoreKeyframes(animStart,animEnd,curvegroup,SCALEY,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
+			StoreKeyframes(animStart,animEnd,curvegroup,SCALEZ,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
 
 			
 			//DONTCANCEL AnimationTake(layer,fbxNode,animation,animname);
@@ -393,8 +336,13 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			delete curvegroup;
 		else
 		{
-			entity->animation_curvegroups.push_back(curvegroup);
-			ParseAnimationCurve(entity);
+			Animation* animation=new Animation;
+			animation->entity=entity;
+			entity->components.push_back(animation);
+			animation->animation_curvegroups.push_back(curvegroup);
+			animation->animation_start=animStart;
+			animation->animation_end=animEnd;
+			ParseAnimationCurve(animation);
 		}
 	}
 }
@@ -470,7 +418,7 @@ void InitFbxSceneLoad(char* fname)
 
 
 
-void StoreKeyframes(Animation* animation,CurveGroup* curvegroup,EChannel channel,FbxAnimCurve* fbxAnimCurve)
+void StoreKeyframes(float& animation_start,float& animation_end,CurveGroup* curvegroup,EChannel channel,FbxAnimCurve* fbxAnimCurve)
 {
 	if(fbxAnimCurve && fbxAnimCurve->KeyGetCount())
 	{	
@@ -488,8 +436,8 @@ void StoreKeyframes(Animation* animation,CurveGroup* curvegroup,EChannel channel
 		curvegroup->curvegroup_start= (curvegroup->curvegroup_start == -1) ? curve->keycurve_start :  (curve->keycurve_start < curvegroup->curvegroup_start ? curve->keycurve_start : curvegroup->curvegroup_start);
 		curvegroup->curvegroup_end = (curvegroup->curvegroup_end== -1) ? curve->keycurve_end : (curve->keycurve_end > curvegroup->curvegroup_end ? curve->keycurve_end : curvegroup->curvegroup_end);
 
-		animation->animation_start= (animation->animation_start == -1) ? curvegroup->curvegroup_start :  (curvegroup->curvegroup_start < animation->animation_start ? curvegroup->curvegroup_start : animation->animation_start);
-		animation->animation_end = (animation->animation_end== -1) ? curvegroup->curvegroup_end : (curvegroup->curvegroup_end > animation->animation_end ? curvegroup->curvegroup_end : animation->animation_end);
+		animation_start= (animation_start == -1) ? curvegroup->curvegroup_start :  (curvegroup->curvegroup_start < animation_start ? curvegroup->curvegroup_start : animation_start);
+		animation_end = (animation_end== -1) ? curvegroup->curvegroup_end : (curvegroup->curvegroup_end > animation_end ? curvegroup->curvegroup_end : animation_end);
 
 		for(int i=0;i<fbxAnimCurve->KeyGetCount();i++)
 		{
@@ -715,7 +663,7 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 
 		Cluster& cluster=(Cluster&)skin->skin_clusters[i];
 
-		cluster.cluster_bone=(Bone*)mapFromNodeToEntity[fbxCluster->GetLink()];
+		cluster.cluster_bone=mapFromNodeToEntity[fbxCluster->GetLink()] ? (Bone*)mapFromNodeToEntity[fbxCluster->GetLink()]->findComponent(&EntityComponent::GetBone) : 0;
 
 		if(!cluster.cluster_bone)
 			continue;

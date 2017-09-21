@@ -165,7 +165,7 @@ void TabContainer::EndDraw()
 {
 	if(isRender)
 	{
-		this->recreateTarget=(renderer->EndDraw() & D2DERR_RECREATE_TARGET) != 0;
+		this->recreateTarget=(renderer->EndDraw()==D2DERR_RECREATE_TARGET) != 0;
 		isRender=false;
 	}
 }
@@ -179,76 +179,7 @@ void TabContainer::BroadcastToSelected(void (GuiTab::*func)())
 }
 
 
-void TabContainer::LinkSibling(TabContainer* t,int pos)
-{
-	if(!t)
-		return;
 
-	int reciprocal = pos<2 ? pos+2 : pos-2;
-
-	this->siblings[pos].push_back(t);
-	t->siblings[reciprocal].push_back(this);
-}
-
-void TabContainer::UnlinkSibling(TabContainer* t)
-{
-	RECT rc;
-	GetClientRect(this->hwnd,&rc);
-
-	if(t)
-	{
-		for(int i=0;i<4;i++)
-			t->siblings[i].remove(this);
-	}
-
-
-	for(int i=0;i<4;i++)
-	{
-		if(t)
-		{
-			this->siblings[i].remove(t);
-		}
-		else
-		{
-			for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
-			{
-				TabContainer* tabToUnlinkFromThis=(*it);
-
-				for(int i=0;i<4;i++)
-					tabToUnlinkFromThis->siblings[i].remove(this);
-			}
-
-			this->siblings[i].clear();
-		}
-	}
-}
-
-TabContainer* TabContainer::FindSiblingOfSameSize()
-{
-	for(int i=0;i<4;i++)
-	{
-		for(std::list<TabContainer*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
-		{
-			TabContainer* tabContainer=(*it);
-
-			if(tabContainer->width==this->width || tabContainer->height==this->height)
-				return tabContainer;
-		}
-	}
-
-	return 0;
-}
-
-int TabContainer::FindSiblingPosition(TabContainer* t)
-{
-	for(int i=0;i<4;i++)
-	{
-		if(std::find(this->siblings[i].begin(),this->siblings[i].end(),t)!=this->siblings[i].end())
-			return i;
-	}
-
-	return -1;
-}
 
 void TabContainer::OnSize()
 {
@@ -264,46 +195,7 @@ void TabContainer::OnSize()
 	
 }
 
-bool TabContainer::FindAndGrowSibling()
-{
-	TabContainer* growingTab=this->FindSiblingOfSameSize();
 
-	if(growingTab)
-	{
-		int tabReflinkPosition=this->FindSiblingPosition(growingTab);
-
-		RECT growingTabRc,thisRc;
-		GetClientRect(growingTab->hwnd,&growingTabRc);
-		GetClientRect(this->hwnd,&thisRc);
-		MapWindowRect(growingTab->hwnd,GetParent(growingTab->hwnd),&growingTabRc);
-		MapWindowRect(this->hwnd,GetParent(growingTab->hwnd),&thisRc);
-
-		switch(tabReflinkPosition)
-		{
-		case 0:
-			SetWindowPos(growingTab->hwnd,0,growingTabRc.left,thisRc.top,thisRc.right-growingTabRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
-			break;
-		case 1:
-			SetWindowPos(growingTab->hwnd,0,thisRc.left,growingTabRc.top,thisRc.right-thisRc.left,thisRc.bottom-growingTabRc.top,SWP_SHOWWINDOW);
-			break;
-		case 2:
-			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,growingTabRc.right-thisRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
-			break;
-		case 3:
-			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,thisRc.right-thisRc.left,growingTabRc.bottom-thisRc.top,SWP_SHOWWINDOW);
-			break;
-		default:
-			__debugbreak();
-			break;
-		}
-
-		this->UnlinkSibling();
-
-		return true;
-	}
-
-	return false;
-}
 
 
 GuiTab* TabContainer::AddTab(GuiTab* gui,int position)
@@ -317,9 +209,8 @@ GuiTab* TabContainer::AddTab(GuiTab* gui,int position)
 		tabs.insert(position<0 ? tabs.end() : (tabs.begin() + position),gui);
 		this->selected = position<0 ? (int)tabs.size()-1 : position;
 
+		gui->OnReparent();
 		gui->OnSize();
-
-		this->OnPaint();
 
 		return gui;
 	}
@@ -526,12 +417,6 @@ void TabContainer::OnLMouseDown()
 
 void TabContainer::OnUpdate()
 {
-	/*if(tabcontainer_mouseDown)
-	{
-		if(tabcontainer_tabs[tabcontainer_selected])
-			tabcontainer_tabs[tabcontainer_selected]->OnRun();
-	}*/
-
 	this->BroadcastToSelected(&GuiTab::OnUpdate);
 }
 
@@ -586,9 +471,6 @@ void TabContainer::OnRMouseUp()
 
 void TabContainer::OnPaint()
 {
-	/*if(nPainted>1)
-		return;*/
-
 	if(this->recreateTarget)
 		this->OnRecreateTarget();
 	

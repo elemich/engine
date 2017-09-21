@@ -446,6 +446,12 @@ bool ScrollBar::OnScrolled()
 
 	return true;
 }
+
+void ScrollBar::OnReparent(TabContainer* newParentTabContainer)
+{
+	this->tab=newParentTabContainer;
+}
+
 void ScrollBar::OnPaint()
 {
 	float scrollerRun=(height-y)-(ScrollBar::SCROLLBAR_TIP_HEIGHT*2);
@@ -569,8 +575,6 @@ scrollBar(tc)
 {
 	this->guiTabRootElement.width=0,this->guiTabRootElement.height=0;
 
-	this->tabContainer=tc;
-
 	this->frameWidth=this->tabContainer->width-20;
 	this->frameHeight=this->tabContainer->height-30;
 
@@ -586,6 +590,7 @@ scrollBar(tc)
 
 void SceneViewer::OnRecreateTarget()
 {
+	GuiTab::OnRecreateTarget();
 }
 
 
@@ -612,10 +617,12 @@ void SceneViewer::OnEntitiesChange()
 
 void SceneViewer::OnSize()
 {
-	frameWidth=tabContainer->width-ScrollBar::SCROLLBAR_WIDTH;
-	frameHeight=tabContainer->height-TabContainer::CONTAINER_HEIGHT;
+	GuiTab::OnSize();
 
-	scrollBar.Set(frameWidth-ScrollBar::SCROLLBAR_WIDTH,(float)TabContainer::CONTAINER_HEIGHT,(frameWidth-ScrollBar::SCROLLBAR_WIDTH)+ScrollBar::SCROLLBAR_WIDTH,frameHeight);
+	frameWidth=tabContainer->width-ScrollBar::SCROLLBAR_WIDTH;
+	frameHeight=tabContainer->height;
+
+	scrollBar.Set(frameWidth,(float)TabContainer::CONTAINER_HEIGHT,frameWidth+ScrollBar::SCROLLBAR_WIDTH,frameHeight);
 }
 
 SceneEntityNode* SceneViewer::OnNodePressed(SceneEntityNode& node)
@@ -690,6 +697,7 @@ void SceneViewer::OnUpdate()
 
 void SceneViewer::OnReparent()
 {
+	this->scrollBar.OnReparent(this->tabContainer);
 	this->OnSize();
 	this->OnRecreateTarget();
 }
@@ -795,10 +803,10 @@ void SceneEntityNode::SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,fl
 	panel=container2->CreateTabElementRow(panel,"max",_entity->entity_bbox.b);
 	panel=container1->CreateTabElementRow(container2,"Child Num",String((int)_entity->entity_childs.size()));
 
-	Bone* bone=_entity->GetBone();
-	Mesh* mesh=_entity->GetMesh();
-	Skin* skin=_entity->GetSkin();
-	Light* light=_entity->GetLight();
+	Bone* bone=(Bone*)_entity->findComponent(&EntityComponent::GetBone);
+	Mesh* mesh=(Mesh*)_entity->findComponent(&EntityComponent::GetMesh);
+	Skin* skin=(Skin*)_entity->findComponent(&EntityComponent::GetSkin);
+	Light* light=(Light*)_entity->findComponent(&EntityComponent::GetLight);
 
 
 	if(bone)
@@ -878,9 +886,10 @@ void Properties::OnSelected()
 	{
 	}
 
-	this->OnUpdate();
+	this->OnSize();
 	this->OnPaint();
 };
+
 
 
 
@@ -1383,6 +1392,8 @@ void Resources::OnUpdate()
 
 void Resources::OnReparent()
 {
+	this->leftScrollBar.OnReparent(this->tabContainer);
+	this->rightScrollBar.OnReparent(this->tabContainer);
 	this->OnSize();
 	this->OnRecreateTarget();
 	this->DrawItems();

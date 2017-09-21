@@ -50,6 +50,14 @@ struct WindowData
 	float width;
 	float height;
 
+	std::list<WindowData*> siblings[4];
+
+	void LinkSibling(WindowData* t,int pos);
+	void UnlinkSibling(WindowData* t=0);
+	WindowData* FindSiblingOfSameSize();
+	int FindSiblingPosition(WindowData* t);
+	bool FindAndGrowSibling();
+
 	UINT msg;
 	WPARAM wparam;
 	LPARAM lparam;
@@ -68,19 +76,10 @@ struct WindowData
 struct SplitterContainer;
 struct ContainerWindow;
 
-struct TabContainer : WindowData , GuiInterface , TClassPool<TabContainer>
+struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 {
 	ContainerWindow* parentContainer;
 
-	std::list<TabContainer*> siblings[4];
-
-	void LinkSibling(TabContainer* t,int pos);
-	void UnlinkSibling(TabContainer* t=0);
-	TabContainer* FindSiblingOfSameSize();
-	int FindSiblingPosition(TabContainer* t);
-	bool FindAndGrowSibling();
-
-	
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
 	
@@ -143,6 +142,7 @@ struct TabContainer : WindowData , GuiInterface , TClassPool<TabContainer>
 	virtual void OnUpdate();
 	virtual void OnMouseWheel();
 	virtual void OnResizeContainer();
+	
 
 	virtual void OnRecreateTarget();
 
@@ -236,9 +236,13 @@ struct ContainerWindow : WindowData , SplitterContainer
 	void OnSize();
 };
 
+struct App;
+
 struct MainAppContainerWindow : ContainerWindow
 {
 	MainAppContainerWindow();
+
+	App *application;
 
 	static std::vector<ContainerWindow> windows;
 
@@ -250,70 +254,18 @@ struct MainAppContainerWindow : ContainerWindow
 };
 
 
-/*
-
-
-
-struct ProjectFolderBrowser : WindowData , FolderBrowserInterface
-{
-	IExplorerBrowser* browser;
-		
-	ProjectFolderBrowser();
-	~ProjectFolderBrowser();
-
-	PIDLIST_ABSOLUTE SelectProjectFolder();
-
-	void Create(HWND container);
-};
-
-struct ProjectFolderBrowser2 : WindowData , FolderBrowserInterface
-{
-	INameSpaceTreeControl2* browser;
-
-	ProjectFolderBrowser2();
-	~ProjectFolderBrowser2();
-
-	PIDLIST_ABSOLUTE SelectProjectFolder();
-
-	void Create(HWND container);
-};
-
-struct SceneEntities : WindowData , SceneEntitiesInterface
-{
-	std::vector<HTREEITEM> items;
-
-	SceneEntities();
-	~SceneEntities();
-
-	SceneEntities* GetSceneEntities(){return this;}
-
-	void Create(HWND container);
-
-	void Fill();
-	void Expand();
-
-	virtual void OnEntitiesChange(){Fill();Expand();}
-};
-
-
-struct EntityProperty : WindowData , PropertyInterface
-{
-	
-
-	void Create(HWND container);
-};
-
-struct Logger : WindowData , LoggerInterface
-{
-	void Create(HWND container);
-};
-*/
-
-struct App : AppInterface , TStaticClass<App>
+struct App : AppInterface , TStaticInstance<App>
 {
 	MainAppContainerWindow mainAppWindow;
+
+	bool threadLockedEntities;
+	bool threadUpdateNeeded;
+	bool threadPaintNeeded;
+	static int threadGuiTab;
 	
 	String projectFolder;
+
+	App();
 
 	int Init();
 	void Close();
@@ -322,7 +274,7 @@ struct App : AppInterface , TStaticClass<App>
 	void Run();
 };
 
-struct OpenGLRenderer : RendererInterface , RendererViewportInterface , TClassPool<OpenGLRenderer>
+struct OpenGLRenderer : GuiTab , RendererInterface , RendererViewportInterface , TPoolVector<OpenGLRenderer>
 {
 	static GLuint vertexArrayObject;
 	static GLuint vertexBufferObject;

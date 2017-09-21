@@ -11,9 +11,20 @@ void GuiInterface::Broadcast(void (GuiInterface::*func)())
 }
 
 
+
+
+
+
 GuiTab::GuiTab(TabContainer* tc):tabContainer(tc),guiTabRootElement(0,TabContainer::CONTAINER_HEIGHT,tc->width,tc->height-TabContainer::CONTAINER_HEIGHT)
 {
 	guiTabRootElement.name="GuiTabMainTab";
+
+	
+}
+
+GuiTab::~GuiTab()
+{
+
 }
 
 bool GuiTab::IsSelected(){return (tabContainer && tabContainer->GetSelected()==this);}
@@ -96,7 +107,7 @@ bool GuiTabElement::_contains(vec4& quad,vec2 point)
 {
 	return (point.x>quad.x && point.x<(quad.x+quad.z) && point.y>quad.y && point.y<(quad.y+quad.w));
 }
-
+	
 void GuiTabElement::BroadcastToChilds(void (GuiTabElement::*func)(GuiTab*),GuiTab*tab)
 {
 	for_each(this->childs.begin(),this->childs.end(),std::bind(func,std::placeholders::_1,tab));
@@ -105,74 +116,7 @@ void GuiTabElement::BroadcastToChilds(void (GuiTabElement::*func)(GuiTab*),GuiTa
 
 void GuiTabElement::OnUpdate(GuiTab* tab)
 {
-	if(parent)
-	{
-		vec4 &pRect=this->parent->rect;
-
-		this->rect.z = this->alignRect.x>=0 ? this->alignRect.x * pRect.z : this->rect.z;
-		this->rect.w = this->alignRect.y>=0 ? this->alignRect.y * pRect.w : this->rect.w;
-
-		if(this->alignPos.x>=0)
-			this->rect.x=pRect.x+this->alignPos.x*pRect.z;
-		if(this->alignPos.y>=0)
-			this->rect.y=pRect.y+this->alignPos.y*pRect.w;
-
-		this->rect.x = pRect.x > this->rect.x ? pRect.x : (pRect.x+pRect.z < this->rect.x+this->rect.z ? this->rect.x - (this->rect.x+this->rect.z - (pRect.x+pRect.z)) : this->rect.x);
-		this->rect.y = pRect.y > this->rect.y ? pRect.y : (pRect.y+pRect.w < this->rect.y+this->rect.w ? this->rect.y - (this->rect.y+this->rect.w - (pRect.y+pRect.w)) : this->rect.y);
-
-		if(this->sibling[1])
-		{
-			this->rect.y=this->sibling[1]->rect.y+this->sibling[1]->rect.w;
-		}
-
-		if(parent->container==1)
-		{
-			this->rect.x=parent->rect.x+20;
-
-			if(this==parent->childs.front())
-			{
-				this->rect.y=parent->rect.y+20;
-				parent->rect.w=20;
-			}
-
-			parent->rect.w+=this->rect.w;
-
-			
-
-			/*if(!parent->childs.empty() && parent->rect.w > parent->childs.back()->rect.y+parent->childs.back()->rect.w)
-				parent->rect.w=parent->childs.back()->rect.y+parent->childs.back()->rect.w;*/
-		}
-
-
-		if(container==0)
-		{
-			this->rect.w=20;
-		}
-	}
-
-	if(this->text.Buf())
-	{
-		int tLen=this->text.Count();
-		SIZE resSize;
-		if(!GetTextExtentPoint32(GetWindowDC(tab->tabContainer->hwnd),this->text,tLen,&resSize))
-			__debugbreak();
-
-		this->textRect.z=resSize.cx;
-		this->textRect.w=resSize.cy;
-
-		if(this->alignText.x>=0)
-			this->textRect.x=this->rect.x+this->alignText.x*this->rect.z-this->textRect.z/2.0f;
-		if(this->alignText.y>=0)
-			this->textRect.y=this->rect.y+this->alignText.y*this->rect.w-this->textRect.w/2.0f;
-
-		this->textRect.x = this->rect.x > this->textRect.x ? this->rect.x : (this->rect.x+this->rect.z < this->textRect.x+this->textRect.z ? this->textRect.x - (this->textRect.x+this->textRect.z - (this->rect.x+this->rect.z)) : this->textRect.x);
-		this->textRect.y = this->rect.y > this->textRect.y ? this->rect.y : (this->rect.y+this->rect.w < this->textRect.y+this->textRect.w ? this->textRect.y - (this->textRect.y+this->textRect.w - (this->rect.y+this->rect.w)) : this->textRect.y);
-	}
-
 	
-
-	if(this->container!=0)
-		this->BroadcastToChilds(&GuiTabElement::OnUpdate,tab);
 }
 
 
@@ -251,13 +195,81 @@ void GuiTabElement::OnMouseMove(GuiTab* tab)
 void GuiTabElement::OnEntitiesChange(GuiTab* tab){this->BroadcastToChilds(&GuiTabElement::OnEntitiesChange,tab);}
 void GuiTabElement::OnSize(GuiTab* tab)
 {
-	this->BroadcastToChilds(&GuiTabElement::OnUpdate,tab);
+	if(parent)
+	{
+		vec4 &pRect=this->parent->rect;
+
+		this->rect.z = this->alignRect.x>=0 ? this->alignRect.x * pRect.z : this->rect.z;
+		this->rect.w = this->alignRect.y>=0 ? this->alignRect.y * pRect.w : this->rect.w;
+
+		if(this->alignPos.x>=0)
+			this->rect.x=pRect.x+this->alignPos.x*pRect.z;
+		if(this->alignPos.y>=0)
+			this->rect.y=pRect.y+this->alignPos.y*pRect.w;
+
+		this->rect.x = pRect.x > this->rect.x ? pRect.x : (pRect.x+pRect.z < this->rect.x+this->rect.z ? this->rect.x - (this->rect.x+this->rect.z - (pRect.x+pRect.z)) : this->rect.x);
+		this->rect.y = pRect.y > this->rect.y ? pRect.y : (pRect.y+pRect.w < this->rect.y+this->rect.w ? this->rect.y - (this->rect.y+this->rect.w - (pRect.y+pRect.w)) : this->rect.y);
+
+		if(parent->container>=0)
+		{
+			rect.x+=20;
+			rect.y+=20;
+		}
+	}
+
+	if(this->text.Buf())
+	{
+		int tLen=this->text.Count();
+		SIZE resSize;
+		if(!GetTextExtentPoint32(GetWindowDC(tab->tabContainer->hwnd),this->text,tLen,&resSize))
+			__debugbreak();
+
+		this->textRect.z=resSize.cx;
+		this->textRect.w=resSize.cy;
+
+		if(this->alignText.x>=0)
+			this->textRect.x=this->rect.x+this->alignText.x*this->rect.z-this->textRect.z/2.0f;
+		if(this->alignText.y>=0)
+			this->textRect.y=this->rect.y+this->alignText.y*this->rect.w-this->textRect.w/2.0f;
+
+		this->textRect.x = this->rect.x > this->textRect.x ? this->rect.x : (this->rect.x+this->rect.z < this->textRect.x+this->textRect.z ? this->textRect.x - (this->textRect.x+this->textRect.z - (this->rect.x+this->rect.z)) : this->textRect.x);
+		this->textRect.y = this->rect.y > this->textRect.y ? this->rect.y : (this->rect.y+this->rect.w < this->textRect.y+this->textRect.w ? this->textRect.y - (this->textRect.y+this->textRect.w - (this->rect.y+this->rect.w)) : this->textRect.y);
+	}
+
+	if(this->sibling[1])
+	{
+		this->rect.y=this->sibling[1]->rect.y+this->sibling[1]->rect.w;
+	}
+
+	if(this->container!=0)
+		this->BroadcastToChilds(&GuiTabElement::OnSize,tab);
+
+	
+
+	if(container==0)
+	{
+		this->rect.w=20;
+	}
+	else if(container==1)
+		this->rect.w=20;//calc on childs
+
+	
+
+	if(this->container==1 && !this->childs.empty())
+	{
+		GuiTabElement* te=this->childs.back();
+
+		this->rect.w=te->rect.y+te->rect.w;
+	}
+
+	
 }
 void GuiTabElement::OnLMouseDown(GuiTab* tab)
 {
 	bool isInside=_contains(this->rect,vec2(tab->tabContainer->mousex,tab->tabContainer->mousey));
 
 	bool paintConditions = isInside!=this->pressing && isInside==true;
+	bool bContainerButtonPressed=0;
 
 	this->pressing=isInside;
 
@@ -265,20 +277,30 @@ void GuiTabElement::OnLMouseDown(GuiTab* tab)
 	{
 		this->checked=!this->checked;
 
-		bool bContainerButtonPressed=(tab->tabContainer->mousex > this->rect.x && tab->tabContainer->mousex < this->rect.x+TabContainer::CONTAINER_ICON_WH && tab->tabContainer->mousey > this->rect.y && tab->tabContainer->mousey <this->rect.y+TabContainer::CONTAINER_ICON_WH);
 
-		if(this->container>=0 && bContainerButtonPressed)
-			this->container=!this->container;
+		if(this->container>=0)
+		{
+			bContainerButtonPressed=(tab->tabContainer->mousex > this->rect.x && tab->tabContainer->mousex < this->rect.x+TabContainer::CONTAINER_ICON_WH && tab->tabContainer->mousey > this->rect.y && tab->tabContainer->mousey <this->rect.y+TabContainer::CONTAINER_ICON_WH);
 
+			if(bContainerButtonPressed)
+				this->container=!this->container;
+		}
+
+		
 	}
-	
+
 	if(isInside && this->container!=0)
 		this->BroadcastToChilds(&GuiTabElement::OnLMouseDown,tab);
+	
+	if(bContainerButtonPressed)
+	{
+		tab->OnSize();
+		tab->OnPaint();
 
-	tab->OnUpdate();
+	}
+		
 
-	if(paintConditions || this->container==1)
-		this->OnPaint(tab);
+	
 }
 void GuiTabElement::OnLMouseUp(GuiTab* tab)
 {
@@ -286,10 +308,12 @@ void GuiTabElement::OnLMouseUp(GuiTab* tab)
 
 	this->pressing = isInside ? false : this->pressing;
 
-	this->OnPaint(tab);
-
 	if(isInside && this->container!=0)
 		this->BroadcastToChilds(&GuiTabElement::OnLMouseUp,tab);
+
+	this->OnPaint(tab);
+
+	
 }
 
 void GuiTabElement::OnReparent(GuiTab* tab){this->BroadcastToChilds(&GuiTabElement::OnReparent,tab);}

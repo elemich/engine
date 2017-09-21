@@ -363,6 +363,7 @@ struct Influence;
 struct Keyframe;
 
 struct Entity;
+struct Animation;
 struct Root;
 struct Skeleton;
 struct BoneSkeleton;
