@@ -55,9 +55,9 @@ void Entity::update()
 	{
 		return;
 	}
-	this->entity_world = this->entity_parent ? (this->entity_transform * this->entity_parent->entity_world) : this->entity_transform;
 
-
+	
+	
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
 		if((*it)->GetAnim())
 			(*it)->update();
@@ -69,21 +69,18 @@ void Entity::update()
 	}
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->GetMesh())
+		if((*it)->GetMesh() || (*it)->GetSkin())
 			(*it)->update();
 	}
 
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->GetSkin())
-			(*it)->update();
-	}
+	this->entity_world = this->entity_parent ? (this->entity_transform * this->entity_parent->entity_world) : this->entity_transform;
 
-	
+	this->nUpdated++;
 
 	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
 		(*it)->update();
 
-	this->nUpdated++;
+	
 }
 
 void Entity::beginDraw()
@@ -103,15 +100,12 @@ void Entity::draw(RendererInterface* renderer)
 	{
 		return;
 	}
-	//beginDraw();
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		(*it)->draw(renderer);
 
 	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
 		(*it)->draw(renderer);
-
-	//endDraw();
 
 	this->nDrawed++;
 }

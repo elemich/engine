@@ -33,7 +33,10 @@ void GetSceneDetails(FbxScene*);
 bool AnimationPresent(FbxAnimLayer * pAnimLayer, FbxNode* pNode);
 bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,String &animnae);
 
-Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent);
+Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent);
+Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent);
+
+Entity* processNodeRecursive(Entity* (*func)(FbxNode*,Entity*),FbxNode* fbxNode,Entity* parent);
 
 
 

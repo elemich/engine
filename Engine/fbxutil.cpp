@@ -92,7 +92,7 @@ FbxAMatrix GetGeometry(FbxNode* pNode)
 }
 
 
-Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
+Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 {
 	Entity* entity=0;
 
@@ -100,8 +100,6 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 
 	if(!parent)//create the root and add a child to it
 	{
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-
 		Entity* rootNode=0;
 		EntityComponent* component=0;
 
@@ -126,77 +124,16 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		while(++bPtr!=end)i++;
 
 		entity->entity_name=std::string(begin,i).c_str();
+
+		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	
-	}
-	else if(fbxNode->GetSkeleton())
-	{
-		/*if(fbxNode->GetSkeleton()->GetSkeletonType()==FbxSkeleton::eRoot || fbxNode->GetSkeleton()->IsSkeletonRoot())
-			__debugbreak();*/
-
-		entity=new Entity;
-		bone=new Bone;
-		bone->entity=entity;
-		entity->components.push_back(bone);
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-		nBonesTotal++;
-	}
-	else if(fbxNode->GetGeometry())
-	{
-		int deformerCount=fbxNode->GetGeometry()->GetDeformerCount();
-
-		Skin* skin=0;
-		Mesh* mesh=0;
-
-		entity=new Entity;
-
-		if(deformerCount)//skin
-		{
-			skin=new Skin;
-			skin->entity=entity;
-			entity->components.push_back(skin);
-			FillSkin(fbxNode,skin);
-			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-		}
-		else//mesh
-		{
-			mesh=new Mesh;
-			mesh->entity=entity;
-			entity->components.push_back(mesh);
-			FillMesh(fbxNode,mesh);
-			mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
-		}
-
-		for(int i=0;i<fbxNode->GetMaterialCount();i++)
-		{
-			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
-
-			if(!material)
-				__debugbreak();
-
-			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
-		}
-
-		fbxNode->GetGeometry()->ComputeBBox();
-
-		FbxDouble3 bbMin=fbxNode->GetGeometry()->BBoxMin;
-		FbxDouble3 bbMax=fbxNode->GetGeometry()->BBoxMax;
-		
-		entity->entity_bbox.a.make((float)bbMin[0],(float)bbMin[1],(float)bbMin[2]);
-		entity->entity_bbox.b.make((float)bbMax[0],(float)bbMax[1],(float)bbMax[2]);
-	}
-	else if(fbxNode->GetLight())
-	{
-		entity=new Entity;
-		Light* light=new Light;
-		light->entity=entity;
-		entity->components.push_back(light);
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
 	else
 	{
 		entity=new Entity;
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	}
+	
 
 	if(entity)
 	{
@@ -235,8 +172,25 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 		}
 
 		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
+	}
 
-		//set root bone if bone
+	if(parent && entity)
+		parent->entity_childs.push_back(entity);
+
+	return entity;
+}
+
+Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
+{
+	Entity* entity=mapFromNodeToEntity[fbxNode];
+
+	if(!entity)
+		return 0;
+
+	if(fbxNode->GetSkeleton())
+	{
+		Bone* bone=entity->CreateComponent<Bone>();
+
 		if(bone)
 		{
 			if(bone->entity->entity_parent)
@@ -247,31 +201,67 @@ Entity* processMapFbxToEntityFunc(FbxNode* fbxNode,Entity* parent)
 					bone->bone_root=bone;
 			}
 		}
-	}
 
-	if(parent && entity)
-		parent->entity_childs.push_back(entity);
+		nBonesTotal++;
+	}
+	else if(fbxNode->GetGeometry())
+	{
+		int deformerCount=fbxNode->GetGeometry()->GetDeformerCount();
+
+		Skin* skin=0;
+		Mesh* mesh=0;
+
+		if(deformerCount)//skin
+		{
+			skin=entity->CreateComponent<Skin>();
+			FillSkin(fbxNode,skin);
+		}
+		else//mesh
+		{
+			mesh=entity->CreateComponent<Mesh>();
+			FillMesh(fbxNode,mesh);
+		}
+
+		for(int i=0;i<fbxNode->GetMaterialCount();i++)
+		{
+			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
+
+			if(!material)
+				__debugbreak();
+
+			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
+		}
+
+		fbxNode->GetGeometry()->ComputeBBox();
+
+		FbxDouble3 bbMin=fbxNode->GetGeometry()->BBoxMin;
+		FbxDouble3 bbMax=fbxNode->GetGeometry()->BBoxMax;
+		
+		entity->entity_bbox.a.make((float)bbMin[0],(float)bbMin[1],(float)bbMin[2]);
+		entity->entity_bbox.b.make((float)bbMax[0],(float)bbMax[1],(float)bbMax[2]);
+	}
+	else if(fbxNode->GetLight())
+	{
+		entity->CreateComponent<Light>();
+	}
 
 	return entity;
 }
 
 
-
-
-Entity* processNodeRecursive1(FbxNode* fbxNode,Entity* parent)
-
+Entity* processNodeRecursive(Entity* (*func)(FbxNode*,Entity*),FbxNode* fbxNode,Entity* parent)
 {
 	Entity* entity=0;
 
 	if(!fbxNode)
 		return entity;
 
-	entity=processMapFbxToEntityFunc(fbxNode,parent);
+	entity=func(fbxNode,parent);
 
 	int nChilds=fbxNode->GetChildCount();
 
 	for(int i=0;i<nChilds;i++)
-		Entity* child=processNodeRecursive1(fbxNode->GetChild(i),entity);
+		processNodeRecursive(func,fbxNode->GetChild(i),entity);
 
 	return entity;
 }
@@ -395,7 +385,8 @@ void InitFbxSceneLoad(char* fname)
 			ExtractTexturesandMaterials(fbxScene);
 
 			printf("acquiring fbx nodes structure...\n");
-			processNodeRecursive1(fbxScene->GetRootNode(),0);//acquire nodes structure
+			processNodeRecursive(acquireNodeStructure,fbxScene->GetRootNode(),0);//acquire nodes structure
+			processNodeRecursive(acquireNodeData,fbxScene->GetRootNode(),0);//acquire nodes structure
 			/*printf("filling acquired structures...\n");
 			processNodeRecursive2(fbxScene->GetRootNode(),0);//fill our structure*/
 			printf("...ready\n");
@@ -663,7 +654,8 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 
 		Cluster& cluster=(Cluster&)skin->skin_clusters[i];
 
-		cluster.cluster_bone=mapFromNodeToEntity[fbxCluster->GetLink()] ? (Bone*)mapFromNodeToEntity[fbxCluster->GetLink()]->findComponent(&EntityComponent::GetBone) : 0;
+
+		cluster.cluster_bone=mapFromNodeToEntity[fbxCluster->GetLink()];
 
 		if(!cluster.cluster_bone)
 			continue;

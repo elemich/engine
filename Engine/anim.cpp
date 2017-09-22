@@ -75,8 +75,6 @@ void Animation::update()
 	int keyIdx=0;
 	this->animation_nprocessed=0;
 
-	this->animation_transform=this->entity->entity_transform;
-
 	//return 1;
 
 	if(this->animation_animselected<(int)this->animation_curvegroups.size())
@@ -148,12 +146,10 @@ void Animation::update()
 			rm.rotate(-roff[1],0,1,0);
 			rm.rotate(-roff[0],1,0,0);
 
-			this->animation_transform=rm*sm*tm;
+			this->entity->entity_transform=rm*sm*tm;
 		}
 
 	}
-
-	this->entity->entity_world = this->entity->entity_parent ? (this->animation_transform * this->entity->entity_parent->entity_world) : this->animation_transform;
 
 	this->entity->nAnimated++;
 

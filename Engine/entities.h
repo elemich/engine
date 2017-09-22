@@ -190,7 +190,7 @@ struct Influence
 struct Bone;
 struct Cluster
 {
-	Bone* cluster_bone;
+	Entity* cluster_bone;
 
 	Influence	*cluster_influences;
 	int			cluster_ninfluences;
@@ -306,6 +306,13 @@ struct Entity
 		return 0;
 	}
 	std::vector<EntityComponent*> findComponents(EntityComponent* (EntityComponent::*isa)());
+	template<class C> C* CreateComponent()
+	{
+		C* newComp=new C;
+		newComp->entity=this;
+		this->components.push_back(newComp);
+		return newComp;
+	}
 };
 
 struct Root : EntityComponent
