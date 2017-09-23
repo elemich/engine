@@ -486,7 +486,6 @@ struct EqSolver : GuiTab
 	{
 		name="EqSolver";
 
-		this->guiTabRootElement.CreateTabElementRow(0,"Equation System",String("0,0,0,0\n0,0,0,0\n0,0,0,0\n0,0,0,0"));
 	}
 
 

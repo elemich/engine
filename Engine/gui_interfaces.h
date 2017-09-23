@@ -7,6 +7,8 @@ struct TabContainer;
 struct GuiTab;
 struct SceneEntityNode;
 struct GuiTabElement;
+struct GuiTabElementString;
+struct GuiTabElementPropertyString;
 struct GuiLabel;
 struct GuiButton;
 struct GuiTabImage;
@@ -74,7 +76,7 @@ struct GuiTabElementRow;
 struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 {
 	vec4 rect;
-	vec4 textRect;
+	
 
 	float &x,&y,&width,&height;
 
@@ -89,8 +91,6 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 	GuiTabImage imageHovering;
 	GuiTabImage imagePressed;
 
-	String text;
-
 	bool pressing;
 	bool hovering;
 	bool checked;
@@ -98,8 +98,8 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 	int container;
 
 	vec2 alignPos;
-	vec2 alignText;
 	vec2 alignRect;
+	
 
 	GuiTabElement* sibling[4];
 	
@@ -107,7 +107,7 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 	
 	int animFrame;
 
-	GuiTabElement(GuiTabElement* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(-1,-1),vec2 _alignText=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
+	GuiTabElement(GuiTabElement* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
 	~GuiTabElement();
 
 	virtual void OnPaint(GuiTab*);
@@ -126,31 +126,40 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 
 	void BroadcastToChilds(void (GuiTabElement::*func)(GuiTab*),GuiTab*);
 
-	virtual void _draw(GuiTab*);
-	virtual bool _mousemove(GuiTab*);
-	virtual void _reset();
+	GuiTabElementString* CreateTabElementContainer(const char* iText);
 
-	GuiTabElement* CreateTabElementContainer(GuiTabElement* iSibling,const char* iText);
+	GuiTabElement* CreateTabElement(float ix=0, float iy=0, float iw=0,float ih=0);
+	GuiTabElement* CreateTabElement(vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
 
-	GuiTabElement* CreateTabElement(float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
+	GuiTabElementString* CreateTabElementString(String str,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignText=vec2(-1,-1));
+	GuiTabElementString* CreateTabElementString(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
 
-	GuiTabElement* CreateTabElementLabel(float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
+	GuiTabElementPropertyString* CreateTabElementPropertyString(const char* iLeft,const char* iRight);
+	GuiTabElementPropertyString* CreateTabElementPropertyString(const char* iLeft,vec3 iRight);
+};
 
-	GuiTabElementRow* CreateTabElementRow(GuiTabElement* iSibling,const char* iLeft,const char* iRight);
-	GuiTabElementRow* CreateTabElementRow(GuiTabElement* iSibling,const char* iLeft,vec3 iRight);
+struct GuiTabElementString : GuiTabElement
+{
+	vec4 textRect;
+	vec2 alignText;
+	String text;
 
-	void SetAlignment(vec2 aP,vec2 fP,vec2 aT)
-	{
-		this->alignPos=aP,this->alignText=aT,this->alignRect=fP;
-	}
+	virtual void OnPaint(GuiTab*);
+	virtual void OnSize(GuiTab*);
+};
+
+struct GuiTabElementPropertyString : GuiTabElement
+{
+	String prp;
+	String val;
+
+	virtual void OnPaint(GuiTab*);
 };
 
 struct GuiTab : GuiInterface , TPoolVector<GuiTab>
 {
 	TabContainer* tabContainer;
 	GuiTabElement guiTabRootElement;
-
-	
 
 	GuiTab(TabContainer* tc);
 
@@ -169,29 +178,10 @@ struct GuiTab : GuiInterface , TPoolVector<GuiTab>
 	virtual void OnGuiMouseWheel();
 
 	bool IsSelected();
-
-	GuiTabElement* CreateTabElement(float ix=0,float iy=0,float iw=0,float ih=0,GuiTabElement* iParent=0)
-	{
-		GuiTabElement* newTabElement=new GuiTabElement(iParent ? iParent : &this->guiTabRootElement,ix,iy,iw,ih);
-		return newTabElement;
-	}
-
 };
 
 
-struct GuiTabElementRow : GuiTabElement
-{
-	GuiTabElement left;
-	
-	GuiTabElementRow(GuiTabElement*iParent,const char* iLeft);
-};
 
-struct GuiTabElementRowString : GuiTabElementRow
-{
-	GuiTabElement right;
-
-	GuiTabElementRowString(GuiTabElement*iParent,const char* iLeft,const char* iRight);
-};
 
 
 

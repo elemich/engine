@@ -1198,7 +1198,7 @@ void OpenGLRenderer::draw(Bone* bone)
 	if(!bone)
 		return;
 
-	Bone* ec=(Bone*)bone->entity->entity_parent->findComponent(&EntityComponent::GetBone);
+	Bone* ec=bone->entity->entity_parent->findComponent<Bone>();
 	
 	if(ec)
 	{

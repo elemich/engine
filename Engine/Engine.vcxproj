@@ -46,6 +46,7 @@
       <ShowIncludes>false</ShowIncludes>
       <OmitDefaultLibName>false</OmitDefaultLibName>
       <ErrorReporting>Queue</ErrorReporting>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

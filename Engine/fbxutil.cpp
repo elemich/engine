@@ -8,8 +8,11 @@ FbxManager* fbxManager=0;
 const char* sceneFilename=0;
 
 std::map<FbxNode*,Entity*>				mapFromNodeToEntity;
+std::map<FbxNode*,AnimationController*> mapFromNodeToAnimationController;
 std::map<FbxSurfaceMaterial*,Material*>	mapFromFbxMaterialToMaterial;
 std::map<FbxTexture*,Texture*>			mapFromFbxTextureToTexture;
+
+Entity* rootNode=0;
 
 #define GENERATE_MISSING_KEYS 0
 #define GENERATE_INDEXED_GEOMETRY 1
@@ -100,20 +103,19 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 
 	if(!parent)//create the root and add a child to it
 	{
-		Entity* rootNode=0;
-		EntityComponent* component=0;
+		Entity* poolRootNode=0;
 
 		if(!Entity::pool.size())
 		{
-			rootNode=new Entity;
-			rootNode->entity_name="RootNode";
+			poolRootNode=new Entity;
+			poolRootNode->entity_name="RootNode";
 		}
 		else
-			rootNode=Entity::pool.front();
+			poolRootNode=Entity::pool.front();
 
-		entity=new Entity;
+		rootNode=entity=new Entity;
 		
-		parent=rootNode;
+		parent=poolRootNode;
 
 		const char* begin=strrchr(sceneFilename,'\\');
 		const char* end=strrchr(begin,'.');
@@ -124,6 +126,8 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 		while(++bPtr!=end)i++;
 
 		entity->entity_name=std::string(begin,i).c_str();
+
+		rootNode->CreateComponent<AnimationController>();
 
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	
@@ -195,8 +199,8 @@ Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
 		{
 			if(bone->entity->entity_parent)
 			{
-				if(bone->entity->entity_parent->findComponent(&EntityComponent::GetBone))
-					bone->bone_root=((Bone*)bone->entity->entity_parent->findComponent(&EntityComponent::GetBone))->bone_root;
+				if(bone->entity->entity_parent->findComponent<Bone>())
+					bone->bone_root=bone->entity->entity_parent->findComponent<Bone>()->bone_root;
 				else
 					bone->bone_root=bone;
 			}
@@ -333,6 +337,11 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			animation->animation_start=animStart;
 			animation->animation_end=animEnd;
 			ParseAnimationCurve(animation);
+
+			AnimationController *ac=rootNode->findComponent<AnimationController>();
+
+			if(ac)
+				ac->animations.push_back(animation);
 		}
 	}
 }

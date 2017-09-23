@@ -788,57 +788,56 @@ void SceneEntityNode::SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,fl
 	this->entity=_entity;
 	this->parent=_parent;
 
-	this->root._reset();
-
-
-	this->root.name=this->entity->entity_name + " PropertiesPanel";
-	this->root.text=this->entity->entity_name + " Properties";
+	this->root.childs.clear();
 
 	this->root.alignRect.make(1,1);
 	this->root.alignPos.make(0.5f,0.5f);
-	this->root.alignText.make(0.5f,0);
 
-	GuiTabElement* panel;
-	GuiTabElement* container1;	
-	GuiTabElement* container2;	
+	std::vector<GuiTabElement*> lvl(50);
 
-	container1=this->root.CreateTabElementContainer(0,"Entity");
+	lvl[0]=this->root.CreateTabElementContainer("Entity");
 
-	panel=container1->CreateTabElementRow(0,"Name",this->entity->entity_name);
-	container2=container1->CreateTabElementContainer(panel,"AABB");
-	panel=container2->CreateTabElementRow(0,"min",_entity->entity_bbox.a);
-	panel=container2->CreateTabElementRow(panel,"max",_entity->entity_bbox.b);
-	panel=container1->CreateTabElementRow(container2,"Child Num",String((int)_entity->entity_childs.size()));
+	lvl[0]->CreateTabElementPropertyString("Name",this->entity->entity_name);
+	lvl[1]=lvl[0]->CreateTabElementContainer("AABB");
+	lvl[1]->CreateTabElementPropertyString("min",_entity->entity_bbox.a);
+	lvl[1]->CreateTabElementPropertyString("max",_entity->entity_bbox.b);
+	lvl[0]->CreateTabElementPropertyString("Child Num",String((int)_entity->entity_childs.size()));
 
-	Bone* bone=(Bone*)_entity->findComponent(&EntityComponent::GetBone);
-	Mesh* mesh=(Mesh*)_entity->findComponent(&EntityComponent::GetMesh);
-	Skin* skin=(Skin*)_entity->findComponent(&EntityComponent::GetSkin);
-	Light* light=(Light*)_entity->findComponent(&EntityComponent::GetLight);
+	Bone* bone=_entity->findComponent<Bone>();
+	Mesh* mesh=_entity->findComponent<Mesh>();
+	Skin* skin=_entity->findComponent<Skin>();
+	Light* light=_entity->findComponent<Light>();
+	AnimationController* animcont=_entity->findComponent<AnimationController>();
 
 
 	if(bone)
 	{
-		container1=this->root.CreateTabElementContainer(container1,"Bone");
+		lvl[0]=this->root.CreateTabElementContainer("Bone");
 	}
 	if(mesh)
 	{
-		container1=this->root.CreateTabElementContainer(container1,"Mesh");
-		panel=container1->CreateTabElementRow(0,"Controlpoints",String(mesh->mesh_ncontrolpoints));
-		panel=container1->CreateTabElementRow(panel,"Normals",String(mesh->mesh_nnormals));
-		panel=container1->CreateTabElementRow(panel,"Polygons",String(mesh->mesh_npolygons));
-		panel=container1->CreateTabElementRow(panel,"Texcoord",String(mesh->mesh_ntexcoord));
-		panel=container1->CreateTabElementRow(panel,"Vertexindices",String(mesh->mesh_nvertexindices));
+		lvl[0]=this->root.CreateTabElementContainer("Mesh");
+		lvl[0]->CreateTabElementPropertyString("Controlpoints",String(mesh->mesh_ncontrolpoints));
+		lvl[0]->CreateTabElementPropertyString("Normals",String(mesh->mesh_nnormals));
+		lvl[0]->CreateTabElementPropertyString("Polygons",String(mesh->mesh_npolygons));
+		lvl[0]->CreateTabElementPropertyString("Texcoord",String(mesh->mesh_ntexcoord));
+		lvl[0]->CreateTabElementPropertyString("Vertexindices",String(mesh->mesh_nvertexindices));
 	}
 	if(skin)
 	{
-		container1=this->root.CreateTabElementContainer(container1,"Skin");
-		panel=container1->CreateTabElementRow(0,"Clusters",String(skin->skin_nclusters));
-		panel=container1->CreateTabElementRow(panel,"Textures",String(skin->skin_ntextures));
+		lvl[0]=this->root.CreateTabElementContainer("Skin");
+		lvl[0]->CreateTabElementPropertyString("Clusters",String(skin->skin_nclusters));
+		lvl[0]->CreateTabElementPropertyString("Textures",String(skin->skin_ntextures));
 	}
 	if(light)
 	{
-		container1=this->root.CreateTabElementContainer(container1,"Light");
+		lvl[0]=this->root.CreateTabElementContainer("Light");
 		
+	}
+	if(animcont)
+	{
+		lvl[0]=this->root.CreateTabElementContainer("AnimationController");
+		lvl[0]->CreateTabElementPropertyString("Number of nodes",String((int)animcont->animations.size()));
 	}
 }
 

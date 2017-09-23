@@ -23,19 +23,6 @@ Entity::Entity():entity_parent(0)
 
 
 
-std::vector<EntityComponent*> Entity::findComponents(EntityComponent* (EntityComponent::*isa)()) 
-{
-	std::vector<EntityComponent*> retComp;
-
-	for(int i=0;i<(int)this->components.size();i++)
-	{
-		if((this->components[i]->*isa)())
-			retComp.push_back((this->components[i]->*isa)());
-	}
-
-	return retComp;
-}
-
 Entity::~Entity()
 {
 	pool.remove(this);
@@ -59,17 +46,17 @@ void Entity::update()
 	
 	
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->GetAnim())
+		if((*it)->is<Animation>())
 			(*it)->update();
 	}
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->GetBone())
+		if((*it)->is<Bone>())
 			(*it)->update();
 	}
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->GetMesh() || (*it)->GetSkin())
+		if((*it)->is<Mesh>() || (*it)->is<Skin>())
 			(*it)->update();
 	}
 
@@ -80,7 +67,6 @@ void Entity::update()
 	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
 		(*it)->update();
 
-	
 }
 
 void Entity::beginDraw()

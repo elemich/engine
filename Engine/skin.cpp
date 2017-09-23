@@ -22,6 +22,11 @@ void Skin::draw(RendererInterface* renderer)
 
 void Skin::update()
 {
+	//this->entity->update();
+
+	/*this->skin_vertexcache=0;
+	return;*/
+
 	if(this->skin_vertexcache)
 		delete [] this->skin_vertexcache;
 
