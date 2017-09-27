@@ -21,20 +21,17 @@ KeyCurve::KeyCurve():
 {}
 
 
-CurveGroup::CurveGroup():
+AnimClip::AnimClip():
 	curvegroup_start(-1),
 	curvegroup_end(-1)
 {}
 
 Animation::Animation():
-	animation_animselected(0),
-	animation_nprocessed(0),
-	animation_time(0),
-	animation_direction(0),
-	animation_start(-1),
-	animation_end(-1),
-	animation_scl(1,1,1),
-	ftime(0)
+	entity(0),
+	clipIdx(0),
+	nprocessed(0),
+	start(-1),
+	end(-1)
 {}
 
 void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
@@ -70,6 +67,143 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 	return P * x3 + Q * x2 + R * x + S;
 }
 
+
+void AnimationController::add(Animation* anim)
+{
+	if(this->animations.empty())
+	{
+		this->start=anim->start;
+		this->end=anim->end;
+	}
+
+	this->animations.push_back(anim);
+
+	if(!this->animations.empty())
+	{
+		this->start=anim->start>this->start ? anim->start : this->start;
+		this->end=anim->end<this->end ? anim->end : this->end;
+	}
+}
+
+void AnimationController::update()
+{
+	
+
+	if(this->play)
+	{
+		int animEnd=0;
+
+		for(size_t i=0;i<this->animations.size();i++)
+		{
+			Animation* a=this->animations[i];
+
+			int keyIdx=0;
+			a->nprocessed=0;
+
+			float tCursor=a->start+this->cursor;
+
+			//return 1;
+
+			if(a->clipIdx<(int)a->clips.size())
+			{
+				AnimClip* curvegroup=a->clips[a->clipIdx];
+
+				if(curvegroup)
+				{
+					int numcurves=(int)curvegroup->curvegroup_keycurves.size();
+
+					vec3 poff,roff,soff(1,1,1);
+					float val=0;
+
+					for(int curveIdx=0;curveIdx<numcurves;curveIdx++)
+					{
+						KeyCurve &curve=*curvegroup->curvegroup_keycurves[curveIdx];
+
+						int			numCurveKeys=(int)curve.keycurve_keyframes.size();
+						int			lastKeyIdx=numCurveKeys-1;
+
+						if(numCurveKeys==1)
+						{
+							val=curve.keycurve_keyframes[0]->value;
+							copychannel(curve.keycurve_channel,val,poff,roff,soff);
+						}
+						else
+						{
+							for (keyIdx = 0; keyIdx < numCurveKeys; keyIdx++)
+							{
+								if(keyIdx!=lastKeyIdx)
+								{
+									if(!(tCursor>=curve.keycurve_keyframes[keyIdx]->time && tCursor<=curve.keycurve_keyframes[keyIdx+1]->time))
+										continue;
+
+									Keyframe	*aa=curve.keycurve_keyframes[(keyIdx>0 ? keyIdx-1 : keyIdx)];
+									Keyframe	*bb=curve.keycurve_keyframes[keyIdx];
+									Keyframe	*cc=curve.keycurve_keyframes[keyIdx+1];
+									Keyframe	*dd=curve.keycurve_keyframes[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
+
+									float		t=(tCursor - bb->time) / (cc->time - bb->time);
+
+									val=cubic_interpolation(aa->value,bb->value,cc->value,dd->value,t);
+
+									a->nprocessed++;
+
+									copychannel(curve.keycurve_channel,val,poff,roff,soff);
+
+									break;
+								}
+								else
+								{
+									val=curve.keycurve_keyframes[lastKeyIdx]->value;
+									copychannel(curve.keycurve_channel,val,poff,roff,soff);
+								}
+							}
+						}
+					}
+
+					mat4 sm,rm,tm;
+
+					if(poff.iszero())
+						tm.translate(a->entity->entity_transform.position());
+					else
+						tm.translate(poff);
+
+					sm.scale(soff);
+
+					rm.rotate(-roff[2],0,0,1);
+					rm.rotate(-roff[1],0,1,0);
+					rm.rotate(-roff[0],1,0,0);
+
+					a->entity->entity_transform=rm*sm*tm;
+				}
+
+			}
+
+			a->entity->nAnimated++;
+
+			if(tCursor>a->end)
+				animEnd++;
+		}
+
+
+		if(animEnd==this->animations.size())
+		{
+			this->cursor=0;
+
+			if(!this->looped)
+				this->play=false;
+		}
+		else
+		{
+			unsigned int tDelta=Timer::instance->delta;
+			float delta=tDelta/1000.0f;
+			this->cursor+=delta*this->speed;
+		}
+	}
+}
+
+
+
+/*
 void Animation::update()
 {
 	int keyIdx=0;
@@ -157,4 +291,4 @@ void Animation::update()
 
 	if(ftime>this->animation_end)
 		ftime=this->animation_start;
-}
+}*/

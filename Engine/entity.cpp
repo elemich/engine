@@ -43,20 +43,7 @@ void Entity::update()
 		return;
 	}
 
-	
-	
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->is<Animation>())
-			(*it)->update();
-	}
-
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->is<Bone>())
-			(*it)->update();
-	}
-
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-		if((*it)->is<Mesh>() || (*it)->is<Skin>())
 			(*it)->update();
 	}
 

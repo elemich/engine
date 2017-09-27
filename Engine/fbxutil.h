@@ -25,7 +25,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh);
 void FillMaterial(FbxNode*,Material*);
 void FillLight(FbxNode* fbxNode,Light* light);
 
-void StoreKeyframes(float& animationStart,float& animationEnd,CurveGroup* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
+void StoreKeyframes(float& animationStart,float& animationEnd,AnimClip* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
 void ExtractAnimations(FbxNode*,Entity*);
 void ExtractTexturesandMaterials(FbxScene*);
 void GetSceneDetails(FbxScene*);

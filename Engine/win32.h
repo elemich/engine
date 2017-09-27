@@ -36,7 +36,7 @@ struct Direct2DGuiBase
 	static void DrawEllipse(ID2D1RenderTarget*renderer,float x,float y, float rx,float ry,ID2D1Brush* brush,bool filled=true);
 	static void DrawLine(ID2D1RenderTarget*renderer,float x1,float y1, float x2,float y2,ID2D1Brush* brush);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float ax=-1,float ay=-1);
 
 	static bool OnSize(ID2D1Geometry* geometry,D2D1::Matrix3x2F& mtx,float x,float y);
 	static bool OnSize(ID2D1Geometry* geometry,float x,float y);
@@ -168,7 +168,6 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 
 	void BeginDraw();
 	void EndDraw();
-	
 };
 
 struct SplitterContainer 
@@ -256,9 +255,15 @@ struct MainAppContainerWindow : ContainerWindow
 	void OnCreate(HWND);
 };
 
+struct TimerWin32 : Timer
+{
+	void update();
+};
 
 struct App : AppInterface , TStaticInstance<App>
 {
+
+	TimerWin32 timerMain;
 	MainAppContainerWindow mainAppWindow;
 
 	bool threadLockedEntities;
@@ -276,6 +281,8 @@ struct App : AppInterface , TStaticInstance<App>
 	void CreateMainWindow();
 	void Run();
 };
+
+
 
 struct OpenGLRenderer : GuiTab , RendererInterface , RendererViewportInterface , TPoolVector<OpenGLRenderer>
 {
@@ -421,7 +428,7 @@ struct SceneEntityNode
 
 		Entity* entity;
 
-		GuiTabElement root;
+		GuiRect root;
 		
 		void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* parent=0,int expandUntilLevel=1);
 		void update(float& width,float& height);

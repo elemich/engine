@@ -287,15 +287,44 @@ void Direct2DGuiBase::DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,
 	renderer->DrawBitmap(bitmap,rect);
 }
 
-void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* inputText,float x,float y, float w,float h)
+void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* inputText,float x,float y, float w,float h,float ax,float ay)
 {
 	if(!inputText)
 		return;
 	size_t retLen=0;
 	wchar_t retText[CHAR_MAX];
 	mbstowcs_s(&retLen,retText,CHAR_MAX,inputText,strlen(inputText));
-	renderer->DrawText(retText,retLen,texter,D2D1::RectF(x,y,w,h),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+
+	if(ax<0 && ay<0)
+		renderer->DrawText(retText,retLen,texter,D2D1::RectF(x,y,w,h),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	else
+	{
+		ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
+		
+		if(!hwndRenderer)
+			__debugbreak();
+
+		SIZE tSize;
+		GetTextExtentPoint32(GetDC(hwndRenderer->GetHwnd()),inputText,strlen(inputText),&tSize);
+
+		vec4 rect(-tSize.cx/2.0f,-tSize.cy/2.0f,tSize.cx,tSize.cy);
+
+		w-=x;
+		h-=y;
+
+		if(ax>=0)
+			rect.x+=x+ax*w;
+		if(ay>=0)
+			rect.y+=y+ay*h;
+
+		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
+		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
+
+
+		renderer->DrawText(retText,retLen,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	}
 }
+
 
 bool Direct2DGuiBase::OnSize(ID2D1Geometry* geometry,D2D1::Matrix3x2F& mtx,float x,float y)
 {
@@ -561,7 +590,7 @@ bitmapWidth((float)tc->width),
 bitmapHeight((float)tc->height),
 scrollBar(tc)
 {
-	this->guiTabRootElement.width=0,this->guiTabRootElement.height=0;
+	this->guiTabRootElement.rect.make(0,0,0,0);
 
 	this->frameWidth=this->tabContainer->width-20;
 	this->frameHeight=this->tabContainer->height-30;
@@ -793,51 +822,65 @@ void SceneEntityNode::SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,fl
 	this->root.alignRect.make(1,1);
 	this->root.alignPos.make(0.5f,0.5f);
 
-	std::vector<GuiTabElement*> lvl(50);
+	std::vector<GuiRect*> lvl(50);
 
-	lvl[0]=this->root.CreateTabElementContainer("Entity");
+	lvl[0]=this->root.Container("Entity");
 
-	lvl[0]->CreateTabElementPropertyString("Name",this->entity->entity_name);
-	lvl[1]=lvl[0]->CreateTabElementContainer("AABB");
-	lvl[1]->CreateTabElementPropertyString("min",_entity->entity_bbox.a);
-	lvl[1]->CreateTabElementPropertyString("max",_entity->entity_bbox.b);
-	lvl[0]->CreateTabElementPropertyString("Child Num",String((int)_entity->entity_childs.size()));
+	lvl[0]->Property("Name",this->entity->entity_name);
+	lvl[1]=lvl[0]->Container("AABB");
+	lvl[1]->Property("min",_entity->entity_bbox.a);
+	lvl[1]->Property("max",_entity->entity_bbox.b);
+	lvl[0]->Property("Child Num",String((int)_entity->entity_childs.size()));
 
 	Bone* bone=_entity->findComponent<Bone>();
 	Mesh* mesh=_entity->findComponent<Mesh>();
 	Skin* skin=_entity->findComponent<Skin>();
 	Light* light=_entity->findComponent<Light>();
+	Animation* anim=_entity->findComponent<Animation>();
 	AnimationController* animcont=_entity->findComponent<AnimationController>();
 
 
 	if(bone)
 	{
-		lvl[0]=this->root.CreateTabElementContainer("Bone");
+		lvl[0]=this->root.Container("Bone");
 	}
 	if(mesh)
 	{
-		lvl[0]=this->root.CreateTabElementContainer("Mesh");
-		lvl[0]->CreateTabElementPropertyString("Controlpoints",String(mesh->mesh_ncontrolpoints));
-		lvl[0]->CreateTabElementPropertyString("Normals",String(mesh->mesh_nnormals));
-		lvl[0]->CreateTabElementPropertyString("Polygons",String(mesh->mesh_npolygons));
-		lvl[0]->CreateTabElementPropertyString("Texcoord",String(mesh->mesh_ntexcoord));
-		lvl[0]->CreateTabElementPropertyString("Vertexindices",String(mesh->mesh_nvertexindices));
+		lvl[0]=this->root.Container("Mesh");
+		lvl[0]->Property("Controlpoints",String(mesh->mesh_ncontrolpoints));
+		lvl[0]->Property("Normals",String(mesh->mesh_nnormals));
+		lvl[0]->Property("Polygons",String(mesh->mesh_npolygons));
+		lvl[0]->Property("Texcoord",String(mesh->mesh_ntexcoord));
+		lvl[0]->Property("Vertexindices",String(mesh->mesh_nvertexindices));
 	}
 	if(skin)
 	{
-		lvl[0]=this->root.CreateTabElementContainer("Skin");
-		lvl[0]->CreateTabElementPropertyString("Clusters",String(skin->skin_nclusters));
-		lvl[0]->CreateTabElementPropertyString("Textures",String(skin->skin_ntextures));
+		lvl[0]=this->root.Container("Skin");
+		lvl[0]->Property("Clusters",String(skin->skin_nclusters));
+		lvl[0]->Property("Textures",String(skin->skin_ntextures));
 	}
 	if(light)
 	{
-		lvl[0]=this->root.CreateTabElementContainer("Light");
+		lvl[0]=this->root.Container("Light");
 		
+	}
+	if(anim)
+	{
+		lvl[0]=this->root.Container("Animation");
+		lvl[0]->Property("IsBone",String(anim->entity->findComponent<Bone>() ? "true" : "false"));
+		lvl[0]->Property("Duration",String(anim->end-anim->start));
+		lvl[0]->Property("Begin",String(anim->start));
+		lvl[0]->Property("End",String(anim->end));
 	}
 	if(animcont)
 	{
-		lvl[0]=this->root.CreateTabElementContainer("AnimationController");
-		lvl[0]->CreateTabElementPropertyString("Number of nodes",String((int)animcont->animations.size()));
+		lvl[0]=this->root.Container("AnimationController");
+		lvl[0]->Property("Number of nodes",String((int)animcont->animations.size()));
+		lvl[0]->Slider("Velocity",&animcont->speed);
+		lvl[0]->Property("Duration",String(animcont->end-animcont->start));
+		lvl[0]->Property("Begin",String(animcont->start));
+		lvl[0]->Property("End",String(animcont->end));
+		lvl[0]->PropertyAnimControl(animcont);
 	}
 }
 
@@ -883,7 +926,7 @@ void Properties::OnGuiSelected()
 	if(Editor::selection.size())
 	{
 
-		GuiTabElement* properties=&Editor::selection[0]->properties.root;
+		GuiRect* properties=&Editor::selection[0]->properties.root;
 
 		this->guiTabRootElement.childs.push_back(properties);
 		properties->parent=&this->guiTabRootElement;

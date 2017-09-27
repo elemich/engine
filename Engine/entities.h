@@ -228,15 +228,10 @@ struct KeyCurve
 	float			keycurve_end;
 };
 
-namespace Timer
-{
-	int GetTime();
-}
 
-
-struct CurveGroup
+struct AnimClip
 {
-	CurveGroup();
+	AnimClip();
 
 	std::vector<KeyCurve*> curvegroup_keycurves;
 
@@ -332,27 +327,14 @@ struct Animation : EntityComponent
 
 	Entity* entity;
 
-	std::vector<CurveGroup*> animation_curvegroups;
+	std::vector<AnimClip*> clips;
 
-	int		animation_nprocessed;
-	float	animation_time;
-	bool	animation_direction;
+	int		nprocessed;
 
-	float	animation_start;
-	float	animation_end;
+	float	start;
+	float	end;
 
-	EAnimationState animation_state;
-
-	int animation_animselected;
-	mat4 animation_transform;
-
-	vec3 animation_pos;
-	vec3 animation_scl;
-	vec3 animation_rot;
-
-	float ftime;
-
-	void update();
+	int clipIdx;
 };
 
 
@@ -360,7 +342,21 @@ struct AnimationController : EntityComponent
 {
 	std::vector<Animation*> animations;
 
-	void update(){}
+	float speed;
+	float cursor;
+	bool play;
+	bool looped;
+
+	float start;
+	float end;
+
+	int lastTime;
+
+	AnimationController():speed(1),cursor(0),play(false),looped(true),start(0),end(0),lastTime(0){}
+
+	void add(Animation* anim);
+
+	void update();
 	void draw(RendererInterface*){}
 };
 

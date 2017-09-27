@@ -273,15 +273,15 @@ Entity* processNodeRecursive(Entity* (*func)(FbxNode*,Entity*),FbxNode* fbxNode,
 
 void ParseAnimationCurve(Animation* a)
 {
-	float& amin=a->animation_start;
-	float& amax=a->animation_end;
+	float& amin=a->start;
+	float& amax=a->end;
 
-	for(int i=0;i<(int)a->animation_curvegroups.size();i++)
+	for(int i=0;i<(int)a->clips.size();i++)
 	{
-		float& start=a->animation_curvegroups[i]->curvegroup_start;
-		float& end=a->animation_curvegroups[i]->curvegroup_end;
+		float& start=a->clips[i]->curvegroup_start;
+		float& end=a->clips[i]->curvegroup_end;
 
-		CurveGroup* g=a->animation_curvegroups[i];
+		AnimClip* g=a->clips[i];
 
 		for(int j=0;j<(int)g->curvegroup_keycurves.size();j++)
 		{
@@ -303,7 +303,7 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 {
 	for(int animStackIdx=0;animStackIdx<fbxNode->GetScene()->GetSrcObjectCount<FbxAnimStack>();animStackIdx++)
 	{
-		CurveGroup* curvegroup=new CurveGroup;
+		AnimClip* curvegroup=new AnimClip;
 
 		float	animStart=0,
 				animEnd=0;
@@ -333,15 +333,15 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			Animation* animation=new Animation;
 			animation->entity=entity;
 			entity->components.push_back(animation);
-			animation->animation_curvegroups.push_back(curvegroup);
-			animation->animation_start=animStart;
-			animation->animation_end=animEnd;
+			animation->clips.push_back(curvegroup);
+			animation->start=animStart;
+			animation->end=animEnd;
 			ParseAnimationCurve(animation);
 
 			AnimationController *ac=rootNode->findComponent<AnimationController>();
 
 			if(ac)
-				ac->animations.push_back(animation);
+				ac->add(animation);
 		}
 	}
 }
@@ -414,11 +414,13 @@ void InitFbxSceneLoad(char* fname)
 	mapFromNodeToEntity.clear();
 	mapFromFbxMaterialToMaterial.clear();
 	mapFromFbxTextureToTexture.clear();
+
+	rootNode=0;
 }
 
 
 
-void StoreKeyframes(float& animation_start,float& animation_end,CurveGroup* curvegroup,EChannel channel,FbxAnimCurve* fbxAnimCurve)
+void StoreKeyframes(float& animation_start,float& animation_end,AnimClip* curvegroup,EChannel channel,FbxAnimCurve* fbxAnimCurve)
 {
 	if(fbxAnimCurve && fbxAnimCurve->KeyGetCount())
 	{	

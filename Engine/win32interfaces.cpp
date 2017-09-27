@@ -257,6 +257,9 @@ void App::Run()
 			{
 				this->threadUpdateNeeded=false;
 				sem=true;*/
+				this->timerMain.update();
+
+
 				for(int i=0;i<(int)GetPool<TabContainer>().size();i++)
 				{
 					if(GetPool<TabContainer>()[i]->GetSelected())
@@ -276,7 +279,12 @@ void App::Run()
 	this->Close();
 }
 
-
+void TimerWin32::update()
+{
+	last=current;
+	current=timeGetTime();
+	delta=current-last;
+}
 
 
 //--------------------DirectXRendererData-------------------------

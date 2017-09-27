@@ -62,7 +62,7 @@ String::String(int number)
 String::String(float scalar)
 {
     char n[100];
-    sprintf(n,"%g",scalar);
+    sprintf(n,"%3.1f",scalar);
     data=new char[strlen(n)+1];
     strcpy(data,n);
 }
@@ -153,6 +153,18 @@ bool String::Contains(const char* in)
 	return strstr(data,in) ? true : false;
 }
 
+
+wchar_t* String::Wstring(int& oSize)
+{
+	if(!data)
+		return 0;
+	size_t _osize;
+	int slen=strlen(data)+1;
+	wchar_t *retText=new wchar_t[slen];
+	mbstowcs_s(&_osize,retText,slen,data,slen);
+	oSize=(int)_osize;
+	return retText;
+}
 
 
 //---------------------------------

@@ -1233,10 +1233,12 @@ void OpenGLRenderer::OnRendererMouseWheel(float factor)
 	float halfW=this->GetRendererProjectionHalfWidth();
 	float halfH=this->GetRendererProjectionHalfHeight();
 
-	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
-	MatrixStack::SetProjectionMatrix(p);
+
+	mat4& t=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
+	MatrixStack::SetProjectionMatrix(t);
 
 	//printf("wiewScale %3.2f\n",RendererViewportInterface_viewScale);
+
 }
 
 void OpenGLRenderer::OnGuiMouseMove()
@@ -1420,8 +1422,6 @@ void OpenGLRenderer::OnGuiSize()
 	if(!renderBitmap)
 		__debugbreak();
 
-	
-
 	renderBuffer=new unsigned char[(int)(width*height*4)];
 
 	glViewport(0,0,(int)this->width,(int)this->height);glCheckError();
@@ -1492,7 +1492,7 @@ void OpenGLRenderer::OnGuiLMouseDown()
 	vec3 ray_world = mat4(MatrixStack::GetModelviewMatrix()).inverse() * ray_eye;
 	ray_world.normalize();
 
-	
+		
 
 }
 void OpenGLRenderer::OnEntitiesChange()

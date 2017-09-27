@@ -6,20 +6,22 @@
 struct TabContainer;
 struct GuiTab;
 struct SceneEntityNode;
-struct GuiTabElement;
-struct GuiTabElementString;
-struct GuiTabElementPropertyString;
+struct GuiRect;
+struct GuiString;
+struct GuiButton;
+struct GuiPropertyString;
+struct GuiPropertySlider;
+struct GuiPropertyAnimation;
 struct GuiLabel;
 struct GuiButton;
 struct GuiTabImage;
+struct AnimationController;
 
 
 struct Editor
 {
 	static std::vector<SceneEntityNode*> selection;
 };
-
-
 
 
 struct GuiInterface  : TPoolVector<GuiInterface>
@@ -70,16 +72,13 @@ struct GuiTabImage
 
 
 
-struct GuiTabElementRow;
 
 
-struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
+
+struct GuiRect : GuiInterface , PtrHierarchyNode<GuiRect>
 {
 	vec4 rect;
 	
-
-	float &x,&y,&width,&height;
-
 	unsigned int colorBackground;
 	unsigned int colorForeground;
 	unsigned int colorHovering;
@@ -101,14 +100,16 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 	vec2 alignRect;
 	
 
-	GuiTabElement* sibling[4];
+	GuiRect* sibling[4];
 	
 	int	sequence;
 	
 	int animFrame;
 
-	GuiTabElement(GuiTabElement* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
-	~GuiTabElement();
+	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
+	~GuiRect();
+
+	void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float apx=-1.0f,float apy=-1.0f,float arx=-1.0f,float ary=-1.0f);
 
 	virtual void OnPaint(GuiTab*);
 	virtual void OnEntitiesChange(GuiTab*);
@@ -124,21 +125,30 @@ struct GuiTabElement : GuiInterface , PtrHierarchyNode<GuiTabElement>
 
 	bool _contains(vec4& quad,vec2);
 
-	void BroadcastToChilds(void (GuiTabElement::*func)(GuiTab*),GuiTab*);
+	void BroadcastToChilds(void (GuiRect::*func)(GuiTab*),GuiTab*);
 
-	GuiTabElementString* CreateTabElementContainer(const char* iText);
+	GuiString* Container(const char* iText);
 
-	GuiTabElement* CreateTabElement(float ix=0, float iy=0, float iw=0,float ih=0);
-	GuiTabElement* CreateTabElement(vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
+	GuiRect* Rect(float ix=0, float iy=0, float iw=0,float ih=0);
+	GuiRect* Rect(vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1));
 
-	GuiTabElementString* CreateTabElementString(String str,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignText=vec2(-1,-1));
-	GuiTabElementString* CreateTabElementString(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
+	GuiString* Text(String str,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignText=vec2(-1,-1));
+	GuiString* Text(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
 
-	GuiTabElementPropertyString* CreateTabElementPropertyString(const char* iLeft,const char* iRight);
-	GuiTabElementPropertyString* CreateTabElementPropertyString(const char* iLeft,vec3 iRight);
+	GuiPropertyString* Property(const char* iLeft,const char* iRight);
+	GuiPropertyString* Property(const char* iLeft,vec3 iRight);
+
+	GuiPropertySlider* Slider(const char* iLeft,float* ref);
+
+	GuiButton* Button(String text,float ix=0, float iy=0, float iw=0,float ih=0);
+	GuiButton* Button(String text,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
+
+	GuiPropertyAnimation* PropertyAnimControl(AnimationController*);
 };
 
-struct GuiTabElementString : GuiTabElement
+
+
+struct GuiString : GuiRect
 {
 	vec4 textRect;
 	vec2 alignText;
@@ -148,7 +158,19 @@ struct GuiTabElementString : GuiTabElement
 	virtual void OnSize(GuiTab*);
 };
 
-struct GuiTabElementPropertyString : GuiTabElement
+struct GuiButton : GuiString
+{
+	bool* referenceValue;
+	int		updateMode;
+
+	GuiButton():referenceValue(0),mouseUpFunc(0),updateMode(-1){}
+
+	void (GuiRect::*mouseUpFunc)();
+
+	void OnLMouseUp(GuiTab* tab);
+};
+
+struct GuiPropertyString : GuiRect
 {
 	String prp;
 	String val;
@@ -156,10 +178,46 @@ struct GuiTabElementPropertyString : GuiTabElement
 	virtual void OnPaint(GuiTab*);
 };
 
+struct GuiSlider : GuiRect
+{
+	float *referenceValue;
+
+	float minimum;
+	float maximum;
+
+	GuiSlider():referenceValue(0),minimum(0),maximum(1){}
+
+	virtual void OnPaint(GuiTab*);
+	virtual void OnMouseMove(GuiTab*);
+};
+
+struct GuiPropertySlider : GuiRect
+{
+	String prp;
+	
+	GuiSlider slider;
+
+	virtual void OnPaint(GuiTab*);
+};
+
+struct GuiPropertyAnimation : GuiRect
+{
+	AnimationController* animController;
+
+	GuiPropertyAnimation():animController(0){}
+
+	GuiString text;
+
+	GuiButton play;
+	GuiButton stop;
+
+	GuiSlider slider;
+};
+
 struct GuiTab : GuiInterface , TPoolVector<GuiTab>
 {
 	TabContainer* tabContainer;
-	GuiTabElement guiTabRootElement;
+	GuiRect guiTabRootElement;
 
 	GuiTab(TabContainer* tc);
 
@@ -244,6 +302,7 @@ struct RendererViewportInterface
 	String mousePositionString;
 
 	RendererViewportInterface():RendererViewportInterface_viewScale(0),RendererViewportInterface_farPlane(0){}
+
 
 	virtual void OnRendererMouseWheel(float)=0;
 	virtual void OnRendererMouseRightDown()=0;

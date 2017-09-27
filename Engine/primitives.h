@@ -48,6 +48,7 @@ public:
 	int Count()const;
 	const char* Buf()const;
 	bool Contains(const char*);
+	wchar_t* Wstring(int& oSize);
 
 };
 
@@ -348,6 +349,14 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	void zero();
 };
 
+struct Timer : TStaticInstance<Timer>
+{
+	unsigned int current;
+	unsigned int delta;
+	unsigned int last;
+
+	void update(){};
+};
 
 
 vec4 plane(vec3 a,vec3 b,vec3 c);
