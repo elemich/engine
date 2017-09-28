@@ -33,9 +33,9 @@ int main()
 	app->Init();
 
 	MatrixStack::SetProjectionMatrix(MatrixStack::projection);
-	MatrixStack::SetModelviewMatrix(MatrixStack::modelview);
+	MatrixStack::SetModelviewMatrix(MatrixStack::model);
 
-	ShadersPool::SetMatrices(MatrixStack::projection,MatrixStack::modelview);
+	ShadersPool::SetMatrices(MatrixStack::projection,MatrixStack::model);
 
 	app->Run();
 

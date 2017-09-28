@@ -74,11 +74,15 @@ void Entity::draw(RendererInterface* renderer)
 		return;
 	}
 
+	this->beginDraw();
+
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		(*it)->draw(renderer);
 
 	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
 		(*it)->draw(renderer);
+
+	this->endDraw();
 
 	this->nDrawed++;
 }

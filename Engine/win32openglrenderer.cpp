@@ -1252,7 +1252,7 @@ void OpenGLRenderer::OnRendererMouseRightDown()
 {
 	this->ChangeContext();
 
-	mat4& m=MatrixStack::modelview.identity();
+	mat4& m=MatrixStack::model.identity();
 	MatrixStack::SetModelviewMatrix(m);
 }
 
@@ -1267,6 +1267,8 @@ void OpenGLRenderer::OnRendererViewportSize(int width,int height)
 
 	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
 	MatrixStack::SetProjectionMatrix(p);
+
+	
 }
 
 void OpenGLRenderer::OnRendererMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown)
@@ -1285,10 +1287,11 @@ void OpenGLRenderer::OnRendererMouseMotion(float x,float y,bool leftButtonDown,b
 		float dX=(pos.x-oldpos.x);
 		float dY=(pos.y-oldpos.y);
 
-		mat4& modelview=MatrixStack::modelview;
+		mat4& modelview=MatrixStack::model;
 
 		if(altIsDown)
 		{
+			
 			mat4 mX;
 
 			vec3 pos=modelview.position();
@@ -1303,9 +1306,13 @@ void OpenGLRenderer::OnRendererMouseMotion(float x,float y,bool leftButtonDown,b
 			modelview=modelview*mX;
 
 			modelview.move(pos);
+
+			
 		}
 		else
 		{
+			//MatrixStack::view.translate(dX,-dY,0);;
+
 			mat4 invMdlv(modelview.inverse());
 
 			vec3 y=invMdlv.axis(0,1,0);
@@ -1317,6 +1324,8 @@ void OpenGLRenderer::OnRendererMouseMotion(float x,float y,bool leftButtonDown,b
 
 		MatrixStack::SetModelviewMatrix(modelview);
 	}
+
+	vec3 v=MatrixStack::projection.position();
 
 	mousePositionString=" " + String(tabContainer->mousex) + "," + String(tabContainer->mousey);
 }

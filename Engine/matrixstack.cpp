@@ -8,7 +8,7 @@ float matrixstack[MatrixStack::MATRIXMODE_MAX][MATRIXSTACK_ARRAY_SIZES][16];
 int	  levels[MatrixStack::MATRIXMODE_MAX];
 int	  mode;
 
-mat4 MatrixStack::modelview;
+mat4 MatrixStack::model;
 mat4 MatrixStack::projection;
 
 void MatrixStack::Init()

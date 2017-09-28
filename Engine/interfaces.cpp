@@ -247,8 +247,7 @@ void GuiRect::OnLMouseUp(GuiTab* tab)
 {
 	bool wasPressing=this->pressing;
 
-	if(this->hovering)
-		this->pressing = false;
+	this->pressing = false;
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnLMouseUp,tab);
@@ -361,7 +360,7 @@ GuiPropertyString* GuiRect::Property(const char* iProp,const char* iVal)
 GuiPropertyString* GuiRect::Property(const char* iProp,vec3 iRVal)
 {
 	char str[100];
-	sprintf(str,"%g,%g,%g",iRVal.x,iRVal.y,iRVal.z);
+	sprintf(str,"%3.2f , %3.2f , %3.2f",iRVal.x,iRVal.y,iRVal.z);
 	return this->Property(iProp,str);
 }
 
@@ -553,13 +552,19 @@ void GuiSlider::OnMouseMove(GuiTab* tab)
 
 	if(this->pressing)
 	{
-		if(tab->tabContainer->mousex > (this->rect.x+10) && tab->tabContainer->mousex < (this->rect.x+this->rect.z-10))
+		if(tab->tabContainer->mousex > this->rect.x && tab->tabContainer->mousex < this->rect.x+this->rect.z)
 		{
 			float f1=(tab->tabContainer->mousex-(this->rect.x+10))/(this->rect.z-20);
 			float f2=maximum-minimum;
-			(*referenceValue)=f1*f2;
+			float cursor=f1*f2;
 
-			this->OnPaint(tab);
+			cursor = cursor<minimum ? minimum : (cursor>maximum ? maximum : cursor);
+			
+			if((*referenceValue)!=cursor)
+			{
+				(*referenceValue)=cursor;
+				this->OnPaint(tab);
+			}
 		}
 	}
 }
@@ -584,7 +589,20 @@ void GuiPropertySlider::OnPaint(GuiTab* tab)
 }
 
 
+void GuiPropertyAnimation::OnMouseMove(GuiTab* tab)
+{
+	float value=*this->slider.referenceValue;
 
+	GuiRect::OnMouseMove(tab);
+
+	if(value!=*this->slider.referenceValue && this->slider.pressing)
+	{
+		bool old=animController->play;
+		animController->play=true;
+		animController->update();
+		animController->play=old;
+	}
+}
 
 
 GuiTabImage::GuiTabImage():image(0),data(0),width(0),height(0){}

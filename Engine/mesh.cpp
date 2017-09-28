@@ -71,7 +71,8 @@ void Mesh::update()
 
 void Mesh::draw(RendererInterface* renderer)
 {
-	//this->entity->beginDraw();
+	//
+
 
 	AABB &bbox=this->entity->entity_bbox;
 	//AABB aabb(this->entity_world.transform(bbox.a),this->entity_world.transform(bbox.b));

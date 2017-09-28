@@ -212,6 +212,8 @@ struct GuiPropertyAnimation : GuiRect
 	GuiButton stop;
 
 	GuiSlider slider;
+
+	virtual void OnMouseMove(GuiTab*);
 };
 
 struct GuiTab : GuiInterface , TPoolVector<GuiTab>

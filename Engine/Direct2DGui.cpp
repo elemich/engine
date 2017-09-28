@@ -827,9 +827,11 @@ void SceneEntityNode::SceneEntityPropertyNode::insert(Entity* _entity,HDC hdc,fl
 	lvl[0]=this->root.Container("Entity");
 
 	lvl[0]->Property("Name",this->entity->entity_name);
+	lvl[0]->Property("Position",_entity->entity_world.position());
 	lvl[1]=lvl[0]->Container("AABB");
 	lvl[1]->Property("min",_entity->entity_bbox.a);
 	lvl[1]->Property("max",_entity->entity_bbox.b);
+	lvl[1]->Property("Volume",_entity->entity_bbox.b-_entity->entity_bbox.a);
 	lvl[0]->Property("Child Num",String((int)_entity->entity_childs.size()));
 
 	Bone* bone=_entity->findComponent<Bone>();
