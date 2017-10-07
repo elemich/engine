@@ -54,7 +54,7 @@ struct MatrixStack
 
 	static mat4 model;
 	static mat4 projection;
-	//static mat4 view;
+	static mat4 view;
 };
 
 int simple_shader(int shader_type, const char* shader_src);

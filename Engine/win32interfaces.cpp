@@ -233,7 +233,7 @@ DWORD WINAPI threadGuiTabFunc(LPVOID _app)
 	
 
 	return 0;
-}
+}	
 
 void App::Run()
 {
@@ -260,13 +260,9 @@ void App::Run()
 				this->timerMain.update();
 
 
-				for(int i=0;i<(int)GetPool<TabContainer>().size();i++)
+				for(int i=0;i<(int)GetPool<OpenGLRenderer>().size();i++)
 				{
-					if(GetPool<TabContainer>()[i]->GetSelected())
-					{
-						GetPool<TabContainer>()[i]->OnGuiUpdate();
-						GetPool<TabContainer>()[i]->OnGuiRender();
-					}
+					GetPool<OpenGLRenderer>()[i]->RenderViewports();
 				}
 
 				/*this->threadPaintNeeded=false;

@@ -24,6 +24,7 @@ Bone::Bone()
 	bone_color.make((float)x,(float)y,(float)z);
 }
 
+
 void Bone::update()
 {
 }	

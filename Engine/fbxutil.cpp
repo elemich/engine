@@ -150,7 +150,7 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 		ExtractAnimations(fbxNode,entity);
 		entity->entity_parent=parent;
 
-		if(!entity->entity_parent)
+		if(fbxNode->GetScene()->GetRootNode()==fbxNode)
 		{
 			FbxAxisSystem as=fbxNode->GetScene()->GetGlobalSettings().GetAxisSystem();
 
@@ -165,6 +165,7 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 				printf("upVector is X\n");
 				break;
 			case FbxAxisSystem::eYAxis:
+				entity->entity_transform.rotate(-90.0f,1,0,0);
 				printf("upVector is Y\n");
 				break;
 			case FbxAxisSystem::eZAxis:

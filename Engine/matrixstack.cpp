@@ -10,6 +10,7 @@ int	  mode;
 
 mat4 MatrixStack::model;
 mat4 MatrixStack::projection;
+mat4 MatrixStack::view;
 
 void MatrixStack::Init()
 	

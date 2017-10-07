@@ -432,18 +432,6 @@ bool InitSplitter()
 			__debugbreak();
 	}
 
-	{
-		WNDCLASS wc={0};
-
-		wc.style=CS_VREDRAW|CS_HREDRAW|CS_OWNDC;//CS_OWNDC have always the same dc xevery window
-		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-		wc.lpszClassName=WC_OPENGLWINDOW;
-		wc.lpfnWndProc=OpenGLProc;
-		wc.hbrBackground=0;
-
-		if(!RegisterClass(&wc))
-			__debugbreak();
-	}
 
 	{
 		WNDCLASS wc={0};

@@ -487,14 +487,14 @@ void ScrollBar::OnPaint()
 
 	float scrollerHeight=scrollerRun*scrollerFactor;
 
-	tab->renderer->DrawBitmap(tab->iconUp,D2D1::RectF(x,y,x+ScrollBar::SCROLLBAR_WIDTH,y+ScrollBar::SCROLLBAR_TIP_HEIGHT));
+	tab->renderTarget->DrawBitmap(tab->iconUp,D2D1::RectF(x,y,x+ScrollBar::SCROLLBAR_WIDTH,y+ScrollBar::SCROLLBAR_TIP_HEIGHT));
 
 	float scrollerY=scroller+y+ScrollBar::SCROLLBAR_TIP_HEIGHT;
 	float scrollerY2=scrollerY+scrollerHeight;
 
-	tab->renderer->FillRectangle(D2D1::RectF(x,scrollerY,x+ScrollBar::SCROLLBAR_WIDTH,scrollerY2),tab->SetColor(D2D1::ColorF::Black));
+	tab->renderTarget->FillRectangle(D2D1::RectF(x,scrollerY,x+ScrollBar::SCROLLBAR_WIDTH,scrollerY2),tab->SetColor(D2D1::ColorF::Black));
 
-	tab->renderer->DrawBitmap(tab->iconDown,D2D1::RectF(x,height-ScrollBar::SCROLLBAR_TIP_HEIGHT,x+ScrollBar::SCROLLBAR_WIDTH,height));
+	tab->renderTarget->DrawBitmap(tab->iconDown,D2D1::RectF(x,height-ScrollBar::SCROLLBAR_TIP_HEIGHT,x+ScrollBar::SCROLLBAR_WIDTH,height));
 }
 
 
@@ -590,7 +590,7 @@ bitmapWidth((float)tc->width),
 bitmapHeight((float)tc->height),
 scrollBar(tc)
 {
-	this->guiTabRootElement.rect.make(0,0,0,0);
+	this->guiRoot.rect.make(0,0,0,0);
 
 	this->frameWidth=this->tabContainer->width-20;
 	this->frameHeight=this->tabContainer->height-30;
@@ -741,7 +741,7 @@ void SceneViewer::OnGuiReparent()
 void SceneViewer::DrawNodeSelectionRecursive(SceneEntityNode& node)
 {
 	if(node.selected)
-		this->tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)node.y,(float)this->tabContainer->width,(float)node.y+SceneViewer::TREEVIEW_ROW_HEIGHT),this->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+		this->tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)node.y,(float)this->tabContainer->width,(float)node.y+SceneViewer::TREEVIEW_ROW_HEIGHT),this->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 	if(node.expanded)
 	{
@@ -760,12 +760,12 @@ void SceneViewer::DrawNodeRecursive(SceneEntityNode& node)
 	mbstowcs_s(&resLen,resText,CHAR_MAX,node.entity->entity_name,node.entity->entity_name.Count());
 
 	if(node.selected)
-		this->tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)node.y,(float)this->tabContainer->width,(float)node.y+SceneViewer::TREEVIEW_ROW_HEIGHT),this->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+		this->tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)node.y,(float)this->tabContainer->width,(float)node.y+SceneViewer::TREEVIEW_ROW_HEIGHT),this->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 	if(node.hasChilds)
-		this->tabContainer->renderer->DrawBitmap(node.expanded ? this->tabContainer->iconDown : this->tabContainer->iconRight,D2D1::RectF(node.x-SceneViewer::TREEVIEW_ROW_ADVANCE,node.y,node.x,node.y+SceneViewer::TREEVIEW_ROW_HEIGHT));
+		this->tabContainer->renderTarget->DrawBitmap(node.expanded ? this->tabContainer->iconDown : this->tabContainer->iconRight,D2D1::RectF(node.x-SceneViewer::TREEVIEW_ROW_ADVANCE,node.y,node.x,node.y+SceneViewer::TREEVIEW_ROW_HEIGHT));
 
-	this->tabContainer->renderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(node.x,node.y,node.x+node.textWidth,node.y+SceneViewer::TREEVIEW_ROW_HEIGHT),this->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+	this->tabContainer->renderTarget->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(node.x,node.y,node.x+node.textWidth,node.y+SceneViewer::TREEVIEW_ROW_HEIGHT),this->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 
 	if(node.expanded)
 	{
@@ -779,19 +779,19 @@ void SceneViewer::OnGuiPaint()
 {
 	tabContainer->BeginDraw();
 
-	tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_GUI_BACKGROUND));
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_GUI_BACKGROUND));
 
-	tabContainer->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
+	tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-scrollBar.scroller));
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-scrollBar.scroller));
 
 	this->DrawNodeRecursive(elements);
 
 	//tabContainer->renderer->DrawRectangle(D2D1::RectF(0,0,bitmapWidth,bitmapHeight),tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 
-	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
-	tabContainer->renderer->PopAxisAlignedClip();
+	tabContainer->renderTarget->PopAxisAlignedClip();
 
 	scrollBar.OnPaint();
 
@@ -904,7 +904,7 @@ Properties::Properties(TabContainer* tc):
 	GuiTab(tc)
 {
 	this->name="Properties";
-	this->guiTabRootElement.name+="_Properties";
+	this->guiRoot.name+="_Properties";
 
 	OnGuiRecreateTarget();
 
@@ -923,15 +923,15 @@ void Properties::OnGuiPaint()
 
 void Properties::OnGuiSelected()
 {
-	this->guiTabRootElement.childs.clear();
+	this->guiRoot.childs.clear();
 
 	if(Editor::selection.size())
 	{
 
 		GuiRect* properties=&Editor::selection[0]->properties.root;
 
-		this->guiTabRootElement.childs.push_back(properties);
-		properties->parent=&this->guiTabRootElement;
+		this->guiRoot.childs.push_back(properties);
+		properties->parent=&this->guiRoot;
 	}
 	else
 	{
@@ -1156,14 +1156,14 @@ void Resources::ResourceNode::drawdirlist(Resources* tv)
 		mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
 
 		if(this->selected)
-			tv->tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tv->leftFrameWidth-ScrollBar::SCROLLBAR_WIDTH-4,(float)this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+			tv->tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)this->y,(float)tv->leftFrameWidth-ScrollBar::SCROLLBAR_WIDTH-4,(float)this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 		if(this->nChilds)
-			tv->tabContainer->renderer->DrawBitmap(this->expanded ? tv->tabContainer->iconDown : tv->tabContainer->iconRight,D2D1::RectF(this->x-SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
+			tv->tabContainer->renderTarget->DrawBitmap(this->expanded ? tv->tabContainer->iconDown : tv->tabContainer->iconRight,D2D1::RectF(this->x-SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
 
-		tv->tabContainer->renderer->DrawBitmap(tv->tabContainer->iconFolder,D2D1::RectF(this->x,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
+		tv->tabContainer->renderTarget->DrawBitmap(tv->tabContainer->iconFolder,D2D1::RectF(this->x,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
 
-		tv->tabContainer->renderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+		tv->tabContainer->renderTarget->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 	}
 
 	if(this->expanded)
@@ -1184,14 +1184,14 @@ void Resources::ResourceNode::drawfilelist(Resources* tv)
 		mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
 
 		if(this->selected)
-			tv->tabContainer->renderer->FillRectangle(D2D1::RectF(this->x,this->y,tv->tabContainer->width,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+			tv->tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->x,this->y,tv->tabContainer->width,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
 		if(this->nChilds)
-			tv->tabContainer->renderer->DrawBitmap(this->expanded ? tv->tabContainer->iconDown : tv->tabContainer->iconRight,D2D1::RectF(this->x-SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
+			tv->tabContainer->renderTarget->DrawBitmap(this->expanded ? tv->tabContainer->iconDown : tv->tabContainer->iconRight,D2D1::RectF(this->x-SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
 
-		tv->tabContainer->renderer->DrawBitmap(this->isDir ? tv->tabContainer->iconFolder : tv->tabContainer->iconFile,D2D1::RectF(this->x,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
+		tv->tabContainer->renderTarget->DrawBitmap(this->isDir ? tv->tabContainer->iconFolder : tv->tabContainer->iconFile,D2D1::RectF(this->x,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT));
 
-		tv->tabContainer->renderer->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+		tv->tabContainer->renderTarget->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + SceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x + SceneViewer::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+SceneViewer::TREEVIEW_ROW_HEIGHT),tv->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 	}
 
 	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
@@ -1470,45 +1470,45 @@ void Resources::OnGuiPaint()
 	
 
 	if(!tabContainer->isRender)
-		tabContainer->renderer->BeginDraw();
+		tabContainer->renderTarget->BeginDraw();
 
-	tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tabContainer->width,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_MAIN_BACKGROUND));
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tabContainer->width,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_MAIN_BACKGROUND));
 
 	//dirs hierarchy
 
-	tabContainer->renderer->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
+	tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tabContainer->renderer->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_GUI_BACKGROUND));
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->leftFrameWidth-4,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_GUI_BACKGROUND));
 
-	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollBar.GetScrollValue()));
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollBar.GetScrollValue()));
 
 	leftElements.drawdirlist(this);
 
-	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
-	tabContainer->renderer->PopAxisAlignedClip();
+	tabContainer->renderTarget->PopAxisAlignedClip();
 
 	leftScrollBar.OnPaint();
 
 	//files hierarchy
 
-	tabContainer->renderer->PushAxisAlignedClip(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tabContainer->width,(float)tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
+	tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tabContainer->width,(float)tabContainer->height),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tabContainer->renderer->FillRectangle(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tabContainer->width,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_GUI_BACKGROUND));
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT,(float)this->tabContainer->width,(float)tabContainer->height),this->tabContainer->SetColor(GuiTab::COLOR_GUI_BACKGROUND));
 
-	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Translation(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
 
 	rightElements.drawfilelist(this);
 
-	tabContainer->renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
-	tabContainer->renderer->PopAxisAlignedClip();
+	tabContainer->renderTarget->PopAxisAlignedClip();
 
 	rightScrollBar.OnPaint();
 
 	if(!tabContainer->isRender)
 	{
-		if(tabContainer->renderer->EndDraw() & D2DERR_RECREATE_TARGET)
+		if(tabContainer->renderTarget->EndDraw() & D2DERR_RECREATE_TARGET)
 			tabContainer->recreateTarget=true;
 	}
 }

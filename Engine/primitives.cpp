@@ -663,49 +663,26 @@ void MatrixMathNamespace::ortho(float* m,float l,float r,float b,float t,float n
     m[15]=0;
 }
 
-void MatrixMathNamespace::perspective(float* m,float left,float right,float bottom,float top,float near,float far)
+void MatrixMathNamespace::perspective(float* m,float fov,float ratio,float near,float far)
 {
-	float a = 2.0f / (right - left);
-	float b = 2.0f / (top - bottom);
-	float c = -2.0f / (far - near);
-
-	float tx = - (right + left)/(right - left);
-	float ty = - (top + bottom)/(top - bottom);
-	float tz = - (far + near)/(far - near);
-
-	m[0]=a;
-	m[1]=0;
-	m[2]=0;
-	m[3]=0;
-
-	m[4]=0;
-	m[5]=b;
-	m[6]=0;
-	m[7]=0;
-
-	m[8]=0;
-	m[9]=0;
-	m[10]=c;
-	m[11]=0;
-
-	m[12]=tx;
-	m[13]=ty;
-	m[14]=tx;
-	m[15]=1;
-
-	/*float om[16] = {
-		a, 0, 0, 0,
-		0, b, 0, 0,
-		0, 0, c, 0,
-		tx, ty, tz, 1
-	};*/
+		float D2R = PI / 180.0;
+		float yScale = 1.0 / tan(D2R * fov / 2);
+		float xScale = yScale / ratio;
+		float nearmfar = near - far;
+		float mo[] = {
+			xScale, 0, 0, 0,
+			0, yScale, 0, 0,
+			0, 0, (far + near) / nearmfar, -1,
+			0, 0, 2*far*near / nearmfar, 0 
+		};    
+		memcpy(m, mo, sizeof(float)*16);
 }
 
 void MatrixMathNamespace::lookat(float* m,float px,float py,float pz,float cx,float cy,float cz,float ux,float uy,float uz)
 {
     float   p[3]={px,py,pz},
             c[3]={cx,cy,cz},
-            u[3]={ux,uy,uz},
+            u[3]={-ux,-uy,-uz},
             f[3],
             s[3];
 
@@ -1065,9 +1042,14 @@ mat4 mat4::inverse(){float ret[16];MatrixMathNamespace::invert(ret,v);return mat
 
 void mat4::print(){MatrixMathNamespace::print(v);}
 
-mat4& mat4::perspective(float left,float right ,float bottom,float up,float near,float far){MatrixMathNamespace::perspective(v,left,right,bottom,up,near,far);return *this;}
+mat4& mat4::perspective(float fov,float ratio,float near,float far){MatrixMathNamespace::perspective(v,fov,ratio,near,far);return *this;}
 //mat4& mat4::lookat(vec3 target,vec3 p,vec3 y){matrix::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
-mat4& mat4::lookat(vec3 target){vec3 y=axis(vec3(0,1,0)),p=position();VectorMathNamespace::print(p);VectorMathNamespace::print(y);MatrixMathNamespace::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
+mat4& mat4::lookat(vec3 target,vec3 up)
+{
+	vec3 p=position();
+	MatrixMathNamespace::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],up[0],up[1],up[2]);
+	return *this;
+}
 
 vec3 mat4::position(){vec3 t;MatrixMathNamespace::transform(t,v,0,0,0);return t;}
 

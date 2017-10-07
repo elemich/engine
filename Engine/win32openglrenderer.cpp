@@ -81,142 +81,19 @@ bool GLEW_INITED=false;
 
 #define USE_COMMON_PIXELFORMAT_SYSTEM 1
 
-int processNode(RendererInterface* renderer,std::list<Entity*>& entitiesPool,std::list<Entity*>::iterator& poolNode,int type,float time)
+
+vec3 rayStart;
+vec3 rayEnd;
+
+
+OpenGLRenderer::OpenGLRenderer(TabContainer* _tabContainer):
+tabContainer(_tabContainer)
 {
-	int retValue=0;
-
-#if PROCESS_ENTITIES_RECURSIVELY
-	if(poolNode!=entitiesPool.end())
-#else
-	for(;poolNode!=entitiesPool.end();poolNode++)
-#endif
-	{
-		Entity* entity=*poolNode;
-
-		
-		switch(type)
-		{
-			/*case 0:
-				retValue+=entity->animate(time);
-			break;*/
-			case 1:
-				entity->update();
-			break;
-			case 2:
-				entity->draw(renderer);
-			break;
-			case 3:
-			{
-				int& nDrawed=entity->nDrawed;
-				int& nUpdated=entity->nUpdated;
-				int& nAnimated=entity->nAnimated;
-				String &name=entity->entity_name;
-				if(nDrawed>1 || nUpdated>1 || nAnimated>1)
-					__debugbreak();
-
-				nDrawed=nUpdated=nAnimated=0;
-			}
-			break;
-		}
-
-#if PROCESS_ENTITIES_RECURSIVELY
-
-		std::list<Entity*>::iterator childPoolNode=entity->entity_childs.begin();
-
-		while(childPoolNode!=entity->entity_childs.end())
-			retValue+=processNode(renderer,entity->entity_childs,childPoolNode++,type,time);
-#endif
-	}
-
-	return retValue;
-}
-
-
-
-LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
-{
-	OpenGLRenderer* renderer=(OpenGLRenderer*)GetWindowLongPtr(hwnd,GWL_USERDATA);
-
-	LRESULT result=0;
-
-	switch(msg)
-	{
-		case WM_MOUSEMOVE:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-
-			POINTS p=MAKEPOINTS(lparam);
-
-			bool leftButtonIsDown=(wparam & MK_LBUTTON)!=0;
-			bool controlButtonIsDown=(wparam & MK_CONTROL)!=0;
-
-			if(renderer)
-				renderer->OnRendererMouseMotion(p.x,p.y,leftButtonIsDown,controlButtonIsDown);
-
-			SetFocus(hwnd);//for sending mousewheel to this window
-		}
-		break;
-		case WM_MOUSEWHEEL:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-
-			short int delta = GET_WHEEL_DELTA_WPARAM(wparam);
-
-			if(renderer && wparam && lparam)
-				renderer->OnRendererMouseWheel(delta);
-		
-		}
-		break;
-		case WM_RBUTTONDOWN:
-			if(renderer)
-				renderer->OnRendererMouseRightDown();
-		break;
-		case WM_SIZE:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-
-			if(renderer)
-				renderer->OnRendererViewportSize(LOWORD(lparam),HIWORD(lparam));
-		}
-		break;
-		/*case WM_LBUTTONDOWN:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-
-				if(renderer)
-					renderer->OnViewportSize(LOWORD(lparam),HIWORD(lparam));
-			}
-			break;*/
-		case WM_ERASEBKGND:
-			return (LRESULT)1;
-		break;
-		
-		default:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-	}
-
-	return result;
-}
-
-
-OpenGLRenderer::OpenGLRenderer(TabContainer* tc):
-	GuiTab(tc),
-	width(0),
-	height(0)
-{
-	this->name="OpenGL";
-
-	RendererViewportInterface_viewScale=1.0f;
-	RendererViewportInterface_farPlane=3000.0f;
-
-	bitmapTarget=0;
-	renderBitmap=0;
-
 	hglrc=0;
-	renderBuffer=0;
+}
 
-	if(tabContainer->hwnd)
-		this->Create(tabContainer->hwnd);
+OpenGLRenderer::~OpenGLRenderer()
+{
 }
 
 char* OpenGLRenderer::Name()
@@ -231,8 +108,8 @@ void OpenGLRenderer::Create(HWND hwnd)
 	RECT r;
 	GetClientRect(hwnd,&r);
 
-	width=(float)(int)(r.right-r.left);
-	height=(float)(int)(r.bottom-r.top);
+	int width=(float)(int)(r.right-r.left);
+	int height=(float)(int)(r.bottom-r.top);
 
 	DWORD error=0;
 
@@ -365,6 +242,9 @@ void OpenGLRenderer::Create(HWND hwnd)
 
 	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
 		__debugbreak();
+
+	if(hglrc)
+		printf("HGLRC: %p, HDC: %p\n",hglrc,hdc);
 	
 	if(!wglMakeCurrent(hdc,hglrc))
 		__debugbreak();
@@ -404,6 +284,8 @@ void OpenGLRenderer::Create(HWND hwnd)
 	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
 	//printf("Status: Using extension %s\n", glGetString(GL_EXTENSIONS));
 
+	
+
 	//SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
@@ -415,51 +297,20 @@ void OpenGLRenderer::Create(HWND hwnd)
 	
 }
 
-/*
-OpenGLRenderer* OpenGLRenderer::CreateSharedContext(HWND container)
-{
-	OpenGLRenderer* sharedRenderer=new OpenGLRenderer(container);
-
-	sharedRenderer->hwnd=CreateWindow(WC_OPENGLWINDOW,"OpenGLFixedRenderer",WS_CHILD,CW_USEDEFAULT,CW_USEDEFAULT,100,100,container,0,0,0);
-
-	sharedRenderer->hdc=GetDC(sharedRenderer->hwnd);
-
-	if(!sharedRenderer->hdc)
-		MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
-
-	sharedRenderer->hglrc=hglrc;
-	
-	sharedRenderer->ChangeContext();
-
-	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
-	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
-	//printf("Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
-
-	SetWindowLongPtr(sharedRenderer->hwnd,GWL_USERDATA,(LONG_PTR)this);
-
-	shared_renderers.push_back(sharedRenderer);
-
-	return sharedRenderer;
-}
-*/
-
-
-
 
 void OpenGLRenderer::ChangeContext()
 {
-	return;
-
 	if(!hglrc || !hdc)
 	{
 		__debugbreak();
 		return;
 	}
 
-	if(!wglMakeCurrent(hdc,hglrc))
-		__debugbreak();
-
-	glGetError();
+	if(hglrc != wglGetCurrentContext() || hdc!=wglGetCurrentDC())
+	{
+		if(!wglMakeCurrent(hdc,hglrc))
+			__debugbreak();
+	}
 }
 
 
@@ -477,8 +328,6 @@ void OpenGLRenderer::draw(vec2)
 
 void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
@@ -514,8 +363,6 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 void OpenGLRenderer::draw(vec4 rect)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	int position_slot=-1;
@@ -553,8 +400,6 @@ void OpenGLRenderer::draw(vec4 rect)
 
 void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
@@ -603,8 +448,6 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 
 void OpenGLRenderer::draw(AABB aabb,vec3 color)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
@@ -670,8 +513,6 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 
 void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
 
 	if(!shader)
@@ -712,8 +553,6 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 
 void OpenGLRenderer::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=0;//line_color_shader
 
 	if(!shader || !text)
@@ -876,8 +715,6 @@ void OpenGLFixedRenderer::draw(Font* font,char* phrase,float x,float y,float wid
 
 void OpenGLRenderer::draw(Texture* _t)
 {
-	this->ChangeContext();
-
 	return;
 	ShaderInterface* shader=0;//unlit_texture
 
@@ -955,8 +792,6 @@ void OpenGLRenderer::draw(Texture* _t)
 
 void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int texture_slot,int texcoord_slot)
 {
-	this->ChangeContext();
-
 	for(int i=0;i<(int)mesh->mesh_materials.size();i++)
 	{
 		for(int j=0;j<(int)mesh->mesh_materials[i]->textures.size() && !textureIndices.size();j++)
@@ -998,15 +833,11 @@ void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int tex
 
 void OpenGLRenderer::draw(Mesh* mesh)
 {
-	this->ChangeContext();
-
 	drawUnlitTextured(mesh);
 }
 
 void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 {
-	this->ChangeContext();
-
 	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_texture");
 
 	if(!shader || !mesh)
@@ -1084,8 +915,6 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 
 void OpenGLRenderer::draw(Skin *skin)
 {
-	this->ChangeContext();
-
 	/*this->draw((Mesh*)skin);
 	return;*/
 
@@ -1193,8 +1022,6 @@ void OpenGLRenderer::draw(Skin *skin)
 
 void OpenGLRenderer::draw(Bone* bone)
 {
-	this->ChangeContext();
-
 	if(!bone)
 		return;
 
@@ -1212,233 +1039,125 @@ void OpenGLRenderer::draw(Bone* bone)
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
-void OpenGLRenderer::OnGuiMouseWheel()
+
+
+void OpenGLRenderer::Render(GuiViewport* viewport)
 {
-	this->ChangeContext();
-
-	short int delta = GET_WHEEL_DELTA_WPARAM(tabContainer->wparam);
-
-	this->OnRendererMouseWheel(delta);
-}
-
-void OpenGLRenderer::OnRendererMouseWheel(float factor)
-{
-	this->ChangeContext();
-
-	RendererViewportInterface_viewScale+=-signof(factor)*(RendererViewportInterface_viewScale*0.1f);
-
-	RECT rc;
-	GetClientRect(this->tabContainer->hwnd,&rc);
-
-	float halfW=this->GetRendererProjectionHalfWidth();
-	float halfH=this->GetRendererProjectionHalfHeight();
-
-
-	mat4& t=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
-	MatrixStack::SetProjectionMatrix(t);
-
-	//printf("wiewScale %3.2f\n",RendererViewportInterface_viewScale);
-
-}
-
-void OpenGLRenderer::OnGuiMouseMove()
-{
-	this->ChangeContext();
-
-	this->OnRendererMouseMotion(tabContainer->mousex,tabContainer->mousey,this->tabContainer->buttonLeftMouseDown,this->tabContainer->buttonControlDown);
-}
-
-void OpenGLRenderer::OnRendererMouseRightDown()
-{
-	this->ChangeContext();
-
-	mat4& m=MatrixStack::model.identity();
-	MatrixStack::SetModelviewMatrix(m);
-}
-
-void OpenGLRenderer::OnRendererViewportSize(int width,int height)
-{
-	this->ChangeContext();
-
-	glViewport(0,0,width,height);glCheckError();
-	
-	float halfW=this->GetRendererProjectionHalfWidth();
-	float halfH=this->GetRendererProjectionHalfHeight();
-
-	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
-	MatrixStack::SetProjectionMatrix(p);
-
-	
-}
-
-void OpenGLRenderer::OnRendererMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown)
-{
-	this->ChangeContext();
-
-	vec2 &pos=InputManager::mouseInput.mouse_pos;
-	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
-
-	oldpos=pos;
-	pos.x=(float)x;
-	pos.y=(float)y;
-
-	if(leftButtonDown && GetFocus()==this->tabContainer->hwnd)
-	{
-		float dX=(pos.x-oldpos.x);
-		float dY=(pos.y-oldpos.y);
-
-		mat4& modelview=MatrixStack::model;
-
-		if(altIsDown)
-		{
-			
-			mat4 mX;
-
-			vec3 pos=modelview.position();
-
-			modelview.move(vec3(0,0,0));
-
-			if(dY)
-				mX.rotate(-dY,1,0,0);
-
-			modelview.rotate(-dX,0,1,0);
-
-			modelview=modelview*mX;
-
-			modelview.move(pos);
-
-			
-		}
-		else
-		{
-			//MatrixStack::view.translate(dX,-dY,0);;
-
-			mat4 invMdlv(modelview.inverse());
-
-			vec3 y=invMdlv.axis(0,1,0);
-			vec3 x=invMdlv.axis(1,0,0);
-
-			modelview.translate(x*dX);
-			modelview.translate(y*-dY);
-		}
-
-		MatrixStack::SetModelviewMatrix(modelview);
-	}
-
-	vec3 v=MatrixStack::projection.position();
-
-	mousePositionString=" " + String(tabContainer->mousex) + "," + String(tabContainer->mousey);
-}
-
-
-void OpenGLRenderer::OnRendererMouseDown(float,float)
-{
-	this->ChangeContext();
-}
-
-
-void OpenGLRenderer::OnGuiRender()
-{
-	this->Render();
-	this->OnGuiPaint();
-}
-
-void OpenGLRenderer::OnGuiPaint()
-{
-	if(!renderBitmap)
+	if(!this->hglrc || !viewport || !viewport->surface)
 		return;
+
+	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->update();
+
+	vec4 &rectangle=viewport->rect;
+
+	glViewport((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
+	glScissor((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
+
+	glEnable(GL_DEPTH_TEST);
+
+	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+
+	MatrixStack::Push(MatrixStack::PROJECTION,viewport->projection);
+	MatrixStack::Multiply(MatrixStack::PROJECTION,viewport->view);
+	MatrixStack::Push(MatrixStack::MODELVIEW,viewport->model);
+
+	draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+	draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+	draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+
+	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->draw(this);
+
+	MatrixStack::Pop(MatrixStack::MODELVIEW);
+	MatrixStack::Pop(MatrixStack::PROJECTION);
 
 	glReadBuffer(GL_BACK);glCheckError();
-	glReadPixels(0,0,(int)width,(int)height,GL_BGRA,GL_UNSIGNED_BYTE,renderBuffer);glCheckError();//@mic should implement pbo for performance
+	glReadPixels((int)0,(int)0,(int)rectangle.z,(int)rectangle.w,GL_BGRA,GL_UNSIGNED_BYTE,viewport->surface->renderBuffer);glCheckError();//@mic should implement pbo for performance
 
-	renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)width,(int)height),renderBuffer,(int)(width*4));
+	viewport->surface->renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)rectangle.z,(int)rectangle.w),viewport->surface->renderBuffer,(int)(rectangle.z*4));
 
-	if(!tabContainer->isRender)
-		tabContainer->renderer->BeginDraw();
-
-	tabContainer->renderer->DrawBitmap(renderBitmap,D2D1::RectF(0.0f,(float)TabContainer::CONTAINER_HEIGHT,width,height+30));
-
-	tabContainer->renderer->DrawRectangle(D2D1::RectF(1.0f,(float)TabContainer::CONTAINER_HEIGHT + 0.5f,(float)width-1.0f,(float)tabContainer->height-1.0f),tabContainer->SetColor(D2D1::ColorF::Yellow));
-
-	Direct2DGuiBase::DrawText(tabContainer->renderer,tabContainer->SetColor(TabContainer::COLOR_TEXT),this->mousePositionString.Buf(),0,tabContainer->height-20,tabContainer->width,tabContainer->height);
-
-	if(!tabContainer->isRender)
-		tabContainer->renderer->EndDraw();
+	viewport->OnPaint(viewport->surface->tab);
 }
 
-
-void OpenGLRenderer::Render()
+void OpenGLRenderer::Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model)
 {
-	this->ChangeContext();
-
-	if(!hglrc)
+	if(!this->hglrc)
 		return;
 
-	/*glReadBuffer(GL_FRONT);glCheckError();
+	ID2D1Bitmap* renderBitmap;
 
-	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB,pixelBuffer);glCheckError();
-	glReadPixels(0,30,width,height,GL_RGBA,GL_UNSIGNED_BYTE,0);glCheckError();
-	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB,0);glCheckError();
+	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+	bp.pixelFormat=tabContainer->renderTarget->GetPixelFormat();
 
-	glDrawBuffer(GL_BACK);glCheckError();*/
+	tabContainer->renderTarget->CreateBitmap(D2D1::SizeU((int)rectangle.z,(int)rectangle.w),bp,&renderBitmap);
+
+	if(!renderBitmap)
+		__debugbreak();
+
+	unsigned char* renderBuffer=new unsigned char[(int)(rectangle.z*rectangle.w*4)];
+
+	glViewport((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
+	glScissor((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
 
 	glEnable(GL_DEPTH_TEST);
 	
 	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-	MatrixStack::SetShaderMatrix();
+	MatrixStack::Push(MatrixStack::PROJECTION,_projection);
+	MatrixStack::Multiply(MatrixStack::PROJECTION,_view);
+	MatrixStack::Push(MatrixStack::MODELVIEW,_model);
 
-	draw(vec3(0,0,0),15);
-	draw(vec3(0,0,0),vec3(1000,0,0));
-	//draw(AABB(vec3(100,0,100),vec3(200,150,150)));
+	draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+	draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+	draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-	if(Entity::pool.size())
-		Entity::pool.front()->draw(this);
+	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->draw(this);
+
+	MatrixStack::Pop(MatrixStack::MODELVIEW);
+	MatrixStack::Pop(MatrixStack::PROJECTION);
+
+	glReadBuffer(GL_BACK);glCheckError();
+	glReadPixels((int)0,(int)0,(int)rectangle.z,(int)rectangle.w,GL_BGRA,GL_UNSIGNED_BYTE,renderBuffer);glCheckError();//@mic should implement pbo for performance
+
+	renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)rectangle.z,(int)rectangle.w),renderBuffer,(int)(rectangle.z*4));
+
+	if(!tabContainer->isRender)
+		tabContainer->renderTarget->BeginDraw();
+
+	tabContainer->renderTarget->DrawBitmap(renderBitmap,D2D1::RectF(0.0f,(float)TabContainer::CONTAINER_HEIGHT,rectangle.z,rectangle.w+30));
+
+	//tabContainer->renderTarget->DrawRectangle(D2D1::RectF(1.0f,(float)TabContainer::CONTAINER_HEIGHT + 0.5f,(float)width-1.0f,(float)tabContainer->height-1.0f),tabContainer->SetColor(D2D1::ColorF::Yellow));
+
+	//Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),this->mousePositionString.Buf(),0,tabContainer->height-20,tabContainer->width,tabContainer->height);
+
+	if(!tabContainer->isRender)
+		tabContainer->renderTarget->EndDraw();
+
+	SAFERELEASE(renderBitmap);
+	SAFEDELETEARRAY(renderBuffer);
+
 }
 
 
-float OpenGLRenderer::GetRendererProjectionHalfWidth()
-{
-	return (this->width/2.0f)*this->RendererViewportInterface_viewScale;
-}
-float OpenGLRenderer::GetRendererProjectionHalfHeight()
-{
-	return -(this->height/2.0f)*this->RendererViewportInterface_viewScale;
-}
 
-void OpenGLRenderer::OnGuiSize()
+void OpenGLRenderer::RenderViewports()
 {
-	/*if(OpenGLRenderer::Pool().size()>1 && this==OpenGLRenderer::Pool()[1])
-		__debugbreak();*/
 
 	this->ChangeContext();
 
-	this->width=tabContainer->width;
-	this->height=(tabContainer->height-TabContainer::CONTAINER_HEIGHT);
-
-	float halfW=this->GetRendererProjectionHalfWidth();
-	float halfH=this->GetRendererProjectionHalfHeight();
-
-	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=tabContainer->renderer->GetPixelFormat();
-
-	SAFERELEASE(renderBitmap);
-	SAFEDELETE(renderBuffer);
-
-	tabContainer->renderer->CreateBitmap(D2D1::SizeU((int)width,(int)height),bp,&renderBitmap);
-	
-	if(!renderBitmap)
-		__debugbreak();
-
-	renderBuffer=new unsigned char[(int)(width*height*4)];
-
-	glViewport(0,0,(int)this->width,(int)this->height);glCheckError();
-	glScissor(0,0,(int)this->width,(int)this->height);glCheckError();
-
-	mat4& p=MatrixStack::projection.perspective(-halfW,halfW,-halfH,halfH,1,RendererViewportInterface_farPlane);
-	MatrixStack::SetProjectionMatrix(p);
+	for(std::list<GuiViewport*>::iterator it=this->viewports.begin();it!=this->viewports.end();it++)
+	{
+		this->Render(*it);
+	}
 }
+
+
+/*float ratio=this->width/this->height;
+	float calcRatio=ratio*tan(45*PI/180.0f);
+
+	draw(vec3(0,1,-1),15);
+	draw(vec3(calcRatio*this->RendererViewportInterface_farPlane,0,-this->RendererViewportInterface_farPlane+1),15);*/
 
 
 
@@ -1491,25 +1210,17 @@ bool intersect(AABB &bounds,const Ray &r) const
 
 
 
+/*
 void OpenGLRenderer::OnGuiLMouseDown()
 {
-	vec3 norm_device_coord(2.0f * tabContainer->mousex / tabContainer->width -1.0f,1.0f - tabContainer->mousey / tabContainer->height,0);
-	vec4 ray_clip(norm_device_coord.x,norm_device_coord.y,-1.0f,1.0f);
-	vec4 ray_eye = mat4(MatrixStack::GetProjectionMatrix()).inverse() * ray_clip;
-	ray_eye.z=-1.0f;
-	ray_eye.w=1.0f;
-	vec3 ray_world = mat4(MatrixStack::GetModelviewMatrix()).inverse() * ray_eye;
-	ray_world.normalize();
+	/ *float ratio=this->width/this->height;
+	float calcRatioX=ratio*tan(45*PI/180.0f);
+	float calcRatioY=-1;
 
-		
+	/ *vec3 ndc(2.0f * tabContainer->mousex / this->width -1.0f,-2.0f * (tabContainer->mousey-TabContainer::CONTAINER_HEIGHT) / this->height + 1.0f,0);
+	mat4 viewInv=MatrixStack::view.inverse();
+	rayStart=viewInv.transform(ndc.x*calcRatioX,ndc.y*calcRatioY,-1);
+	rayEnd=viewInv.transform(ndc.x*calcRatioX*this->RendererViewportInterface_farPlane,ndc.y*calcRatioY*this->RendererViewportInterface_farPlane,-this->RendererViewportInterface_farPlane+1);* /
+* /
 
-}
-void OpenGLRenderer::OnEntitiesChange()
-{
-
-}
-void OpenGLRenderer::OnGuiUpdate()
-{
-	if(Entity::pool.size())
-		Entity::pool.front()->update();
-}
+}*/

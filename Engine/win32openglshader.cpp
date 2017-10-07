@@ -56,10 +56,10 @@ void glCheckError()
 	GLenum err=glGetError();
 	if(err!=GL_NO_ERROR)
 	{
-		printf("glErr %d",err);
-
 		HGLRC currentContext=wglGetCurrentContext();
 		HDC currentContextDC=wglGetCurrentDC();
+
+		printf("OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC);
 
 		__debugbreak();
 	}
@@ -168,7 +168,10 @@ int create_program(const char* vertexsh,const char* fragmentsh)
 ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const char* frag)
 {
 	if(shadersPool.Find(name))
+	{
+		printf("skipping creating %s: already exists\n",name);
 		return 0;
+	}
 
 	int program=create_program(pix,frag);
 

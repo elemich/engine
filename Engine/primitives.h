@@ -239,7 +239,7 @@ namespace MatrixMathNamespace
 
 	void print(float*);
 
-	void perspective(float*,float left,float right ,float bottom,float up,float near,float far);
+	void perspective(float*,float fov,float ratio,float near,float far);
 	void ortho(float*,float left,float right ,float bottom,float up,float near,float far);
 	void lookat(float*,float posx,float posy,float posz,float centerx,float centery,float centerz,float upx,float upy,float upz);
 	void lookat(float*,float*,float,float,float,float,float,float);
@@ -341,9 +341,9 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	vec3 axis(vec3 in);
 	vec3 axis(float,float,float);
 	void print();
-	mat4& perspective(float left,float right ,float bottom,float up,float near,float far);
+	mat4& perspective(float fov,float ratio,float near,float far);
 	//mat4& lookat(vec3 target,vec3 pos,vec3 up);
-	mat4& lookat(vec3 target);
+	mat4& lookat(vec3 target,vec3 up=vec3(0,0,1));
 	operator float* (){return v;}
 	mat4& ortho(float left, float right,float bottom, float top,float near, float far);
 	void zero();
@@ -372,6 +372,7 @@ struct Influence;
 struct Keyframe;
 
 struct Entity;
+struct EntityComponent;
 struct Animation;
 struct Root;
 struct Skeleton;
@@ -382,7 +383,8 @@ struct Skin;
 struct Texture;
 struct Light;
 
-
+struct RenderSurface;
+struct GuiViewport;
 
 #endif //PRIMITIVES_H
 

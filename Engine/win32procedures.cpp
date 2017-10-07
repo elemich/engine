@@ -91,7 +91,7 @@ unsigned char* TabContainer::rawFile=0;
 
 TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	parentContainer(0),
-	renderer(0),
+	renderTarget(0),
 	brush(0),
 	selected(0),
 	mouseDown(false),
@@ -127,11 +127,23 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	if(!splitterContainer)
 		__debugbreak();
 
+	OpenGLRenderer* _oglRenderer=new OpenGLRenderer(this);
+
+	if(!_oglRenderer)
+		__debugbreak();
+
+	_oglRenderer->Create(this->hwnd);
+
+	this->renderer=_oglRenderer;
+
 	OnGuiRecreateTarget();
 }
 
 TabContainer::~TabContainer()
 {
+	if(this->renderer)
+		delete this->renderer;
+
 	printf("deleting TabContainer %p\n",this);
 
 	if(!this->FindAndGrowSibling())
@@ -142,7 +154,7 @@ TabContainer::~TabContainer()
 
 	this->parentContainer->tabContainers.erase(std::find(parentContainer->tabContainers.begin(),parentContainer->tabContainers.end(),this));
 
-	SAFERELEASE(renderer);
+	SAFERELEASE(renderTarget);
 	SAFERELEASE(brush);
 	SAFERELEASE(iconRight);
 	SAFERELEASE(iconDown);
@@ -157,7 +169,7 @@ void TabContainer::BeginDraw()
 	if(!isRender)
 	{
 		isRender=true;
-		renderer->BeginDraw();
+		renderTarget->BeginDraw();
 	}
 	
 }
@@ -165,7 +177,7 @@ void TabContainer::EndDraw()
 {
 	if(isRender)
 	{
-		this->recreateTarget=(renderer->EndDraw()==D2DERR_RECREATE_TARGET) != 0;
+		this->recreateTarget=(renderTarget->EndDraw()==D2DERR_RECREATE_TARGET) != 0;
 		isRender=false;
 	}
 }
@@ -187,7 +199,7 @@ void TabContainer::OnGuiSize()
 	
 	this->OnGuiRecreateTarget();
 
-	renderer->Resize(D2D1::SizeU((int)width,(int)height));
+	renderTarget->Resize(D2D1::SizeU((int)width,(int)height));
 
 	this->BroadcastToSelected(&GuiTab::OnGuiSize);
 	
@@ -271,7 +283,7 @@ void TabContainer::OnGuiRecreateTarget()
 	
 
 
-	SAFERELEASE(renderer);
+	SAFERELEASE(renderTarget);
 	SAFERELEASE(brush);
 
 	SAFERELEASE(iconUp);
@@ -280,41 +292,41 @@ void TabContainer::OnGuiRecreateTarget()
 	SAFERELEASE(iconFolder);
 	SAFERELEASE(iconFile);
 
-	renderer=Direct2DGuiBase::InitHWNDRenderer(hwnd);
+	renderTarget=Direct2DGuiBase::InitHWNDRenderer(hwnd);
 
-	if(!renderer)
+	if(!renderTarget)
 		__debugbreak();
 
-	renderer->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
+	renderTarget->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
 
 	if(!brush)
 		__debugbreak();
 
 	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=renderer->GetPixelFormat();
+	bp.pixelFormat=renderTarget->GetPixelFormat();
 	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconUp);
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconUp);
 
 	if(!iconUp || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconRight);
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconRight);
 
 	if(!iconRight || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconDown);
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconDown);
 
 	if(!iconDown || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFolder);
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFolder);
 
 	if(!iconFolder || hr!=S_OK)
 		__debugbreak();
 
-	hr=renderer->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFile,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFile);
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFile,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFile);
 
 	if(!iconFile || hr!=S_OK)
 		__debugbreak();
@@ -332,7 +344,7 @@ void TabContainer::OnWindowPosChanging()
 
 	this->OnGuiRecreateTarget();
 
-	renderer->Resize(D2D1::SizeU((int)width,(int)height));
+	renderTarget->Resize(D2D1::SizeU((int)width,(int)height));
 
 	this->BroadcastToSelected(&GuiTab::OnGuiSize);
 
@@ -441,9 +453,9 @@ void TabContainer::OnRMouseUp()
 
 			switch(menuResult)
 			{
-				case TAB_MENU_COMMAND_OPENGLWINDOW:
+				/*case TAB_MENU_COMMAND_OPENGLWINDOW:
 					this->AddTab(new OpenGLRenderer(this));
-				break;
+				break;*/
 				case TAB_MENU_COMMAND_SCENEENTITIES:
 					this->AddTab(new SceneViewer(this));
 				break;
@@ -491,23 +503,23 @@ void TabContainer::OnGuiPaint()
 	
 	this->BeginDraw();
 
-	renderer->Clear(D2D1::ColorF(GuiTab::COLOR_GUI_BACKGROUND));
+	renderTarget->Clear(D2D1::ColorF(GuiTab::COLOR_GUI_BACKGROUND));
 
-	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+	renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
-	renderer->FillRectangle(D2D1::RectF(0,0,(float)width,(float)CONTAINER_HEIGHT),this->SetColor(COLOR_TAB_BACKGROUND));
-	renderer->FillRectangle(D2D1::RectF((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT)),this->SetColor(COLOR_TAB_SELECTED));
+	renderTarget->FillRectangle(D2D1::RectF(0,0,(float)width,(float)CONTAINER_HEIGHT),this->SetColor(COLOR_TAB_BACKGROUND));
+	renderTarget->FillRectangle(D2D1::RectF((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT)),this->SetColor(COLOR_TAB_SELECTED));
 
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
 	for(int i=0;i<(int)tabs.size();i++)
 	{
-		Direct2DGuiBase::DrawText(renderer,this->SetColor(GuiInterface::COLOR_TEXT),tabs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
+		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(GuiInterface::COLOR_TEXT),tabs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
 	}
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	
 	this->BroadcastToSelected(&GuiTab::OnGuiPaint);
 
-	renderer->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->width-0.5f,this->height-0.5f),this->SetColor(D2D1::ColorF::Red));
+	renderTarget->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->width-0.5f,this->height-0.5f),this->SetColor(D2D1::ColorF::Red));
 
 	this->EndDraw();
 

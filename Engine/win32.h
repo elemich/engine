@@ -100,7 +100,7 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
-	ID2D1HwndRenderTarget* renderer;
+	ID2D1HwndRenderTarget* renderTarget;
 	ID2D1SolidColorBrush*  brush;
 
 	ID2D1Bitmap* iconUp;
@@ -112,6 +112,8 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 	std::vector<GuiTab*> tabs;
 
 	SplitterContainer* splitterContainer;
+
+	RendererInterface *renderer;
 	
 	int selected;
 	bool mouseDown;
@@ -275,7 +277,7 @@ struct App : AppInterface , TStaticInstance<App>
 
 	App();
 
-	int Init();
+	int Init();	
 	void Close();
 
 	void CreateMainWindow();
@@ -283,9 +285,20 @@ struct App : AppInterface , TStaticInstance<App>
 };
 
 
-
-struct OpenGLRenderer : GuiTab , RendererInterface , RendererViewportInterface , TPoolVector<OpenGLRenderer>
+struct RenderSurface
 {
+	ID2D1Bitmap* renderBitmap;
+	unsigned char* renderBuffer;
+	GuiTab* tab;
+
+	RenderSurface():renderBitmap(0),renderBuffer(0){}
+	~RenderSurface(){SAFERELEASE(renderBitmap);SAFEDELETEARRAY(renderBuffer);}
+};
+
+struct OpenGLRenderer : RendererInterface , TPoolVector<OpenGLRenderer>
+{
+	
+
 	static GLuint vertexArrayObject;
 	static GLuint vertexBufferObject;
 	static GLuint textureBufferObject;
@@ -297,31 +310,21 @@ struct OpenGLRenderer : GuiTab , RendererInterface , RendererViewportInterface ,
 	static GLuint renderBufferColor;
 	static GLuint renderBufferDepth;
 
-	unsigned char* renderBuffer;
-
 	HGLRC hglrc;
 	HDC   hdc;
-
-	float width;
-	float height;
 
 #if USE_MULTIPLE_OPENGL_CONTEXTS
 	GLEWContext* glewContext;
 #endif
 
-	std::vector<OpenGLRenderer*> shared_renderers;
-
-	ID2D1BitmapRenderTarget* bitmapTarget;
-	ID2D1Bitmap* renderBitmap;
+	TabContainer* tabContainer;
 
 	OpenGLRenderer(TabContainer*);
+	~OpenGLRenderer();
 
 	virtual void Create(HWND container);
 
-	//OpenGLRenderer* CreateSharedContext(HWND container);
-
 	char* Name();
-	void Render();
 	void ChangeContext();
 	
 	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
@@ -341,30 +344,12 @@ struct OpenGLRenderer : GuiTab , RendererInterface , RendererViewportInterface ,
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
 
-	/*operator RendererInterface&(){return *this;}
-	operator OpenGLRenderer&(){return *this;}
-	operator RendererViewportInterface&(){return *this;}*/
-
-	
-	void OnRendererMouseWheel(float);
-	void OnRendererMouseRightDown();
-	void OnRendererViewportSize(int width,int height);
-	void OnRendererMouseMotion(float x,float y,bool leftButtonDown,bool altIsDown);
-	void OnRendererMouseDown(float,float);
-	float GetRendererProjectionHalfWidth();
-	float GetRendererProjectionHalfHeight();
-
-
-	void OnGuiSize();
-	void OnGuiLMouseDown();
-	void OnGuiMouseMove();
-	void OnEntitiesChange();
-	void OnGuiUpdate();
-	void OnGuiRender();
-	void OnGuiPaint();
-	void OnGuiMouseWheel();
-
+	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model);
+	virtual void Render(GuiViewport*);
+	virtual void RenderViewports();
 };
+
+
 
 struct DirectXRenderer : WindowData ,  RendererInterface
 {
@@ -480,7 +465,7 @@ struct SceneViewer : GuiTab
 	bool OnNodePressed(SceneEntityNode& node,SceneEntityNode*& expChanged,SceneEntityNode*& selChanged);
 	void DrawNodeSelectionRecursive(SceneEntityNode& node);
 	void DrawNodeRecursive(SceneEntityNode&);
-};
+};	
 
 
 struct EqSolver : GuiTab

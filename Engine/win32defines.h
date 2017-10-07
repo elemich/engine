@@ -12,7 +12,6 @@
 #define WC_MAINAPPWINDOW "MainAppWindow"
 #define WC_CONTAINERWINDOW "ContainerWindow"
 #define WC_TABCONTAINERWINDOWCLASS "TabContainerWindowClass"
-#define WC_OPENGLWINDOW  "OpenGLWindow"
 
 #define TAB_MENU_COMMAND_REMOVE	1
 #define TAB_MENU_COMMAND_OPENGLWINDOW 2
@@ -27,7 +26,6 @@
 #define MAINMENU_ENTITIES_IMPORTENTITY 1
 
 LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
-LRESULT CALLBACK OpenGLProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
 
 

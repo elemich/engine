@@ -81,8 +81,13 @@ void MainAppContainerWindow::Create(HWND)
 	GetClientRect(hwnd,&rc);
 	TabContainer* tabContainer=new TabContainer(0.0f,0.0f,(float)rc.right-rc.left,(float)rc.bottom-rc.top,hwnd);
 
+	GuiTab* guiTab=new GuiTab(tabContainer);
+
+	guiTab->guiRoot.Viewport();
+
 	if(tabContainer)
-		tabContainer->AddTab(new OpenGLRenderer(tabContainer));
+		tabContainer->AddTab(guiTab);
+
 
 	ShowWindow(hwnd,true);
 }

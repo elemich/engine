@@ -17,8 +17,9 @@ struct AppInterface
 
 struct RendererInterface
 {
+	std::list<GuiViewport*> viewports;
+
 	virtual char* Name()=0;
-	virtual void Render()=0;
 
 	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;
@@ -38,9 +39,14 @@ struct RendererInterface
 	virtual void drawUnlitTextured(Mesh*)=0;
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
 
-	//virtual operator RendererInterface&()=0;
+	virtual void ChangeContext()=0;
 
+	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model)=0;
+	virtual void Render(GuiViewport*)=0;
+
+	virtual ~RendererInterface(){};
 };
+
 
 struct ShaderInterface;
 

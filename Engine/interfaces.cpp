@@ -20,9 +20,9 @@ void GuiInterface::BroadcastToGui(void (GuiInterface::*func)())
 	for_each(pool.begin(),pool.end(),std::mem_fun(func));
 }
 
-GuiTab::GuiTab(TabContainer* tc):tabContainer(tc),guiTabRootElement(0,TabContainer::CONTAINER_HEIGHT,tc->width,tc->height-TabContainer::CONTAINER_HEIGHT)
+GuiTab::GuiTab(TabContainer* tc):tabContainer(tc),guiRoot(this)
 {
-	guiTabRootElement.name="GuiTabMainTab";
+	guiRoot.name="GuiTabMainTab";
 }
 
 GuiTab::~GuiTab()
@@ -33,20 +33,21 @@ GuiTab::~GuiTab()
 bool GuiTab::IsSelected(){return (tabContainer && tabContainer->GetSelected()==this);}
 
 
-void GuiTab::OnGuiPaint(){this->guiTabRootElement.OnPaint(this);}
-void GuiTab::OnEntitiesChange(){this->guiTabRootElement.OnEntitiesChange(this);}
+void GuiTab::OnGuiPaint(){this->guiRoot.OnPaint(this);}
+void GuiTab::OnEntitiesChange(){this->guiRoot.OnEntitiesChange(this);}
 void GuiTab::OnGuiSize()
 {
-	this->guiTabRootElement.OnSize(this);
+	this->guiRoot.OnSize(this);
 }
-void GuiTab::OnGuiLMouseDown(){this->guiTabRootElement.OnLMouseDown(this);}
-void GuiTab::OnGuiLMouseUp(){this->guiTabRootElement.OnLMouseUp(this);};
-void GuiTab::OnGuiMouseMove(){this->guiTabRootElement.OnMouseMove(this);}
+void GuiTab::OnGuiLMouseDown(){this->guiRoot.OnLMouseDown(this);}
+void GuiTab::OnGuiLMouseUp(){this->guiRoot.OnLMouseUp(this);};
+void GuiTab::OnGuiMouseMove(){this->guiRoot.OnMouseMove(this);}
 void GuiTab::OnGuiUpdate(){/*this->guiTabRootElement.OnGuiUpdate(this);*/}
-void GuiTab::OnGuiReparent(){this->guiTabRootElement.OnReparent(this);}
-void GuiTab::OnGuiSelected(){this->guiTabRootElement.OnSelected(this);}
+void GuiTab::OnGuiReparent(){this->guiRoot.OnReparent(this);}
+void GuiTab::OnGuiSelected(){this->guiRoot.OnSelected(this);}
 void GuiTab::OnGuiRender(){/*this->guiTabRootElement.OnGuiRender(this);*/}
-void GuiTab::OnGuiMouseWheel(){this->guiTabRootElement.OnMouseWheel(this);}
+void GuiTab::OnGuiMouseWheel(){this->guiRoot.OnMouseWheel(this);}
+
 
 
 ////////////////////////////
@@ -124,9 +125,9 @@ void GuiRect::OnPaint(GuiTab* tab)
 		this->hovering ? this->imageHovering.Draw(tab,this->rect) : (this->pressing ? this->imagePressed.Draw(tab,this->rect) : this->imageBackground.Draw(tab,this->rect));
 	}
 	else
-		tab->tabContainer->renderer->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w),tab->tabContainer->SetColor(this->pressing ? this->colorPressing : (this->hovering ? this->colorHovering : this->colorBackground/*(this->checked ? this->colorChecked : this->colorBackground)*/)));
+		tab->tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w),tab->tabContainer->SetColor(this->pressing ? this->colorPressing : (this->hovering ? this->colorHovering : this->colorBackground/*(this->checked ? this->colorChecked : this->colorBackground)*/)));
 
-	tab->tabContainer->renderer->DrawRectangle(D2D1::RectF(this->rect.x + 0.5f,this->rect.y + 0.5f,this->rect.x+this->rect.z - 0.5f,this->rect.y+this->rect.w - 0.5f),tab->tabContainer->SetColor(this->colorBorder));
+	tab->tabContainer->renderTarget->DrawRectangle(D2D1::RectF(this->rect.x + 0.5f,this->rect.y + 0.5f,this->rect.x+this->rect.z - 0.5f,this->rect.y+this->rect.w - 0.5f),tab->tabContainer->SetColor(this->colorBorder));
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tab);
@@ -164,8 +165,7 @@ void GuiRect::OnSize(GuiTab* tab)
 			this->rect.y+=20;
 		}
 	}
-	else
-		this->rect.make(0,TabContainer::CONTAINER_HEIGHT,tab->tabContainer->width,tab->tabContainer->height-TabContainer::CONTAINER_HEIGHT);
+		
 
 	if(sibling[0])
 	{
@@ -296,6 +296,11 @@ void GuiRect::OnMouseWheel(GuiTab* tab)
 	this->BroadcastToChilds(&GuiRect::OnMouseWheel,tab);
 }
 
+GuiRect* GuiRect::GetRoot()
+{
+	return this->parent ? this->parent->GetRoot() : this;
+}
+
 
 GuiRect* GuiRect::Rect(float ix, float iy, float iw,float ih)
 {
@@ -423,6 +428,25 @@ GuiPropertyAnimation* GuiRect::PropertyAnimControl(AnimationController* ac)
 	return a;
 }
 
+GuiViewport* GuiRect::Viewport(vec3 pos,vec3 target,vec3 up,bool perspective)
+{
+	GuiViewport* v=new GuiViewport(this);
+	v->Set(this,0,0,-1,0,0,0,0,0,0,1,1);
+	v->projection= !perspective ? v->projection : v->projection.perspective(90,16/9,1,1000);
+	v->view.move(pos);
+	v->view.lookat(target,up);
+	v->Register();
+	return v;
+}
+
+
+void GuiRootRect::OnSize(GuiTab* tab)
+{
+	this->rect.make(0,TabContainer::CONTAINER_HEIGHT,this->tab->tabContainer->width,this->tab->tabContainer->height-TabContainer::CONTAINER_HEIGHT);
+
+	if(this->container!=0)
+		this->BroadcastToChilds(&GuiRect::OnSize,tab);
+}
 
 void GuiString::OnPaint(GuiTab* tab)
 {
@@ -437,10 +461,10 @@ void GuiString::OnPaint(GuiTab* tab)
 	{
 		if(this->container>=0)
 		{
-			tab->tabContainer->renderer->DrawBitmap(this->container==1 ? tab->tabContainer->iconDown : tab->tabContainer->iconRight,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+TabContainer::CONTAINER_ICON_WH,this->rect.y+TabContainer::CONTAINER_ICON_WH));
-			Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(0x000000),text,this->rect.x + TabContainer::CONTAINER_ICON_WH,this->rect.y,this->rect.x+this->textRect.z+100,this->rect.y+this->textRect.w);
+			tab->tabContainer->renderTarget->DrawBitmap(this->container==1 ? tab->tabContainer->iconDown : tab->tabContainer->iconRight,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+TabContainer::CONTAINER_ICON_WH,this->rect.y+TabContainer::CONTAINER_ICON_WH));
+			Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(0x000000),text,this->rect.x + TabContainer::CONTAINER_ICON_WH,this->rect.y,this->rect.x+this->textRect.z+100,this->rect.y+this->textRect.w);
 		}
-		else Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),text,this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w);
+		else Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),text,this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w);
 		//tab->tabContainer->renderer->DrawRectangle(D2D1::RectF(this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w),tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 	}
 
@@ -508,9 +532,9 @@ void GuiPropertyString::OnPaint(GuiTab* tab)
 	GuiRect::OnPaint(tab);
 
 	if(prp.Buf())
-		Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),prp,this->rect.x,this->rect.y,this->rect.x+this->rect.z/2.0f,this->rect.y+this->rect.w);
+		Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),prp,this->rect.x,this->rect.y,this->rect.x+this->rect.z/2.0f,this->rect.y+this->rect.w);
 	if(val.Buf())	
-		Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),val,this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
+		Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),val,this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
 
 	if(selfRender)
 		tab->tabContainer->EndDraw();
@@ -525,21 +549,21 @@ void GuiSlider::OnPaint(GuiTab* tab)
 
 	GuiRect::OnPaint(tab);
 
-	tab->tabContainer->renderer->FillRectangle(D2D1::RectF(this->rect.x+10,this->rect.y+this->rect.w/4.0f-2,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w/4.0f+2),tab->tabContainer->SetColor(0x000000));
+	tab->tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x+10,this->rect.y+this->rect.w/4.0f-2,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w/4.0f+2),tab->tabContainer->SetColor(0x000000));
 
 	String smin(this->minimum);
 	String smax(this->maximum);
 	String value(*this->referenceValue);
 
-	Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),smin,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0,0.75);
-	Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,1,0.75);
-	Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0.5f,0.75);
+	Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),smin,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0,0.75);
+	Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,1,0.75);
+	Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0.5f,0.75);
 
 
 
 	float tip=(this->rect.x+10) + ((*referenceValue)/(maximum-minimum))*(this->rect.z-20);
 
-	tab->tabContainer->renderer->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5),2,2),tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+	tab->tabContainer->renderTarget->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5),2,2),tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT));
 
 
 	if(selfRender)
@@ -581,7 +605,7 @@ void GuiPropertySlider::OnPaint(GuiTab* tab)
 	if(prp.Buf())
 	{
 		String s=prp + " " + String(*this->slider.referenceValue);
-		Direct2DGuiBase::DrawText(tab->tabContainer->renderer,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
+		Direct2DGuiBase::DrawText(tab->tabContainer->renderTarget,tab->tabContainer->SetColor(GuiInterface::COLOR_TEXT),s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
 	}
 
 	if(selfRender)
@@ -601,6 +625,152 @@ void GuiPropertyAnimation::OnMouseMove(GuiTab* tab)
 		animController->play=true;
 		animController->update();
 		animController->play=old;
+	}
+}
+
+void GuiViewport::Register()
+{
+	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
+
+	if(root)
+	{
+		if(root->tab->tabContainer->renderer->viewports.end()==std::find(root->tab->tabContainer->renderer->viewports.begin(),root->tab->tabContainer->renderer->viewports.end(),this));
+		root->tab->tabContainer->renderer->viewports.push_back(this);
+
+		this->surface->tab=root->tab;
+	}
+	else
+		__debugbreak();
+}
+
+void GuiViewport::Unregister()
+{
+	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
+
+	if(root)
+		root->tab->tabContainer->renderer->viewports.erase(std::find(root->tab->tabContainer->renderer->viewports.begin(),root->tab->tabContainer->renderer->viewports.end(),this));
+	else
+		__debugbreak();
+}
+
+bool GuiViewport::Registered()
+{
+	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
+
+	if(root)
+		return root->tab->tabContainer->renderer->viewports.end()!=std::find(root->tab->tabContainer->renderer->viewports.begin(),root->tab->tabContainer->renderer->viewports.end(),this);
+	else
+		__debugbreak();
+
+	return 0;
+}
+
+GuiViewport::GuiViewport(GuiRect* _parent):reference(0),surface(new RenderSurface)
+{
+	this->parent=_parent;
+	Register();
+}
+GuiViewport::~GuiViewport()
+{
+	Unregister();
+
+	SAFEDELETE(surface);
+}
+
+void GuiViewport::OnSize(GuiTab* tab)
+{
+	int w=this->rect.z;
+	int h=this->rect.w;
+
+	GuiRect::OnSize(tab);
+
+	if(this->surface && (w!=this->rect.z || h!=this->rect.w))
+	{
+		SAFERELEASE(this->surface->renderBitmap);
+		SAFEDELETEARRAY(this->surface->renderBuffer);
+		
+		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+		bp.pixelFormat=tab->tabContainer->renderTarget->GetPixelFormat();
+
+		tab->tabContainer->renderTarget->CreateBitmap(D2D1::SizeU((int)this->rect.z,(int)this->rect.w),bp,&this->surface->renderBitmap);
+
+		if(!this->surface->renderBitmap)
+			__debugbreak();
+
+		this->surface->renderBuffer=new unsigned char[(int)(this->rect.z*this->rect.w*4)];
+	}
+}
+
+void GuiViewport::OnPaint(GuiTab* tab)
+{
+	bool selfRender=!tab->tabContainer->isRender;
+
+	if(selfRender)
+		tab->tabContainer->BeginDraw();
+
+	tab->tabContainer->renderTarget->DrawBitmap(this->surface->renderBitmap,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w));
+
+	if(this->container!=0)
+		this->BroadcastToChilds(&GuiRect::OnPaint,tab);
+
+	if(selfRender)
+		tab->tabContainer->EndDraw();
+}
+
+void GuiViewport::OnMouseWheel(GuiTab* tab)
+{
+	GuiRect::OnMouseWheel(tab);
+
+	float factor=GET_WHEEL_DELTA_WPARAM(tab->tabContainer->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(tab->tabContainer->wparam)<0 ? -1.0f : 0);
+
+	this->view*=mat4().translate(0,0,factor*10);
+}
+
+void GuiViewport::OnMouseMove(GuiTab* tab)
+{
+	vec2 &pos=InputManager::mouseInput.mouse_pos;
+	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
+
+	oldpos=pos;
+	pos.x=tab->tabContainer->mousex;
+	pos.y=tab->tabContainer->mousey;
+
+	if(tab->tabContainer->buttonLeftMouseDown && GetFocus()==tab->tabContainer->hwnd)
+	{
+		float dX=(pos.x-oldpos.x);
+		float dY=(pos.y-oldpos.y);
+
+		if(tab->tabContainer->buttonControlDown)
+		{
+
+			mat4 mview;
+			vec3 vx,vy,vz;
+			vec3 pos;
+			mat4 rot;
+
+			mview=this->view;
+
+			mview.traspose();
+			mview.inverse();
+
+			mview.axes(vx,vy,vz);
+
+			pos=this->model.position();
+
+			this->model.move(vec3());
+
+			if(dY)
+				rot.rotate(dY,vx);
+			this->model.rotate(dX,0,0,1);
+
+			this->model*=rot;
+
+			this->model.move(pos);
+		}
+		else
+		{
+			this->view*=mat4().translate(dX,dY,0);
+		}
 	}
 }
 
@@ -634,37 +804,14 @@ void GuiTabImage::Draw(GuiTab* tab,vec4& rect)
 		if(!bitmap)
 		{
 			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-			bp.pixelFormat=tab->tabContainer->renderer->GetPixelFormat();
+			bp.pixelFormat=tab->tabContainer->renderTarget->GetPixelFormat();
 
-			HRESULT result=tab->tabContainer->renderer->CreateBitmap(D2D1::SizeU((int)this->width,(int)this->height),this->image,(int)(4*this->width),bp,&bitmap);
+			HRESULT result=tab->tabContainer->renderTarget->CreateBitmap(D2D1::SizeU((int)this->width,(int)this->height),this->image,(int)(4*this->width),bp,&bitmap);
 
 			if(!bitmap || result!=S_OK)
 				__debugbreak();
 		}
 
-		tab->tabContainer->renderer->DrawBitmap(bitmap,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w));
+		tab->tabContainer->renderTarget->DrawBitmap(bitmap,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w));
 	}
 }
-
-/*
-void GuiCheckBox::OnLMouseDown()
-{
-	GuiTabElement::OnLMouseDown();
-
-	if(this->pressing)
-	{
-		this->checked=!this->checked;
-		this->OnPaint();
-	}
-}
-
-
-void GuiButton::OnMouseMove()
-{
-	GuiTabElement::OnMouseMove();
-
-	vec2 point(tab->tabContainer->mousex,tab->tabContainer->mousey);
-
-	if(this->label.contains(point) || this->image.contains(point))
-		__debugbreak();
-}*/

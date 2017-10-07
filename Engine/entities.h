@@ -488,6 +488,16 @@ struct Skin : Mesh
 	float*	    skin_vertexcache;
 };
 
+struct Camera : EntityComponent
+{
+	float fov;
+	float ratio;
+	/*float near;
+	float far;*/
+
+	mat4 matrix;
+};
+
 struct TextureFile : Texture
 {
 	TextureFile();
