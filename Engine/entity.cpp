@@ -43,17 +43,15 @@ void Entity::update()
 		return;
 	}
 
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++){
-			(*it)->update();
-	}
-
 	this->entity_world = this->entity_parent ? (this->entity_transform * this->entity_parent->entity_world) : this->entity_transform;
 
-	this->nUpdated++;
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
+		(*it)->update();
 
 	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
 		(*it)->update();
 
+	this->nUpdated++;
 }
 
 void Entity::beginDraw()
@@ -71,7 +69,7 @@ void Entity::draw(RendererInterface* renderer)
 {	
 	if(this->nDrawed>1)
 	{
-		//return;
+		return;
 	}
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)

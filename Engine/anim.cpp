@@ -87,8 +87,6 @@ void AnimationController::add(Animation* anim)
 
 void AnimationController::update()
 {
-	
-
 	if(this->play)
 	{
 		int animEnd=0;

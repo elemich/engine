@@ -1143,11 +1143,11 @@ void OpenGLRenderer::Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _mod
 
 void OpenGLRenderer::RenderViewports()
 {
-
-	this->ChangeContext();
-
 	for(std::list<GuiViewport*>::iterator it=this->viewports.begin();it!=this->viewports.end();it++)
 	{
+		if(it==this->viewports.begin())
+			this->ChangeContext();
+
 		this->Render(*it);
 	}
 }

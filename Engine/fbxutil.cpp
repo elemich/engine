@@ -331,9 +331,7 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			delete curvegroup;
 		else
 		{
-			Animation* animation=new Animation;
-			animation->entity=entity;
-			entity->components.push_back(animation);
+			Animation* animation=entity->CreateComponent<Animation>();
 			animation->clips.push_back(curvegroup);
 			animation->start=animStart;
 			animation->end=animEnd;
@@ -343,6 +341,8 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 
 			if(ac)
 				ac->add(animation);
+			else
+				__debugbreak();
 		}
 	}
 }
