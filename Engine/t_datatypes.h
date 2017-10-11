@@ -76,7 +76,10 @@ template <typename T> struct TPoolVector
 		pool.erase(std::find(pool.begin(),pool.end(),(T*)this));
 	}
 
-	
+	static void BroadcastToPool(void (T::*func)())
+	{
+		for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::mem_fun(func));
+	}
 };
 
 template <class T> std::vector<T*> TPoolVector<T>::pool;

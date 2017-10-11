@@ -382,6 +382,7 @@ struct Mesh;
 struct Skin;
 struct Texture;
 struct Light;
+struct Camera;
 
 struct RenderSurface;
 struct GuiViewport;

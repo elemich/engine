@@ -1019,6 +1019,10 @@ void OpenGLRenderer::draw(Skin *skin)
 	glDisable(GL_DEPTH_TEST);
 }
 
+void OpenGLRenderer::draw(Camera*)
+{
+
+}
 
 void OpenGLRenderer::draw(Bone* bone)
 {

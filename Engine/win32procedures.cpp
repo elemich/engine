@@ -79,6 +79,13 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 			
 	}
 
+	if(tc)
+	{
+		tc->msg=0;
+		tc->wparam;
+		tc->lparam=0;
+	}
+
 	return result;
 }
 
@@ -90,6 +97,7 @@ unsigned char* TabContainer::rawFolder=0;
 unsigned char* TabContainer::rawFile=0;
 
 TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
+	tabs(this),
 	parentContainer(0),
 	renderTarget(0),
 	brush(0),
@@ -149,9 +157,6 @@ TabContainer::~TabContainer()
 	if(!this->FindAndGrowSibling())
 		this->UnlinkSibling();
 
-	for(int i=0;i<(int)this->tabs.size();i++)
-		delete this->tabs[i];
-
 	this->parentContainer->tabContainers.erase(std::find(parentContainer->tabContainers.begin(),parentContainer->tabContainers.end(),this));
 
 	SAFERELEASE(renderTarget);
@@ -162,6 +167,19 @@ TabContainer::~TabContainer()
 	SAFERELEASE(iconFile);
 
 	DestroyWindow(this->hwnd);
+}
+
+
+
+ID2D1Brush* TabContainer::SetColor(unsigned int color)
+{
+	brush->SetColor(D2D1::ColorF(color));
+	return brush;
+}
+
+GuiRect* TabContainer::GetSelected()
+{
+	return selected<tabs.childs.size() ? tabs.childs[selected] : 0;
 }
 
 void TabContainer::BeginDraw()
@@ -182,12 +200,30 @@ void TabContainer::EndDraw()
 	}
 }
 
-void TabContainer::BroadcastToSelected(void (GuiTab::*func)())
+void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*))
 {
-	GuiTab* selectedTab=this->GetSelected();
+	GuiRect* selectedTab=this->GetSelected();
 	
 	if(selectedTab)
-		(selectedTab->*func)();
+		(selectedTab->*func)(this);
+}
+
+void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabContainer*))
+{
+	(this->tabs.*func)(this);
+}
+
+template<class C> void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*))
+{
+	GuiRect* selectedTab=this->GetSelected();
+
+	if(selectedTab)
+		selectedTab->BroadcastTo<C>(func);
+}
+
+template<class C> void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabContainer*))
+{
+	this->tabs.BroadcastTo<C>(func);
 }
 
 
@@ -201,58 +237,12 @@ void TabContainer::OnGuiSize()
 
 	renderTarget->Resize(D2D1::SizeU((int)width,(int)height));
 
-	this->BroadcastToSelected(&GuiTab::OnGuiSize);
+	this->tabs.rect.make(0,TabContainer::CONTAINER_HEIGHT,width,height-TabContainer::CONTAINER_HEIGHT);
+
+	this->BroadcastToSelected(&GuiRect::OnSize);
 	
 	//this->OnGuiPaint();
 	
-}
-
-
-
-
-GuiTab* TabContainer::AddTab(GuiTab* gui,int position)
-{
-	if(gui)
-	{
-		gui->tabContainer=this;
-
-		std::vector<GuiTab*>& tabs=this->tabs;
-
-		tabs.insert(position<0 ? tabs.end() : (tabs.begin() + position),gui);
-		this->selected = position<0 ? (int)tabs.size()-1 : position;
-
-		gui->OnGuiReparent();
-		gui->OnGuiSize();
-
-		return gui;
-	}
-	return 0;
-}
-
-int TabContainer::RemoveTab(GuiTab* gui)
-{
-	if(gui)
-	{
-		gui->tabContainer=0;
-
-		std::vector<GuiTab*>& tabs=this->tabs;
-
-		std::vector<GuiTab*>::iterator iIt=std::find(tabs.begin(),tabs.end(),gui);
-
-		if(iIt!=tabs.end())
-		{
-			int position=std::distance(tabs.begin(),iIt);
-			tabs.erase(iIt);
-			position>0 ? this->selected-- : 0;
-
-			this->OnGuiPaint();
-			
-			return position;
-		}
-
-		
-	}
-	return -1;
 }
 
 
@@ -331,7 +321,7 @@ void TabContainer::OnGuiRecreateTarget()
 	if(!iconFile || hr!=S_OK)
 		__debugbreak();
 
-	this->BroadcastToSelected(&GuiTab::OnGuiRecreateTarget);
+	this->BroadcastToSelected(&GuiRect::OnRecreateTarget);
 
 	this->recreateTarget=false;
 
@@ -346,7 +336,9 @@ void TabContainer::OnWindowPosChanging()
 
 	renderTarget->Resize(D2D1::SizeU((int)width,(int)height));
 
-	this->BroadcastToSelected(&GuiTab::OnGuiSize);
+	this->tabs.rect.make(0,TabContainer::CONTAINER_HEIGHT,width,height-TabContainer::CONTAINER_HEIGHT);
+
+	this->BroadcastToSelected(&GuiRect::OnSize);
 
 	this->OnGuiPaint();
 }
@@ -358,25 +350,28 @@ void TabContainer::OnGuiMouseMove()
 	this->buttonLeftMouseDown=(this->wparam & MK_LBUTTON)!=0;
 	this->buttonControlDown=(this->wparam & MK_CONTROL)!=0;
 
-	mousex=(float)LOWORD(lparam);
-	mousey=(float)HIWORD(lparam);
+	float tmx=(float)LOWORD(lparam);
+	float tmy=(float)HIWORD(lparam);
 
 	splitterContainer->currentTabContainer=this;
 
-	if(mouseDown)
+	if(mouseDown && tmx!=mousex && tmy!=mousey)
 		splitterContainer->CreateFloatingTab(this);
 
-	/*if(this->mousey<=TabContainer::CONTAINER_HEIGHT)
-		return;*/
+	mousex=tmx;
+	mousey=tmy;
+
+	
+
 	if(mousey>TabContainer::CONTAINER_HEIGHT)
-		this->BroadcastToSelected(&GuiTab::OnGuiMouseMove);
+		this->BroadcastToSelected(&GuiRect::OnMouseMove);
 }
 
 void TabContainer::OnGuiLMouseUp()
 {
 	mouseDown=false;
 
-	this->BroadcastToSelected(&GuiTab::OnGuiLMouseUp);
+	this->BroadcastToSelected(&GuiRect::OnLMouseUp);
 }
 
 void TabContainer::OnGuiMouseWheel()
@@ -384,12 +379,12 @@ void TabContainer::OnGuiMouseWheel()
 	if(this->mousey<=TabContainer::CONTAINER_HEIGHT)
 		return;
 
-	this->BroadcastToSelected(&GuiTab::OnGuiMouseWheel);
-}
-
-void TabContainer::SelectTab()
-{
-	this->BroadcastToSelected(&GuiTab::OnGuiSize);
+	this->BroadcastToSelected(&GuiRect::OnMouseWheel);
+}								  
+								  
+void TabContainer::SelectTab()	  
+{								  
+	this->BroadcastToSelected(&GuiRect::OnSize);
 
 	this->OnGuiPaint();
 }
@@ -406,17 +401,21 @@ void TabContainer::OnGuiLMouseDown()
 	{
 		int prevSel=selected;
 
-		for(int i=0;i<(int)tabs.size();i++)
+		for(int i=0;i<(int)tabs.childs.size();i++)
 		{
 			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 			{
-				selected=i;
+				this->BroadcastToSelected(&GuiRect::OnDeactivate);
 
-				printf("tab %p selected: %d\n",this,selected);
+				selected=i;
 
 				mouseDown=true;
 
 				this->SelectTab();
+
+				this->BroadcastToSelected(&GuiRect::OnActivate);
+
+				this->OnGuiPaint();
 
 				break;
 			}
@@ -424,13 +423,13 @@ void TabContainer::OnGuiLMouseDown()
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiTab::OnGuiLMouseDown);
+		this->BroadcastToSelected(&GuiRect::OnLMouseDown);
 	}
 }
 
 void TabContainer::OnGuiUpdate()
 {
-	this->BroadcastToSelected(&GuiTab::OnGuiUpdate);
+	this->BroadcastToSelected(&GuiRect::OnUpdate);
 }
 
 void TabContainer::OnRMouseUp()
@@ -441,9 +440,9 @@ void TabContainer::OnRMouseUp()
 	RECT rc;
 	GetWindowRect(hwnd,&rc);
 
-	int tabNumberHasChanged=this->tabs.size();
+	int tabNumberHasChanged=this->tabs.childs.size();
 
-	for(int i=0;i<(int)tabs.size();i++)
+	for(int i=0;i<(int)tabs.childs.size();i++)
 	{
 		if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 		{
@@ -453,17 +452,21 @@ void TabContainer::OnRMouseUp()
 
 			switch(menuResult)
 			{
-				/*case TAB_MENU_COMMAND_OPENGLWINDOW:
-					this->AddTab(new OpenGLRenderer(this));
-				break;*/
+				case TAB_MENU_COMMAND_OPENGLWINDOW:
+					this->tabs.Viewport();
+					this->selected=this->tabs.childs.size()-1;
+				break;
 				case TAB_MENU_COMMAND_SCENEENTITIES:
-					this->AddTab(new SceneViewer(this));
+					this->tabs.SceneViewer();
+					this->selected=this->tabs.childs.size()-1;
 				break;
 				case TAB_MENU_COMMAND_ENTITYPROPERTIES:
-					this->AddTab(new Properties(this));
+					this->tabs.EntityViewer();
+					this->selected=this->tabs.childs.size()-1;
 				break;
 				case TAB_MENU_COMMAND_PROJECTFOLDER:
-					this->AddTab(new Resources(this));
+					this->tabs.ProjectViewer();
+					this->selected=this->tabs.childs.size()-1;
 				break;
 				case TAB_MENU_COMMAND_REMOVE:
 					if((int)GetPool<TabContainer>().size()>1)
@@ -485,7 +488,7 @@ void TabContainer::OnRMouseUp()
 		}
 	}
 
-	if(tabNumberHasChanged!=this->tabs.size())
+	if(tabNumberHasChanged!=this->tabs.childs.size())
 	{
 		this->OnGuiPaint();
 	}
@@ -493,7 +496,7 @@ void TabContainer::OnRMouseUp()
 
 void TabContainer::OnGuiRender()
 {
-	this->BroadcastToSelected(&GuiTab::OnGuiRender);
+	this->BroadcastToSelected(&GuiRect::OnRender);
 }
 
 void TabContainer::OnGuiPaint()
@@ -503,7 +506,7 @@ void TabContainer::OnGuiPaint()
 	
 	this->BeginDraw();
 
-	renderTarget->Clear(D2D1::ColorF(GuiTab::COLOR_GUI_BACKGROUND));
+	renderTarget->Clear(D2D1::ColorF(GuiInterface::COLOR_GUI_BACKGROUND));
 
 	renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -511,13 +514,13 @@ void TabContainer::OnGuiPaint()
 	renderTarget->FillRectangle(D2D1::RectF((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT)),this->SetColor(COLOR_TAB_SELECTED));
 
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-	for(int i=0;i<(int)tabs.size();i++)
+	for(int i=0;i<(int)tabs.childs.size();i++)
 	{
-		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(GuiInterface::COLOR_TEXT),tabs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
+		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(GuiInterface::COLOR_TEXT),tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
 	}
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	
-	this->BroadcastToSelected(&GuiTab::OnGuiPaint);
+	this->BroadcastToSelected(&GuiRect::OnPaint);
 
 	renderTarget->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->width-0.5f,this->height-0.5f),this->SetColor(D2D1::ColorF::Red));
 
@@ -572,6 +575,22 @@ void TabContainer::OnResizeContainer()
 	}
 }
 
+void TabContainer::OnEntitiesChange()
+{
+	this->BroadcastToAll(&GuiRect::OnEntitiesChange);
+}
+void TabContainer::OnGuiActivate()
+{
+	this->BroadcastToSelected(&GuiRect::OnActivate);
+}
+void TabContainer::OnGuiDeactivate()
+{
+	this->BroadcastToSelected(&GuiRect::OnDeactivate);
+}
+void TabContainer::OnGuiEntitySelected()
+{
+	this->BroadcastToAll(&GuiRect::OnEntitySelected);
+}
 
 
 

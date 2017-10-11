@@ -492,10 +492,12 @@ struct Camera : EntityComponent
 {
 	float fov;
 	float ratio;
-	/*float near;
-	float far;*/
+	float Near;
+	float Far;
 
 	mat4 matrix;
+
+	vec3 target;
 };
 
 struct TextureFile : Texture

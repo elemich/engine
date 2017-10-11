@@ -53,8 +53,6 @@ void SplitterContainer::OnLButtonDown(HWND hwnd,LPARAM lparam)
 
 void SplitterContainer::OnLButtonUp(HWND hwnd)
 {
-	printf("main L button up\n");
-
 	if(floatingTabRef)
 	{
 		EnableAllChildsDescendants(hwnd,true);
@@ -67,7 +65,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 				{
 					TabContainer* newTabContainer=0;
 
-					if(1==(int)floatingTabRef->tabs.size())
+					if(1==(int)floatingTabRef->tabs.childs.size())
 					{
 						newTabContainer=floatingTabRef;
 
@@ -109,17 +107,19 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 					{
 						newTabContainer=new TabContainer((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top),hwnd);
 						
-						GuiTab* reparentTab=floatingTabRef->tabs[floatingTabRefTabIdx];
-						floatingTabRef->RemoveTab(reparentTab);
-						newTabContainer->AddTab(reparentTab);
+						GuiRect* reparentTab=floatingTabRef->tabs.childs[floatingTabRefTabIdx];
+						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
+						/*floatingTabRef->OnGuiActivate();*/
+						reparentTab->SetParent(&newTabContainer->tabs);
+						
+						newTabContainer->selected=newTabContainer->tabs.childs.size()-1;
+
+						SetWindowPos(floatingTabTarget->hwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);		
 
 						
-						
-						SetWindowPos(floatingTabTarget->hwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);					
 					}
 
 					floatingTabTarget->LinkSibling(newTabContainer,floatingTabTargetAnchorPos);
-
 				}
 				else
 				{
@@ -243,7 +243,7 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 		}
 		else
 		{
-			UpdateWindow(floatingTabRef->hwnd);
+			//UpdateWindow(floatingTabRef->hwnd);
 			SetWindowPos(floatingTab->hwnd,0,p.x-(floatingTabScaledWidthX)/2,p.y-(floatingTabScaledWidthY)/2,floatingTabScaledWidthX,floatingTabScaledWidthY,SWP_SHOWWINDOW);
 			floatingTabTarget=0;
 			floatingTabTargetAnchorPos=-1;
@@ -364,7 +364,7 @@ void SplitterContainer::CreateFloatingTab(TabContainer* tab)
 
 	floatingTabRef=tab;
 	floatingTabRefTabIdx=tab->selected;
-	floatingTabRefTabCount=(int)tab->tabs.size();
+	floatingTabRefTabCount=(int)tab->tabs.childs.size();
 
 	RECT tmpRc;
 
@@ -426,7 +426,7 @@ bool InitSplitter()
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=MainWindowProc;
-		wc.hbrBackground=CreateSolidBrush(GuiTab::COLOR_MAIN_BACKGROUND);
+		wc.hbrBackground=CreateSolidBrush(GuiInterface::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
 			__debugbreak();

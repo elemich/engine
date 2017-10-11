@@ -4,9 +4,9 @@
 #include "interfaces.h"
 
 struct TabContainer;
-struct GuiTab;
 struct SceneEntityNode;
 struct GuiRect;
+struct GuiRootRect;
 struct GuiString;
 struct GuiButton;
 struct GuiPropertyString;
@@ -15,7 +15,10 @@ struct GuiPropertyAnimation;
 struct GuiLabel;
 struct GuiButton;
 struct GuiViewport;
-struct GuiTabImage;
+struct GuiSceneViewer;
+struct GuiEntityViewer;
+struct GuiProjectViewer;
+struct GuiImage;
 struct AnimationController;
 
 
@@ -25,7 +28,7 @@ struct Editor
 };
 
 
-struct GuiInterface  : TPoolVector<GuiInterface>
+struct GuiInterface
 {
 	String name;
 
@@ -45,29 +48,29 @@ struct GuiInterface  : TPoolVector<GuiInterface>
 	virtual void OnGuiMouseMove(){}
 	virtual void OnGuiUpdate(){}
 	virtual void OnGuiReparent(){}
-	virtual void OnGuiSelected(){}
+	virtual void OnGuiEntitySelected(){}
 	virtual void OnGuiRender(){}
 	virtual void OnGuiMouseWheel(){}
 	virtual void OnGuiPaint(){}
 	virtual void OnGuiDestroy(){}
+	virtual void OnGuiActivate(){}
+	virtual void OnGuiDeactivate(){}
 
 	virtual void OnGuiRecreateTarget(){}
-
-	static void BroadcastToGui(void (GuiInterface::*func)());
 };
 
 
-struct GuiTabImage
+struct GuiImage
 {
 	unsigned char*	image;
 	void*			data;
 	float				width;
 	float				height;
 
-	GuiTabImage();
+	GuiImage();
 
 	virtual bool Load(const char* fileName);
-	virtual void Draw(GuiTab*,vec4&);
+	virtual void Draw(TabContainer*,vec4&);
 
 	operator bool () {return image!=0;}
 };
@@ -84,9 +87,9 @@ struct GuiRect : GuiInterface , PtrHierarchyNode<GuiRect>
 	unsigned int colorBorder;
 	unsigned int colorChecked;
 
-	GuiTabImage imageBackground;
-	GuiTabImage imageHovering;
-	GuiTabImage imagePressed;
+	GuiImage imageBackground;
+	GuiImage imageHovering;
+	GuiImage imagePressed;
 
 	bool pressing;
 	bool hovering;
@@ -109,23 +112,39 @@ struct GuiRect : GuiInterface , PtrHierarchyNode<GuiRect>
 
 	void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float apx=-1.0f,float apy=-1.0f,float arx=-1.0f,float ary=-1.0f);
 
-	virtual void OnPaint(GuiTab*);
-	virtual void OnEntitiesChange(GuiTab*);
-	virtual void OnSize(GuiTab*);
-	virtual void OnLMouseDown(GuiTab*);
-	virtual void OnLMouseUp(GuiTab*);
-	virtual void OnMouseMove(GuiTab*);
-	virtual void OnUpdate(GuiTab*);
-	virtual void OnReparent(GuiTab*);
-	virtual void OnSelected(GuiTab*);
-	virtual void OnRender(GuiTab*);
-	virtual void OnMouseWheel(GuiTab*);
+	void SetParent(GuiRect*);
+
+	virtual void OnRecreateTarget(TabContainer*){}
+	virtual void OnPaint(TabContainer*);
+	virtual void OnEntitiesChange(TabContainer*);
+	virtual void OnSize(TabContainer*);
+	virtual void OnLMouseDown(TabContainer*);
+	virtual void OnLMouseUp(TabContainer*);
+	virtual void OnMouseMove(TabContainer*);
+	virtual void OnUpdate(TabContainer*);
+	virtual void OnReparent(TabContainer*);
+	virtual void OnSelected(TabContainer*);
+	virtual void OnRender(TabContainer*);
+	virtual void OnMouseWheel(TabContainer*);
+	virtual void OnActivate(TabContainer*);
+	virtual void OnDeactivate(TabContainer*);
+	virtual void OnEntitySelected(TabContainer*);
 
 	virtual GuiRect* GetRoot(); 
 
 	bool _contains(vec4& quad,vec2);
 
-	void BroadcastToChilds(void (GuiRect::*func)(GuiTab*),GuiTab*);
+	void BroadcastToChilds(void (GuiRect::*func)(TabContainer*),TabContainer*);
+	void BroadcastToRoot(void (GuiRect::*func)(TabContainer*));
+	template<class C> void BroadcastTo(void (GuiRect::*func)(TabContainer* iTabContainer))
+	{
+		C* isaC=dynamic_cast<C*>(this);
+
+		if(isaC)
+			(this->*func)(iTabContainer);
+
+		for_each(this->childs.begin(),this->childs.end(),std::bind(func,std::placeholders::_1,iTabContainer));
+	}
 
 	GuiString* Container(const char* iText);
 
@@ -145,15 +164,18 @@ struct GuiRect : GuiInterface , PtrHierarchyNode<GuiRect>
 
 	GuiPropertyAnimation* PropertyAnimControl(AnimationController*);
 	GuiViewport* Viewport(vec3 pos=vec3(100,100,100),vec3 target=vec3(0,0,0),vec3 up=vec3(0,0,1),bool perspective=true);
+	GuiSceneViewer* SceneViewer();
+	GuiEntityViewer* EntityViewer();
+	GuiProjectViewer* ProjectViewer();
 };
 
-struct GuiRootRect : GuiRect
+struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 {
-	GuiTab* tab;
+	TabContainer* tabContainer;
 
-	void OnSize(GuiTab*);
+	void OnSize(TabContainer*);
 
-	GuiRootRect(GuiTab* t):tab(t){this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
+	GuiRootRect(TabContainer* t):tabContainer(t){this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
 };
 
 struct GuiString : GuiRect
@@ -162,8 +184,8 @@ struct GuiString : GuiRect
 	vec2 alignText;
 	String text;
 
-	virtual void OnPaint(GuiTab*);
-	virtual void OnSize(GuiTab*);
+	virtual void OnPaint(TabContainer*);
+	virtual void OnSize(TabContainer*);
 };
 
 struct GuiButton : GuiString
@@ -175,7 +197,7 @@ struct GuiButton : GuiString
 
 	void (GuiRect::*mouseUpFunc)();
 
-	virtual void OnLMouseUp(GuiTab* tab);
+	virtual void OnLMouseUp(TabContainer* tab);
 };
 
 struct GuiPropertyString : GuiRect
@@ -183,7 +205,7 @@ struct GuiPropertyString : GuiRect
 	String prp;
 	String val;
 
-	virtual void OnPaint(GuiTab*);
+	virtual void OnPaint(TabContainer*);
 };
 
 struct GuiSlider : GuiRect
@@ -195,8 +217,8 @@ struct GuiSlider : GuiRect
 
 	GuiSlider():referenceValue(0),minimum(0),maximum(1){}
 
-	virtual void OnPaint(GuiTab*);
-	virtual void OnMouseMove(GuiTab*);
+	virtual void OnPaint(TabContainer*);
+	virtual void OnMouseMove(TabContainer*);
 };
 
 struct GuiPropertySlider : GuiRect
@@ -205,7 +227,7 @@ struct GuiPropertySlider : GuiRect
 	
 	GuiSlider slider;
 
-	virtual void OnPaint(GuiTab*);
+	virtual void OnPaint(TabContainer*);
 };
 
 struct GuiPropertyAnimation : GuiRect
@@ -221,7 +243,7 @@ struct GuiPropertyAnimation : GuiRect
 
 	GuiSlider slider;
 
-	virtual void OnMouseMove(GuiTab*);
+	virtual void OnMouseMove(TabContainer*);
 };
 
 struct GuiViewport : GuiRect
@@ -234,41 +256,20 @@ struct GuiViewport : GuiRect
 
 	RenderSurface *surface;
 
-	GuiViewport(GuiRect* _parent);
+	GuiViewport();
 	~GuiViewport();
 
 	void Register();
 	void Unregister();
 	bool Registered();
 
-	virtual void OnSize(GuiTab*);
-	virtual void OnPaint(GuiTab*);
-	virtual void OnMouseWheel(GuiTab*);
-	virtual void OnMouseMove(GuiTab*);
-};
-
-struct GuiTab : GuiInterface , TPoolVector<GuiTab>
-{
-	TabContainer* tabContainer;
-	GuiRootRect guiRoot;
-
-	GuiTab(TabContainer* tc);
-
-	~GuiTab();
-
-	virtual void OnGuiPaint();
-	virtual void OnEntitiesChange();
-	virtual void OnGuiSize();
-	virtual void OnGuiLMouseDown();
-	virtual void OnGuiLMouseUp();
-	virtual void OnGuiMouseMove();
-	virtual void OnGuiUpdate();
-	virtual void OnGuiReparent();
-	virtual void OnGuiSelected();
-	virtual void OnGuiRender();
-	virtual void OnGuiMouseWheel();
-
-	bool IsSelected();
+	virtual void OnSize(TabContainer*);
+	virtual void OnPaint(TabContainer*);
+	virtual void OnMouseWheel(TabContainer*);
+	virtual void OnMouseMove(TabContainer*);
+	virtual void OnActivate(TabContainer*);
+	virtual void OnDeactivate(TabContainer*);
+	virtual void OnReparent(TabContainer*);
 };
 
 
@@ -279,31 +280,26 @@ struct GuiTab : GuiInterface , TPoolVector<GuiTab>
 
 
 
-struct ScrollBar
+struct GuiScrollBar : GuiRect
 {
 	static const int SCROLLBAR_WIDTH=20;
 	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
 	static const int SCROLLBAR_AMOUNT=10;
 
-	TabContainer* tab;
-
-	float x,y,width,height;
 	float scroller,scrollerFactor;
 	float scrollerClick;
 
-	ScrollBar(TabContainer* tab,float ix=0, float iy=0, float iw=0,float ih=0);
-	~ScrollBar();
+	GuiScrollBar();
+	~GuiScrollBar();
 
-	void Set(float _x,float _y,float _width,float _height);
 	void SetScrollerFactor(float contentHeight,float containerHeight);
 	void SetScrollerPosition(float contentHeight);
 	float GetScrollValue();
 
-	float OnPressed();
-	void OnReleased();
-	bool OnScrolled();
-	void OnPaint();
-	void OnReparent(TabContainer*);
+	void OnLMouseDown(TabContainer* tab);
+	void OnLMouseUp(TabContainer* tab);
+	void OnMouseMove(TabContainer* tab);
+	void OnPaint(TabContainer* tab);
 };
 
 

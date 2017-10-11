@@ -109,7 +109,7 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 	ID2D1Bitmap* iconFolder;
 	ID2D1Bitmap* iconFile;
 
-	std::vector<GuiTab*> tabs;
+	GuiRootRect	tabs;
 
 	SplitterContainer* splitterContainer;
 
@@ -145,28 +145,24 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 	virtual void OnGuiRender();
 	virtual void OnGuiMouseWheel();
 	virtual void OnResizeContainer();
+	virtual void OnEntitiesChange();
+	virtual void OnGuiActivate();
+	virtual void OnGuiDeactivate();
+	virtual void OnGuiEntitySelected();
 	
 
 	virtual void OnGuiRecreateTarget();
 
-	
-	GuiTab* AddTab(GuiTab*,int position=-1);
-	int RemoveTab(GuiTab* tab);
+	ID2D1Brush* SetColor(unsigned int color);
 
-	ID2D1Brush* SetColor(unsigned int color)
-	{
-		brush->SetColor(D2D1::ColorF(color));
-		return brush;
-	}
-
-	GuiTab* GetSelected()
-	{
-		return tabs.size() ? tabs[selected] : 0;
-	}
+	GuiRect* GetSelected();
 
 	void SelectTab();
 
-	void BroadcastToSelected(void (GuiTab::*func)());
+	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*));
+	void BroadcastToAll(void (GuiRect::*func)(TabContainer*));
+	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*));
+	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*));
 
 	void BeginDraw();
 	void EndDraw();
@@ -289,7 +285,7 @@ struct RenderSurface
 {
 	ID2D1Bitmap* renderBitmap;
 	unsigned char* renderBuffer;
-	GuiTab* tab;
+	TabContainer* tab;
 
 	RenderSurface():renderBitmap(0),renderBuffer(0){}
 	~RenderSurface(){SAFERELEASE(renderBitmap);SAFEDELETEARRAY(renderBuffer);}
@@ -343,6 +339,7 @@ struct OpenGLRenderer : RendererInterface , TPoolVector<OpenGLRenderer>
 	void draw(Texture*);
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
+	void draw(Camera*);
 
 	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model);
 	virtual void Render(GuiViewport*);
@@ -407,6 +404,9 @@ struct SceneEntityNode
 
 	std::list<SceneEntityNode> childs;
 
+	SceneEntityNode();
+	~SceneEntityNode();
+
 	struct SceneEntityPropertyNode
 	{
 		SceneEntityPropertyNode* parent;
@@ -428,64 +428,51 @@ struct SceneEntityNode
 
 
 
-struct Properties : GuiTab
+struct GuiEntityViewer : GuiRect
 {
-	Properties(TabContainer* tc);
-	~Properties();
+	GuiEntityViewer();
+	~GuiEntityViewer();
 
-	void OnGuiPaint();
-	void OnGuiSelected();
+	void OnActivate(TabContainer*);
+
+	virtual void OnEntitySelected(TabContainer*);
 };
 
-struct SceneViewer : GuiTab
+struct GuiSceneViewer : GuiRect
 {
-	SceneViewer(TabContainer*);
-	~SceneViewer();
+	GuiSceneViewer();
+	~GuiSceneViewer();
 
 	static const int TREEVIEW_ROW_HEIGHT=20;
 	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
 
 	SceneEntityNode elements;
 
-	ScrollBar scrollBar;
+	GuiScrollBar scrollBar;
 	
 	float bitmapWidth;
 	float bitmapHeight;
 	float frameWidth;
 	float frameHeight;
 
-	void OnGuiPaint();
-	void OnGuiSize();
-	void OnGuiLMouseDown();
-	void OnEntitiesChange();
-	void OnGuiUpdate();
-	void OnGuiReparent();
-	void OnGuiRecreateTarget();
+	void OnPaint(TabContainer*);
+	void OnSize(TabContainer*);
+	void OnLMouseDown(TabContainer*);
+	void OnEntitiesChange(TabContainer*);
+	void OnUpdate(TabContainer*);
+	void OnReparent(TabContainer*);
+	void OnRecreateTarget(TabContainer*);
+	
 
-	bool OnNodePressed(SceneEntityNode& node,SceneEntityNode*& expChanged,SceneEntityNode*& selChanged);
-	void DrawNodeSelectionRecursive(SceneEntityNode& node);
-	void DrawNodeRecursive(SceneEntityNode&);
+	bool OnNodePressed(vec2&,SceneEntityNode& node,SceneEntityNode*& expChanged,SceneEntityNode*& selChanged);
+	void DrawNodeSelectionRecursive(TabContainer*,SceneEntityNode& node);
+	void DrawNodeRecursive(TabContainer*,SceneEntityNode&);
 };	
 
 
-struct EqSolver : GuiTab
-{
-	mat4 mat;
-	mat4 sol;
-
-	EqSolver(TabContainer* tab):
-		GuiTab(tab)
-	{
-		name="EqSolver";
-
-	}
 
 
-};
-
-
-
-struct Resources : GuiTab
+struct GuiProjectViewer : GuiRect
 {
 	struct ResourceNode
 	{
@@ -508,13 +495,13 @@ struct Resources : GuiTab
 		~ResourceNode(){clear();}
 			
 		void insertDirectory(String &path,HANDLE handle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
-		void insertFiles(Resources::ResourceNode& directory,HDC hdc,float& width,float& height);
+		void insertFiles(GuiProjectViewer::ResourceNode& directory,HDC hdc,float& width,float& height);
 		void update(float& width,float& height);
-		void drawdirlist(Resources* tv);
-		void drawfilelist(Resources* tv);
+		void drawdirlist(TabContainer*,GuiProjectViewer* tv);
+		void drawfilelist(TabContainer*,GuiProjectViewer* tv);
 		void clear();
-		ResourceNode* onmousepressedLeftPane(Resources* tv,float& x,float& y,float& width,float& height);
-		ResourceNode* onmousepressedRightPane(Resources* tv,float& x,float& y,float& width,float& height);
+		ResourceNode* onmousepressedLeftPane(TabContainer*,GuiProjectViewer* tv,float& x,float& y,float& width,float& height);
+		ResourceNode* onmousepressedRightPane(TabContainer*,GuiProjectViewer* tv,float& x,float& y,float& width,float& height);
 
 		static bool ScanDir(const char* dir,HANDLE&,WIN32_FIND_DATA& data,int opt=-1);
 	};
@@ -524,11 +511,11 @@ struct Resources : GuiTab
 	std::vector<ResourceNode*> selectedDirs;
 	std::vector<ResourceNode*> selectedFiles;
 
-	Resources(TabContainer* tc);
-	~Resources();
+	GuiProjectViewer();
+	~GuiProjectViewer();
 
-	ScrollBar leftScrollBar;
-	ScrollBar rightScrollBar;
+	GuiScrollBar leftScrollBar;
+	GuiScrollBar rightScrollBar;
 
 	float leftBitmapWidth;
 	float leftBitmapHeight;
@@ -540,21 +527,14 @@ struct Resources : GuiTab
 	bool splitterMoving;
 	
 
-	void OnGuiPaint();
-	void OnGuiSize();
-	void OnGuiLMouseDown();
-	void OnGuiMouseWheel();
-	void OnGuiLMouseUp();
-	void OnGuiMouseMove();
-	void OnEntitiesChange();
-	void OnGuiUpdate();
-	void OnGuiReparent();
-
-	void DrawItems();
-	void DrawLeftItems();
-	void DrawRightItems();
-
-	void OnGuiRecreateTarget();
+	void OnPaint(TabContainer*);
+	void OnSize(TabContainer*);
+	void OnLMouseDown(TabContainer*);
+	void OnMouseWheel(TabContainer*);
+	void OnLMouseUp(TabContainer*);
+	void OnMouseMove(TabContainer*);
+	void OnReparent(TabContainer*);
+	void OnActivate(TabContainer*);
 
 	void SetLeftScrollBar();
 	void SetRightScrollBar();

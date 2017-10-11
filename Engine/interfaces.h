@@ -38,6 +38,7 @@ struct RendererInterface
 	virtual void draw(Light*)=0;
 	virtual void drawUnlitTextured(Mesh*)=0;
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
+	virtual void draw(Camera*)=0;
 
 	virtual void ChangeContext()=0;
 

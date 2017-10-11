@@ -185,7 +185,7 @@ int App::Init()
 
 void App::Close()
 {
-	if(TPoolVector<GuiTab>::pool.size()==1 && threadGuiTab)
+	if(/*TPoolVector<GuiTab>::pool.size()==1 && */threadGuiTab)
 		ExitThread(threadGuiTab);
 
 	Direct2DGuiBase::Release();

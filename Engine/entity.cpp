@@ -78,6 +78,8 @@ void Entity::draw(RendererInterface* renderer)
 	for(std::list<Entity*>::iterator it=this->entity_childs.begin();it!=this->entity_childs.end();it++)
 		(*it)->draw(renderer);
 
+	renderer->draw(this->entity_bbox);
+
 	this->nDrawed++;
 }
 
