@@ -167,11 +167,11 @@ int create_program(const char* vertexsh,const char* fragmentsh)
 
 ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const char* frag)
 {
-	if(shadersPool.Find(name))
+	/*if(shadersPool.Find(name))
 	{
 		printf("skipping creating %s: already exists\n",name);
 		return 0;
-	}
+	}*/
 
 	int program=create_program(pix,frag);
 

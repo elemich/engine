@@ -157,8 +157,6 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 
 	GuiRect* GetSelected();
 
-	void SelectTab();
-
 	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*));
 	void BroadcastToAll(void (GuiRect::*func)(TabContainer*));
 	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*));
@@ -256,6 +254,7 @@ struct MainAppContainerWindow : ContainerWindow
 struct TimerWin32 : Timer
 {
 	void update();
+	unsigned int GetTime();
 };
 
 struct App : AppInterface , TStaticInstance<App>
@@ -286,6 +285,7 @@ struct RenderSurface
 	ID2D1Bitmap* renderBitmap;
 	unsigned char* renderBuffer;
 	TabContainer* tab;
+	unsigned int lastFrameTime;
 
 	RenderSurface():renderBitmap(0),renderBuffer(0){}
 	~RenderSurface(){SAFERELEASE(renderBitmap);SAFEDELETEARRAY(renderBuffer);}
@@ -293,18 +293,16 @@ struct RenderSurface
 
 struct OpenGLRenderer : RendererInterface , TPoolVector<OpenGLRenderer>
 {
-	
-
-	static GLuint vertexArrayObject;
-	static GLuint vertexBufferObject;
-	static GLuint textureBufferObject;
-	static GLuint indicesBufferObject;
-	static GLuint frameBuffer;
-	static GLuint textureColorbuffer;
-	static GLuint textureRenderbuffer;
-	static GLuint pixelBuffer;
-	static GLuint renderBufferColor;
-	static GLuint renderBufferDepth;
+	GLuint vertexArrayObject;
+	GLuint vertexBufferObject;
+	GLuint textureBufferObject;
+	GLuint indicesBufferObject;
+	GLuint frameBuffer;
+	GLuint textureColorbuffer;
+	GLuint textureRenderbuffer;
+	GLuint pixelBuffer;
+	GLuint renderBufferColor;
+	GLuint renderBufferDepth;
 
 	HGLRC hglrc;
 	HDC   hdc;
@@ -342,7 +340,7 @@ struct OpenGLRenderer : RendererInterface , TPoolVector<OpenGLRenderer>
 	void draw(Camera*);
 
 	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model);
-	virtual void Render(GuiViewport*);
+	virtual void Render(GuiViewport*,bool paint=true);
 	virtual void RenderViewports();
 };
 

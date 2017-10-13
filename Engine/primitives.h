@@ -351,9 +351,14 @@ struct mat4 : TNumberedVectorInterface<float,16>
 
 struct Timer : TStaticInstance<Timer>
 {
-	unsigned int current;
-	unsigned int delta;
-	unsigned int last;
+	unsigned int currentFrameTime;
+	unsigned int currentFrameDeltaTime;
+	unsigned int lastFrameTime;
+	unsigned int renderFps;
+
+	Timer():renderFps(60){}
+
+	virtual unsigned int GetTime()=0;
 
 	void update(){};
 };

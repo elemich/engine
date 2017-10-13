@@ -4,6 +4,7 @@
 #pragma message (LOCATION " multiple opengl context needs glew32mx.lib")
 #pragma message (LOCATION " TODO: move OpenGL bitmap render in the RendererViewportInterface cause is for the gui only")
 
+/*
 GLuint OpenGLRenderer::vertexArrayObject=0;
 GLuint OpenGLRenderer::vertexBufferObject=0;
 GLuint OpenGLRenderer::textureBufferObject=0;
@@ -13,7 +14,7 @@ GLuint OpenGLRenderer::textureColorbuffer=0;
 GLuint OpenGLRenderer::textureRenderbuffer=0;
 GLuint OpenGLRenderer::pixelBuffer=0;
 GLuint OpenGLRenderer::renderBufferColor=0;
-GLuint OpenGLRenderer::renderBufferDepth=0;
+GLuint OpenGLRenderer::renderBufferDepth=0;*/
 
 PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
 PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
@@ -251,7 +252,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 
 	//wglMakeCurrent(TClassPool<OpenGLRenderer>::pool[0]->hdc, TClassPool<OpenGLRenderer>::pool[0]->hglrc);
 
-	if(!vertexArrayObject)
+	//if(!vertexArrayObject)
 	{
 		{
 			glGenFramebuffers(1,&frameBuffer);glCheckError();
@@ -1045,12 +1046,17 @@ float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
 
 
-void OpenGLRenderer::Render(GuiViewport* viewport)
+
+void OpenGLRenderer::Render(GuiViewport* viewport,bool paint)
 {
 	if(!this->hglrc || !viewport || !viewport->surface)
 		return;
 
+
 	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->update();
+
+	if(Timer::instance->currentFrameTime-viewport->surface->lastFrameTime<(1000.0f/Timer::instance->renderFps))
+		return;
 
 	vec4 &rectangle=viewport->rect;
 
@@ -1080,7 +1086,10 @@ void OpenGLRenderer::Render(GuiViewport* viewport)
 
 	viewport->surface->renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)rectangle.z,(int)rectangle.w),viewport->surface->renderBuffer,(int)(rectangle.z*4));
 
-	viewport->OnPaint(viewport->surface->tab);
+	if(paint)
+		viewport->OnPaint(viewport->surface->tab);
+
+	viewport->surface->lastFrameTime=Timer::instance->currentFrameTime;
 }
 
 void OpenGLRenderer::Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model)

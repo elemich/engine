@@ -175,7 +175,7 @@ struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 
 	void OnSize(TabContainer*);
 
-	GuiRootRect(TabContainer* t):tabContainer(t){this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
+	GuiRootRect(TabContainer* t):tabContainer(t){this->name="RootRect";this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
 };
 
 struct GuiString : GuiRect
@@ -183,6 +183,8 @@ struct GuiString : GuiRect
 	vec4 textRect;
 	vec2 alignText;
 	String text;
+
+	GuiString(){this->name="String";}
 
 	virtual void OnPaint(TabContainer*);
 	virtual void OnSize(TabContainer*);
@@ -193,7 +195,7 @@ struct GuiButton : GuiString
 	bool* referenceValue;
 	int		updateMode;
 
-	GuiButton():referenceValue(0),mouseUpFunc(0),updateMode(-1){}
+	GuiButton():referenceValue(0),mouseUpFunc(0),updateMode(-1){this->name="Button";}
 
 	void (GuiRect::*mouseUpFunc)();
 
@@ -205,6 +207,8 @@ struct GuiPropertyString : GuiRect
 	String prp;
 	String val;
 
+	GuiPropertyString(){this->name="PropertyString";}
+
 	virtual void OnPaint(TabContainer*);
 };
 
@@ -215,10 +219,11 @@ struct GuiSlider : GuiRect
 	float minimum;
 	float maximum;
 
-	GuiSlider():referenceValue(0),minimum(0),maximum(1){}
+	GuiSlider():referenceValue(0),minimum(0),maximum(1){this->name="Slider";}
 
 	virtual void OnPaint(TabContainer*);
 	virtual void OnMouseMove(TabContainer*);
+	virtual void OnSize(TabContainer*);
 };
 
 struct GuiPropertySlider : GuiRect
@@ -227,6 +232,8 @@ struct GuiPropertySlider : GuiRect
 	
 	GuiSlider slider;
 
+	GuiPropertySlider(){this->name="PropertySlider";}
+
 	virtual void OnPaint(TabContainer*);
 };
 
@@ -234,7 +241,7 @@ struct GuiPropertyAnimation : GuiRect
 {
 	AnimationController* animController;
 
-	GuiPropertyAnimation():animController(0){}
+	GuiPropertyAnimation():animController(0){this->name="PropertyAnimation";}
 
 	GuiString text;
 

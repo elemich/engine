@@ -7,9 +7,8 @@
 
 //#define RENDERER DirectXRenderer()
 #define RENDERER OpenGLRenderer
-#define BROWSER  ProjectFolderBrowser2
 
-#define WC_MAINAPPWINDOW "MainAppWindow"
+#define WC_MAINAPPWINDOW "MainAppWindow 0.1"
 #define WC_CONTAINERWINDOW "ContainerWindow"
 #define WC_TABCONTAINERWINDOWCLASS "TabContainerWindowClass"
 

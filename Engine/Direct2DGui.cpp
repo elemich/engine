@@ -384,6 +384,7 @@ ID2D1RadialGradientBrush* Direct2DGuiBase::RadialGradientBrush(ID2D1RenderTarget
 
 GuiScrollBar::GuiScrollBar()
 {
+	this->name="ScrollBar";
 	this->scroller=0;
 	this->scrollerClick=-1;
 	this->scrollerFactor=1;
@@ -946,8 +947,6 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer)
 void GuiEntityViewer::OnActivate(TabContainer* tabContainer)
 {
 	GuiRect::OnActivate(tabContainer);
-
-	this->OnPaint(tabContainer);
 }
 
 
@@ -996,7 +995,7 @@ bool GuiProjectViewer::ResourceNode::ScanDir(const char* dir,HANDLE& handle,WIN3
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		printf("filename %s\n",data.cFileName);
+		//printf("filename %s\n",data.cFileName);
 
 		if(opt<0)		//returns data with no filter
 			return true;

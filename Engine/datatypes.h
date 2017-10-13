@@ -25,7 +25,6 @@ struct MatrixStack
 	static void Pop();
 	static void Identity();
 	static float* GetMatrix();
-	static void SetShaderMatrix();
 	static void Load(float* m);
 	static void Multiply(float* m);
 
@@ -34,8 +33,6 @@ struct MatrixStack
 	static void Push(MatrixStack::matrixmode,float*);
 	static void Identity(MatrixStack::matrixmode);
 	static float* GetMatrix(MatrixStack::matrixmode,int lev=-1);
-	static void SetShaderMatrix(MatrixStack::matrixmode);
-	static void SetShaderMatrix(MatrixStack::matrixmode,float*);
 	static void Load(MatrixStack::matrixmode,float*);
 	static void Multiply(MatrixStack::matrixmode,float*);
 

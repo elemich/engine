@@ -79,13 +79,27 @@ void MainAppContainerWindow::Create(HWND)
 
 	RECT rc;
 	GetClientRect(hwnd,&rc);
-	TabContainer* tabContainer=new TabContainer(0.0f,0.0f,(float)rc.right-rc.left,(float)rc.bottom-rc.top,hwnd);
+	TabContainer* tabContainer1=new TabContainer(0.0f,0.0f,(float)300,(float)200,hwnd);
+	TabContainer* tabContainer2=new TabContainer(0.0f,204.0f,(float)300,(float)200,hwnd);
+	TabContainer* tabContainer3=new TabContainer(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408),hwnd);
+	TabContainer* tabContainer4=new TabContainer(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top,hwnd);
 
-	tabContainer->tabs.SceneViewer();
-	tabContainer->tabs.Viewport();
-	tabContainer->tabs.ProjectViewer();
-	tabContainer->tabs.EntityViewer();
+	tabContainer1->tabs.SceneViewer();
+	tabContainer4->tabs.Viewport();
+	tabContainer3->tabs.ProjectViewer();
+	tabContainer2->tabs.EntityViewer();
 
+	tabContainer1->BroadcastToSelected(&GuiRect::OnSize);
+	tabContainer1->BroadcastToSelected(&GuiRect::OnActivate);
+
+	tabContainer2->BroadcastToSelected(&GuiRect::OnSize);
+	tabContainer2->BroadcastToSelected(&GuiRect::OnActivate);
+
+	tabContainer3->BroadcastToSelected(&GuiRect::OnSize);
+	tabContainer3->BroadcastToSelected(&GuiRect::OnActivate);
+
+	tabContainer4->BroadcastToSelected(&GuiRect::OnSize);
+	tabContainer4->BroadcastToSelected(&GuiRect::OnActivate);
 
 	ShowWindow(hwnd,true);
 }

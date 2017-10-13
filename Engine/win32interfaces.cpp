@@ -243,6 +243,8 @@ void App::Run()
 
 	while(true)
 	{
+		this->timerMain.update();
+
 		if(PeekMessage(&msg,0,0,0,PM_REMOVE))
 		{
 			if(msg.message==WM_QUIT)
@@ -251,35 +253,26 @@ void App::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-		else
+		
+		for(int i=0;i<(int)GetPool<OpenGLRenderer>().size();i++)
 		{
-			/*if(!threadLockedEntities && this->threadPaintNeeded)
-			{
-				this->threadUpdateNeeded=false;
-				sem=true;*/
-				this->timerMain.update();
-
-
-				for(int i=0;i<(int)GetPool<OpenGLRenderer>().size();i++)
-				{
-					GetPool<OpenGLRenderer>()[i]->RenderViewports();
-				}
-
-				/*this->threadPaintNeeded=false;
-				this->threadUpdateNeeded=true;
-			}*/
-			
+			GetPool<OpenGLRenderer>()[i]->RenderViewports();
 		}
 	}
 
 	this->Close();
 }
 
+unsigned int TimerWin32::GetTime()
+{
+	return (unsigned int)timeGetTime();
+}
+
 void TimerWin32::update()
 {
-	last=current;
-	current=timeGetTime();
-	delta=current-last;
+	lastFrameTime=currentFrameTime;
+	currentFrameTime=GetTime();
+	currentFrameDeltaTime=currentFrameTime-lastFrameTime;
 }
 
 

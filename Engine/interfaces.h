@@ -43,7 +43,7 @@ struct RendererInterface
 	virtual void ChangeContext()=0;
 
 	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model)=0;
-	virtual void Render(GuiViewport*)=0;
+	virtual void Render(GuiViewport*,bool)=0;
 
 	virtual ~RendererInterface(){};
 };

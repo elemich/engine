@@ -16,7 +16,6 @@ std::vector<SceneEntityNode*> Editor::selection;
 ////////////////////////////
 
 GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _alignPos,vec2 _alignRect):
-	rect(ix,iy,iw,ih),
 	colorBackground(GuiInterface::COLOR_GUI_BACKGROUND),
 	colorForeground(GuiInterface::COLOR_TEXT),
 	colorHovering(colorBackground),
@@ -25,16 +24,9 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 	colorChecked(colorBackground),
 	pressing(false),
 	hovering(false),
-	checked(false),
-	alignPos(_alignPos),
-	alignRect(_alignRect),
-	animFrame(-1),
-	container(-1)
+	checked(false)
 {
-	this->parent=iParent;
-
-	if(iParent)
-		iParent->childs.push_back(this);
+	this->Set(iParent,0,0,-1,ix,iy,iw,ih,_alignPos.x,_alignPos.y,_alignRect.x,_alignRect.y);
 
 	memset(this->sibling,0,16);
 }
@@ -45,39 +37,14 @@ GuiRect::~GuiRect()
 
 void GuiRect::SetParent(GuiRect* iParent)
 {
-	if(!iParent)
-		return;
-
 	GuiRect* oldParent=this->parent;
+	this->parent=iParent;
 
 	if(oldParent)
-	{
 		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
-/*
-
-		if(oldParent!=iParent)
-		{
-			GuiRootRect* oldRoot=dynamic_cast<GuiRootRect*>(oldParent->GetRoot());
-
-			if(oldRoot)
-				this->OnDeactivate(oldRoot->tabContainer);
-		}*/
-	}
-
-	this->parent=iParent;
 
 	if(this->parent)
 		this->parent->childs.push_back(this);
-
-	GuiRootRect* root=dynamic_cast<GuiRootRect*>(iParent->GetRoot());
-
-	if(root)
-	{
-		this->OnSize(root->tabContainer);
-
-		if(oldParent!=0 && oldParent!=iParent)
-			this->OnReparent(root->tabContainer);
-	}
 }
 
 void GuiRect::Set(GuiRect* iParent,GuiRect* iSibling,int siblingIdx,int iContainer,float ix, float iy, float iw,float ih,float apx,float apy,float arx,float ary)
@@ -587,12 +554,9 @@ void GuiSlider::OnPaint(TabContainer* tabContainer)
 	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,1,0.75);
 	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0.5f,0.75);
 
-
-
 	float tip=(this->rect.x+10) + ((*referenceValue)/(maximum-minimum))*(this->rect.z-20);
 
 	tabContainer->renderTarget->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5),2,2),tabContainer->SetColor(GuiInterface::COLOR_TEXT));
-
 
 	if(selfRender)
 		tabContainer->EndDraw();
@@ -619,6 +583,17 @@ void GuiSlider::OnMouseMove(TabContainer* tabContainer)
 			}
 		}
 	}
+}
+
+void GuiSlider::OnSize(TabContainer* tabContainer)
+{
+	/*float oldRatio=maximum/minimum;
+	float value=this->referenceValue ? *this->referenceValue : 0;*/
+
+	GuiRect::OnSize(tabContainer);
+
+
+
 }
 
 void GuiPropertySlider::OnPaint(TabContainer* tabContainer)
@@ -738,7 +713,15 @@ void GuiViewport::OnPaint(TabContainer* tabContainer)
 		tabContainer->BeginDraw();
 
 	if(this->surface->renderBitmap)
+	{
+		if(!selfRender)
+		{
+			tabContainer->renderer->ChangeContext();
+			tabContainer->renderer->Render(this,false);
+		}
+		
 		tabContainer->renderTarget->DrawBitmap(this->surface->renderBitmap,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w));
+	}
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);

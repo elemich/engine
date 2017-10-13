@@ -6,6 +6,7 @@ int main()
 	AppInterface *app = new App();
 
 	app->Init();
+/*
 
 	MatrixStack::view.translate(100,100,100);
 	MatrixStack::view.lookat(vec3(),vec3(0,0,1));
@@ -14,6 +15,7 @@ int main()
 	MatrixStack::SetModelviewMatrix(MatrixStack::model);
 
 	ShadersPool::SetMatrices(MatrixStack::projection,MatrixStack::model);
+*/
 
 	app->Run();
 

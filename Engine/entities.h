@@ -329,8 +329,6 @@ struct Animation : EntityComponent
 
 	std::vector<AnimClip*> clips;
 
-	int		nprocessed;
-
 	float	start;
 	float	end;
 
@@ -350,9 +348,11 @@ struct AnimationController : EntityComponent
 	float start;
 	float end;
 
-	int lastTime;
+	int resolutionFps;
 
-	AnimationController():speed(1),cursor(0),play(false),looped(true),start(0),end(0),lastTime(0){}
+	int lastFrameTime;
+
+	AnimationController():speed(1),cursor(0),play(false),looped(true),start(0),end(0),lastFrameTime(0),resolutionFps(60){}
 
 	void add(Animation* anim);
 

@@ -109,7 +109,7 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 						
 						GuiRect* reparentTab=floatingTabRef->tabs.childs[floatingTabRefTabIdx];
 						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
-						/*floatingTabRef->OnGuiActivate();*/
+						floatingTabRef->OnGuiActivate();
 						reparentTab->SetParent(&newTabContainer->tabs);
 						
 						newTabContainer->selected=newTabContainer->tabs.childs.size()-1;

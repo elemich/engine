@@ -381,14 +381,7 @@ void TabContainer::OnGuiMouseWheel()
 
 	this->BroadcastToSelected(&GuiRect::OnMouseWheel);
 }								  
-								  
-void TabContainer::SelectTab()	  
-{								  
-	this->BroadcastToSelected(&GuiRect::OnSize);
-
-	this->OnGuiPaint();
-}
-
+		
 void TabContainer::OnGuiLMouseDown()
 {
 	//this->OnGuiMouseMove();
@@ -411,9 +404,8 @@ void TabContainer::OnGuiLMouseDown()
 
 				mouseDown=true;
 
-				this->SelectTab();
-
 				this->BroadcastToSelected(&GuiRect::OnActivate);
+				this->BroadcastToSelected(&GuiRect::OnSize);
 
 				this->OnGuiPaint();
 
