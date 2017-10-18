@@ -184,9 +184,9 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 							 
 							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
 							{
-								InitFbxSceneLoad(openfilename.lpstrFile);
+								Entity* importedEntities=ImportFbxScene(openfilename.lpstrFile);
 
-								TabContainer::BroadcastToPool(&TabContainer::OnEntitiesChange);
+								TabContainer::BroadcastToPool(&TabContainer::OnEntitiesChange,importedEntities);
 								
 							}
 						}

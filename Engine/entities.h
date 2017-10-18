@@ -252,29 +252,32 @@ struct EntityComponent
 
 };
 
-struct Entity 
+struct Entity : THierarchyList<Entity>
 {
-	static std::list<Entity*> pool;
-	static Entity* Find(const char*,bool exact=true);
-
 	virtual void beginDraw();
 	virtual void draw(RendererInterface*);
 	virtual void endDraw();
-	virtual void update();
+	virtual void update();	
 
-	Entity*					entity_parent;
-	std::list<Entity*>		entity_childs;		
+	mat4					transform;
+	mat4					world;
 
-	mat4					entity_transform;
-	mat4					entity_world;
+	String					name;
 
-	String					entity_name;
-
-	AABB					entity_bbox;
+	AABB					bbox;
 
 	int						nDrawed;
 	int						nUpdated;
 	int						nAnimated;
+
+	bool					selected;
+	bool					expanded;
+	int						level;
+
+	GuiRect					*properties;
+
+	void					SetParent(Entity*);
+	Entity*					Create(Entity*);
 
 	bool operator==(const Entity& e){return this==&e;}
 

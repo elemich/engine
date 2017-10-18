@@ -391,6 +391,7 @@ struct Camera;
 
 struct RenderSurface;
 struct GuiViewport;
+struct GuiRect;
 
 #endif //PRIMITIVES_H
 

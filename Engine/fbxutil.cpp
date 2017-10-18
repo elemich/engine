@@ -103,20 +103,8 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 
 	if(!parent)//create the root and add a child to it
 	{
-		Entity* poolRootNode=0;
-
-		if(!Entity::pool.size())
-		{
-			poolRootNode=new Entity;
-			poolRootNode->entity_name="RootNode";
-		}
-		else
-			poolRootNode=Entity::pool.front();
-
 		rootNode=entity=new Entity;
 		
-		parent=poolRootNode;
-
 		const char* begin=strrchr(sceneFilename,'\\');
 		const char* end=strrchr(begin,'.');
 
@@ -125,9 +113,7 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 		int i=0;
 		while(++bPtr!=end)i++;
 
-		entity->entity_name=std::string(begin,i).c_str();
-
-		rootNode->CreateComponent<AnimationController>();
+		entity->name=std::string(begin,i).c_str();
 
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
 	
@@ -142,13 +128,13 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 	if(entity)
 	{
 		
-		if(!entity->entity_name.Count())
-			entity->entity_name=fbxNode->GetName();
+		if(parent && !entity->name.Count())
+			entity->name=fbxNode->GetName();
 
-		entity->entity_transform=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
+		entity->transform=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
 
 		ExtractAnimations(fbxNode,entity);
-		entity->entity_parent=parent;
+		entity->SetParent(parent);
 
 		if(fbxNode->GetScene()->GetRootNode()==fbxNode)
 		{
@@ -161,26 +147,23 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 			switch(as.GetUpVector(sign))
 			{
 			case FbxAxisSystem::eXAxis:
-				entity->entity_transform.rotate((float)sign * 90,0,0,1);
+				entity->transform.rotate((float)sign * 90,0,0,1);
 				printf("upVector is X\n");
 				break;
 			case FbxAxisSystem::eYAxis:
-				entity->entity_transform.rotate(-90.0f,1,0,0);
+				entity->transform.rotate(-90.0f,1,0,0);
 				printf("upVector is Y\n");
 				break;
 			case FbxAxisSystem::eZAxis:
-				axes=entity->entity_transform.axis(1,0,0);
-				entity->entity_transform.rotate((float)sign * 90,axes);
+				axes=entity->transform.axis(1,0,0);
+				entity->transform.rotate((float)sign * 90,axes);
 				printf("upVector is Z\n");
 				break;
 			}
 		}
 
-		entity->entity_world = entity->entity_parent ? (entity->entity_transform * entity->entity_parent->entity_world) : entity->entity_transform;
+		entity->world = entity->parent ? (entity->transform * entity->parent->world) : entity->transform;
 	}
-
-	if(parent && entity)
-		parent->entity_childs.push_back(entity);
 
 	return entity;
 }
@@ -198,10 +181,10 @@ Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
 
 		if(bone)
 		{
-			if(bone->entity->entity_parent)
+			if(bone->entity->parent)
 			{
-				if(bone->entity->entity_parent->findComponent<Bone>())
-					bone->bone_root=bone->entity->entity_parent->findComponent<Bone>()->bone_root;
+				if(bone->entity->parent->findComponent<Bone>())
+					bone->bone_root=bone->entity->parent->findComponent<Bone>()->bone_root;
 				else
 					bone->bone_root=bone;
 			}
@@ -242,8 +225,8 @@ Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
 		FbxDouble3 bbMin=fbxNode->GetGeometry()->BBoxMin;
 		FbxDouble3 bbMax=fbxNode->GetGeometry()->BBoxMax;
 		
-		entity->entity_bbox.a.make((float)bbMin[0],(float)bbMin[1],(float)bbMin[2]);
-		entity->entity_bbox.b.make((float)bbMax[0],(float)bbMax[1],(float)bbMax[2]);
+		entity->bbox.a.make((float)bbMin[0],(float)bbMin[1],(float)bbMin[2]);
+		entity->bbox.b.make((float)bbMax[0],(float)bbMax[1],(float)bbMax[2]);
 	}
 	else if(fbxNode->GetLight())
 	{
@@ -337,12 +320,17 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			animation->end=animEnd;
 			ParseAnimationCurve(animation);
 
-			AnimationController *ac=rootNode->findComponent<AnimationController>();
+			AnimationController *animController=rootNode->findComponent<AnimationController>();
 
-			if(ac)
-				ac->add(animation);
-			else
+			if(!animController)
+				animController=rootNode->CreateComponent<AnimationController>();
+
+			if(!animController)
 				__debugbreak();
+
+			if(animController)
+				animController->add(animation);
+				
 		}
 	}
 }
@@ -353,8 +341,10 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 
 
 
-void InitFbxSceneLoad(char* fname)
+Entity* ImportFbxScene(char* fname)
 {
+	rootNode=0;
+
 	printf("Importing file %s\n",fname);
 
 	FbxIOSettings * fbxIOSettings=0;
@@ -378,7 +368,8 @@ void InitFbxSceneLoad(char* fname)
 		{
 			printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
 			printf("Error returned: %s\n", fbxImporter->GetStatus().GetErrorString());
-			return;
+			__debugbreak();//delete all
+			return 0;
 		}
 
 	fbxScene = FbxScene::Create(fbxManager,"myScene");
@@ -416,7 +407,7 @@ void InitFbxSceneLoad(char* fname)
 	mapFromFbxMaterialToMaterial.clear();
 	mapFromFbxTextureToTexture.clear();
 
-	rootNode=0;
+	return rootNode;
 }
 
 

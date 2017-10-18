@@ -18,7 +18,7 @@ struct cmat
 	}
 };
 
-void InitFbxSceneLoad(char* fname);
+Entity* ImportFbxScene(char* iFileName);
 
 void FillSkin(FbxNode* fbxNode,Skin* skin);
 void FillMesh(FbxNode* fbxNode,Mesh* mesh);

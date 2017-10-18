@@ -1030,14 +1030,14 @@ void OpenGLRenderer::draw(Bone* bone)
 	if(!bone)
 		return;
 
-	Bone* ec=bone->entity->entity_parent->findComponent<Bone>();
+	Bone* ec=bone->entity->parent->findComponent<Bone>();
 	
 	if(ec)
 	{
 		Bone* bone=(Bone*)ec;
 
-		vec3 b2p=bone->entity->entity_parent->entity_world.position();
-		vec3 b1p=bone->entity->entity_world.position();
+		vec3 b2p=bone->entity->parent->world.position();
+		vec3 b1p=bone->entity->world.position();
 		this->draw(b1p,b2p,bone->bone_color);
 	}
 }
@@ -1053,7 +1053,8 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool paint)
 		return;
 
 
-	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->update();
+	if(viewport->rootEntity)
+		viewport->rootEntity->update();
 
 	if(Timer::instance->currentFrameTime-viewport->surface->lastFrameTime<(1000.0f/Timer::instance->renderFps))
 		return;
@@ -1076,7 +1077,8 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool paint)
 	draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
 	draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->draw(this);
+	if(viewport->rootEntity)
+		viewport->rootEntity->draw(this);
 
 	MatrixStack::Pop(MatrixStack::MODELVIEW);
 	MatrixStack::Pop(MatrixStack::PROJECTION);
@@ -1125,7 +1127,7 @@ void OpenGLRenderer::Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _mod
 	draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
 	draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-	Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->draw(this);
+	//Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->draw(this);
 
 	MatrixStack::Pop(MatrixStack::MODELVIEW);
 	MatrixStack::Pop(MatrixStack::PROJECTION);

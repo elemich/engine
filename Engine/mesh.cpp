@@ -74,7 +74,7 @@ void Mesh::draw(RendererInterface* renderer)
 	//
 
 
-	AABB &bbox=this->entity->entity_bbox;
+	AABB &bbox=this->entity->bbox;
 	//AABB aabb(this->entity_world.transform(bbox.a),this->entity_world.transform(bbox.b));
 	//renderer->draw(aabb,vec3(1,0,0));	
 

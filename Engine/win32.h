@@ -76,12 +76,17 @@ struct WindowData
 struct SplitterContainer;
 struct ContainerWindow;
 
-struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
+struct TabContainer : WindowData , TPoolVector<TabContainer>
 {
 	ContainerWindow* parentContainer;
 
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
+	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
+	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
+	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
+	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 	
 
 	static const int CONTAINER_HEIGHT=30;
@@ -134,33 +139,33 @@ struct TabContainer : WindowData , GuiInterface , TPoolVector<TabContainer>
 	
 	void Create(HWND){}//@mic no more used, delete from WindowData
 
-	virtual void OnGuiPaint();
-	virtual void OnGuiSize();
-	virtual void OnWindowPosChanging();
-	virtual void OnGuiLMouseDown();
-	virtual void OnGuiLMouseUp();
-	virtual void OnGuiMouseMove();
-	virtual void OnRMouseUp();
-	virtual void OnGuiUpdate();
-	virtual void OnGuiRender();
-	virtual void OnGuiMouseWheel();
-	virtual void OnResizeContainer();
-	virtual void OnEntitiesChange();
-	virtual void OnGuiActivate();
-	virtual void OnGuiDeactivate();
-	virtual void OnGuiEntitySelected();
+	virtual void OnGuiPaint(void* data=0);
+	virtual void OnGuiSize(void* data=0);
+	virtual void OnWindowPosChanging(void* data=0);
+	virtual void OnGuiLMouseDown(void* data=0);
+	virtual void OnGuiLMouseUp(void* data=0);
+	virtual void OnGuiMouseMove(void* data=0);
+	virtual void OnRMouseUp(void* data=0);
+	virtual void OnGuiUpdate(void* data=0);
+	virtual void OnGuiRender(void* data=0);
+	virtual void OnGuiMouseWheel(void* data=0);
+	virtual void OnResizeContainer(void* data=0);
+	virtual void OnEntitiesChange(void* data=0);
+	virtual void OnGuiActivate(void* data=0);
+	virtual void OnGuiDeactivate(void* data=0);
+	virtual void OnGuiEntitySelected(void* data=0);
 	
 
-	virtual void OnGuiRecreateTarget();
+	virtual void OnGuiRecreateTarget(void* data=0);
 
 	ID2D1Brush* SetColor(unsigned int color);
 
 	GuiRect* GetSelected();
 
-	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*));
-	void BroadcastToAll(void (GuiRect::*func)(TabContainer*));
-	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*));
-	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*));
+	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
+	void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
+	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void*);
+	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void*);
 
 	void BeginDraw();
 	void EndDraw();
@@ -212,7 +217,7 @@ struct SplitterContainer
 };
 
 
-struct ContainerWindow : WindowData , SplitterContainer , GuiInterface
+struct ContainerWindow : WindowData , SplitterContainer
 {
 	std::vector<TabContainer*> tabContainers;
 
@@ -386,55 +391,8 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 
 
 
-struct SceneEntityNode
-{
-	SceneEntityNode* parent;
-
-	Entity* entity;
-
-	float x;
-	float y;
-	bool expanded;
-	bool selected;
-	int textWidth;
-	int level;
-	int hasChilds;
-
-	std::list<SceneEntityNode> childs;
-
-	SceneEntityNode();
-	~SceneEntityNode();
-
-	struct SceneEntityPropertyNode
-	{
-		SceneEntityPropertyNode* parent;
-
-		Entity* entity;
-
-		GuiRect root;
-		
-		void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityPropertyNode* parent=0,int expandUntilLevel=1);
-		void update(float& width,float& height);
-		void clear();
-
-	}properties;
-
-	void insert(Entity* entity,HDC hdc,float& width,float& height,SceneEntityNode* parent=0,int expandUntilLevel=1);
-	void update(float& width,float& height);
-	void clear();
-};
 
 
-
-struct GuiEntityViewer : GuiRect
-{
-	GuiEntityViewer();
-	~GuiEntityViewer();
-
-	void OnActivate(TabContainer*);
-
-	virtual void OnEntitySelected(TabContainer*);
-};
 
 struct GuiSceneViewer : GuiRect
 {
@@ -444,7 +402,9 @@ struct GuiSceneViewer : GuiRect
 	static const int TREEVIEW_ROW_HEIGHT=20;
 	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
 
-	SceneEntityNode elements;
+	Entity* entityRoot;
+
+	std::vector<Entity*> selection;
 
 	GuiScrollBar scrollBar;
 	
@@ -453,21 +413,31 @@ struct GuiSceneViewer : GuiRect
 	float frameWidth;
 	float frameHeight;
 
-	void OnPaint(TabContainer*);
-	void OnSize(TabContainer*);
-	void OnLMouseDown(TabContainer*);
-	void OnEntitiesChange(TabContainer*);
-	void OnUpdate(TabContainer*);
-	void OnReparent(TabContainer*);
-	void OnRecreateTarget(TabContainer*);
-	
+	void OnPaint(TabContainer*,void* data=0);
+	void OnSize(TabContainer*,void* data=0);
+	void OnLMouseDown(TabContainer*,void* data=0);
+	void OnEntitiesChange(TabContainer*,void* data=0);
+	void OnReparent(TabContainer*,void* data=0);
+	void OnRecreateTarget(TabContainer*,void* data=0);
+	void OnRMouseUp(TabContainer*,void* data=0);
 
-	bool OnNodePressed(vec2&,SceneEntityNode& node,SceneEntityNode*& expChanged,SceneEntityNode*& selChanged);
-	void DrawNodeSelectionRecursive(TabContainer*,SceneEntityNode& node);
-	void DrawNodeRecursive(TabContainer*,SceneEntityNode&);
+
+	bool ProcessNodes(vec2&,vec2&,Entity* node,Entity*& expChanged,Entity*& selChanged);
+	void DrawNodes(TabContainer*,Entity*,vec2&);
+	void UnselectNodes(Entity*);
 };	
 
+struct GuiEntityViewer : GuiRect
+{
+	GuiEntityViewer();
+	~GuiEntityViewer();
 
+	Entity* entity;
+
+	void OnActivate(TabContainer*,void* data=0);
+
+	virtual void OnEntitySelected(TabContainer*,void* data=0);
+};
 
 
 struct GuiProjectViewer : GuiRect
@@ -525,14 +495,14 @@ struct GuiProjectViewer : GuiRect
 	bool splitterMoving;
 	
 
-	void OnPaint(TabContainer*);
-	void OnSize(TabContainer*);
-	void OnLMouseDown(TabContainer*);
-	void OnMouseWheel(TabContainer*);
-	void OnLMouseUp(TabContainer*);
-	void OnMouseMove(TabContainer*);
-	void OnReparent(TabContainer*);
-	void OnActivate(TabContainer*);
+	void OnPaint(TabContainer*,void* data=0);
+	void OnSize(TabContainer*,void* data=0);
+	void OnLMouseDown(TabContainer*,void* data=0);
+	void OnMouseWheel(TabContainer*,void* data=0);
+	void OnLMouseUp(TabContainer*,void* data=0);
+	void OnMouseMove(TabContainer*,void* data=0);
+	void OnReparent(TabContainer*,void* data=0);
+	void OnActivate(TabContainer*,void* data=0);
 
 	void SetLeftScrollBar();
 	void SetRightScrollBar();

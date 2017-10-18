@@ -29,18 +29,25 @@
 	}\
 	
 
+struct THierarchy
+{
+	
+};
 
-template <typename T> struct PtrHierarchyNode
+template <typename T> struct THierarchyVector : THierarchy
 {
 	T* parent;
 	std::vector<T*> childs;
 
-	PtrHierarchyNode():parent(0){}
+	THierarchyVector():parent(0){}
+};
 
-	/*void BroadcastToChilds(void (T::*_func)())
-	{
-		for_each(this->childs.begin(),this->childs.end(),std::mem_fun(_func));
-	}*/
+template <typename T> struct THierarchyList : THierarchy
+{
+	T* parent;
+	std::list<T*> childs;
+
+	THierarchyList():parent(0){}
 };
 
 template<class T,int size> struct TNumberedVectorInterface
@@ -79,6 +86,10 @@ template <typename T> struct TPoolVector
 	static void BroadcastToPool(void (T::*func)())
 	{
 		for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::mem_fun(func));
+	}
+	static void BroadcastToPool(void (T::*func)(void*),void* data)
+	{
+		for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::bind(func,std::placeholders::_1,data));
 	}
 };
 

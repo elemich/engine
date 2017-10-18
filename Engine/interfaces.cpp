@@ -2,29 +2,22 @@
 #include "win32.h"
 
 
-////////////////////////////
-//////////////Editor////////
-////////////////////////////
-
-
-std::vector<SceneEntityNode*> Editor::selection;
-
-
 
 ////////////////////////////
 ////////GuiRect///////
 ////////////////////////////
 
 GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _alignPos,vec2 _alignRect):
-	colorBackground(GuiInterface::COLOR_GUI_BACKGROUND),
-	colorForeground(GuiInterface::COLOR_TEXT),
+	colorBackground(TabContainer::COLOR_GUI_BACKGROUND),
+	colorForeground(TabContainer::COLOR_TEXT),
 	colorHovering(colorBackground),
 	colorPressing(colorBackground),
 	colorBorder(colorBackground),
 	colorChecked(colorBackground),
 	pressing(false),
 	hovering(false),
-	checked(false)
+	checked(false),
+	active(false)
 {
 	this->Set(iParent,0,0,-1,ix,iy,iw,ih,_alignPos.x,_alignPos.y,_alignRect.x,_alignRect.y);
 
@@ -45,6 +38,8 @@ void GuiRect::SetParent(GuiRect* iParent)
 
 	if(this->parent)
 		this->parent->childs.push_back(this);
+
+	this->active=iParent ? iParent->active : 0;
 }
 
 void GuiRect::Set(GuiRect* iParent,GuiRect* iSibling,int siblingIdx,int iContainer,float ix, float iy, float iw,float ih,float apx,float apy,float arx,float ary)
@@ -62,29 +57,32 @@ bool GuiRect::_contains(vec4& quad,vec2 point)
 	return (point.x>quad.x && point.x<(quad.x+quad.z) && point.y>quad.y && point.y<(quad.y+quad.w));
 }
 	
-void GuiRect::BroadcastToChilds(void (GuiRect::*func)(TabContainer*),TabContainer* tabContainer)
+void GuiRect::BroadcastToChilds(void (GuiRect::*func)(TabContainer*,void*),TabContainer* tabContainer,void* data)
 {
-	for_each(this->childs.begin(),this->childs.end(),std::bind(func,std::placeholders::_1,tabContainer));
+	for_each(this->childs.begin(),this->childs.end(),std::bind(func,std::placeholders::_1,tabContainer,data));
 }
 
-void GuiRect::BroadcastToRoot(void (GuiRect::*func)(TabContainer*))
+void GuiRect::BroadcastToRoot(void (GuiRect::*func)(TabContainer*,void*),void* data)
 {
 	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
 
 	if(root)
-		(root->*func)(root->tabContainer);
+		(root->*func)(root->tabContainer,data);
 }
 
 
 
 
-void GuiRect::OnEntitiesChange(TabContainer* tabContainer)
+void GuiRect::OnEntitiesChange(TabContainer* tabContainer,void* data)
 {
-	this->BroadcastToChilds(&GuiRect::OnEntitiesChange,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnEntitiesChange,tabContainer,data);
 }
 
-void GuiRect::OnPaint(TabContainer* tabContainer)
+void GuiRect::OnPaint(TabContainer* tabContainer,void* data)
 {
+	if(!this->active)
+		return;
+
 	bool selfRender=!tabContainer->isRender;
 
 	if(selfRender)
@@ -100,14 +98,14 @@ void GuiRect::OnPaint(TabContainer* tabContainer)
 	tabContainer->renderTarget->DrawRectangle(D2D1::RectF(this->rect.x + 0.5f,this->rect.y + 0.5f,this->rect.x+this->rect.z - 0.5f,this->rect.y+this->rect.w - 0.5f),tabContainer->SetColor(this->colorBorder));
 
 	if(this->container!=0)
-		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
+		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
 	if(selfRender)
 		tabContainer->EndDraw();
 }
 
 
-void GuiRect::OnSize(TabContainer* tabContainer)
+void GuiRect::OnSize(TabContainer* tabContainer,void* data)
 {
 	if(parent)
 	{
@@ -155,7 +153,7 @@ void GuiRect::OnSize(TabContainer* tabContainer)
 	}
 
 	if(this->container!=0)
-		this->BroadcastToChilds(&GuiRect::OnSize,tabContainer);
+		this->BroadcastToChilds(&GuiRect::OnSize,tabContainer,data);
 
 
 
@@ -176,7 +174,7 @@ void GuiRect::OnSize(TabContainer* tabContainer)
 	}
 }
 
-void GuiRect::OnLMouseDown(TabContainer* tabContainer)
+void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	bool wasPressing=this->pressing;
 	bool bContainerButtonPressed=0;
@@ -198,36 +196,42 @@ void GuiRect::OnLMouseDown(TabContainer* tabContainer)
 
 		if(bContainerButtonPressed)
 		{
-			tabContainer->BroadcastToSelected(&GuiRect::OnSize);
-			tabContainer->BroadcastToSelected(&GuiRect::OnPaint);
+			tabContainer->BroadcastToSelected(&GuiRect::OnSize,data);
+			tabContainer->BroadcastToSelected(&GuiRect::OnPaint,data);
 		}
 
 		if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-			this->OnPaint(tabContainer);
+			this->OnPaint(tabContainer,data);
 		
 		return;
 	}
 	if(this->container!=0)
-		this->BroadcastToChilds(&GuiRect::OnLMouseDown,tabContainer);
+		this->BroadcastToChilds(&GuiRect::OnLMouseDown,tabContainer,data);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		this->OnPaint(tabContainer);
+		this->OnPaint(tabContainer,data);
 }
-void GuiRect::OnLMouseUp(TabContainer* tabContainer)
+void GuiRect::OnLMouseUp(TabContainer* tabContainer,void* data)
 {
 	bool wasPressing=this->pressing;
 
 	this->pressing = false;
 
 	if(this->container!=0)
-		this->BroadcastToChilds(&GuiRect::OnLMouseUp,tabContainer);
+		this->BroadcastToChilds(&GuiRect::OnLMouseUp,tabContainer,data);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		this->OnPaint(tabContainer);
+		this->OnPaint(tabContainer,data);
+}
+
+void GuiRect::OnRMouseUp(TabContainer* tabContainer,void* data)
+{
+	if(this->container!=0)
+		this->BroadcastToChilds(&GuiRect::OnRMouseUp,tabContainer,data);
 }
 
 
-void GuiRect::OnMouseMove(TabContainer* tabContainer)
+void GuiRect::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	bool _oldHover=this->hovering;
 	bool _curHover=_contains(this->rect,vec2(tabContainer->mousex,tabContainer->mousey));
@@ -238,44 +242,50 @@ void GuiRect::OnMouseMove(TabContainer* tabContainer)
 	this->hovering=_curHover;
 
 	if(/*_curHover && */this->container!=0)
-		this->BroadcastToChilds(&GuiRect::OnMouseMove,tabContainer);
+		this->BroadcastToChilds(&GuiRect::OnMouseMove,tabContainer,data);
 
 	if(_oldHover!=this->hovering && this->colorBackground!=this->colorHovering)
-		this->OnPaint(tabContainer);
+		this->OnPaint(tabContainer,data);
 }
 
-void GuiRect::OnUpdate(TabContainer* tabContainer)
+void GuiRect::OnUpdate(TabContainer* tabContainer,void* data)
 {
-
+	this->BroadcastToChilds(&GuiRect::OnUpdate,tabContainer,data);
 }
 
-void GuiRect::OnReparent(TabContainer* tabContainer)
+void GuiRect::OnReparent(TabContainer* tabContainer,void* data)
 {
-	this->BroadcastToChilds(&GuiRect::OnReparent,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnReparent,tabContainer,data);
 }
-void GuiRect::OnSelected(TabContainer* tabContainer)
+void GuiRect::OnSelected(TabContainer* tabContainer,void* data)
 {
-	this->BroadcastToChilds(&GuiRect::OnSelected,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnSelected,tabContainer,data);
 }
-void GuiRect::OnRender(TabContainer* tabContainer)
+void GuiRect::OnRender(TabContainer* tabContainer,void* data)
 {
 	this->BroadcastToChilds(&GuiRect::OnRender,tabContainer);
 }
-void GuiRect::OnMouseWheel(TabContainer* tabContainer)
+void GuiRect::OnMouseWheel(TabContainer* tabContainer,void* data)
 {
-	this->BroadcastToChilds(&GuiRect::OnMouseWheel,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnMouseWheel,tabContainer,data);
 }
-void GuiRect::OnActivate(TabContainer* tabContainer)
+void GuiRect::OnActivate(TabContainer* tabContainer,void* data)
 {
+	/*if(this->active)
+		__debugbreak();*/
+	this->active=true;
 	this->BroadcastToChilds(&GuiRect::OnActivate,tabContainer);
 }
-void GuiRect::OnDeactivate(TabContainer* tabContainer)
+void GuiRect::OnDeactivate(TabContainer* tabContainer,void* data)
 {
-	this->BroadcastToChilds(&GuiRect::OnDeactivate,tabContainer);
+	/*if(!active)
+		__debugbreak();*/
+	this->active=false;
+	this->BroadcastToChilds(&GuiRect::OnDeactivate,tabContainer,data);
 }
-void GuiRect::OnEntitySelected(TabContainer* tabContainer)
+void GuiRect::OnEntitySelected(TabContainer* tabContainer,void* data)
 {
-	this->BroadcastToChilds(&GuiRect::OnEntitySelected,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnEntitySelected,tabContainer,data);
 }
 
 GuiRect* GuiRect::GetRoot()
@@ -284,15 +294,11 @@ GuiRect* GuiRect::GetRoot()
 }
 
 
-GuiRect* GuiRect::Rect(float ix, float iy, float iw,float ih)
+GuiRect* GuiRect::Rect(float ix, float iy, float iw,float ih,float apx, float apy, float arx,float ary)
 {
-	return new GuiRect(this,ix,iy,iw,ih);
+	return new GuiRect(this,ix,iy,iw,ih,vec2(apx,apy),vec2(arx,ary));
 }
 
-GuiRect* GuiRect::Rect(vec2 _alignPos,vec2 _alignRect)
-{
-	return new GuiRect(this,0,0,0,0,_alignPos,_alignRect);
-}
 
 GuiString* GuiRect::Text(String str,float ix, float iy, float iw,float ih,vec2 _alignText)
 {
@@ -320,12 +326,12 @@ GuiString* GuiRect::Text(String str,vec2 _alignPos,vec2 _alignRect,vec2 _alignTe
 
 GuiString* GuiRect::Container(const char* iText)
 {
-	GuiString* container=this->Text(iText,vec2(0,0),vec2(1,-1),vec2(1,-1));
-	container->rect.make(0,0,0,20);
-	container->container=0;
-	container->sibling[1]= ((int)this->childs.size()>=2) ? this->childs.rbegin()[1] : 0;
+	GuiString* s=new GuiString;
+	s->Set(this,((int)this->childs.size()) ? this->childs.back() : 0,1,0,0,0,0,20,0,0,1,-1);
+	s->text=iText;
+	s->alignText.make(1,-1);
 
-	return container;
+	return s;
 }
 
 GuiPropertyString* GuiRect::Property(const char* iProp,const char* iVal)
@@ -435,6 +441,10 @@ GuiProjectViewer* GuiRect::ProjectViewer()
 }
 
 
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
+
 void GuiRootRect::OnSize(TabContainer* tab)
 {
 	this->rect.make(0,TabContainer::CONTAINER_HEIGHT,tabContainer->width,tabContainer->height-TabContainer::CONTAINER_HEIGHT);
@@ -443,7 +453,11 @@ void GuiRootRect::OnSize(TabContainer* tab)
 		this->BroadcastToChilds(&GuiRect::OnSize,tab);
 }
 
-void GuiString::OnPaint(TabContainer* tabContainer)
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
+
+void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=!tabContainer->isRender;
 
@@ -459,15 +473,15 @@ void GuiString::OnPaint(TabContainer* tabContainer)
 			tabContainer->renderTarget->DrawBitmap(this->container==1 ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+TabContainer::CONTAINER_ICON_WH,this->rect.y+TabContainer::CONTAINER_ICON_WH));
 			Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(0x000000),text,this->rect.x + TabContainer::CONTAINER_ICON_WH,this->rect.y,this->rect.x+this->textRect.z+100,this->rect.y+this->textRect.w);
 		}
-		else Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),text,this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w);
-		//tabContainer->renderer->DrawRectangle(D2D1::RectF(this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w),tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+		else Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),text,this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w);
+		//tabContainer->renderer->DrawRectangle(D2D1::RectF(this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w),tabContainer->SetColor(TabContainer::COLOR_TEXT));
 	}
 
 	if(selfRender)
 		tabContainer->EndDraw();
 }
 
-void GuiString::OnSize(TabContainer* tabContainer)
+void GuiString::OnSize(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnSize(tabContainer);
 
@@ -491,7 +505,11 @@ void GuiString::OnSize(TabContainer* tabContainer)
 	}
 }
 
-void GuiButton::OnLMouseUp(TabContainer* tab)
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
+
+void GuiButton::OnLMouseUp(TabContainer* tab,void* data)
 {
 	GuiRect::OnLMouseUp(tab);
 
@@ -515,9 +533,11 @@ void GuiButton::OnLMouseUp(TabContainer* tab)
 	}
 }
 
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
 
-
-void GuiPropertyString::OnPaint(TabContainer* tabContainer)
+void GuiPropertyString::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=!tabContainer->isRender;
 
@@ -527,15 +547,19 @@ void GuiPropertyString::OnPaint(TabContainer* tabContainer)
 	GuiRect::OnPaint(tabContainer);
 
 	if(prp.Buf())
-		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),prp,this->rect.x,this->rect.y,this->rect.x+this->rect.z/2.0f,this->rect.y+this->rect.w);
+		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),prp,this->rect.x,this->rect.y,this->rect.x+this->rect.z/2.0f,this->rect.y+this->rect.w);
 	if(val.Buf())	
-		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),val,this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
+		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),val,this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
 
 	if(selfRender)
 		tabContainer->EndDraw();
 }
 
-void GuiSlider::OnPaint(TabContainer* tabContainer)
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
+
+void GuiSlider::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=!tabContainer->isRender;
 
@@ -550,19 +574,19 @@ void GuiSlider::OnPaint(TabContainer* tabContainer)
 	String smax(this->maximum);
 	String value(*this->referenceValue);
 
-	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),smin,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0,0.75);
-	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,1,0.75);
-	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0.5f,0.75);
+	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),smin,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0,0.75);
+	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,1,0.75);
+	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,0.5f,0.75);
 
 	float tip=(this->rect.x+10) + ((*referenceValue)/(maximum-minimum))*(this->rect.z-20);
 
-	tabContainer->renderTarget->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5),2,2),tabContainer->SetColor(GuiInterface::COLOR_TEXT));
+	tabContainer->renderTarget->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5),2,2),tabContainer->SetColor(TabContainer::COLOR_TEXT));
 
 	if(selfRender)
 		tabContainer->EndDraw();
 }
 
-void GuiSlider::OnMouseMove(TabContainer* tabContainer)
+void GuiSlider::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseMove(tabContainer);
 
@@ -585,7 +609,7 @@ void GuiSlider::OnMouseMove(TabContainer* tabContainer)
 	}
 }
 
-void GuiSlider::OnSize(TabContainer* tabContainer)
+void GuiSlider::OnSize(TabContainer* tabContainer,void* data)
 {
 	/*float oldRatio=maximum/minimum;
 	float value=this->referenceValue ? *this->referenceValue : 0;*/
@@ -596,7 +620,11 @@ void GuiSlider::OnSize(TabContainer* tabContainer)
 
 }
 
-void GuiPropertySlider::OnPaint(TabContainer* tabContainer)
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
+
+void GuiPropertySlider::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=!tabContainer->isRender;
 
@@ -608,15 +636,18 @@ void GuiPropertySlider::OnPaint(TabContainer* tabContainer)
 	if(prp.Buf())
 	{
 		String s=prp + " " + String(*this->slider.referenceValue);
-		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(GuiInterface::COLOR_TEXT),s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
+		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
 	}
 
 	if(selfRender)
 		tabContainer->EndDraw();
 }
 
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
 
-void GuiPropertyAnimation::OnMouseMove(TabContainer* tab)
+void GuiPropertyAnimation::OnMouseMove(TabContainer* tab,void* data)
 {
 	float value=*this->slider.referenceValue;
 
@@ -630,6 +661,10 @@ void GuiPropertyAnimation::OnMouseMove(TabContainer* tab)
 		animController->play=old;
 	}
 }
+
+////////////////////////////
+////////GuiRect///////
+////////////////////////////
 
 void GuiViewport::Register()
 {
@@ -668,7 +703,7 @@ bool GuiViewport::Registered()
 	return 0;
 }
 
-GuiViewport::GuiViewport():reference(0),surface(new RenderSurface)
+GuiViewport::GuiViewport():surface(new RenderSurface),rootEntity(0)
 {
 	this->name="Viewport";
 }
@@ -679,7 +714,7 @@ GuiViewport::~GuiViewport()
 	SAFEDELETE(surface);
 }
 
-void GuiViewport::OnSize(TabContainer* tabContainer)
+void GuiViewport::OnSize(TabContainer* tabContainer,void* data)
 {
 	int w=this->rect.z;
 	int h=this->rect.w;
@@ -703,7 +738,7 @@ void GuiViewport::OnSize(TabContainer* tabContainer)
 	}
 }
 
-void GuiViewport::OnPaint(TabContainer* tabContainer)
+void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 {
 	
 
@@ -730,7 +765,7 @@ void GuiViewport::OnPaint(TabContainer* tabContainer)
 		tabContainer->EndDraw();
 }
 
-void GuiViewport::OnMouseWheel(TabContainer* tabContainer)
+void GuiViewport::OnMouseWheel(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseWheel(tabContainer);
 
@@ -739,7 +774,7 @@ void GuiViewport::OnMouseWheel(TabContainer* tabContainer)
 	this->view*=mat4().translate(0,0,factor*10);
 }
 
-void GuiViewport::OnMouseMove(TabContainer* tabContainer)
+void GuiViewport::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseMove(tabContainer);
 
@@ -790,21 +825,25 @@ void GuiViewport::OnMouseMove(TabContainer* tabContainer)
 }
 
 
-void GuiViewport::OnActivate(TabContainer* tabContainer)
+void GuiViewport::OnActivate(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnActivate(tabContainer);
 	Register();
 }
-void GuiViewport::OnDeactivate(TabContainer* tabContainer)
+void GuiViewport::OnDeactivate(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnDeactivate(tabContainer);
 	Unregister();
 }
 
-void GuiViewport::OnReparent(TabContainer* tabContainer)
+void GuiViewport::OnReparent(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnReparent(tabContainer);
 }
+
+
+
+
 
 GuiImage::GuiImage():image(0),data(0),width(0),height(0){}
 

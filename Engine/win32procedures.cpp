@@ -200,36 +200,37 @@ void TabContainer::EndDraw()
 	}
 }
 
-void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*))
+void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data)
 {
 	GuiRect* selectedTab=this->GetSelected();
 	
 	if(selectedTab)
-		(selectedTab->*func)(this);
+		(selectedTab->*func)(this,data);
 }
 
-void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabContainer*))
+void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data)
 {
-	(this->tabs.*func)(this);
+	(this->tabs.*func)(this,data);
 }
 
-template<class C> void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*))
+
+template<class C> void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data)
 {
 	GuiRect* selectedTab=this->GetSelected();
 
 	if(selectedTab)
-		selectedTab->BroadcastTo<C>(func);
+		selectedTab->BroadcastTo<C>(func,data);
 }
 
-template<class C> void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabContainer*))
+template<class C> void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data)
 {
-	this->tabs.BroadcastTo<C>(func);
+	this->tabs.BroadcastTo<C>(func,data);
 }
 
 
 
 
-void TabContainer::OnGuiSize()
+void TabContainer::OnGuiSize(void* data)
 {
 	WindowData::OnSize();
 	
@@ -239,14 +240,14 @@ void TabContainer::OnGuiSize()
 
 	this->tabs.rect.make(0,TabContainer::CONTAINER_HEIGHT,width,height-TabContainer::CONTAINER_HEIGHT);
 
-	this->BroadcastToSelected(&GuiRect::OnSize);
+	this->BroadcastToSelected(&GuiRect::OnSize,data);
 	
 	//this->OnGuiPaint();
 	
 }
 
 
-void TabContainer::OnGuiRecreateTarget()
+void TabContainer::OnGuiRecreateTarget(void* data)
 {
 	/*if(!this->recreateTarget)
 		return;*/
@@ -321,14 +322,14 @@ void TabContainer::OnGuiRecreateTarget()
 	if(!iconFile || hr!=S_OK)
 		__debugbreak();
 
-	this->BroadcastToSelected(&GuiRect::OnRecreateTarget);
+	this->BroadcastToSelected(&GuiRect::OnRecreateTarget,data);
 
 	this->recreateTarget=false;
 
 	//printf("tab %p target recreated\n",this);
 }
 
-void TabContainer::OnWindowPosChanging()
+void TabContainer::OnWindowPosChanging(void* data)
 {
 	WindowData::OnWindowPosChanging();
 
@@ -338,12 +339,12 @@ void TabContainer::OnWindowPosChanging()
 
 	this->tabs.rect.make(0,TabContainer::CONTAINER_HEIGHT,width,height-TabContainer::CONTAINER_HEIGHT);
 
-	this->BroadcastToSelected(&GuiRect::OnSize);
+	this->BroadcastToSelected(&GuiRect::OnSize,data);
 
 	this->OnGuiPaint();
 }
 
-void TabContainer::OnGuiMouseMove()
+void TabContainer::OnGuiMouseMove(void* data)
 {
 	SetFocus(this->hwnd);
 
@@ -361,28 +362,24 @@ void TabContainer::OnGuiMouseMove()
 	mousex=tmx;
 	mousey=tmy;
 
-	
-
 	if(mousey>TabContainer::CONTAINER_HEIGHT)
-		this->BroadcastToSelected(&GuiRect::OnMouseMove);
+		this->BroadcastToSelected(&GuiRect::OnMouseMove,data);
 }
 
-void TabContainer::OnGuiLMouseUp()
+void TabContainer::OnGuiLMouseUp(void* data)
 {
 	mouseDown=false;
 
-	this->BroadcastToSelected(&GuiRect::OnLMouseUp);
+	this->BroadcastToSelected(&GuiRect::OnLMouseUp,data);
 }
 
-void TabContainer::OnGuiMouseWheel()
+void TabContainer::OnGuiMouseWheel(void* data)
 {
-	if(this->mousey<=TabContainer::CONTAINER_HEIGHT)
-		return;
-
-	this->BroadcastToSelected(&GuiRect::OnMouseWheel);
+	if(this->mousey>TabContainer::CONTAINER_HEIGHT)
+		this->BroadcastToSelected(&GuiRect::OnMouseWheel,data);
 }								  
 		
-void TabContainer::OnGuiLMouseDown()
+void TabContainer::OnGuiLMouseDown(void* data)
 {
 	//this->OnGuiMouseMove();
 
@@ -415,51 +412,53 @@ void TabContainer::OnGuiLMouseDown()
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnLMouseDown);
+		this->BroadcastToSelected(&GuiRect::OnLMouseDown,data);
 	}
 }
 
-void TabContainer::OnGuiUpdate()
+void TabContainer::OnGuiUpdate(void* data)
 {
-	this->BroadcastToSelected(&GuiRect::OnUpdate);
+	this->BroadcastToSelected(&GuiRect::OnUpdate,data);
 }
 
-void TabContainer::OnRMouseUp()
+void TabContainer::OnRMouseUp(void* data)
 {
 	float &x=this->mousex;
 	float &y=this->mousey;
 
-	RECT rc;
-	GetWindowRect(hwnd,&rc);
-
-	int tabNumberHasChanged=this->tabs.childs.size();
-
-	for(int i=0;i<(int)tabs.childs.size();i++)
+	if(y<=TabContainer::CONTAINER_HEIGHT)
 	{
-		if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
+		RECT rc;
+		GetWindowRect(hwnd,&rc);
+
+		int tabNumberHasChanged=this->tabs.childs.size();
+
+		for(int i=0;i<(int)tabs.childs.size();i++)
 		{
-			int menuResult=TrackPopupMenu(SplitterContainer::popupMenuRoot,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(lparam),rc.top+HIWORD(lparam),0,GetParent(hwnd),0);
-
-			
-
-			switch(menuResult)
+			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 			{
+				int menuResult=TrackPopupMenu(SplitterContainer::popupMenuRoot,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(lparam),rc.top+HIWORD(lparam),0,GetParent(hwnd),0);
+
+
+
+				switch(menuResult)
+				{
 				case TAB_MENU_COMMAND_OPENGLWINDOW:
 					this->tabs.Viewport();
 					this->selected=this->tabs.childs.size()-1;
-				break;
+					break;
 				case TAB_MENU_COMMAND_SCENEENTITIES:
 					this->tabs.SceneViewer();
 					this->selected=this->tabs.childs.size()-1;
-				break;
+					break;
 				case TAB_MENU_COMMAND_ENTITYPROPERTIES:
 					this->tabs.EntityViewer();
 					this->selected=this->tabs.childs.size()-1;
-				break;
+					break;
 				case TAB_MENU_COMMAND_PROJECTFOLDER:
 					this->tabs.ProjectViewer();
 					this->selected=this->tabs.childs.size()-1;
-				break;
+					break;
 				case TAB_MENU_COMMAND_REMOVE:
 					if((int)GetPool<TabContainer>().size()>1)
 					{
@@ -467,38 +466,44 @@ void TabContainer::OnRMouseUp()
 						this->~TabContainer();
 						printf("total TabContainer after destroying: %d\n",(int)GetPool<TabContainer>().size());
 					}
-				break;
+					break;
 				case TAB_MENU_COMMAND_LOGGER:
-					
+
+
+					break;
+				}
 
 				break;
+
+
 			}
+		}
 
-			break;
-
-			
+		if(tabNumberHasChanged!=this->tabs.childs.size())
+		{
+			this->OnGuiPaint();
 		}
 	}
-
-	if(tabNumberHasChanged!=this->tabs.childs.size())
+	else
 	{
-		this->OnGuiPaint();
+		this->BroadcastToSelected(&GuiRect::OnRMouseUp,data);
 	}
+	
 }
 
-void TabContainer::OnGuiRender()
+void TabContainer::OnGuiRender(void* data)
 {
-	this->BroadcastToSelected(&GuiRect::OnRender);
+	this->BroadcastToSelected(&GuiRect::OnRender,data);
 }
 
-void TabContainer::OnGuiPaint()
+void TabContainer::OnGuiPaint(void* data)
 {
 	if(this->recreateTarget)
 		this->OnGuiRecreateTarget();
 	
 	this->BeginDraw();
 
-	renderTarget->Clear(D2D1::ColorF(GuiInterface::COLOR_GUI_BACKGROUND));
+	renderTarget->Clear(D2D1::ColorF(TabContainer::COLOR_GUI_BACKGROUND));
 
 	renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -508,11 +513,11 @@ void TabContainer::OnGuiPaint()
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
 	for(int i=0;i<(int)tabs.childs.size();i++)
 	{
-		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(GuiInterface::COLOR_TEXT),tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
+		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(TabContainer::COLOR_TEXT),tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
 	}
 	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
 	
-	this->BroadcastToSelected(&GuiRect::OnPaint);
+	this->BroadcastToSelected(&GuiRect::OnPaint,data);
 
 	renderTarget->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->width-0.5f,this->height-0.5f),this->SetColor(D2D1::ColorF::Red));
 
@@ -521,7 +526,7 @@ void TabContainer::OnGuiPaint()
 	nPainted++;
 }
 
-void TabContainer::OnResizeContainer()
+void TabContainer::OnResizeContainer(void* data)
 {
 	RECT rc;
 
@@ -567,21 +572,21 @@ void TabContainer::OnResizeContainer()
 	}
 }
 
-void TabContainer::OnEntitiesChange()
+void TabContainer::OnEntitiesChange(void* data)
 {
-	this->BroadcastToAll(&GuiRect::OnEntitiesChange);
+	this->BroadcastToAll(&GuiRect::OnEntitiesChange,data);
 }
-void TabContainer::OnGuiActivate()
+void TabContainer::OnGuiActivate(void* data)
 {
-	this->BroadcastToSelected(&GuiRect::OnActivate);
+	this->BroadcastToSelected(&GuiRect::OnActivate,data);
 }
-void TabContainer::OnGuiDeactivate()
+void TabContainer::OnGuiDeactivate(void* data)
 {
-	this->BroadcastToSelected(&GuiRect::OnDeactivate);
+	this->BroadcastToSelected(&GuiRect::OnDeactivate,data);
 }
-void TabContainer::OnGuiEntitySelected()
+void TabContainer::OnGuiEntitySelected(void* data)
 {
-	this->BroadcastToAll(&GuiRect::OnEntitySelected);
+	this->BroadcastToAll(&GuiRect::OnEntitySelected,data);
 }
 
 

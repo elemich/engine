@@ -151,7 +151,7 @@ void AnimationController::update()
 					mat4 sm,rm,tm;
 
 					if(poff.iszero())
-						tm.translate(anim->entity->entity_transform.position());
+						tm.translate(anim->entity->transform.position());
 					else
 						tm.translate(poff);
 
@@ -161,7 +161,7 @@ void AnimationController::update()
 					rm.rotate(-roff[1],0,1,0);
 					rm.rotate(-roff[0],1,0,0);
 
-					anim->entity->entity_transform=rm*sm*tm;
+					anim->entity->transform=rm*sm*tm;
 				}
 
 			}

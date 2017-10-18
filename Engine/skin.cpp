@@ -45,7 +45,7 @@ void Skin::update()
 		if(!clu || (clu && !clu->cluster_bone))
 			continue;
 
-		mat4 palette=clu->cluster_offset * clu->cluster_bone->entity_world;
+		mat4 palette=clu->cluster_offset * clu->cluster_bone->world;
 
 		mat4 final;
 		final.zero();
