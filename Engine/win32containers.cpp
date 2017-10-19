@@ -84,23 +84,17 @@ void MainAppContainerWindow::Create(HWND)
 	TabContainer* tabContainer3=new TabContainer(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408),hwnd);
 	TabContainer* tabContainer4=new TabContainer(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top,hwnd);
 
-	tabContainer1->tabs.SceneViewer();
-	tabContainer4->tabs.Viewport();
+	GuiSceneViewer* scene=tabContainer1->tabs.SceneViewer();
+	GuiViewport* viewport=tabContainer4->tabs.Viewport();
+
+	viewport->rootEntity=scene->entityRoot;
+
 	tabContainer3->tabs.ProjectViewer();
 	tabContainer2->tabs.EntityViewer();
 
-	tabContainer1->BroadcastToSelected(&GuiRect::OnSize);
-	tabContainer1->BroadcastToSelected(&GuiRect::OnActivate);
-
-	tabContainer2->BroadcastToSelected(&GuiRect::OnSize);
-	tabContainer2->BroadcastToSelected(&GuiRect::OnActivate);
-
-	tabContainer3->BroadcastToSelected(&GuiRect::OnSize);
-	tabContainer3->BroadcastToSelected(&GuiRect::OnActivate);
-
-	tabContainer4->BroadcastToSelected(&GuiRect::OnSize);
-	tabContainer4->BroadcastToSelected(&GuiRect::OnActivate);
-
+	TabContainer::BroadcastToPoolSelecteds(&GuiRect::OnSize);
+	TabContainer::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
+	
 	ShowWindow(hwnd,true);
 }
 

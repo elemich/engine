@@ -252,22 +252,32 @@ struct GuiScrollBar : GuiRect
 	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
 	static const int SCROLLBAR_AMOUNT=10;
 
-	float scroller,scrollerFactor;
-	float scrollerClick;
+	float scrollerPosition,scrollerRatio;
+	float scrollerPressed;
 
-	GuiRect* reference;
+	GuiRect* guiRect;
 
 	GuiScrollBar();
 	~GuiScrollBar();
 
-	void SetScrollerFactor(float contentHeight,float containerHeight);
+	void SetScrollerRatio(float contentHeight,float containerHeight);
 	void SetScrollerPosition(float contentHeight);
-	float GetScrollValue();
+	void Scroll(float upOrDown);
+	
 
 	void OnLMouseDown(TabContainer* tab,void* data=0);
 	void OnLMouseUp(TabContainer* tab,void* data=0);
 	void OnMouseMove(TabContainer* tab,void* data=0);
 	void OnPaint(TabContainer* tab,void* data=0);
+
+	float GetScrollValue();
+	float GetContainerHeight();
+	float GetContainerTop();
+	float GetContainerBottom();
+	float GetScrollerTop();
+	float GetScrollerBottom();
+	float GetScrollerHeight();
+	
 };
 
 

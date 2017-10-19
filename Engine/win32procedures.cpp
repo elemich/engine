@@ -45,7 +45,10 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 			tc->OnGuiLMouseDown();
 		break;
 		case WM_MOUSEWHEEL:
-			tc->OnGuiMouseWheel();
+			{
+				float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
+				tc->OnGuiMouseWheel(&wheelValue);
+			}
 		break;
 		case WM_MOUSEMOVE:
 			tc->OnGuiMouseMove();
@@ -375,8 +378,10 @@ void TabContainer::OnGuiLMouseUp(void* data)
 
 void TabContainer::OnGuiMouseWheel(void* data)
 {
+	float factor=GET_WHEEL_DELTA_WPARAM(this->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->wparam)<0 ? -1.0f : 0);
+
 	if(this->mousey>TabContainer::CONTAINER_HEIGHT)
-		this->BroadcastToSelected(&GuiRect::OnMouseWheel,data);
+		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
 }								  
 		
 void TabContainer::OnGuiLMouseDown(void* data)
@@ -438,8 +443,6 @@ void TabContainer::OnRMouseUp(void* data)
 			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 			{
 				int menuResult=TrackPopupMenu(SplitterContainer::popupMenuRoot,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(lparam),rc.top+HIWORD(lparam),0,GetParent(hwnd),0);
-
-
 
 				switch(menuResult)
 				{

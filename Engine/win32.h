@@ -166,6 +166,11 @@ struct TabContainer : WindowData , TPoolVector<TabContainer>
 	void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
 	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void*);
 	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void*);
+	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(TabContainer*,void*),void* data=0)
+	{
+		for(std::vector<TabContainer*>::iterator tabContainer=TPoolVector<TabContainer>::pool.begin();tabContainer!=TPoolVector<TabContainer>::pool.end();tabContainer++)
+			(*tabContainer)->BroadcastToSelected(func,data);
+	}
 
 	void BeginDraw();
 	void EndDraw();
@@ -407,23 +412,21 @@ struct GuiSceneViewer : GuiRect
 	std::vector<Entity*> selection;
 
 	GuiScrollBar scrollBar;
-	
-	float bitmapWidth;
-	float bitmapHeight;
-	float frameWidth;
-	float frameHeight;
+
+	int visibleRowsHeight;
 
 	void OnPaint(TabContainer*,void* data=0);
 	void OnSize(TabContainer*,void* data=0);
 	void OnLMouseDown(TabContainer*,void* data=0);
 	void OnEntitiesChange(TabContainer*,void* data=0);
-	void OnReparent(TabContainer*,void* data=0);
 	void OnRecreateTarget(TabContainer*,void* data=0);
 	void OnRMouseUp(TabContainer*,void* data=0);
+	void OnMouseWheel(TabContainer*,void* data=0);
 
 
 	bool ProcessNodes(vec2&,vec2&,Entity* node,Entity*& expChanged,Entity*& selChanged);
 	void DrawNodes(TabContainer*,Entity*,vec2&);
+	int UpdateNodes(TabContainer*,Entity*);
 	void UnselectNodes(Entity*);
 };	
 

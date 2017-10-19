@@ -87,7 +87,7 @@ template <typename T> struct TPoolVector
 	{
 		for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::mem_fun(func));
 	}
-	static void BroadcastToPool(void (T::*func)(void*),void* data)
+	static void BroadcastToPool(void (T::*func)(void*),void* data=0)
 	{
 		for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::bind(func,std::placeholders::_1,data));
 	}

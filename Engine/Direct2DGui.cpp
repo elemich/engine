@@ -381,12 +381,12 @@ ID2D1RadialGradientBrush* Direct2DGuiBase::RadialGradientBrush(ID2D1RenderTarget
 
 
 GuiScrollBar::GuiScrollBar():
-reference(0)
+guiRect(0),
+scrollerPressed(false),
+scrollerPosition(0),
+scrollerRatio(1)
 {
 	this->name="ScrollBar";
-	this->scroller=0;
-	this->scrollerClick=-1;
-	this->scrollerFactor=1;
 }
 GuiScrollBar::~GuiScrollBar()
 {
@@ -394,87 +394,109 @@ GuiScrollBar::~GuiScrollBar()
 }
 
 
-void GuiScrollBar::SetScrollerFactor(float contentHeight,float containerHeight)
+void GuiScrollBar::SetScrollerRatio(float contentHeight,float containerHeight)
 {
-	this->scrollerFactor = (contentHeight<containerHeight) ? 1.0f : containerHeight/contentHeight;
+	this->scrollerRatio = (contentHeight<containerHeight) ? 1.0f : containerHeight/contentHeight;
+
+	SetScrollerPosition(this->scrollerPosition);
 }
 
-void GuiScrollBar::SetScrollerPosition(float position)
+void GuiScrollBar::SetScrollerPosition(float positionPercent)
 {
-	if(scrollerFactor==1.0f)
-		return;
+	float scrollerContainerHeight=this->GetContainerHeight();
+	float scrollerHeight=this->GetScrollerHeight();
 
-	scroller+=position>0 ? GuiScrollBar::SCROLLBAR_AMOUNT : -GuiScrollBar::SCROLLBAR_AMOUNT;
+	if(positionPercent+scrollerRatio>1)
+		this->scrollerPosition=(scrollerContainerHeight-scrollerHeight)/scrollerContainerHeight;
+	else
+		this->scrollerPosition = positionPercent < 0 ? 0 : positionPercent;
+}
 
-	scroller<this->rect.y ? scroller=this->rect.y : 0;
+void GuiScrollBar::Scroll(float upOrDown)
+{
+	float rowHeightRatio=this->scrollerRatio/GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
 
-	float scrollerRun=(this->rect.w-this->rect.y)-(GuiScrollBar::SCROLLBAR_TIP_HEIGHT*2);
-	float scrollerHeight=scrollerRun*scrollerFactor;
+	float amount=this->scrollerPosition + (upOrDown<0 ? rowHeightRatio : -rowHeightRatio);
 
-	scroller+scrollerHeight>this->rect.y+this->rect.w ? scroller=(this->rect.y+this->rect.w)-scrollerHeight : 0;
+	this->SetScrollerPosition(amount);
 }
 
 float GuiScrollBar::GetScrollValue()
 {
-	return 1.0f/this->scrollerFactor * scroller;;
+	return 1.0f/this->scrollerRatio * scrollerPosition;
+}
+float GuiScrollBar::GetContainerHeight()
+{
+	return this->rect.w-2.0f*SCROLLBAR_TIP_HEIGHT;
+}
+float GuiScrollBar::GetScrollerTop()
+{
+	return this->GetContainerTop()+this->scrollerPosition*this->GetContainerHeight();
+}
+float GuiScrollBar::GetScrollerBottom()
+{
+	return this->GetScrollerTop()+this->scrollerRatio*this->GetContainerHeight();
+}
+float GuiScrollBar::GetScrollerHeight()
+{
+	return this->GetScrollerBottom()-this->GetScrollerTop();
+}
+float GuiScrollBar::GetContainerTop()
+{
+	return this->rect.y+SCROLLBAR_TIP_HEIGHT;
+}
+float GuiScrollBar::GetContainerBottom()
+{
+	return this->rect.y+this->rect.w-SCROLLBAR_TIP_HEIGHT;
 }
 
 void GuiScrollBar::OnLMouseUp(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseUp(tabContainer);
 
-	if(this->scrollerClick>=0)
-		ReleaseCapture();
-	this->scrollerClick=-1;
+	this->scrollerPressed=false;
 	
 }
-
 
 void GuiScrollBar::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseDown(tabContainer);
 
-	if(scrollerFactor==1.0f)
-		return ;//scroller;
+	if(scrollerRatio==1.0f)
+		return;
 
-	float scrollerRun=(this->rect.w-this->rect.y)-(GuiScrollBar::SCROLLBAR_TIP_HEIGHT*2);
-	float scrollerHeight=scrollerRun*scrollerFactor;
+	if(tabContainer->mousey<this->GetContainerTop())
+		this->Scroll(1);
+	else if(tabContainer->mousey<this->GetContainerBottom())
+	{
+		if(tabContainer->mousey>=this->GetScrollerTop() && tabContainer->mousey<=this->GetScrollerBottom())
+			this->scrollerPressed=(tabContainer->mousey-this->GetScrollerTop())/this->GetScrollerHeight();
+		else
+			SetScrollerPosition((tabContainer->mousey-this->GetContainerTop())/this->GetContainerHeight());
 
-	if(tabContainer->mousey>TabContainer::CONTAINER_HEIGHT && tabContainer->mousey<(TabContainer::CONTAINER_HEIGHT+GuiScrollBar::SCROLLBAR_TIP_HEIGHT))
-	{
-		scroller=(scroller-GuiScrollBar::SCROLLBAR_AMOUNT < 0 ? 0 : scroller-GuiScrollBar::SCROLLBAR_AMOUNT);
 	}
-	else if(tabContainer->mousey>(scroller+this->rect.y+GuiScrollBar::SCROLLBAR_TIP_HEIGHT) && tabContainer->mousey<((scroller+this->rect.y+GuiScrollBar::SCROLLBAR_TIP_HEIGHT)+scrollerHeight))
-	{
-		scrollerClick=tabContainer->mousey-this->rect.y-GuiScrollBar::SCROLLBAR_TIP_HEIGHT-scroller;
-		SetCapture(tabContainer->hwnd);
-	}
-	else if(tabContainer->mousey>(this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT))
-	{
-		scroller+=GuiScrollBar::SCROLLBAR_AMOUNT;
-	}
+	else this->Scroll(-1);
 
-	//return scroller;
+	if(this->parent)
+		this->parent->OnPaint(tabContainer);
 }
 
 void GuiScrollBar::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseMove(tabContainer);
 
-	if(scrollerFactor==1.0f || scrollerClick<0)
-		return ;//false;
+	if(this->scrollerRatio==1.0f || !this->scrollerPressed)
+		return;
 
-	float scrollerRun=(this->rect.w-this->rect.y)-(GuiScrollBar::SCROLLBAR_TIP_HEIGHT*2);
-	float scrollerHeight=scrollerRun*scrollerFactor;
+	if(tabContainer->mousey>this->GetContainerTop() && tabContainer->mousey<this->GetContainerBottom())
+	{
+		float mouseContainerY=(tabContainer->mousey-this->GetContainerTop())/this->GetContainerHeight();
 
-	float absScrollerY=tabContainer->mousey-this->rect.y-GuiScrollBar::SCROLLBAR_TIP_HEIGHT-scrollerClick;
-
-	if(absScrollerY>=0 && tabContainer->mousey+(scrollerHeight-scrollerClick)<=(this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT))
-		scroller=absScrollerY;
-	else
-		printf("");
-
-	//return true;
+		this->SetScrollerPosition(mouseContainerY-this->scrollerPressed);
+		
+		if(this->parent)
+			this->parent->OnPaint(tabContainer);
+	}
 }
 
 
@@ -485,17 +507,12 @@ void GuiScrollBar::OnPaint(TabContainer* tabContainer,void* data)
 	if(selfRender)
 		tabContainer->BeginDraw();
 
-	float scrollerRun=this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT*2.0f;
-
-	float scrollerHeight=scrollerRun*scrollerFactor;
-
 	tabContainer->renderTarget->DrawBitmap(tabContainer->iconUp,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+GuiScrollBar::SCROLLBAR_TIP_HEIGHT));
 	tabContainer->renderTarget->DrawBitmap(tabContainer->iconDown,D2D1::RectF(this->rect.x,this->rect.y+this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+this->rect.w));
 
-	float scrollerY=scroller+this->rect.y+GuiScrollBar::SCROLLBAR_TIP_HEIGHT;
-	float scrollerY2=scrollerY+scrollerHeight;
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->GetContainerTop(),this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->GetContainerBottom()),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 
-	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,scrollerY,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,scrollerY2),tabContainer->SetColor(D2D1::ColorF::Black));
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->GetScrollerTop(),this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->GetScrollerBottom()),tabContainer->SetColor(D2D1::ColorF::Black));
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
 
@@ -504,8 +521,24 @@ void GuiScrollBar::OnPaint(TabContainer* tabContainer,void* data)
 
 }
 
+void GuiSceneViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnMouseWheel(tabContainer,data);
+
+	if(this->hovering)
+	{
+		float wheelFactor=*(float*)data;
+
+		this->scrollBar.Scroll(wheelFactor);
+
+		this->OnPaint(tabContainer);
+	}
+}
+
 void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 {
+	GuiRect::OnRMouseUp(tabContainer,data);
+
 	HMENU menu=CreatePopupMenu();
 
 	InsertMenu(menu,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menu,"New");
@@ -544,13 +577,15 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 
 
 GuiSceneViewer::GuiSceneViewer():
-entityRoot(0)
+entityRoot(0),
+visibleRowsHeight(0)
 {
 	this->entityRoot=new Entity;
 	this->entityRoot->name="EntitySceneRoot";
 	this->entityRoot->expanded=true;
 
 	this->name="Scene";
+	scrollBar.guiRect=this;
 	scrollBar.Set(this,0,0,-1,0,0,20,0,1,0,-1,1);
 }
 
@@ -573,7 +608,9 @@ void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 	if(entity)
 		entity->SetParent(this->entityRoot);
 
-	scrollBar.SetScrollerFactor(bitmapHeight,this->frameHeight);
+	this->visibleRowsHeight=-TREEVIEW_ROW_HEIGHT+this->UpdateNodes(tabContainer,this->entityRoot);
+
+	scrollBar.SetScrollerRatio(this->visibleRowsHeight,this->rect.w);
 
 	if(this->active)
 	{
@@ -586,10 +623,9 @@ void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 
 void GuiSceneViewer::OnSize(TabContainer* tabContainer,void* data)
 {
-	frameWidth=tabContainer->width-GuiScrollBar::SCROLLBAR_WIDTH;
-	frameHeight=tabContainer->height;
-
 	GuiRect::OnSize(tabContainer);
+
+	this->scrollBar.SetScrollerRatio(this->visibleRowsHeight,this->rect.w);
 }
 
 void GuiSceneViewer::UnselectNodes(Entity* node)
@@ -605,39 +641,47 @@ void GuiSceneViewer::UnselectNodes(Entity* node)
 
 bool GuiSceneViewer::ProcessNodes(vec2& mpos,vec2& pos,Entity* node,Entity*& expChanged,Entity*& selChanged)
 {
-	float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+	float drawFromHeight=this->scrollBar.scrollerPosition*this->visibleRowsHeight;
 
-	bool hittedRow=mpos.y>pos.y && mpos.y<pos.y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-	bool hittedExpandos= node->childs.size() && (mpos.x>xCursor && mpos.x<xCursor+TREEVIEW_ROW_ADVANCE);
-
-	if(hittedRow)
+	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
 	{
-		if(!hittedExpandos)
+		float relativeY=pos.y-drawFromHeight;
+
+		float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+
+		bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
+		bool hittedExpandos= node->childs.size() && (mpos.x>xCursor && mpos.x<xCursor+TREEVIEW_ROW_ADVANCE);
+
+		if(hittedRow)
 		{
-			this->UnselectNodes(this->entityRoot);
-
-			if(!node->selected)
+			if(!hittedExpandos)
 			{
-				node->selected=true;
-				selChanged=node;
+				this->UnselectNodes(this->entityRoot);
 
-				return true;
+				if(!node->selected)
+				{
+					node->selected=true;
+					selChanged=node;
+
+					return true;
+				}
+			}
+			else
+			{
+				node->expanded=!node->expanded;
+				expChanged=node;
+				return node;
 			}
 		}
-		else
-		{
-			node->expanded=!node->expanded;
-			expChanged=node;
-			return node;
-		}
+
 	}
+
+	pos.y+=TREEVIEW_ROW_HEIGHT;
 
 	if(node->expanded)
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 		{
-			pos.y+=TREEVIEW_ROW_HEIGHT;
-
 			if(this->ProcessNodes(mpos,pos,*nCh,expChanged,selChanged))
 				return true;
 		}
@@ -649,20 +693,20 @@ bool GuiSceneViewer::ProcessNodes(vec2& mpos,vec2& pos,Entity* node,Entity*& exp
 
 void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
-	if(tabContainer->mousex>frameWidth)
-	{
-		scrollBar.OnLMouseDown(tabContainer);
-		this->OnPaint(tabContainer);
-	}
-	else
+	GuiRect::OnLMouseDown(tabContainer);
+
+	if(tabContainer->mousex<this->rect.x+this->rect.z-GuiScrollBar::SCROLLBAR_WIDTH)
 	{
 		Entity* expChanged=0;
 		Entity* selChanged=0;
 
 		if(this->ProcessNodes(vec2(tabContainer->mousex,tabContainer->mousey-TabContainer::CONTAINER_HEIGHT),vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),this->entityRoot,expChanged,selChanged))
 		{
-			//this->ScanEntities(tabContainer,this->entitySceneRoot,&this->entityNodeRoot,bitmapWidth=0,bitmapHeight=0,0);
-			scrollBar.SetScrollerFactor(bitmapHeight,this->frameHeight);
+			if(expChanged)
+			{
+				this->visibleRowsHeight=-TREEVIEW_ROW_HEIGHT+this->UpdateNodes(tabContainer,this->entityRoot);
+				scrollBar.SetScrollerRatio(this->visibleRowsHeight,this->rect.w);
+			}
 
 			if(selChanged)
 			{
@@ -680,10 +724,20 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 }
 
 
-void GuiSceneViewer::OnReparent(TabContainer* tabContainer,void* data)
+int GuiSceneViewer::UpdateNodes(TabContainer* tabContainer,Entity* node)
 {
-	this->scrollBar.OnReparent(tabContainer);
-	this->OnSize(tabContainer);
+	if(!node)
+		return 0;
+
+	int listHeight=TREEVIEW_ROW_HEIGHT;
+
+	if(node->expanded)
+	{
+		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
+			listHeight+=this->UpdateNodes(tabContainer,*nCh);
+	}
+
+	return listHeight;
 }
 
 void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,Entity* node,vec2& pos)
@@ -691,28 +745,35 @@ void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,Entity* node,vec2& pos
 	if(!node)
 		return;
 
-	if(node->selected)
-		tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)pos.y,(float)this->rect.z,(float)pos.y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+	float drawFromHeight=this->scrollBar.scrollerPosition*this->visibleRowsHeight;
 
+	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+	{
+		float relativeY=pos.y-drawFromHeight;
 
-	float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+		if(node->selected)
+			tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)relativeY,(float)this->rect.z,(float)relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
 
-	if(node->childs.size())
-		tabContainer->renderTarget->DrawBitmap(node->expanded ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(xCursor,pos.y,xCursor+TabContainer::CONTAINER_ICON_WH,pos.y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
+		float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
 
-	xCursor=pos.x+TREEVIEW_ROW_ADVANCE*(node->level+1);
+		if(node->childs.size())
+			tabContainer->renderTarget->DrawBitmap(node->expanded ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
 
-	Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),node->name,xCursor,pos.y,xCursor+this->rect.z,pos.y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT,-1,0.5f);
+		xCursor=pos.x+TREEVIEW_ROW_ADVANCE*(node->level+1);
+
+		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),node->name,xCursor,relativeY,xCursor+this->rect.z,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT,-1,0.5f);
+
+		
+	}
+
+	pos.y+=TREEVIEW_ROW_HEIGHT;
 
 	if(node->expanded)
 	{
-		pos.y+=TREEVIEW_ROW_HEIGHT;
-
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 			this->DrawNodes(tabContainer,*nCh,pos);
 	}
-	else
-		pos.y+=TREEVIEW_ROW_HEIGHT;
+
 }
 
 
@@ -723,11 +784,11 @@ void GuiSceneViewer::OnPaint(TabContainer* tabContainer,void* data)
 	if(selfRender)
 		tabContainer->BeginDraw();
 
-	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->rect.x+this->rect.z-GuiScrollBar::SCROLLBAR_WIDTH,(float)this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 
-	tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)frameWidth,(float)this->rect.y+this->rect.w),D2D1_ANTIALIAS_MODE_ALIASED);
+	tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->rect.x+this->rect.z-GuiScrollBar::SCROLLBAR_WIDTH,(float)this->rect.y+this->rect.w),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-scrollBar.scroller));
+	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT));
 
 	this->DrawNodes(tabContainer,this->entityRoot,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT));
 
@@ -1131,7 +1192,7 @@ GuiProjectViewer::ResourceNode* GuiProjectViewer::ResourceNode::onmousepressedLe
 		{
 			this->selected=true;
 			tv->rightElements.insertFiles(*this,GetDC(tabContainer->hwnd),tv->rightBitmapWidth=0,tv->rightBitmapHeight=0);
-			tv->rightScrollBar.SetScrollerFactor(tv->rightBitmapHeight,tv->frameHeight);
+			tv->rightScrollBar.SetScrollerRatio(tv->rightBitmapHeight,tv->frameHeight);
 		}
 	}
 	else
@@ -1192,11 +1253,11 @@ void GuiProjectViewer::SetLeftScrollBar()
 {
 	leftScrollBar.rect.x=this->leftFrameWidth-4-20;
 	leftScrollBar.alignPos.x=-1;
-	leftScrollBar.SetScrollerFactor(leftBitmapHeight,frameHeight);
+	leftScrollBar.SetScrollerRatio(leftBitmapHeight,frameHeight);
 }
 void GuiProjectViewer::SetRightScrollBar()
 {
-	rightScrollBar.SetScrollerFactor(rightBitmapHeight,frameHeight);
+	rightScrollBar.SetScrollerRatio(rightBitmapHeight,frameHeight);
 }
 void GuiProjectViewer::OnActivate(TabContainer* tabContainer,void* data)
 {
@@ -1260,7 +1321,7 @@ void GuiProjectViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseWheel(tabContainer);
 
-	short int delta = GET_WHEEL_DELTA_WPARAM(tabContainer->wparam);
+	short int delta = *(float*)data;
 
 	if(tabContainer->mousex<(this->leftFrameWidth-4))
 	{
@@ -1293,14 +1354,14 @@ void GuiProjectViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 
 	if(mx<(this->leftFrameWidth-4-GuiScrollBar::SCROLLBAR_WIDTH))
 	{
-		my-=TabContainer::CONTAINER_HEIGHT-leftScrollBar.scroller;
+		my-=TabContainer::CONTAINER_HEIGHT-leftScrollBar.scrollerPosition;
 
 		ResourceNode* expandedModified=leftElements.onmousepressedLeftPane(tabContainer,this,mx,my,leftBitmapWidth,leftBitmapHeight);
 
 		if(expandedModified)
 		{
 			leftElements.update(leftBitmapWidth=0,leftBitmapHeight=0);
-			leftScrollBar.SetScrollerFactor(leftBitmapHeight,this->frameHeight);
+			leftScrollBar.SetScrollerRatio(leftBitmapHeight,this->frameHeight);
 		}	
 	
 		tabContainer->OnGuiPaint();
@@ -1312,7 +1373,7 @@ void GuiProjectViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 	}
 	else if(mx<(tabContainer->width-GuiScrollBar::SCROLLBAR_WIDTH))//right pane
 	{
-		my-=TabContainer::CONTAINER_HEIGHT-rightScrollBar.scroller;
+		my-=TabContainer::CONTAINER_HEIGHT-rightScrollBar.scrollerPosition;
 
 		printf("on the right pane\n");
 		rightElements.onmousepressedRightPane(tabContainer,this,mx,my,rightBitmapWidth,rightBitmapHeight);

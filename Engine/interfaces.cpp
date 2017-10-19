@@ -489,7 +489,7 @@ void GuiString::OnSize(TabContainer* tabContainer,void* data)
 	{
 		int tLen=this->text.Count();
 		SIZE resSize;
-		if(!GetTextExtentPoint32(GetWindowDC(tabContainer->hwnd),this->text,tLen,&resSize))
+		if(!GetTextExtentPoint32(GetDC(tabContainer->hwnd),this->text,tLen,&resSize))
 			__debugbreak();
 
 		this->textRect.z=resSize.cx;
@@ -769,7 +769,7 @@ void GuiViewport::OnMouseWheel(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseWheel(tabContainer);
 
-	float factor=GET_WHEEL_DELTA_WPARAM(tabContainer->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(tabContainer->wparam)<0 ? -1.0f : 0);
+	float factor=*(float*)data;
 
 	this->view*=mat4().translate(0,0,factor*10);
 }
