@@ -41,6 +41,12 @@ struct GuiImage
 
 struct GuiRect : THierarchyVector<GuiRect>
 {
+	static const int TREEVIEW_ROW_HEIGHT=20;
+	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
+	static const int SCROLLBAR_WIDTH=20;
+	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
+	static const int SCROLLBAR_AMOUNT=10;
+
 	String name;
 
 	vec4 rect;
@@ -248,10 +254,6 @@ struct GuiViewport : GuiRect
 
 struct GuiScrollBar : GuiRect
 {
-	static const int SCROLLBAR_WIDTH=20;
-	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
-	static const int SCROLLBAR_AMOUNT=10;
-
 	float scrollerPosition,scrollerRatio;
 	float scrollerPressed;
 

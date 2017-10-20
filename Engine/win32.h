@@ -404,8 +404,7 @@ struct GuiSceneViewer : GuiRect
 	GuiSceneViewer();
 	~GuiSceneViewer();
 
-	static const int TREEVIEW_ROW_HEIGHT=20;
-	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
+	
 
 	Entity* entityRoot;
 
@@ -413,7 +412,7 @@ struct GuiSceneViewer : GuiRect
 
 	GuiScrollBar scrollBar;
 
-	int visibleRowsHeight;
+	float visibleRowsHeight;
 
 	void OnPaint(TabContainer*,void* data=0);
 	void OnSize(TabContainer*,void* data=0);
@@ -426,7 +425,7 @@ struct GuiSceneViewer : GuiRect
 
 	bool ProcessNodes(vec2&,vec2&,Entity* node,Entity*& expChanged,Entity*& selChanged);
 	void DrawNodes(TabContainer*,Entity*,vec2&);
-	int UpdateNodes(TabContainer*,Entity*);
+	int UpdateNodes(Entity*);
 	void UnselectNodes(Entity*);
 };	
 
@@ -451,35 +450,29 @@ struct GuiProjectViewer : GuiRect
 
 		String fileName;
 
-		float x;
-		float y;
-		bool expanded;
-		bool selected;
-		int textWidth;
+		bool selectedLeft;
+		bool selectedRight;
 		int level;
-		int nChilds;
-		int isDir;
+		bool isDir;
 
-		std::list<ResourceNode> childsDirs;
-
-		ResourceNode(){clear();}
-		~ResourceNode(){clear();}
-			
-		void insertDirectory(String &path,HANDLE handle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent=0,int expandUntilLevel=1);
-		void insertFiles(GuiProjectViewer::ResourceNode& directory,HDC hdc,float& width,float& height);
-		void update(float& width,float& height);
-		void drawdirlist(TabContainer*,GuiProjectViewer* tv);
-		void drawfilelist(TabContainer*,GuiProjectViewer* tv);
-		void clear();
-		ResourceNode* onmousepressedLeftPane(TabContainer*,GuiProjectViewer* tv,float& x,float& y,float& width,float& height);
-		ResourceNode* onmousepressedRightPane(TabContainer*,GuiProjectViewer* tv,float& x,float& y,float& width,float& height);
-
-		static bool ScanDir(const char* dir,HANDLE&,WIN32_FIND_DATA& data,int opt=-1);
+		ResourceNode();
+		~ResourceNode();
 	};
 
-	ResourceNode leftElements;
-	ResourceNode rightElements;
-	std::vector<ResourceNode*> selectedDirs;
+	struct ResourceNodeDir : ResourceNode
+	{
+		bool expanded;
+
+		std::list<ResourceNodeDir*> dirs;
+		std::list<ResourceNode*>	files;
+
+		ResourceNodeDir();
+		~ResourceNodeDir();
+	};
+
+	ResourceNodeDir rootResource;
+
+	std::vector<ResourceNodeDir*> selectedDirs;
 	std::vector<ResourceNode*> selectedFiles;
 
 	GuiProjectViewer();
@@ -488,14 +481,11 @@ struct GuiProjectViewer : GuiRect
 	GuiScrollBar leftScrollBar;
 	GuiScrollBar rightScrollBar;
 
-	float leftBitmapWidth;
-	float leftBitmapHeight;
-	float rightBitmapWidth;
-	float rightBitmapHeight;
 	float leftFrameWidth;
-	float frameHeight;
 	bool lMouseDown;
 	bool splitterMoving;
+	float visibleRowsHeightLeft;
+	float visibleRowsHeightRight;
 	
 
 	void OnPaint(TabContainer*,void* data=0);
@@ -509,6 +499,17 @@ struct GuiProjectViewer : GuiRect
 
 	void SetLeftScrollBar();
 	void SetRightScrollBar();
+
+	void drawdirlist(TabContainer*,ResourceNodeDir* node,vec2&);
+	void drawfilelist(TabContainer*,ResourceNodeDir* node,vec2&);
+	bool ProcessNodesLeft(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
+	bool ProcessNodesRight(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
+	int updateleft(ResourceNodeDir*);
+	int updateright(ResourceNodeDir*);
+	void UnselectNodesLeft(ResourceNodeDir*);
+	void UnselectNodesRight(ResourceNodeDir*);
+	void ScanDir(String dir);
+	void CreateNodes(String dir,ResourceNodeDir*);
 };
 bool InitSplitter();
 

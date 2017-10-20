@@ -307,7 +307,7 @@ void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,cons
 		SIZE tSize;
 		GetTextExtentPoint32(GetDC(hwndRenderer->GetHwnd()),inputText,strlen(inputText),&tSize);
 
-		vec4 rect(-tSize.cx/2.0f,-tSize.cy/2.0f,tSize.cx,tSize.cy);
+		vec4 rect(-tSize.cx/2.0f,-tSize.cy/2.0f,(float)tSize.cx,(float)tSize.cy);
 
 		w-=x;
 		h-=y;
@@ -382,7 +382,7 @@ ID2D1RadialGradientBrush* Direct2DGuiBase::RadialGradientBrush(ID2D1RenderTarget
 
 GuiScrollBar::GuiScrollBar():
 guiRect(0),
-scrollerPressed(false),
+scrollerPressed(-1),
 scrollerPosition(0),
 scrollerRatio(1)
 {
@@ -454,38 +454,42 @@ void GuiScrollBar::OnLMouseUp(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseUp(tabContainer);
 
-	this->scrollerPressed=false;
-	
+	this->scrollerPressed=-1;
 }
 
 void GuiScrollBar::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseDown(tabContainer);
 
-	if(scrollerRatio==1.0f)
-		return;
-
-	if(tabContainer->mousey<this->GetContainerTop())
-		this->Scroll(1);
-	else if(tabContainer->mousey<this->GetContainerBottom())
+	if(this->hovering)
 	{
-		if(tabContainer->mousey>=this->GetScrollerTop() && tabContainer->mousey<=this->GetScrollerBottom())
-			this->scrollerPressed=(tabContainer->mousey-this->GetScrollerTop())/this->GetScrollerHeight();
-		else
-			SetScrollerPosition((tabContainer->mousey-this->GetContainerTop())/this->GetContainerHeight());
+		if(scrollerRatio==1.0f)
+			return;
 
+		if(tabContainer->mousey<this->GetContainerTop())
+			this->Scroll(1);
+		else if(tabContainer->mousey<this->GetContainerBottom())
+		{
+			if(tabContainer->mousey>=this->GetScrollerTop() && tabContainer->mousey<=this->GetScrollerBottom())
+				this->scrollerPressed=((tabContainer->mousey-this->GetScrollerTop())/this->GetScrollerHeight())*this->scrollerRatio;
+			else
+			{
+				this->scrollerPressed=0;
+				SetScrollerPosition((tabContainer->mousey-this->GetContainerTop())/this->GetContainerHeight());
+			}
+		}
+		else this->Scroll(-1);
+
+		if(this->parent)
+			this->parent->OnPaint(tabContainer);
 	}
-	else this->Scroll(-1);
-
-	if(this->parent)
-		this->parent->OnPaint(tabContainer);
 }
 
 void GuiScrollBar::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseMove(tabContainer);
-
-	if(this->scrollerRatio==1.0f || !this->scrollerPressed)
+	
+	if(this->scrollerRatio==1.0f || this->scrollerPressed<0)
 		return;
 
 	if(tabContainer->mousey>this->GetContainerTop() && tabContainer->mousey<this->GetContainerBottom())
@@ -608,7 +612,7 @@ void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 	if(entity)
 		entity->SetParent(this->entityRoot);
 
-	this->visibleRowsHeight=-TREEVIEW_ROW_HEIGHT+this->UpdateNodes(tabContainer,this->entityRoot);
+	this->visibleRowsHeight=-(float)TREEVIEW_ROW_HEIGHT+this->UpdateNodes(this->entityRoot);
 
 	scrollBar.SetScrollerRatio(this->visibleRowsHeight,this->rect.w);
 
@@ -670,7 +674,7 @@ bool GuiSceneViewer::ProcessNodes(vec2& mpos,vec2& pos,Entity* node,Entity*& exp
 			{
 				node->expanded=!node->expanded;
 				expChanged=node;
-				return node;
+				return true;
 			}
 		}
 
@@ -704,7 +708,7 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 		{
 			if(expChanged)
 			{
-				this->visibleRowsHeight=-TREEVIEW_ROW_HEIGHT+this->UpdateNodes(tabContainer,this->entityRoot);
+				this->visibleRowsHeight=(float)-TREEVIEW_ROW_HEIGHT+this->UpdateNodes(this->entityRoot);
 				scrollBar.SetScrollerRatio(this->visibleRowsHeight,this->rect.w);
 			}
 
@@ -724,7 +728,7 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 }
 
 
-int GuiSceneViewer::UpdateNodes(TabContainer* tabContainer,Entity* node)
+int GuiSceneViewer::UpdateNodes(Entity* node)
 {
 	if(!node)
 		return 0;
@@ -734,7 +738,7 @@ int GuiSceneViewer::UpdateNodes(TabContainer* tabContainer,Entity* node)
 	if(node->expanded)
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-			listHeight+=this->UpdateNodes(tabContainer,*nCh);
+			listHeight+=this->UpdateNodes(*nCh);
 	}
 
 	return listHeight;
@@ -923,321 +927,12 @@ void GuiEntityViewer::OnActivate(TabContainer* tabContainer,void* data)
 
 
 
-void GuiProjectViewer::ResourceNode::clear()
-{
-	this->parent=0;
-	this->x=0;
-	this->y=0;
-	this->expanded=0;
-	this->selected=0;
-	this->textWidth=0;
-	this->level=0;
-	this->nChilds=0;
-	this->isDir=false;
 
-	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-		nCh->clear();
 
-	this->childsDirs.clear();
-}
-
-bool GuiProjectViewer::ResourceNode::ScanDir(const char* dir,HANDLE& handle,WIN32_FIND_DATA& data,int opt)
-{
-	if(!handle)//extract dir and skip first-two win32 directory hardlinks /. and /..
-	{
-		String scanDir=dir;
-		scanDir+="\\*";
-
-		handle=FindFirstFile(scanDir,&data); //. dir
-
-		printf("scanning dir %s\n",scanDir);
-
-		if(!handle || INVALID_HANDLE_VALUE == handle)
-		{
-			__debugbreak();
-			return false;
-		}
-		else
-			FindNextFile(handle,&data);
-	}
-
-	while(FindNextFile(handle,&data))
-	{
-		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-			continue;
-
-		//printf("filename %s\n",data.cFileName);
-
-		if(opt<0)		//returns data with no filter
-			return true;
-
-		if(opt==0 && (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			return true;
-
-
-		if(opt==1 && !(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			return true;
-
-		return true;
-	}
-
-	FindClose(handle);
-	handle=0;
-	return false;
-}
-
-GuiProjectViewer::ResourceNode* tempResourceNode=0;
-
-void GuiProjectViewer::ResourceNode::insertDirectory(String &fullPath,HANDLE parentHandle,WIN32_FIND_DATA found,HDC hdc,float& width,float& height,ResourceNode* parent,int expandUntilLevel)
-{
-	tempResourceNode=!tempResourceNode ? this : tempResourceNode;
-
-	fileName= !parent ? fullPath : found.cFileName;
-
-	height+= (parent && !parent->expanded) ? 0 : GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-	
-
-	this->parent=parent;
-	this->x=parent ? parent->x+GuiSceneViewer::TREEVIEW_ROW_ADVANCE : GuiSceneViewer::TREEVIEW_ROW_ADVANCE;
-	this->y=height-GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-	this->level=parent ? parent->level+1 : 0;
-	this->expanded=this->level<expandUntilLevel ? true : false;
-	this->selected=false;
-	this->nChilds = 0;
-	this->isDir = true;
-
-	parent ? parent->nChilds++ : 0;
-
-	const char* pText=!parent ? fullPath.Buf() : found.cFileName;
-
-	SIZE tSize={0,0};
-
-	if(pText)
-	GetTextExtentPoint32(hdc,pText,strlen(pText),&tSize);
-
-	this->textWidth=tSize.cx;
-
-	if(!parent || parent && parent->expanded)
-		width=this->textWidth+this->x > width ? this->textWidth+this->x : width;
-
-	while(ScanDir(fullPath,parentHandle,found))
-	{
-		if(found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-			continue;
-
-		if(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-		{
-			/*if(tempResourceNode!=0 && parent && tempResourceNode==parent->parent)
-			{
-				
-			}
-			else*/
-			{
-				String dir=fullPath + "\\" + found.cFileName;
-
-				this->childsDirs.push_back(ResourceNode());
-				this->childsDirs.back().insertDirectory(dir,0,found,hdc,width,height,this,expandUntilLevel);
-			}
-		}
-
-		
-	}
-}
-
-
-void GuiProjectViewer::ResourceNode::insertFiles(GuiProjectViewer::ResourceNode& directory,HDC hdc,float& width,float& height)
-{
-	this->clear();
-
-	HANDLE handle=0;
-	WIN32_FIND_DATA found;
-
-	String fullPath;
-
-	//get fileName full path
-	{ 
-		std::vector<String> vFullPath;
-
-		vFullPath.push_back(directory.fileName);
-		ResourceNode* pNode=directory.parent;
-		while(pNode)
-		{
-			vFullPath.push_back(pNode->fileName);
-			pNode=pNode->parent;
-		}
-
-		int vSize=(int)vFullPath.size();
-
-		for(int i=vSize-1;i>=0;i--)
-		{
-			if(i != vSize-1)
-				fullPath+="\\";
-			fullPath+=vFullPath[i];
-			
-
-		}
-	}
-
-	while(ScanDir(fullPath,handle,found))
-	{
-		this->childsDirs.push_back(ResourceNode());
-		ResourceNode& node=this->childsDirs.back();
-
-
-		node.fileName= found.cFileName;
-
-		height+=GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-
-		node.parent=&directory;
-		node.x=0;
-		node.y=height-GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-		node.level=0;
-		node.expanded=false;
-		node.selected=false;
-		node.nChilds = this->nChilds++;
-		node.isDir = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
-
-		SIZE tSize;
-		GetTextExtentPoint32(hdc,node.fileName,node.fileName.Count(),&tSize);
-
-		node.textWidth=tSize.cx;
-
-		width=node.textWidth+node.x > width ? node.textWidth+node.x : width;
-	}
-}
-
-
-void GuiProjectViewer::ResourceNode::update(float& width,float& height)
-{
-	height+=this->parent ? (this->parent->expanded ? GuiSceneViewer::TREEVIEW_ROW_HEIGHT : 0) : GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-
-	this->x=this->parent ? this->parent->x+GuiSceneViewer::TREEVIEW_ROW_ADVANCE : GuiSceneViewer::TREEVIEW_ROW_ADVANCE;
-	this->y=height-GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-
-	width=this->parent ? (this->parent->expanded ? (this->textWidth+this->x > width ? this->textWidth+this->x : width) : width) : this->textWidth+this->x;
-
-	if(this->expanded)
-	{
-		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-			nCh->update(width,height);
-	}
-}
-void GuiProjectViewer::ResourceNode::drawdirlist(TabContainer* tabContainer,GuiProjectViewer* resNode)
-{
-	float scrollY=resNode->leftScrollBar.GetScrollValue();
-
-	if(this->y >= scrollY && this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT <= scrollY+resNode->frameHeight)
-	{
-		size_t resLen=0;
-		wchar_t resText[CHAR_MAX];
-		mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
-
-		if(this->selected)
-			tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)this->y,(float)resNode->leftFrameWidth-GuiScrollBar::SCROLLBAR_WIDTH-4,(float)this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
-
-		if(this->nChilds)
-			tabContainer->renderTarget->DrawBitmap(this->expanded ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(this->x-GuiSceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
-
-		tabContainer->renderTarget->DrawBitmap(tabContainer->iconFolder,D2D1::RectF(this->x,this->y,this->x + GuiSceneViewer::TREEVIEW_ROW_ADVANCE,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
-
-		tabContainer->renderTarget->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + GuiSceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x + GuiSceneViewer::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TEXT));
-	}
-
-	if(this->expanded)
-	{
-		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-			nCh->drawdirlist(tabContainer,resNode);
-	}
-}
-
-void GuiProjectViewer::ResourceNode::drawfilelist(TabContainer* tabContainer,GuiProjectViewer* resNode)
-{
-	float scrollY=resNode->rightScrollBar.GetScrollValue();
-
-	if(this->parent && (this->y >= scrollY && this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT <= scrollY+resNode->frameHeight))
-	{
-		size_t resLen=0;
-		wchar_t resText[CHAR_MAX];
-		mbstowcs_s(&resLen,resText,CHAR_MAX,this->fileName,this->fileName.Count());
-
-		if(this->selected)
-			tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->x,this->y,tabContainer->width,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
-
-		if(this->nChilds)
-			tabContainer->renderTarget->DrawBitmap(this->expanded ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(this->x-GuiSceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
-
-		tabContainer->renderTarget->DrawBitmap(this->isDir ? tabContainer->iconFolder : tabContainer->iconFile,D2D1::RectF(this->x,this->y,this->x + GuiSceneViewer::TREEVIEW_ROW_ADVANCE,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
-
-		tabContainer->renderTarget->DrawText(resText,resLen,Direct2DGuiBase::texter,D2D1::RectF(this->x + GuiSceneViewer::TREEVIEW_ROW_ADVANCE,this->y,this->x + GuiSceneViewer::TREEVIEW_ROW_ADVANCE + this->textWidth,this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TEXT));
-	}
-
-	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-		nCh->drawfilelist(tabContainer,resNode);
-}
-
-
-
-
-
-GuiProjectViewer::ResourceNode* GuiProjectViewer::ResourceNode::onmousepressedLeftPane(TabContainer* tabContainer,GuiProjectViewer* tv,float& x,float& y,float& width,float& height)
-{
-	if(y>this->y && y<this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT)
-	{
-		if(this->nChilds && x>this->x-GuiSceneViewer::TREEVIEW_ROW_ADVANCE && x<this->x)
-		{
-			this->expanded=!this->expanded;
-			return this;
-		}
-		else
-		{
-			this->selected=true;
-			tv->rightElements.insertFiles(*this,GetDC(tabContainer->hwnd),tv->rightBitmapWidth=0,tv->rightBitmapHeight=0);
-			tv->rightScrollBar.SetScrollerRatio(tv->rightBitmapHeight,tv->frameHeight);
-		}
-	}
-	else
-		this->selected=false;
-
-	if(this->expanded)
-	{
-		ResourceNode* resNode=0;
-
-		for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-		{
-			if((resNode=nCh->onmousepressedLeftPane(tabContainer,tv,x,y,width,height)))  //((a=b))
-				return resNode;
-		}
-	}
-
-	return 0;
-}
-
-GuiProjectViewer::ResourceNode* GuiProjectViewer::ResourceNode::onmousepressedRightPane(TabContainer* tabContainer,GuiProjectViewer* tv,float& x,float& y,float& width,float& height)
-{
-	if(y>this->y && y<this->y+GuiSceneViewer::TREEVIEW_ROW_HEIGHT)
-	{
-		this->selected=true;
-	}
-	else
-		this->selected=false;
-
-	ResourceNode* resNode=0;
-
-	for(std::list<ResourceNode>::iterator nCh=this->childsDirs.begin();nCh!=this->childsDirs.end();nCh++)
-	{
-		if((resNode=nCh->onmousepressedRightPane(tabContainer,tv,x,y,width,height)))  //((a=b))
-			return resNode;
-	}
-
-	return 0;
-}
 
 GuiProjectViewer::GuiProjectViewer():
-leftBitmapWidth(0),
-leftBitmapHeight(0),
-rightBitmapWidth(0),
-rightBitmapHeight(0),
-leftFrameWidth(100),
+visibleRowsHeightLeft(0),
+visibleRowsHeightRight(0),
 lMouseDown(false),
 splitterMoving(false)
 {
@@ -1246,34 +941,12 @@ splitterMoving(false)
 	leftScrollBar.Set(this,0,0,-1,0,0,20,0,1,0,-1,1);
 	rightScrollBar.Set(this,0,0,-1,0,0,20,0,1,0,-1,1);
 
-	
-}
+	this->rootResource.fileName=App::instance->projectFolder;
+	this->rootResource.expanded=true;
+	this->rootResource.isDir=true;
 
-void GuiProjectViewer::SetLeftScrollBar()
-{
-	leftScrollBar.rect.x=this->leftFrameWidth-4-20;
-	leftScrollBar.alignPos.x=-1;
-	leftScrollBar.SetScrollerRatio(leftBitmapHeight,frameHeight);
-}
-void GuiProjectViewer::SetRightScrollBar()
-{
-	rightScrollBar.SetScrollerRatio(rightBitmapHeight,frameHeight);
-}
-void GuiProjectViewer::OnActivate(TabContainer* tabContainer,void* data)
-{
-	GuiRect::OnActivate(tabContainer);
 
-	if(!leftElements.fileName.Count())
-	{
-		HDC hdc=GetDC(tabContainer->hwnd);
-		int nLevels=0;
-
-		leftElements.insertDirectory(App::instance->projectFolder,0,WIN32_FIND_DATA(),GetDC(tabContainer->hwnd),leftBitmapWidth=0,leftBitmapHeight=0,0);
-		rightElements.insertFiles(leftElements,GetDC(tabContainer->hwnd),rightBitmapWidth=0,rightBitmapHeight=0);
-
-		this->SetLeftScrollBar();
-		this->SetRightScrollBar();
-	}
+	this->selectedDirs.push_back(&this->rootResource);
 }
 
 GuiProjectViewer::~GuiProjectViewer()
@@ -1281,14 +954,37 @@ GuiProjectViewer::~GuiProjectViewer()
 	printf("destroying resources %p\n",this);
 }
 
+GuiProjectViewer::ResourceNode::ResourceNode():
+level(0),
+isDir(0),
+selectedLeft(0),
+selectedRight(0)
+{}
+GuiProjectViewer::ResourceNode::~ResourceNode(){}
+
+GuiProjectViewer::ResourceNodeDir::ResourceNodeDir():expanded(0){}
+GuiProjectViewer::ResourceNodeDir::~ResourceNodeDir(){}
+
+void GuiProjectViewer::OnActivate(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnActivate(tabContainer);
+
+	this->leftFrameWidth=(tabContainer->width-GuiScrollBar::SCROLLBAR_WIDTH)/2.0f;
+
+	this->ScanDir(this->rootResource.fileName);
+	this->CreateNodes(this->rootResource.fileName,&this->rootResource);
+	this->visibleRowsHeightLeft=-TREEVIEW_ROW_HEIGHT+this->updateleft(&this->rootResource);
+	this->visibleRowsHeightRight=this->updateright(&this->rootResource);
+
+	this->SetLeftScrollBar();
+	this->SetRightScrollBar();
+}
+
 void GuiProjectViewer::OnSize(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnSize(tabContainer);
 
-	frameHeight=tabContainer->height-TabContainer::CONTAINER_HEIGHT;
-
-	if(this->leftFrameWidth>tabContainer->width)
-		this->leftFrameWidth=(tabContainer->width-GuiScrollBar::SCROLLBAR_WIDTH)/2.0f;
+	this->leftFrameWidth=(tabContainer->width-GuiScrollBar::SCROLLBAR_WIDTH)/2.0f;
 
 	this->SetLeftScrollBar();
 	this->SetRightScrollBar();
@@ -1321,15 +1017,15 @@ void GuiProjectViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseWheel(tabContainer);
 
-	short int delta = *(float*)data;
+	float delta = *(float*)data;
 
 	if(tabContainer->mousex<(this->leftFrameWidth-4))
 	{
-		leftScrollBar.SetScrollerPosition((float)-delta);
+		leftScrollBar.Scroll(delta);
 	}
 	else if(tabContainer->mousex>(this->leftFrameWidth+4))
 	{
-		rightScrollBar.SetScrollerPosition((float)-delta);
+		rightScrollBar.Scroll(delta);
 	}
 
 	tabContainer->OnGuiPaint();
@@ -1354,29 +1050,58 @@ void GuiProjectViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 
 	if(mx<(this->leftFrameWidth-4-GuiScrollBar::SCROLLBAR_WIDTH))
 	{
-		my-=TabContainer::CONTAINER_HEIGHT-leftScrollBar.scrollerPosition;
+		ResourceNodeDir* expChanged=0;
+		ResourceNodeDir* selChanged=0;
 
-		ResourceNode* expandedModified=leftElements.onmousepressedLeftPane(tabContainer,this,mx,my,leftBitmapWidth,leftBitmapHeight);
+		float drawFromHeight=this->leftScrollBar.scrollerPosition*this->visibleRowsHeightLeft;
 
-		if(expandedModified)
+		if(this->ProcessNodesLeft(vec2(tabContainer->mousex,tabContainer->mousey-TabContainer::CONTAINER_HEIGHT),vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),drawFromHeight,&this->rootResource,&this->rootResource,expChanged,selChanged))
 		{
-			leftElements.update(leftBitmapWidth=0,leftBitmapHeight=0);
-			leftScrollBar.SetScrollerRatio(leftBitmapHeight,this->frameHeight);
+			if(expChanged)
+			{
+				this->visibleRowsHeightLeft=-TREEVIEW_ROW_HEIGHT+this->updateleft(&this->rootResource);
+				this->leftScrollBar.SetScrollerRatio(this->visibleRowsHeightLeft,this->rect.w);
+			}
+
+			if(selChanged)
+			{
+				if(!tabContainer->buttonControlDown)
+					this->selectedDirs.clear();
+
+				this->selectedDirs.push_back(selChanged);
+
+				//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
+			}
 		}	
 	
 		tabContainer->OnGuiPaint();
 	}
-	else if(mx<this->leftFrameWidth)//splitter
+	else if(mx>this->leftFrameWidth)
 	{
-		printf("on the splitter\n");
-		splitterMoving=true;
-	}
-	else if(mx<(tabContainer->width-GuiScrollBar::SCROLLBAR_WIDTH))//right pane
-	{
-		my-=TabContainer::CONTAINER_HEIGHT-rightScrollBar.scrollerPosition;
+		ResourceNodeDir* expChanged=0;
+		ResourceNode* selChanged=0;
 
-		printf("on the right pane\n");
-		rightElements.onmousepressedRightPane(tabContainer,this,mx,my,rightBitmapWidth,rightBitmapHeight);
+		float drawFromHeight=this->rightScrollBar.scrollerPosition*this->visibleRowsHeightRight;
+
+		if(this->ProcessNodesRight(vec2(tabContainer->mousex,tabContainer->mousey-TabContainer::CONTAINER_HEIGHT),vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),drawFromHeight,&this->rootResource,&this->rootResource,expChanged,selChanged))
+		{
+			if(expChanged)
+			{
+				this->visibleRowsHeightRight=this->updateright(&this->rootResource);
+				this->rightScrollBar.SetScrollerRatio(this->visibleRowsHeightRight,this->rect.w);
+			}
+
+			if(selChanged)
+			{
+				if(!tabContainer->buttonControlDown)
+					this->selectedFiles.clear();
+
+				this->selectedFiles.push_back(selChanged);
+
+				//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
+			}
+		}	
+
 		tabContainer->OnGuiPaint();
 	}	
 }
@@ -1409,7 +1134,7 @@ void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,(float)TabContainer::CONTAINER_HEIGHT-leftScrollBar.GetScrollValue()));
 
-	leftElements.drawdirlist(tabContainer,this);
+	this->drawdirlist(tabContainer,&this->rootResource,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT));
 
 	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -1423,7 +1148,8 @@ void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(this->leftFrameWidth,(float)TabContainer::CONTAINER_HEIGHT-rightScrollBar.GetScrollValue()));
 
-	rightElements.drawfilelist(tabContainer,this);
+	if(this->selectedDirs.size())
+		this->drawfilelist(tabContainer,this->selectedDirs[0],vec2());
 
 	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
@@ -1435,3 +1161,419 @@ void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 		tabContainer->EndDraw();
 }
 
+
+void GuiProjectViewer::SetLeftScrollBar()
+{
+	leftScrollBar.rect.x=this->leftFrameWidth-4-20;
+	leftScrollBar.alignPos.x=-1;
+	leftScrollBar.SetScrollerRatio(this->visibleRowsHeightLeft,this->rect.w);
+}
+void GuiProjectViewer::SetRightScrollBar()
+{
+	rightScrollBar.SetScrollerRatio(this->visibleRowsHeightRight,this->rect.w);
+}
+
+
+
+void GuiProjectViewer::ScanDir(String dir)
+{
+	HANDLE handle;
+	WIN32_FIND_DATA data;
+
+	String scanDir=dir;
+	scanDir+="\\*";
+
+	handle=FindFirstFile(scanDir,&data); //. dir
+
+	printf("scanning dir %s\n",scanDir);
+
+	if(!handle || INVALID_HANDLE_VALUE == handle)
+	{
+		__debugbreak();
+		return;
+	}
+	else
+		FindNextFile(handle,&data);
+
+	while(FindNextFile(handle,&data))
+	{
+		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+			continue;
+
+		if(strstr(data.cFileName,".engine"))
+		{
+			String s = dir + "\\" + String(data.cFileName);
+
+			if(!PathFileExists(s.Buf()))
+			{
+				//delete .engine file
+				continue;
+			}
+		}
+		else
+		{
+			String engineFile = dir + "\\" + String(data.cFileName) + ".engine";
+
+			if(!PathFileExists(engineFile.Buf()))
+			{
+				FILE* f=fopen(engineFile.Buf(),"w");
+
+				if(f)
+				{
+					unsigned char _true=1;
+					unsigned char _false=0;
+
+					fwrite(&_false,1,1,f);//selectedLeft
+					fwrite(&_false,1,1,f);//selectedRight
+					fwrite((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)? &_true : &_false,1,1,f);//isDir
+					fwrite(&_true,1,1,f);//expanded
+					fclose(f);
+
+					if(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+						this->ScanDir(dir +"\\"+data.cFileName);
+					
+				}
+			}
+		}
+	}
+
+	FindClose(handle);
+	handle=0;
+}
+
+void GuiProjectViewer::CreateNodes(String dir,ResourceNodeDir* iParent)
+{
+	HANDLE handle;
+	WIN32_FIND_DATA data;
+
+	String scanDir=dir;
+	scanDir+="\\*";
+
+	handle=FindFirstFile(scanDir,&data); //. dir
+
+	printf("scanning dir %s\n",scanDir);
+
+	if(!handle || INVALID_HANDLE_VALUE == handle)
+	{
+		__debugbreak();
+		return;
+	}
+	else
+		FindNextFile(handle,&data);
+
+	while(FindNextFile(handle,&data))
+	{
+		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+			continue;
+
+		if(strstr(data.cFileName,".engine"))
+		{
+			String engineFile=dir + "\\" + String(data.cFileName);
+
+			bool selectedLeft;
+			bool selectedRight;
+			bool isDir;
+			bool expanded;
+
+			{
+				FILE* f=fopen(engineFile.Buf(),"r");
+
+				if(f)
+				{
+					fread(&selectedLeft,1,1,f);
+					fread(&selectedRight,1,1,f);
+					fread(&isDir,1,1,f);
+					fread(&expanded,1,1,f);
+
+					fclose(f);
+				}
+			}
+
+			std::string fileName(data.cFileName,&data.cFileName[strlen(data.cFileName)-7]);
+
+			if(isDir)
+			{
+				ResourceNodeDir* dirNode=new ResourceNodeDir;
+
+				iParent->dirs.push_back(dirNode);
+				dirNode->parent=iParent;
+				dirNode->fileName=fileName.c_str();
+				dirNode->level = iParent ? iParent->level+1 : 0;
+				dirNode->selectedLeft=selectedLeft;
+				dirNode->selectedRight=selectedRight;
+				dirNode->expanded=expanded;
+				dirNode->isDir=isDir;
+
+				this->CreateNodes(dir + "\\" + dirNode->fileName,dirNode);
+			}
+			else
+			{
+				ResourceNode* fileNode=new ResourceNode;
+
+				iParent->files.push_back(fileNode);
+				fileNode->parent=iParent;
+				fileNode->fileName=fileName.c_str();
+				fileNode->level = iParent ? iParent->level+1 : 0;
+				fileNode->selectedLeft=selectedLeft;
+				fileNode->selectedRight=selectedRight;
+				fileNode->isDir=isDir;
+			}
+		}
+	}
+
+	FindClose(handle);
+	handle=0;
+}
+
+
+
+
+
+void GuiProjectViewer::drawdirlist(TabContainer* tabContainer,ResourceNodeDir* node,vec2& pos)
+{
+	float drawFromHeight=this->leftScrollBar.scrollerPosition*this->visibleRowsHeightLeft;
+
+	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+	{
+		float relativeY=pos.y-drawFromHeight;
+
+		if(node->selectedLeft)
+			tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)relativeY,(float)this->leftFrameWidth-GuiScrollBar::SCROLLBAR_WIDTH-4,(float)relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+
+		float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+
+		if(node->dirs.size())
+			tabContainer->renderTarget->DrawBitmap(node->expanded ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
+
+		xCursor+=TREEVIEW_ROW_ADVANCE;
+
+		tabContainer->renderTarget->DrawBitmap(tabContainer->iconFolder,D2D1::RectF(xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
+
+		xCursor+=TREEVIEW_ROW_ADVANCE;
+
+		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),node->fileName,xCursor,relativeY,xCursor+leftFrameWidth,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT);
+	}
+
+	pos.y+=TREEVIEW_ROW_HEIGHT;
+
+	if(node->expanded)
+	{
+		for(std::list<ResourceNodeDir*>::iterator nCh=node->dirs.begin();nCh!=node->dirs.end();nCh++)
+			this->drawdirlist(tabContainer,*nCh,pos);
+	}
+}
+
+void GuiProjectViewer::drawfilelist(TabContainer* tabContainer,ResourceNodeDir* _node,vec2& pos)
+{
+	float drawFromHeight=this->rightScrollBar.scrollerPosition*this->visibleRowsHeightRight;
+
+	for(std::list<ResourceNodeDir*>::iterator nCh=_node->dirs.begin();nCh!=_node->dirs.end();nCh++)
+	{
+		if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+		{
+			float relativeY=pos.y-drawFromHeight;
+
+			ResourceNodeDir* node=(*nCh);
+
+			if(node->selectedRight)
+				tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)relativeY,(float)this->leftFrameWidth-GuiScrollBar::SCROLLBAR_WIDTH-4,(float)relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+
+			float xCursor=pos.x;
+
+			tabContainer->renderTarget->DrawBitmap(tabContainer->iconFolder,D2D1::RectF(xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
+
+			xCursor+=TREEVIEW_ROW_ADVANCE;
+
+			Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),node->fileName,xCursor,relativeY,xCursor+leftFrameWidth,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT);
+		}
+
+		pos.y+=TREEVIEW_ROW_HEIGHT;
+	}
+
+	for(std::list<ResourceNode*>::iterator nCh=_node->files.begin();nCh!=_node->files.end();nCh++)
+	{
+		if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+		{
+			float relativeY=pos.y-drawFromHeight;
+
+			ResourceNode* node=(*nCh);
+
+			if(node->selectedLeft)
+				tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)relativeY,(float)this->rect.z-GuiScrollBar::SCROLLBAR_WIDTH,(float)relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_TAB_SELECTED));
+
+			float xCursor=pos.x;
+			tabContainer->renderTarget->DrawBitmap(tabContainer->iconFile,D2D1::RectF(xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT));
+
+			xCursor+=TREEVIEW_ROW_ADVANCE;
+
+			Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),node->fileName,xCursor,relativeY,xCursor+leftFrameWidth,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT);
+		}
+
+		pos.y+=TREEVIEW_ROW_HEIGHT;
+	}
+}
+
+int GuiProjectViewer::updateleft(ResourceNodeDir* node)
+{
+	if(!node)
+		return 0;
+
+	int listHeight=node->isDir ? TREEVIEW_ROW_HEIGHT : 0;
+
+	if(node->expanded)
+	{
+		for(std::list<ResourceNodeDir*>::iterator nCh=node->dirs.begin();nCh!=node->dirs.end();nCh++)
+			listHeight+=this->updateleft(*nCh);
+	}
+
+	return listHeight;
+}
+
+int GuiProjectViewer::updateright(ResourceNodeDir* node)
+{
+	if(!node)
+		return 0;
+
+	return (node->dirs.size() + node->files.size())*TREEVIEW_ROW_HEIGHT;
+}
+
+
+void GuiProjectViewer::UnselectNodesLeft(ResourceNodeDir* node)
+{
+	if(!node)
+		return;
+
+	node->selectedLeft=false;
+
+	for(std::list<ResourceNode*>::iterator nCh=node->files.begin();nCh!=node->files.end();nCh++)
+		(*nCh)->selectedLeft=0;
+
+	for(std::list<ResourceNodeDir*>::iterator nCh=node->dirs.begin();nCh!=node->dirs.end();nCh++)
+		this->UnselectNodesLeft(*nCh);
+}
+
+void GuiProjectViewer::UnselectNodesRight(ResourceNodeDir* node)
+{
+	if(!node)
+		return;
+
+	node->selectedRight=false;
+
+	for(std::list<ResourceNode*>::iterator nCh=node->files.begin();nCh!=node->files.end();nCh++)
+		(*nCh)->selectedRight=0;
+
+	for(std::list<ResourceNodeDir*>::iterator nCh=node->dirs.begin();nCh!=node->dirs.end();nCh++)
+		this->UnselectNodesRight(*nCh);
+}
+
+bool GuiProjectViewer::ProcessNodesLeft(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged)
+{
+	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+	{
+		float relativeY=pos.y-drawFromHeight;
+
+		float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+
+		bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
+		bool hittedExpandos= node->dirs.size() && (mpos.x>xCursor && mpos.x<xCursor+TREEVIEW_ROW_ADVANCE);
+
+		if(hittedRow)
+		{
+			if(!hittedExpandos)
+			{
+				this->UnselectNodesLeft(root);
+
+				if(!node->selectedLeft)
+				{
+					node->selectedLeft=true;
+					selChanged=node;
+
+					return true;
+				}
+			}
+			else
+			{
+				node->expanded=!node->expanded;
+				expChanged=node;
+				return true;
+			}
+		}
+
+	}
+
+	pos.y+=TREEVIEW_ROW_HEIGHT;
+
+	if(node->expanded)
+	{
+		for(std::list<ResourceNodeDir*>::iterator nCh=node->dirs.begin();nCh!=node->dirs.end();nCh++)
+		{
+			if(this->ProcessNodesLeft(mpos,pos,drawFromHeight,root,*nCh,expChanged,selChanged))
+				return true;
+		}
+	}
+
+	return 0;
+}
+
+bool GuiProjectViewer::ProcessNodesRight(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* _node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged)
+{
+	for(std::list<ResourceNodeDir*>::iterator dir=_node->dirs.begin();dir!=_node->dirs.end();dir++)
+	{
+		if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+		{
+			float relativeY=pos.y-drawFromHeight;
+
+			ResourceNodeDir* node=(*dir);
+
+			float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+
+			bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
+
+			if(hittedRow)
+			{
+				this->UnselectNodesRight(root);
+
+				if(!node->selectedRight)
+				{
+					node->selectedRight=true;
+					selChanged=node;
+
+					return true;
+				}
+			}
+		}
+
+		pos.y+=TREEVIEW_ROW_HEIGHT;
+	}
+
+	for(std::list<ResourceNode*>::iterator file=_node->files.begin();file!=_node->files.end();file++)
+	{
+		if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+		{
+			float relativeY=pos.y-drawFromHeight;
+
+			ResourceNode* node=(*file);
+
+			float xCursor=pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+
+			bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
+
+			if(hittedRow)
+			{
+				this->UnselectNodesRight(root);
+
+				if(!node->selectedRight)
+				{
+					node->selectedRight=true;
+					selChanged=node;
+
+					return true;
+				}
+			}
+		}
+
+		pos.y+=TREEVIEW_ROW_HEIGHT;
+	}
+
+	return false;
+}

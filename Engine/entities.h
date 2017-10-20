@@ -109,13 +109,21 @@ static const char *EEntityNames[ENTITY_MAX]=
 };
 
 
-struct Resource
+struct Resource : THierarchyList<Entity>
 {
-	static std::vector<Entity*> resourcePool;
-
 	Resource* GetResource(){return this;}
 	Resource* GetTexture(){return 0;}
 	Resource* GetMaterial(){return 0;}
+};
+
+struct File : Resource
+{
+	String fullPath;
+};
+
+struct Dir : Resource
+{
+	String fullPath;
 };
 
 struct Texture
