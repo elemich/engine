@@ -176,6 +176,8 @@ void GuiRect::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
+	vec2& mpos=*(vec2*)data;
+
 	bool wasPressing=this->pressing;
 	bool bContainerButtonPressed=0;
 
@@ -188,7 +190,7 @@ void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 
 		if(this->container>=0)
 		{
-			bContainerButtonPressed=(tabContainer->mousex > this->rect.x && tabContainer->mousex < this->rect.x+TabContainer::CONTAINER_ICON_WH && tabContainer->mousey > this->rect.y && tabContainer->mousey <this->rect.y+TabContainer::CONTAINER_ICON_WH);
+			bContainerButtonPressed=(mpos.x > this->rect.x && mpos.x < this->rect.x+TabContainer::CONTAINER_ICON_WH && mpos.y > this->rect.y && mpos.y <this->rect.y+TabContainer::CONTAINER_ICON_WH);
 
 			if(bContainerButtonPressed)
 				this->container=!this->container;
@@ -196,12 +198,13 @@ void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 
 		if(bContainerButtonPressed)
 		{
-			tabContainer->BroadcastToSelected(&GuiRect::OnSize,data);
-			tabContainer->BroadcastToSelected(&GuiRect::OnPaint,data);
+			tabContainer->BroadcastToSelected(&GuiRect::OnSize);
+			this->OnExpandos(tabContainer,this);
+			tabContainer->BroadcastToSelected(&GuiRect::OnPaint);
 		}
 
 		if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-			this->OnPaint(tabContainer,data);
+			this->OnPaint(tabContainer);
 		
 		return;
 	}
@@ -209,7 +212,7 @@ void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnLMouseDown,tabContainer,data);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		this->OnPaint(tabContainer,data);
+		this->OnPaint(tabContainer);
 }
 void GuiRect::OnLMouseUp(TabContainer* tabContainer,void* data)
 {
@@ -233,8 +236,10 @@ void GuiRect::OnRMouseUp(TabContainer* tabContainer,void* data)
 
 void GuiRect::OnMouseMove(TabContainer* tabContainer,void* data)
 {
+	vec2& mpos=*(vec2*)data;
+
 	bool _oldHover=this->hovering;
-	bool _curHover=_contains(this->rect,vec2(tabContainer->mousex,tabContainer->mousey));
+	bool _curHover=_contains(this->rect,vec2(mpos.x,mpos.y));
 
 	if(parent && _curHover)
 		parent->hovering=false;
@@ -245,7 +250,7 @@ void GuiRect::OnMouseMove(TabContainer* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnMouseMove,tabContainer,data);
 
 	if(_oldHover!=this->hovering && this->colorBackground!=this->colorHovering)
-		this->OnPaint(tabContainer,data);
+		this->OnPaint(tabContainer);
 }
 
 void GuiRect::OnUpdate(TabContainer* tabContainer,void* data)
@@ -287,6 +292,13 @@ void GuiRect::OnEntitySelected(TabContainer* tabContainer,void* data)
 {
 	this->BroadcastToChilds(&GuiRect::OnEntitySelected,tabContainer,data);
 }
+
+void GuiRect::OnExpandos(TabContainer* tabContainer,void* data)
+{
+	if(this->parent)
+		this->parent->OnExpandos(tabContainer,data);
+}
+
 
 GuiRect* GuiRect::GetRoot()
 {
@@ -469,41 +481,15 @@ void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 	if(text.Buf())
 	{
 		if(this->container>=0)
-		{
 			tabContainer->renderTarget->DrawBitmap(this->container==1 ? tabContainer->iconDown : tabContainer->iconRight,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+TabContainer::CONTAINER_ICON_WH,this->rect.y+TabContainer::CONTAINER_ICON_WH));
-			Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(0x000000),text,this->rect.x + TabContainer::CONTAINER_ICON_WH,this->rect.y,this->rect.x+this->textRect.z+100,this->rect.y+this->textRect.w);
-		}
-		else Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),text,this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w);
-		//tabContainer->renderer->DrawRectangle(D2D1::RectF(this->textRect.x,this->textRect.y,this->textRect.x+this->textRect.z,this->textRect.y+this->textRect.w),tabContainer->SetColor(TabContainer::COLOR_TEXT));
+			
+		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),text,this->container>=0 ? this->rect.x+TREEVIEW_ROW_ADVANCE : this->rect.x,this->rect.y,this->rect.z,this->rect.y+TabContainer::CONTAINER_ICON_WH,-1,0.5);
 	}
 
 	if(selfRender)
 		tabContainer->EndDraw();
 }
 
-void GuiString::OnSize(TabContainer* tabContainer,void* data)
-{
-	GuiRect::OnSize(tabContainer);
-
-	if(this->text.Buf())
-	{
-		int tLen=this->text.Count();
-		SIZE resSize;
-		if(!GetTextExtentPoint32(GetDC(tabContainer->hwnd),this->text,tLen,&resSize))
-			__debugbreak();
-
-		this->textRect.z=resSize.cx;
-		this->textRect.w=resSize.cy;
-
-		if(this->alignText.x>=0)
-			this->textRect.x=this->rect.x+this->alignText.x*this->rect.z-this->textRect.z/2.0f;
-		if(this->alignText.y>=0)
-			this->textRect.y=this->rect.y+this->alignText.y*this->rect.w-this->textRect.w/2.0f;
-
-		this->textRect.x = this->rect.x > this->textRect.x ? this->rect.x : (this->rect.x+this->rect.z < this->textRect.x+this->textRect.z ? this->textRect.x - (this->textRect.x+this->textRect.z - (this->rect.x+this->rect.z)) : this->textRect.x);
-		this->textRect.y = this->rect.y > this->textRect.y ? this->rect.y : (this->rect.y+this->rect.w < this->textRect.y+this->textRect.w ? this->textRect.y - (this->textRect.y+this->textRect.w - (this->rect.y+this->rect.w)) : this->textRect.y);
-	}
-}
 
 ////////////////////////////
 ////////GuiRect///////
@@ -532,6 +518,42 @@ void GuiButton::OnLMouseUp(TabContainer* tab,void* data)
 			(this->*mouseUpFunc)();
 	}
 }
+
+GuiScrollRect::GuiScrollRect():
+contentHeight(0),
+width(0)
+{
+	this->scrollBar=new GuiScrollBar;
+	this->scrollBar->guiRect=this;
+	this->scrollBar->Set(this,0,0,-1,0,0,20,0,1,0,-1,1);
+}
+
+GuiScrollRect::~GuiScrollRect()
+{
+	SAFEDELETE(this->scrollBar);
+}
+
+void GuiScrollRect::OnMouseWheel(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnMouseWheel(tabContainer,data);
+
+	if(!this->hovering)
+		return;
+
+	float scrollValue=*(float*)data;
+	this->scrollBar->Scroll(scrollValue);
+
+	this->OnPaint(tabContainer);
+}
+
+void GuiScrollRect::OnSize(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnSize(tabContainer,data);
+
+	this->scrollBar->SetScrollerRatio(this->contentHeight,this->rect.w);
+	this->width=this->scrollBar->IsVisible() ? this->rect.z-GuiScrollBar::SCROLLBAR_WIDTH : this->rect.z;
+}
+
 
 ////////////////////////////
 ////////GuiRect///////
@@ -588,13 +610,15 @@ void GuiSlider::OnPaint(TabContainer* tabContainer,void* data)
 
 void GuiSlider::OnMouseMove(TabContainer* tabContainer,void* data)
 {
-	GuiRect::OnMouseMove(tabContainer);
+	GuiRect::OnMouseMove(tabContainer,data);
 
 	if(this->pressing)
 	{
-		if(tabContainer->mousex > this->rect.x && tabContainer->mousex < this->rect.x+this->rect.z)
+		vec2& mpos=*(vec2*)data;
+
+		if(mpos.x > this->rect.x && mpos.x < this->rect.x+this->rect.z)
 		{
-			float f1=(tabContainer->mousex-(this->rect.x+10))/(this->rect.z-20);
+			float f1=(mpos.x-(this->rect.x+10))/(this->rect.z-20);
 			float f2=maximum-minimum;
 			float cursor=f1*f2;
 
@@ -651,7 +675,7 @@ void GuiPropertyAnimation::OnMouseMove(TabContainer* tab,void* data)
 {
 	float value=*this->slider.referenceValue;
 
-	GuiRect::OnMouseMove(tab);
+	GuiRect::OnMouseMove(tab,data);
 
 	if(value!=*this->slider.referenceValue && this->slider.pressing)
 	{
@@ -776,14 +800,15 @@ void GuiViewport::OnMouseWheel(TabContainer* tabContainer,void* data)
 
 void GuiViewport::OnMouseMove(TabContainer* tabContainer,void* data)
 {
-	GuiRect::OnMouseMove(tabContainer);
+	GuiRect::OnMouseMove(tabContainer,data);
 
+	vec2& mpos=*(vec2*)data;
 	vec2 &pos=InputManager::mouseInput.mouse_pos;
 	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
 
 	oldpos=pos;
-	pos.x=tabContainer->mousex;
-	pos.y=tabContainer->mousey;
+	pos.x=mpos.x;
+	pos.y=mpos.y;
 
 	if(tabContainer->buttonLeftMouseDown && GetFocus()==tabContainer->hwnd)
 	{

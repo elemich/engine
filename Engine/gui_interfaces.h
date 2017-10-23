@@ -9,6 +9,7 @@ struct GuiRect;
 struct GuiRootRect;
 struct GuiString;
 struct GuiButton;
+struct GuiScrollBar;
 struct GuiPropertyString;
 struct GuiPropertySlider;
 struct GuiPropertyAnimation;
@@ -72,7 +73,6 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	vec2 alignPos;
 	vec2 alignRect;
-	
 
 	GuiRect* sibling[4];
 	
@@ -83,7 +83,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
 	~GuiRect();
 
-	void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float apx=-1.0f,float apy=-1.0f,float arx=-1.0f,float ary=-1.0f);
+	virtual void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float apx=-1.0f,float apy=-1.0f,float arx=-1.0f,float ary=-1.0f);
 
 	void SetParent(GuiRect*);
 
@@ -103,6 +103,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnActivate(TabContainer*,void* data=0);
 	virtual void OnDeactivate(TabContainer*,void* data=0);
 	virtual void OnEntitySelected(TabContainer*,void* data=0);
+	virtual void OnExpandos(TabContainer*,void* data=0);
 
 	virtual GuiRect* GetRoot(); 
 
@@ -160,7 +161,6 @@ struct GuiString : GuiRect
 	GuiString(){this->name="String";}
 
 	virtual void OnPaint(TabContainer*,void* data=0);
-	virtual void OnSize(TabContainer*,void* data=0);
 };
 
 struct GuiButton : GuiString
@@ -173,6 +173,54 @@ struct GuiButton : GuiString
 	void (GuiRect::*mouseUpFunc)();
 
 	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
+};
+
+
+struct GuiScrollBar : GuiRect
+{
+	float scrollerPosition,scrollerRatio;
+	float scrollerPressed;
+
+	float parentAlignRectX;
+
+	GuiRect* guiRect;
+
+	GuiScrollBar();
+	~GuiScrollBar();
+
+
+	bool SetScrollerRatio(float contentHeight,float containerHeight);
+	bool SetScrollerPosition(float contentHeight);
+	bool Scroll(float upOrDown);
+	bool IsVisible();
+
+	void OnLMouseDown(TabContainer* tab,void* data=0);
+	void OnLMouseUp(TabContainer* tab,void* data=0);
+	void OnMouseMove(TabContainer* tab,void* data=0);
+	void OnPaint(TabContainer* tab,void* data=0);
+
+	float GetContainerHeight();
+	float GetContainerTop();
+	float GetContainerBottom();
+	float GetScrollerTop();
+	float GetScrollerBottom();
+	float GetScrollerHeight();
+
+};
+
+
+struct GuiScrollRect : GuiRect
+{
+	GuiScrollRect();
+	~GuiScrollRect();
+
+	float contentHeight;
+	float width;
+
+	GuiScrollBar	*scrollBar;
+
+	virtual void OnMouseWheel(TabContainer*,void* data=0);
+	virtual void OnSize(TabContainer*,void* data=0);
 };
 
 struct GuiPropertyString : GuiRect
@@ -252,35 +300,6 @@ struct GuiViewport : GuiRect
 	virtual void OnReparent(TabContainer*,void* data=0);
 };
 
-struct GuiScrollBar : GuiRect
-{
-	float scrollerPosition,scrollerRatio;
-	float scrollerPressed;
-
-	GuiRect* guiRect;
-
-	GuiScrollBar();
-	~GuiScrollBar();
-
-	void SetScrollerRatio(float contentHeight,float containerHeight);
-	void SetScrollerPosition(float contentHeight);
-	void Scroll(float upOrDown);
-	
-
-	void OnLMouseDown(TabContainer* tab,void* data=0);
-	void OnLMouseUp(TabContainer* tab,void* data=0);
-	void OnMouseMove(TabContainer* tab,void* data=0);
-	void OnPaint(TabContainer* tab,void* data=0);
-
-	float GetScrollValue();
-	float GetContainerHeight();
-	float GetContainerTop();
-	float GetContainerBottom();
-	float GetScrollerTop();
-	float GetScrollerBottom();
-	float GetScrollerHeight();
-	
-};
 
 
 

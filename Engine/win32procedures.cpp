@@ -366,14 +366,14 @@ void TabContainer::OnGuiMouseMove(void* data)
 	mousey=tmy;
 
 	if(mousey>TabContainer::CONTAINER_HEIGHT)
-		this->BroadcastToSelected(&GuiRect::OnMouseMove,data);
+		this->BroadcastToSelected(&GuiRect::OnMouseMove,vec2(this->mousex,this->mousey));
 }
 
 void TabContainer::OnGuiLMouseUp(void* data)
 {
 	mouseDown=false;
 
-	this->BroadcastToSelected(&GuiRect::OnLMouseUp,data);
+	this->BroadcastToSelected(&GuiRect::OnLMouseUp,vec2(this->mousex,this->mousey));
 }
 
 void TabContainer::OnGuiMouseWheel(void* data)
@@ -417,7 +417,7 @@ void TabContainer::OnGuiLMouseDown(void* data)
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnLMouseDown,data);
+		this->BroadcastToSelected(&GuiRect::OnLMouseDown,vec2(this->mousex,this->mousey));
 	}
 }
 

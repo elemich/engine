@@ -399,23 +399,16 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 
 
 
-struct GuiSceneViewer : GuiRect
+struct GuiSceneViewer : GuiScrollRect
 {
 	GuiSceneViewer();
 	~GuiSceneViewer();
-
-	
 
 	Entity* entityRoot;
 
 	std::vector<Entity*> selection;
 
-	GuiScrollBar scrollBar;
-
-	float visibleRowsHeight;
-
 	void OnPaint(TabContainer*,void* data=0);
-	void OnSize(TabContainer*,void* data=0);
 	void OnLMouseDown(TabContainer*,void* data=0);
 	void OnEntitiesChange(TabContainer*,void* data=0);
 	void OnRecreateTarget(TabContainer*,void* data=0);
@@ -423,13 +416,15 @@ struct GuiSceneViewer : GuiRect
 	void OnMouseWheel(TabContainer*,void* data=0);
 
 
-	bool ProcessNodes(vec2&,vec2&,Entity* node,Entity*& expChanged,Entity*& selChanged);
+	bool ProcessMouseInput(vec2&,vec2&,Entity* node,Entity*& expChanged,Entity*& selChanged);
 	void DrawNodes(TabContainer*,Entity*,vec2&);
 	int UpdateNodes(Entity*);
 	void UnselectNodes(Entity*);
 };	
 
-struct GuiEntityViewer : GuiRect
+
+
+struct GuiEntityViewer : GuiScrollRect
 {
 	GuiEntityViewer();
 	~GuiEntityViewer();
@@ -439,7 +434,18 @@ struct GuiEntityViewer : GuiRect
 	void OnActivate(TabContainer*,void* data=0);
 
 	virtual void OnEntitySelected(TabContainer*,void* data=0);
+	virtual void OnLMouseDown(TabContainer*,void* data=0);
+	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnExpandos(TabContainer*,void* data=0);
+	virtual void OnMouseMove(TabContainer*,void* data=0);
+	virtual void OnMouseWheel(TabContainer*,void* data=0);
+
+	bool ProcessMouseInput(vec2&,vec2&,GuiRect* node);
+	void DrawNodes(TabContainer*,GuiRect*,vec2&);
+	int UpdateNodes(GuiRect*);
 };
+
+
 
 
 struct GuiProjectViewer : GuiRect
@@ -470,44 +476,50 @@ struct GuiProjectViewer : GuiRect
 		~ResourceNodeDir();
 	};
 
-	ResourceNodeDir rootResource;
+	struct GuiDirView : GuiScrollRect
+	{
+		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&,bool& terminated);
+		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
+		int CalcNodesHeight(ResourceNodeDir*);
+		void UnselectNodes(ResourceNodeDir*);
+		std::vector<ResourceNodeDir*> selectedDirs;
+		ResourceNodeDir* rootResource;
 
-	std::vector<ResourceNodeDir*> selectedDirs;
-	std::vector<ResourceNode*> selectedFiles;
+		void OnLMouseDown(TabContainer*,void* data=0);
+		void OnPaint(TabContainer*,void* data=0);
+
+	}left;
+
+	struct GuiFileView : GuiScrollRect
+	{
+		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&);
+		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
+		int CalcNodesHeight(ResourceNodeDir*);
+		void UnselectNodes(ResourceNodeDir*);
+		ResourceNodeDir* rootResource;
+		std::vector<ResourceNodeDir*> selectedDirs;
+		std::vector<ResourceNode*> selectedFiles;
+
+		void OnLMouseDown(TabContainer*,void* data=0);
+		void OnPaint(TabContainer*,void* data=0);
+	}right;
+
+
+	ResourceNodeDir rootResource;
 
 	GuiProjectViewer();
 	~GuiProjectViewer();
 
-	GuiScrollBar leftScrollBar;
-	GuiScrollBar rightScrollBar;
-
-	float leftFrameWidth;
 	bool lMouseDown;
 	bool splitterMoving;
-	float visibleRowsHeightLeft;
-	float visibleRowsHeightRight;
 	
-
 	void OnPaint(TabContainer*,void* data=0);
-	void OnSize(TabContainer*,void* data=0);
 	void OnLMouseDown(TabContainer*,void* data=0);
-	void OnMouseWheel(TabContainer*,void* data=0);
 	void OnLMouseUp(TabContainer*,void* data=0);
 	void OnMouseMove(TabContainer*,void* data=0);
 	void OnReparent(TabContainer*,void* data=0);
 	void OnActivate(TabContainer*,void* data=0);
 
-	void SetLeftScrollBar();
-	void SetRightScrollBar();
-
-	void drawdirlist(TabContainer*,ResourceNodeDir* node,vec2&);
-	void drawfilelist(TabContainer*,ResourceNodeDir* node,vec2&);
-	bool ProcessNodesLeft(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
-	bool ProcessNodesRight(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
-	int updateleft(ResourceNodeDir*);
-	int updateright(ResourceNodeDir*);
-	void UnselectNodesLeft(ResourceNodeDir*);
-	void UnselectNodesRight(ResourceNodeDir*);
 	void ScanDir(String dir);
 	void CreateNodes(String dir,ResourceNodeDir*);
 };

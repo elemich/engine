@@ -94,7 +94,7 @@ int simple_shader(int shader_type, const char* shader_src)
 		__debugbreak();
 	}
 
-	glGetShaderInfoLog(shader_id, sizeof(message), &len, message);
+	/*glGetShaderInfoLog(shader_id, sizeof(message), &len, message);
 
 	if(len && len<sizeof(message))
 	{
@@ -114,7 +114,7 @@ int simple_shader(int shader_type, const char* shader_src)
 		if(s)
 			*s=0;
 		printf("%s:%s",shaderName,message);
-	}
+	}*/
 
 	return shader_id;
 }
@@ -154,8 +154,10 @@ int create_program(const char* vertexsh,const char* fragmentsh)
 
 	glGetProgramInfoLog(program,sizeof(message),&len,message);glCheckError();
 
-	if(len && len<sizeof(message))
-		printf("%s",message);
+
+	//print infos
+	/*if(len && len<sizeof(message))
+		printf("%s",message);*/
 	
 
 	return program;
@@ -188,7 +190,7 @@ ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const cha
 		
 		shadersPool.pool.push_back(shader);
 
-		printf("adding %s to shaders list\n",name);
+		//printf("adding %s to shaders list\n",name);
 
 		return shader;
 	}

@@ -133,9 +133,6 @@ void SplitterContainer::OnLButtonUp(HWND hwnd)
 	{
 		ReleaseCapture();
 		SetCursor(LoadCursor(0,IDC_ARROW));
-
-		if(SPLITTER_DEBUG)
-			printf("unset capture\n");
 	}
 }
 
