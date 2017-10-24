@@ -984,8 +984,11 @@ void GuiEntityViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
 {
 	if(this->_contains(this->rect,vec2(tabContainer->mousex,tabContainer->mousey)))
 	{
-		GuiScrollRect::OnMouseWheel(tabContainer,data);
+		this->scrollBar->Scroll(*(float*)data);
+		this->OnPaint(tabContainer);
 	}
+
+	GuiScrollRect::OnMouseWheel(tabContainer,data);
 }
 
 void GuiEntityViewer::OnMouseMove(TabContainer* tabContainer,void* data)
