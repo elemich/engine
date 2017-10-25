@@ -17,7 +17,8 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 	pressing(false),
 	hovering(false),
 	checked(false),
-	active(false)
+	active(false),
+	clip(0)
 {
 	this->Set(iParent,0,0,-1,ix,iy,iw,ih,_alignPos.x,_alignPos.y,_alignRect.x,_alignRect.y);
 
@@ -83,10 +84,8 @@ void GuiRect::OnPaint(TabContainer* tabContainer,void* data)
 	if(!this->active)
 		return;
 
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	if(this->imageHovering || this->imagePressed || this->imageBackground)
 	{
@@ -100,8 +99,8 @@ void GuiRect::OnPaint(TabContainer* tabContainer,void* data)
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 
@@ -299,6 +298,56 @@ void GuiRect::OnExpandos(TabContainer* tabContainer,void* data)
 		this->parent->OnExpandos(tabContainer,data);
 }
 
+void GuiRect::SetClip(GuiScrollRect* scrollRect)
+{
+	this->clip=scrollRect;
+
+	for_each(this->childs.begin(),this->childs.end(),std::bind(&GuiRect::SetClip,std::placeholders::_1,scrollRect));
+}
+
+
+bool GuiRect::SelfRender(TabContainer* tabContainer)
+{
+	bool selfRender=!tabContainer->isRender;
+
+	if(selfRender)
+		tabContainer->BeginDraw();
+
+	return selfRender;
+}
+
+void GuiRect::SelfRenderEnd(TabContainer* tabContainer,bool& isSelfRender)
+{
+	if(isSelfRender)
+		tabContainer->EndDraw();
+}
+
+bool GuiRect::SelfClip(TabContainer* tabContainer)
+{
+	bool clipped=false;
+
+	if(this->clip && !this->clip->isClipped)
+	{
+		tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(this->clip->rect.x,this->clip->rect.y,this->clip->rect.x+this->clip->width,this->clip->rect.y+this->clip->rect.w),D2D1_ANTIALIAS_MODE_ALIASED);
+		tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,-this->clip->scrollBar->scrollerPosition*this->clip->contentHeight));
+
+		clipped=this->clip->isClipped=true;
+	}
+
+	return clipped;
+}
+
+void GuiRect::SelfClipEnd(TabContainer* tabContainer,bool& isSelfClip)
+{
+	if(isSelfClip)
+	{
+		tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
+		tabContainer->renderTarget->PopAxisAlignedClip();
+		this->clip->isClipped=false;
+	}
+}
+
+
 
 GuiRect* GuiRect::GetRoot()
 {
@@ -471,10 +520,8 @@ void GuiRootRect::OnSize(TabContainer* tab)
 
 void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	GuiRect::OnPaint(tabContainer);
 
@@ -486,8 +533,8 @@ void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),text,this->container>=0 ? this->rect.x+TREEVIEW_ROW_ADVANCE : this->rect.x,this->rect.y,this->rect.z,this->rect.y+TabContainer::CONTAINER_ICON_WH,-1,0.5);
 	}
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 
@@ -521,7 +568,8 @@ void GuiButton::OnLMouseUp(TabContainer* tab,void* data)
 
 GuiScrollRect::GuiScrollRect():
 contentHeight(0),
-width(0)
+width(0),
+isClipped(false)
 {
 	this->scrollBar=new GuiScrollBar;
 	this->scrollBar->guiRect=this;
@@ -561,10 +609,8 @@ void GuiScrollRect::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiPropertyString::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	GuiRect::OnPaint(tabContainer);
 
@@ -573,8 +619,8 @@ void GuiPropertyString::OnPaint(TabContainer* tabContainer,void* data)
 	if(val.Buf())	
 		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),val,this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 ////////////////////////////
@@ -583,10 +629,8 @@ void GuiPropertyString::OnPaint(TabContainer* tabContainer,void* data)
 
 void GuiSlider::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	GuiRect::OnPaint(tabContainer);
 
@@ -604,8 +648,8 @@ void GuiSlider::OnPaint(TabContainer* tabContainer,void* data)
 
 	tabContainer->renderTarget->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5),2,2),tabContainer->SetColor(TabContainer::COLOR_TEXT));
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 void GuiSlider::OnMouseMove(TabContainer* tabContainer,void* data)
@@ -650,10 +694,8 @@ void GuiSlider::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiPropertySlider::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	GuiRect::OnPaint(tabContainer);
 
@@ -663,8 +705,8 @@ void GuiPropertySlider::OnPaint(TabContainer* tabContainer,void* data)
 		Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
 	}
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 ////////////////////////////
@@ -764,12 +806,8 @@ void GuiViewport::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 {
-	
-
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	if(this->surface->renderBitmap)
 	{
@@ -785,8 +823,8 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 void GuiViewport::OnMouseWheel(TabContainer* tabContainer,void* data)

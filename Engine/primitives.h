@@ -195,6 +195,8 @@ struct vec4 : TNumberedVectorInterface<float,4>
 	operator vec2 ();
 };
 
+
+
 struct AABB : TNumberedVectorInterface<vec3,2>
 {
 	vec3 &a,&b;

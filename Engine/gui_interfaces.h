@@ -10,6 +10,7 @@ struct GuiRootRect;
 struct GuiString;
 struct GuiButton;
 struct GuiScrollBar;
+struct GuiScrollRect;
 struct GuiPropertyString;
 struct GuiPropertySlider;
 struct GuiPropertyAnimation;
@@ -80,6 +81,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 	
 	int animFrame;
 
+	GuiScrollRect* clip;
+
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
 	~GuiRect();
 
@@ -104,6 +107,16 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnDeactivate(TabContainer*,void* data=0);
 	virtual void OnEntitySelected(TabContainer*,void* data=0);
 	virtual void OnExpandos(TabContainer*,void* data=0);
+
+
+
+	virtual bool SelfRender(TabContainer*);
+	virtual void SelfRenderEnd(TabContainer*,bool&);
+
+	virtual bool SelfClip(TabContainer*);
+	virtual void SelfClipEnd(TabContainer*,bool&);
+
+	virtual void SetClip(GuiScrollRect*);
 
 	virtual GuiRect* GetRoot(); 
 
@@ -218,6 +231,8 @@ struct GuiScrollRect : GuiRect
 	float width;
 
 	GuiScrollBar	*scrollBar;
+
+	bool isClipped;
 
 	virtual void OnMouseWheel(TabContainer*,void* data=0);
 	virtual void OnSize(TabContainer*,void* data=0);

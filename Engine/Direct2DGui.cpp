@@ -524,10 +524,8 @@ void GuiScrollBar::OnPaint(TabContainer* tabContainer,void* data)
 	if(this->scrollerRatio==1.0f)
 		return;
 
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+GuiScrollBar::SCROLLBAR_TIP_HEIGHT),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y+this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
@@ -541,8 +539,8 @@ void GuiScrollBar::OnPaint(TabContainer* tabContainer,void* data)
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 void GuiSceneViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
@@ -564,13 +562,19 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 	GuiRect::OnRMouseUp(tabContainer,data);
 
 	HMENU menu=CreatePopupMenu();
+	HMENU createEntity=CreatePopupMenu();
+	HMENU createComponent=CreatePopupMenu();
 
-	InsertMenu(menu,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menu,"New");
+	InsertMenu(menu,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createEntity,"Entity");
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"Entity");
+		InsertMenu(createEntity,0,MF_BYPOSITION|MF_STRING,1,"Entity");
+		InsertMenu(createEntity,1,MF_BYPOSITION|MF_STRING,2,"Camera");
 	}
-	InsertMenu(menu,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
-	InsertMenu(menu,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_REMOVE,"Remove Tab");
+	InsertMenu(menu,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,"Component");
+	{
+
+	}
+	InsertMenu(menu,2,MF_BYPOSITION|MF_STRING,3,"Delete");
 
 	RECT rc;
 	GetWindowRect(tabContainer->hwnd,&rc);
@@ -580,20 +584,46 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 	switch(menuResult)
 	{
 		case 1:
-			//the parent entity is a selected entity or the root entity if one
-			Entity* entityParent = 0;//!Editor::selection.empty() ? Editor::selection[0]->entity : (!Entity::pool.empty() ? Entity::pool.front() : 0);
+			{
 
+			
 			Entity* newEntity=new Entity;
 
-			if(entityParent)
-			{
-				newEntity->SetParent(entityParent);
+			newEntity->name="Entity";
 
-				newEntity->bbox.a.make(-1,-1,-1);
-				newEntity->bbox.b.make(1,1,1);
+			newEntity->SetParent(this->entityRoot);
+			newEntity->bbox.a.make(-1,-1,-1);
+			newEntity->bbox.b.make(1,1,1);
+
+			this->UpdateNodes(this->entityRoot);
+
+			this->OnSize(tabContainer);
+			this->OnPaint(tabContainer);
 			}
-
 		break;
+		case 2:
+			{
+			Entity* newEntity=new Entity;
+
+			newEntity->name="Camera";
+
+			newEntity->SetParent(this->entityRoot);
+			newEntity->bbox.a.make(-1,-1,-1);
+			newEntity->bbox.b.make(1,1,1);
+
+			newEntity->CreateComponent<Camera>();
+
+			this->UpdateNodes(this->entityRoot);
+
+			this->OnSize(tabContainer);
+			this->OnPaint(tabContainer);
+			}
+		break;
+		case 3:
+			{
+
+			}
+			break;
 	}
 
 	DestroyMenu(menu);
@@ -802,10 +832,8 @@ void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,Entity* node,vec2& pos
 
 void GuiSceneViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)this->rect.x+this->width,(float)this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 
@@ -817,8 +845,8 @@ void GuiSceneViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 
@@ -852,6 +880,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		{
 			this->BroadcastToChilds(&GuiRect::OnDeactivate,tabContainer);
 			this->entity->properties->SetParent(0);
+			this->entity->properties->SetClip(0);
 			this->scrollBar->SetParent(0);
 		}
 		
@@ -927,6 +956,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		this->entity->properties->SetParent(this);
 
 		this->scrollBar->SetParent(this);
+		this->entity->properties->SetClip(this);
 
 		this->entity->properties->OnSize(tabContainer);
 		this->entity->properties->OnActivate(tabContainer);
@@ -943,26 +973,16 @@ void GuiEntityViewer::OnExpandos(TabContainer* tabContainer,void* data)
 
 void GuiEntityViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
-
-	tabContainer->renderTarget->PushAxisAlignedClip(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w),D2D1_ANTIALIAS_MODE_ALIASED);
-
-	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Translation(0,-this->scrollBar->scrollerPosition*this->contentHeight));
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	if(this->entity && this->entity->properties)
 		this->entity->properties->OnPaint(tabContainer);
 
-	tabContainer->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
-
-	tabContainer->renderTarget->PopAxisAlignedClip();
-
 	this->scrollBar->OnPaint(tabContainer);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 void GuiEntityViewer::OnActivate(TabContainer* tabContainer,void* data)
@@ -1126,17 +1146,15 @@ void GuiProjectViewer::OnReparent(TabContainer* tabContainer,void* data)
 
 void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	tabContainer->renderTarget->FillRectangle(D2D1::RectF(0,(float)TabContainer::CONTAINER_HEIGHT,(float)tabContainer->width,(float)tabContainer->height),tabContainer->SetColor(TabContainer::COLOR_MAIN_BACKGROUND));
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 
@@ -1647,10 +1665,8 @@ bool GuiProjectViewer::GuiFileView::ProcessMouseInput(vec2& mpos,vec2& pos,float
 
 void GuiProjectViewer::GuiDirView::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 
@@ -1663,17 +1679,15 @@ void GuiProjectViewer::GuiDirView::OnPaint(TabContainer* tabContainer,void* data
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
 
 void GuiProjectViewer::GuiFileView::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfRender=!tabContainer->isRender;
-
-	if(selfRender)
-		tabContainer->BeginDraw();
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
 
 	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 
@@ -1685,6 +1699,6 @@ void GuiProjectViewer::GuiFileView::OnPaint(TabContainer* tabContainer,void* dat
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
-	if(selfRender)
-		tabContainer->EndDraw();
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
 }

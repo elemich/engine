@@ -336,6 +336,15 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 	shader->Use();
 
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
+
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	glPointSize(psize);
@@ -372,8 +381,15 @@ void OpenGLRenderer::draw(vec4 rect)
 	if(shader)
 	{
 		shader->Use();
-		position_slot=shader->GetPositionSlot();
-		modelview_slot=shader->GetModelviewSlot();
+		
+		int mdl=shader->GetModelviewSlot();
+		int view=shader->GetProjectionSlot();
+
+		if(mdl>=0)
+			shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+		if(view>=0)
+			shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 	}
 	else
 		return;
@@ -407,6 +423,15 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 		return;
 
 	shader->Use();
+
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 
 	/*MatrixStack::Push();
 	MatrixStack::Multiply(mtx);*/
@@ -455,6 +480,15 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 		return;
 
 	shader->Use();
+
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -531,6 +565,14 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 
 	int pos=shader->GetPositionSlot();
 	int col=shader->GetUniform("color");
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 
 	glUniform3fv(col,1,color);
 
@@ -854,6 +896,15 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 
 	shader->Use();
 
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
+
 	int position_slot = shader->GetPositionSlot();
 	int model_slot = shader->GetModelviewSlot();
 	int projection_slot = shader->GetProjectionSlot();
@@ -939,6 +990,15 @@ void OpenGLRenderer::draw(Skin *skin)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	shader->Use();
+
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 
 	int position_slot = shader->GetPositionSlot();
 	int model_slot = shader->GetModelviewSlot();
