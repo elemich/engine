@@ -47,6 +47,7 @@
       <OmitDefaultLibName>false</OmitDefaultLibName>
       <ErrorReporting>Queue</ErrorReporting>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -69,11 +70,15 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>c:\sdk\openGL;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>opengl32.lib;d3d11.lib;comctl32.lib;Shlwapi.lib;libfbxsdk-md.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;dxgi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\release</AdditionalLibraryDirectories>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
