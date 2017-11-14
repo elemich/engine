@@ -17,6 +17,7 @@
 #include <CommCtrl.h>
 
 #include <array>
+#include <map>
 	
 #include "gl/gl.h"
 //#define GL_GLEXT_PROTOTYPES
@@ -41,6 +42,9 @@
 #define WINVER 0x0601
 #pragma message (LOCATION "  WINVER: " PRINTF(WINVER))
 #endif
+
+
+
 
 void glCheckError();
 

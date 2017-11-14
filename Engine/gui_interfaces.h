@@ -289,7 +289,7 @@ struct GuiPropertyAnimation : GuiRect
 	virtual void OnMouseMove(TabContainer*,void* data=0);
 };
 
-struct GuiViewport : GuiRect
+struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 {
 	Entity* rootEntity;
 
@@ -297,17 +297,16 @@ struct GuiViewport : GuiRect
 	mat4 view;
 	mat4 model;
 
-	RenderSurface *surface;
+	void* renderBuffer;
+	void* renderBitmap;
+
+	unsigned int lastFrameTime;
 
 	GuiViewport();
 	~GuiViewport();
 
-	void Register();
-	void Unregister();
-	bool Registered();
-
-	virtual void OnSize(TabContainer*,void* data=0);
 	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnSize(TabContainer*,void* data=0);
 	virtual void OnMouseWheel(TabContainer*,void* data=0);
 	virtual void OnMouseMove(TabContainer*,void* data=0);
 	virtual void OnActivate(TabContainer*,void* data=0);

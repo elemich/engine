@@ -25,7 +25,7 @@ void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
 		if(S_OK!=res)
 			__debugbreak();
 
-		res=D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &factory);
+		res=D2D1CreateFactory(/*D2D1_FACTORY_TYPE_SINGLE_THREADED*/D2D1_FACTORY_TYPE_MULTI_THREADED, &factory);
 		if(S_OK!=res)
 			__debugbreak();
 
@@ -68,6 +68,9 @@ ID2D1HwndRenderTarget* Direct2DGuiBase::InitHWNDRenderer(HWND hwnd)
 		D2D1_SIZE_U size = D2D1::SizeU(rc.right - rc.left,rc.bottom - rc.top);
 
 		D2D1_RENDER_TARGET_PROPERTIES rtp=D2D1::RenderTargetProperties();
+
+		rtp.type=D2D1_RENDER_TARGET_TYPE_HARDWARE;
+		rtp.usage=D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE;//we wants resource sharing
 
 		HRESULT res=factory->CreateHwndRenderTarget(rtp,D2D1::HwndRenderTargetProperties(hwnd, size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
 		if(S_OK!=res)
@@ -495,7 +498,7 @@ void GuiScrollBar::OnLMouseDown(TabContainer* tabContainer,void* data)
 	else this->Scroll(-1);
 
 	if(this->parent)
-		this->parent->OnPaint(tabContainer);
+		tabContainer->SetDraw(this->parent,0);
 }
 
 void GuiScrollBar::OnMouseMove(TabContainer* tabContainer,void* data)
@@ -514,7 +517,7 @@ void GuiScrollBar::OnMouseMove(TabContainer* tabContainer,void* data)
 		this->SetScrollerPosition(mouseContainerY-this->scrollerPressed);
 		
 		if(this->parent)
-			this->parent->OnPaint(tabContainer);
+			tabContainer->SetDraw(this->parent,0);
 	}
 }
 
@@ -553,7 +556,7 @@ void GuiSceneViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
 
 		this->scrollBar->Scroll(wheelFactor);
 
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 	}
 }
 
@@ -598,7 +601,7 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 			this->UpdateNodes(this->entityRoot);
 
 			this->OnSize(tabContainer);
-			this->OnPaint(tabContainer);
+			tabContainer->SetDraw(this,0);
 			}
 		break;
 		case 2:
@@ -616,7 +619,7 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 			this->UpdateNodes(this->entityRoot);
 
 			this->OnSize(tabContainer);
-			this->OnPaint(tabContainer);
+			tabContainer->SetDraw(this,0);
 			}
 		break;
 		case 3:
@@ -666,7 +669,7 @@ void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 	if(this->active)
 	{
 		this->OnSize(tabContainer);
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 	}
 
 	this->BroadcastToChilds(&GuiRect::OnEntitiesChange,tabContainer);
@@ -769,7 +772,7 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 		}	
 
 		
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 	}
 }
 
@@ -961,7 +964,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		this->entity->properties->OnSize(tabContainer);
 		this->entity->properties->OnActivate(tabContainer);
 
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 	}
 }
 
@@ -1005,7 +1008,7 @@ void GuiEntityViewer::OnMouseWheel(TabContainer* tabContainer,void* data)
 	if(this->_contains(this->rect,vec2(tabContainer->mousex,tabContainer->mousey)))
 	{
 		this->scrollBar->Scroll(*(float*)data);
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 	}
 
 	GuiScrollRect::OnMouseWheel(tabContainer,data);
@@ -1349,7 +1352,7 @@ void GuiProjectViewer::GuiDirView::OnLMouseDown(TabContainer* tabContainer,void*
 		}
 	}	
 
-	this->OnPaint(tabContainer);
+	tabContainer->SetDraw(this,0);
 }
 
 void GuiProjectViewer::GuiFileView::OnLMouseDown(TabContainer* tabContainer,void* data)
@@ -1384,7 +1387,7 @@ void GuiProjectViewer::GuiFileView::OnLMouseDown(TabContainer* tabContainer,void
 			//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
 		}
 
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 	}	
 }
 

@@ -11,18 +11,18 @@
 #include <functional>
 
 #define SAFEDELETE(_ptr) \
-	if(_ptr!=0){\
+	if(0!=_ptr){\
 	delete _ptr;\
 	_ptr=0;}\
 	
 
 #define SAFEDELETEARRAY(_ptr) \
-	if(_ptr!=0){\
+	if(0!=_ptr){\
 	delete [] _ptr;\
 	_ptr=0;}\
 
 #define SAFERELEASE(_ptr) \
-	if(_ptr!=0)\
+	if(0!=_ptr)\
 	{\
 	_ptr->Release();\
 	_ptr=0;\
@@ -69,7 +69,7 @@ template <class T> struct TStaticInstance
 template <class T> T* TStaticInstance<T>::instance=0;
 
 
-template <typename T> struct TPoolVector
+template <typename T> struct TPoolVector : TStaticInstance< TPoolVector<T> >
 {
 	static std::vector<T*> pool;
 

@@ -1,5 +1,7 @@
 #include "win32.h"
 
+#include "win32msg.cpp"
+
 #pragma message(LOCATION " remember to use WindowData::CopyProcedureData to properly synchronize messages by the wndproc and the window herself")
 
 LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
@@ -8,8 +10,10 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 
 	LPARAM result=0;
 
-	if(tc)
-		tc->CopyProcedureData(hwnd,msg,wparam,lparam);
+	//printf("skipping tab %x procedure message %s\n",tc,findMsg(msg));
+
+	if(tc && tc->skip)
+		return 1;//@mic skip tabcontainer procedure
 
 	switch(msg)
 	{
@@ -24,7 +28,6 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 				TabContainer* tabContainer=(TabContainer*)lpcs->lpCreateParams;
 				SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)tabContainer);
 				tabContainer->hwnd=hwnd;
-				tabContainer->OnGuiRecreateTarget();
 			}
 		}
 		break;
@@ -33,24 +36,29 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 				tc->OnPaint();*/
 			return 1;
 		case WM_SIZE:
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnGuiSize();
 		break;
 		case WM_DESTROY:
 			printf("window %p of TabContainer %p destroyed\n",hwnd,tc);
 		break;
 		case WM_WINDOWPOSCHANGED:
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnWindowPosChanging();
 		break;
 		case WM_LBUTTONDOWN:
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnGuiLMouseDown();
 		break;
 		case WM_MOUSEWHEEL:
 			{
+				tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 				float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
 				tc->OnGuiMouseWheel(&wheelValue);
 			}
 		break;
 		case WM_MOUSEMOVE:
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnGuiMouseMove();
 		break;
 		case WM_NCHITTEST:
@@ -71,10 +79,13 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 		break;
 		case WM_PAINT:
 		{
+			tc->CopyProcedureData(hwnd,msg,wparam,lparam);
 			PAINTSTRUCT ps;
 			BeginPaint(hwnd,&ps);
-			tc->OnGuiPaint();
+			//tc->OnGuiPaint();
 			EndPaint(hwnd,&ps);
+			tc->SetDraw(0,true);
+			result=0;
 		}
 		break;
 		default:
@@ -109,6 +120,7 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	isRender(false),
 	splitterContainer(0),
 	recreateTarget(true),
+	resizeTarget(true),
 	iconUp(0),
 	iconRight(0),
 	iconDown(0),
@@ -116,7 +128,12 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	iconFile(0),
 	nPainted(0),
 	buttonLeftMouseDown(false),
-	buttonControlDown(false)
+	buttonControlDown(false),
+	drawRect(0),
+	drawFrame(true),
+	drawTask(0),
+	lastFrameTime(0),
+	skip(false)
 {
 	width=w;
 	height=h;
@@ -125,6 +142,8 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 
 	if(!hwnd)
 		__debugbreak();
+
+	this->RecreateTarget();
 
 	printf("creating TabContainer %p\n",this);
 
@@ -143,11 +162,12 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	if(!_oglRenderer)
 		__debugbreak();
 
-	_oglRenderer->Create(this->hwnd);
-
 	this->renderer=_oglRenderer;
 
-	OnGuiRecreateTarget();
+	Task* openGLContextTask=this->thread.NewTask(std::function<void()>(std::bind(&OpenGLRenderer::Create,_oglRenderer,hwnd)));//_oglRenderer->Create(this->hwnd);
+	while(openGLContextTask->func);
+
+	this->drawTask=this->thread.NewTask(std::function<void()>(std::bind(&TabContainer::Draw,this)),false);
 }
 
 TabContainer::~TabContainer()
@@ -185,22 +205,99 @@ GuiRect* TabContainer::GetSelected()
 	return selected<tabs.childs.size() ? tabs.childs[selected] : 0;
 }
 
-void TabContainer::BeginDraw()
+void TabContainer::Draw()
 {
-	if(!isRender)
+	if(this->drawRect && this->drawFrame)
+		__debugbreak();
+
+	if(this->drawRect)
 	{
-		isRender=true;
-		renderTarget->BeginDraw();
+		this->drawRect->OnPaint(this);
+		this->drawRect=0;
 	}
+	else if(this->drawFrame)
+	{
+		this->OnGuiPaint();
+		this->drawFrame=0;
+	}
+	else
+	{
+		if(Timer::instance->GetTime()-this->lastFrameTime>(1000.0f/Timer::instance->renderFps))
+		{
+			this->lastFrameTime=Timer::instance->GetTime();
+			this->renderer->Render();
+		}
+	}
+}
+
+void TabContainer::SetDraw(GuiRect* iRect,bool iFrame)
+{
+	if(this->drawRect && this->drawFrame)
+		__debugbreak();
+
+	this->drawRect=iRect;
+	this->drawFrame=iFrame;
+}
+
+
+bool TabContainer::BeginDraw()
+{
+	if(!this->isRender)
+	{
+		if(this->recreateTarget)
+		{
+			this->OnGuiRecreateTarget();
+		}
+		else if(this->resizeTarget)
+		{
+			HRESULT result=renderTarget->Resize(D2D1::SizeU((int)this->width,(int)this->height));
+
+			if(S_OK!=result)
+				__debugbreak();
+		}
+		
+		this->renderTarget->BeginDraw();
+
+		if(this->recreateTarget==0 || this->resizeTarget==0)
+			this->DrawFrame();
+
+		this->recreateTarget=0;
+		this->resizeTarget=0;
+
+		this->isRender=true;
+
+		return true;
+	}
+	else
+		__debugbreak();
+	
+	return false;
 	
 }
 void TabContainer::EndDraw()
 {
-	if(isRender)
+	if(this->isRender)
 	{
-		this->recreateTarget=(renderTarget->EndDraw()==D2DERR_RECREATE_TARGET) != 0;
-		isRender=false;
+		renderTarget->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->width-0.5f,this->height-0.5f),this->SetColor(D2D1::ColorF::Red));
+
+		HRESULT endDrawError =renderTarget->EndDraw();
+
+		this->recreateTarget=endDrawError==D2DERR_RECREATE_TARGET;
+
+		if(endDrawError!=0)
+		{
+			printf("D2D1HwndRenderTarget::EndDraw error: %x\n",endDrawError);
+
+			HRESULT flushError=renderTarget->Flush();
+
+			if(flushError!=0)
+				printf("D2D1HwndRenderTarget::Flush error: %x\n",flushError);
+		}
+
+		this->isRender=false;
 	}
+	else
+		__debugbreak();
 }
 
 void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data)
@@ -236,15 +333,12 @@ template<class C> void TabContainer::BroadcastToAll(void (GuiRect::*func)(TabCon
 void TabContainer::OnGuiSize(void* data)
 {
 	WindowData::OnSize();
-	
-	this->OnGuiRecreateTarget();
-
-	renderTarget->Resize(D2D1::SizeU((int)width,(int)height));
 
 	this->tabs.rect.make(0,TabContainer::CONTAINER_HEIGHT,width,height-TabContainer::CONTAINER_HEIGHT);
-
+	
 	this->BroadcastToSelected(&GuiRect::OnSize,data);
 	
+	this->resizeTarget=true;
 	//this->OnGuiPaint();
 	
 }
@@ -252,79 +346,11 @@ void TabContainer::OnGuiSize(void* data)
 
 void TabContainer::OnGuiRecreateTarget(void* data)
 {
-	/*if(!this->recreateTarget)
-		return;*/
-
-	HRESULT hr=S_OK;
-
-	float w,h;
-
-	if(!rawUpArrow)
-		Direct2DGuiBase::CreateRawBitmap(L"uparrow.png",rawUpArrow,w,h);
-
-	if(!rawRightArrow)
-		Direct2DGuiBase::CreateRawBitmap(L"rightarrow.png",rawRightArrow,w,h);
-
-	if(!rawDownArrow)
-		Direct2DGuiBase::CreateRawBitmap(L"downarrow.png",rawDownArrow,w,h);
-
-	if(!rawFolder)
-		Direct2DGuiBase::CreateRawBitmap(L"folder.png",rawFolder,w,h);
-
-	if(!rawFile)
-		Direct2DGuiBase::CreateRawBitmap(L"file.png",rawFile,w,h);
+	this->RecreateTarget();
+	/*Task* tabContainerRecreateTarget=ThreadPool::instance->NewTask(std::function<void()>(std::bind(&TabContainer::RecreateTarget,this)));
+	tabContainerRecreateTarget->Wait();*/
 
 	
-
-
-	SAFERELEASE(renderTarget);
-	SAFERELEASE(brush);
-
-	SAFERELEASE(iconUp);
-	SAFERELEASE(iconRight);
-	SAFERELEASE(iconDown);
-	SAFERELEASE(iconFolder);
-	SAFERELEASE(iconFile);
-
-	renderTarget=Direct2DGuiBase::InitHWNDRenderer(hwnd);
-
-	if(!renderTarget)
-		__debugbreak();
-
-	renderTarget->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
-
-	if(!brush)
-		__debugbreak();
-
-	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=renderTarget->GetPixelFormat();
-	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
-
-	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconUp);
-
-	if(!iconUp || hr!=S_OK)
-		__debugbreak();
-
-	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconRight);
-
-	if(!iconRight || hr!=S_OK)
-		__debugbreak();
-
-	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconDown);
-
-	if(!iconDown || hr!=S_OK)
-		__debugbreak();
-
-	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFolder);
-
-	if(!iconFolder || hr!=S_OK)
-		__debugbreak();
-
-	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFile,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFile);
-
-	if(!iconFile || hr!=S_OK)
-		__debugbreak();
-
 	this->BroadcastToSelected(&GuiRect::OnRecreateTarget,data);
 
 	this->recreateTarget=false;
@@ -336,15 +362,10 @@ void TabContainer::OnWindowPosChanging(void* data)
 {
 	WindowData::OnWindowPosChanging();
 
-	this->OnGuiRecreateTarget();
-
-	renderTarget->Resize(D2D1::SizeU((int)width,(int)height));
-
 	this->tabs.rect.make(0,TabContainer::CONTAINER_HEIGHT,width,height-TabContainer::CONTAINER_HEIGHT);
 
 	this->BroadcastToSelected(&GuiRect::OnSize,data);
-
-	this->OnGuiPaint();
+	this->resizeTarget=true;
 }
 
 void TabContainer::OnGuiMouseMove(void* data)
@@ -409,7 +430,8 @@ void TabContainer::OnGuiLMouseDown(void* data)
 				this->BroadcastToSelected(&GuiRect::OnActivate);
 				this->BroadcastToSelected(&GuiRect::OnSize);
 
-				this->OnGuiPaint();
+				this->drawRect=0;
+				this->SetDraw(0,true);
 
 				break;
 			}
@@ -484,7 +506,8 @@ void TabContainer::OnRMouseUp(void* data)
 
 		if(tabNumberHasChanged!=this->tabs.childs.size())
 		{
-			this->OnGuiPaint();
+			this->drawRect=0;
+			this->SetDraw(0,true);
 		}
 	}
 	else
@@ -499,30 +522,26 @@ void TabContainer::OnGuiRender(void* data)
 	this->BroadcastToSelected(&GuiRect::OnRender,data);
 }
 
-void TabContainer::OnGuiPaint(void* data)
+void TabContainer::DrawFrame()
 {
-	if(this->recreateTarget)
-		this->OnGuiRecreateTarget();
-	
-	this->BeginDraw();
-
-	renderTarget->Clear(D2D1::ColorF(TabContainer::COLOR_GUI_BACKGROUND));
-
 	renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
 
 	renderTarget->FillRectangle(D2D1::RectF(0,0,(float)width,(float)CONTAINER_HEIGHT),this->SetColor(COLOR_TAB_BACKGROUND));
 	renderTarget->FillRectangle(D2D1::RectF((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT)),this->SetColor(COLOR_TAB_SELECTED));
 
-	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
 	for(int i=0;i<(int)tabs.childs.size();i++)
-	{
-		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(TabContainer::COLOR_TEXT),tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT);
-	}
-	Direct2DGuiBase::texter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-	
-	this->BroadcastToSelected(&GuiRect::OnPaint,data);
+		Direct2DGuiBase::DrawText(renderTarget,this->SetColor(TabContainer::COLOR_TEXT),tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,0.5f,0.5f);
+}
 
-	renderTarget->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->width-0.5f,this->height-0.5f),this->SetColor(D2D1::ColorF::Red));
+void TabContainer::OnGuiPaint(void* data)
+{
+	bool isDrawing=this->BeginDraw();
+
+	renderTarget->Clear(D2D1::ColorF(TabContainer::COLOR_GUI_BACKGROUND));
+	
+	this->DrawFrame();
+
+	this->BroadcastToSelected(&GuiRect::OnPaint,data);
 
 	this->EndDraw();
 
@@ -582,6 +601,8 @@ void TabContainer::OnEntitiesChange(void* data)
 void TabContainer::OnGuiActivate(void* data)
 {
 	this->BroadcastToSelected(&GuiRect::OnActivate,data);
+
+	
 }
 void TabContainer::OnGuiDeactivate(void* data)
 {
@@ -591,6 +612,83 @@ void TabContainer::OnGuiEntitySelected(void* data)
 {
 	this->BroadcastToAll(&GuiRect::OnEntitySelected,data);
 }
+
+
+void TabContainer::RecreateTarget()
+{
+	HRESULT hr=S_OK;
+
+	float w,h;
+
+	if(!rawUpArrow)
+		Direct2DGuiBase::CreateRawBitmap(L"uparrow.png",rawUpArrow,w,h);
+
+	if(!rawRightArrow)
+		Direct2DGuiBase::CreateRawBitmap(L"rightarrow.png",rawRightArrow,w,h);
+
+	if(!rawDownArrow)
+		Direct2DGuiBase::CreateRawBitmap(L"downarrow.png",rawDownArrow,w,h);
+
+	if(!rawFolder)
+		Direct2DGuiBase::CreateRawBitmap(L"folder.png",rawFolder,w,h);
+
+	if(!rawFile)
+		Direct2DGuiBase::CreateRawBitmap(L"file.png",rawFile,w,h);
+
+
+
+
+	SAFERELEASE(renderTarget);
+	SAFERELEASE(brush);
+
+	SAFERELEASE(iconUp);
+	SAFERELEASE(iconRight);
+	SAFERELEASE(iconDown);
+	SAFERELEASE(iconFolder);
+	SAFERELEASE(iconFile);
+
+	renderTarget=Direct2DGuiBase::InitHWNDRenderer(hwnd);
+
+	if(!renderTarget)
+		__debugbreak();
+
+	renderTarget->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
+
+	if(!brush)
+		__debugbreak();
+
+	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+	bp.pixelFormat=renderTarget->GetPixelFormat();
+	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawUpArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconUp);
+
+	if(!iconUp || hr!=S_OK)
+		__debugbreak();
+
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawRightArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconRight);
+
+	if(!iconRight || hr!=S_OK)
+		__debugbreak();
+
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawDownArrow,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconDown);
+
+	if(!iconDown || hr!=S_OK)
+		__debugbreak();
+
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFolder,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFolder);
+
+	if(!iconFolder || hr!=S_OK)
+		__debugbreak();
+
+	hr=renderTarget->CreateBitmap(D2D1::SizeU(TabContainer::CONTAINER_ICON_WH,TabContainer::CONTAINER_ICON_WH),TabContainer::rawFile,TabContainer::CONTAINER_ICON_STRIDE,bp,&iconFile);
+
+	if(!iconFile || hr!=S_OK)
+		__debugbreak();
+
+}
+
+
 
 
 

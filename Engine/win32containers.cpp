@@ -1,7 +1,6 @@
 #include "win32.h"
 
 
-
 WNDPROC SystemOriginalTabControlProcedure;
 
 ContainerWindow::ContainerWindow()
@@ -57,10 +56,6 @@ void ContainerWindow::OnSize()
 	}
 }
 
-void ContainerWindow::OnGuiPaint()
-{
-	
-}
 
 std::vector<ContainerWindow> MainAppContainerWindow::windows;
 
@@ -94,7 +89,7 @@ void MainAppContainerWindow::Create(HWND)
 
 	TabContainer::BroadcastToPoolSelecteds(&GuiRect::OnSize);
 	TabContainer::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
-	
+
 	ShowWindow(hwnd,true);
 }
 
@@ -158,8 +153,6 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 			{
 				if(!HIWORD(wparam))//menu notification
 				{
-					mainw->application->threadLockedEntities=true;
-
 					SetFocus(hwnd);
 
 					switch(LOWORD(wparam))
@@ -186,8 +179,6 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 						}
 						break;
 					}
-
-					mainw->application->threadLockedEntities=false;
 				}
 			}
 		break;
@@ -197,5 +188,75 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 
 	return result;
 }
+
+DWORD WINAPI threadFunc(LPVOID data)
+{
+	Thread* t=(Thread*)data;
+
+	while(true)
+	{
+		Timer::instance->update();
+
+		for(std::list<Task*>::iterator tsk=t->tasks.begin();tsk!=t->tasks.end();)
+		{
+			Task* task=(*tsk);
+
+			if(!t->pause && task->owner==t && !task->pause)
+			{
+				t->executing=task;
+
+				if(task->func)
+					task->func();
+				if(task->remove)
+				{
+					task->func=nullptr;
+					tsk=t->tasks.erase(tsk);
+				}
+				else
+					tsk++;
+
+				t->executing=0;
+			}
+			else
+				tsk++;
+		}
+
+		Sleep(t->sleep);
+	}
+
+
+	ExitThread(0);
+}
+
+
+Thread::Thread()
+{
+	handle=(int)(HANDLE)CreateThread(0,0,threadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&id);
+	pause=false;
+	executing=0;
+	sleep=1;
+}
+
+Thread::~Thread()
+{
+	TerminateThread((HANDLE)handle,0);
+}
+
+Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
+{
+	Task* task=new Task;
+
+	task->func=iFunction;
+	task->remove=iRemove;
+	task->executing=false;
+	task->pause=iBlock;
+	task->owner=this;
+	
+	tasks.push_back(task);
+
+	return task;
+}
+
+
 
 

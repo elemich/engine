@@ -124,8 +124,6 @@ bool WindowData::FindAndGrowSibling()
 
 DWORD WINAPI threadGuiTabFunc(LPVOID);
 
-int App::threadGuiTab=0;
-
 int App::Init()
 {
 	HRESULT result;
@@ -174,10 +172,6 @@ int App::Init()
 
 	InitSplitter();
 
-	if(!threadGuiTab)
-			CreateThread(0,0,threadGuiTabFunc,this,0,(DWORD*)&threadGuiTab);
-
-
 	this->CreateMainWindow();
 
 	return error;
@@ -185,9 +179,6 @@ int App::Init()
 
 void App::Close()
 {
-	if(/*TPoolVector<GuiTab>::pool.size()==1 && */threadGuiTab)
-		ExitThread(threadGuiTab);
-
 	Direct2DGuiBase::Release();
 	CoUninitialize();
 }
@@ -200,12 +191,6 @@ void App::CreateMainWindow()
 }
 
 bool sem=0;
-
-App::App():
-threadLockedEntities(true),
-threadUpdateNeeded(true),
-threadPaintNeeded(false)
-{}
 
 DWORD WINAPI threadGuiTabFunc(LPVOID _app)
 {
@@ -243,9 +228,10 @@ void App::Run()
 
 	while(true)
 	{
-		this->timerMain.update();
+		/*Timer::instance->update();
+		TabContainer::BroadcastToPool(&TabContainer::Draw);*/
 
-		if(PeekMessage(&msg,0,0,0,PM_REMOVE))
+		if(GetMessage(&msg,0,0,0))
 		{
 			if(msg.message==WM_QUIT)
 				break;
@@ -254,10 +240,7 @@ void App::Run()
 			DispatchMessage(&msg);
 		}
 		
-		for(int i=0;i<(int)GetPool<OpenGLRenderer>().size();i++)
-		{
-			GetPool<OpenGLRenderer>()[i]->RenderViewports();
-		}
+		
 	}
 
 	this->Close();

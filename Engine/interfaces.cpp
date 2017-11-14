@@ -1,7 +1,22 @@
 #include "gui_interfaces.h"
 #include "win32.h"
 
+RendererInterface::RendererInterface():
+	rendererTask(0)
+{
 
+}
+
+
+void RendererInterface::Register(GuiViewport* iViewport)
+{
+	if(this->viewports.end()==std::find(this->viewports.begin(),this->viewports.end(),iViewport))
+		this->viewports.push_back(iViewport);
+}
+void RendererInterface::Unregister(GuiViewport* iViewport)
+{
+	this->viewports.remove(iViewport);
+}
 
 ////////////////////////////
 ////////GuiRect///////
@@ -199,11 +214,11 @@ void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 		{
 			tabContainer->BroadcastToSelected(&GuiRect::OnSize);
 			this->OnExpandos(tabContainer,this);
-			tabContainer->BroadcastToSelected(&GuiRect::OnPaint);
+			tabContainer->SetDraw(0,true);
 		}
 
 		if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-			this->OnPaint(tabContainer);
+			tabContainer->SetDraw(this,0);
 		
 		return;
 	}
@@ -211,7 +226,7 @@ void GuiRect::OnLMouseDown(TabContainer* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnLMouseDown,tabContainer,data);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 }
 void GuiRect::OnLMouseUp(TabContainer* tabContainer,void* data)
 {
@@ -223,7 +238,7 @@ void GuiRect::OnLMouseUp(TabContainer* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnLMouseUp,tabContainer,data);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		this->OnPaint(tabContainer,data);
+		tabContainer->SetDraw(this,0);
 }
 
 void GuiRect::OnRMouseUp(TabContainer* tabContainer,void* data)
@@ -249,7 +264,7 @@ void GuiRect::OnMouseMove(TabContainer* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnMouseMove,tabContainer,data);
 
 	if(_oldHover!=this->hovering && this->colorBackground!=this->colorHovering)
-		this->OnPaint(tabContainer);
+		tabContainer->SetDraw(this,0);
 }
 
 void GuiRect::OnUpdate(TabContainer* tabContainer,void* data)
@@ -311,7 +326,9 @@ bool GuiRect::SelfRender(TabContainer* tabContainer)
 	bool selfRender=!tabContainer->isRender;
 
 	if(selfRender)
+	{
 		tabContainer->BeginDraw();
+	}
 
 	return selfRender;
 }
@@ -591,7 +608,7 @@ void GuiScrollRect::OnMouseWheel(TabContainer* tabContainer,void* data)
 	float scrollValue=*(float*)data;
 	this->scrollBar->Scroll(scrollValue);
 
-	this->OnPaint(tabContainer);
+	tabContainer->SetDraw(this,0);
 }
 
 void GuiScrollRect::OnSize(TabContainer* tabContainer,void* data)
@@ -671,7 +688,7 @@ void GuiSlider::OnMouseMove(TabContainer* tabContainer,void* data)
 			if((*referenceValue)!=cursor)
 			{
 				(*referenceValue)=cursor;
-				this->OnPaint(tabContainer);
+				tabContainer->SetDraw(this,0);
 			}
 		}
 	}
@@ -732,76 +749,19 @@ void GuiPropertyAnimation::OnMouseMove(TabContainer* tab,void* data)
 ////////GuiRect///////
 ////////////////////////////
 
-void GuiViewport::Register()
-{
-	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
 
-	if(root)
-	{
-		if(root->tabContainer->renderer->viewports.end()==std::find(root->tabContainer->renderer->viewports.begin(),root->tabContainer->renderer->viewports.end(),this))
-			root->tabContainer->renderer->viewports.push_back(this);
-
-		this->surface->tab=root->tabContainer;
-	}
-	else
-		__debugbreak();
-}
-
-void GuiViewport::Unregister()
-{
-	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
-
-	if(root)
-		root->tabContainer->renderer->viewports.remove(this);
-	else
-		__debugbreak();
-}
-
-bool GuiViewport::Registered()
-{
-	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
-
-	if(root)
-		return root->tabContainer->renderer->viewports.end()!=std::find(root->tabContainer->renderer->viewports.begin(),root->tabContainer->renderer->viewports.end(),this);
-	else
-		__debugbreak();
-
-	return 0;
-}
-
-GuiViewport::GuiViewport():surface(new RenderSurface),rootEntity(0)
+GuiViewport::GuiViewport():renderBuffer(0),renderBitmap(0),rootEntity(0)
 {
 	this->name="Viewport";
 }
 GuiViewport::~GuiViewport()
 {
-	Unregister();
-
-	SAFEDELETE(surface);
+	SAFEDELETEARRAY(this->renderBuffer);
 }
 
 void GuiViewport::OnSize(TabContainer* tabContainer,void* data)
 {
-	int w=this->rect.z;
-	int h=this->rect.w;
-
-	GuiRect::OnSize(tabContainer);
-
-	if(this->surface && (w!=this->rect.z || h!=this->rect.w))
-	{
-		SAFERELEASE(this->surface->renderBitmap);
-		SAFEDELETEARRAY(this->surface->renderBuffer);
-		
-		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		bp.pixelFormat=tabContainer->renderTarget->GetPixelFormat();
-
-		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU((int)this->rect.z,(int)this->rect.w),bp,&this->surface->renderBitmap);
-
-		if(!this->surface->renderBitmap)
-			__debugbreak();
-
-		this->surface->renderBuffer=new unsigned char[(int)(this->rect.z*this->rect.w*4)];
-	}
+	GuiRect::OnSize(tabContainer,data);
 }
 
 void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
@@ -809,16 +769,65 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 	bool selfRender=this->SelfRender(tabContainer);
 	bool selfClip=this->SelfClip(tabContainer);
 
-	if(this->surface->renderBitmap)
+
+	if(!tabContainer->renderer)
+		return;
+
+	tabContainer->skip=true;
+
+	ID2D1Bitmap*& bitmap=(ID2D1Bitmap*&)this->renderBitmap;
+	unsigned char*& buffer=(unsigned char*&)this->renderBuffer;
+
+	if(!bitmap || bitmap->GetSize().width!=this->rect.z || bitmap->GetSize().height!=this->rect.w || !this->renderBuffer || !this->renderBitmap)
 	{
-		if(!selfRender)
-		{
-			tabContainer->renderer->ChangeContext();
-			tabContainer->renderer->Render(this,false);
-		}
-		
-		tabContainer->renderTarget->DrawBitmap(this->surface->renderBitmap,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w));
+		SAFERELEASE(bitmap);
+		SAFEDELETEARRAY(this->renderBuffer);
+
+		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+		bp.pixelFormat=tabContainer->renderTarget->GetPixelFormat();
+
+		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU(this->rect.z,this->rect.w),bp,&bitmap);
+
+		buffer=new unsigned char[(int)(this->rect.z*this->rect.w*4)];
+
+		printf("[%i,%i]\n",(int)this->rect.z,(int)this->rect.w);
 	}
+
+	if(this->rootEntity)
+		this->rootEntity->update();
+
+	tabContainer->renderer->ChangeContext();
+
+	glViewport((int)0,(int)0,(int)this->rect.z,(int)this->rect.w);glCheckError();
+	glScissor((int)0,(int)0,(int)this->rect.z,(int)this->rect.w);glCheckError();
+
+	glEnable(GL_DEPTH_TEST);
+
+	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+
+	MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+	MatrixStack::Multiply(MatrixStack::PROJECTION,this->view);
+	MatrixStack::Push(MatrixStack::MODELVIEW,this->model);
+
+	tabContainer->renderer->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+	tabContainer->renderer->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+	tabContainer->renderer->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+
+	if(this->rootEntity)
+		this->rootEntity->draw(tabContainer->renderer);
+
+	MatrixStack::Pop(MatrixStack::MODELVIEW);
+	MatrixStack::Pop(MatrixStack::PROJECTION);
+
+	glReadBuffer(GL_BACK);glCheckError();
+	glReadPixels((int)0,(int)0,(int)this->rect.z,(int)this->rect.w,GL_BGRA,GL_UNSIGNED_BYTE,buffer);glCheckError();//@mic should implement pbo for performance
+
+	bitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)this->rect.z,(int)this->rect.w),buffer,(int)(this->rect.z*4));
+
+	tabContainer->renderTarget->DrawBitmap(bitmap,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w));
+
+	tabContainer->skip=false;
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
@@ -891,12 +900,12 @@ void GuiViewport::OnMouseMove(TabContainer* tabContainer,void* data)
 void GuiViewport::OnActivate(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnActivate(tabContainer);
-	Register();
+	tabContainer->renderer->Register(this);
 }
 void GuiViewport::OnDeactivate(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnDeactivate(tabContainer);
-	Unregister();
+	tabContainer->renderer->Unregister(this);
 }
 
 void GuiViewport::OnReparent(TabContainer* tabContainer,void* data)

@@ -362,7 +362,37 @@ struct Timer : TStaticInstance<Timer>
 
 	virtual unsigned int GetTime()=0;
 
-	void update(){};
+	virtual void update(){};
+};
+
+//threading 
+
+
+struct ThreadPool;
+struct Thread;
+
+struct Task
+{
+	std::function<void()> func;
+	bool remove;
+	bool executing;
+	bool pause;
+	Thread* owner;
+};
+
+struct Thread  : TPoolVector<Thread>
+{
+	int handle;
+	int id;
+	bool pause;
+	std::list<Task*> tasks;
+	Task* executing;
+	unsigned int sleep;
+
+	Thread();
+	~Thread();
+
+	Task* NewTask(std::function<void()>,bool remove=true,bool iBlock=false);
 };
 
 

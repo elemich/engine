@@ -245,7 +245,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 		__debugbreak();
 
 	if(hglrc)
-		printf("HGLRC: %p, HDC: %p\n",hglrc,hdc);
+		printf("TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
 	
 	if(!wglMakeCurrent(hdc,hglrc))
 		__debugbreak();
@@ -1107,124 +1107,17 @@ float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
 
 
-void OpenGLRenderer::Render(GuiViewport* viewport,bool paint)
+void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 {
-	if(!this->hglrc || !viewport || !viewport->surface)
-		return;
-
-
-	if(viewport->rootEntity)
-		viewport->rootEntity->update();
-
-	if(Timer::instance->currentFrameTime-viewport->surface->lastFrameTime<(1000.0f/Timer::instance->renderFps))
-		return;
-
-	vec4 &rectangle=viewport->rect;
-
-	glViewport((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
-	glScissor((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
-
-	glEnable(GL_DEPTH_TEST);
-
-	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
-	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
-
-	MatrixStack::Push(MatrixStack::PROJECTION,viewport->projection);
-	MatrixStack::Multiply(MatrixStack::PROJECTION,viewport->view);
-	MatrixStack::Push(MatrixStack::MODELVIEW,viewport->model);
-
-	draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-	draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-	draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
-
-	if(viewport->rootEntity)
-		viewport->rootEntity->draw(this);
-
-	MatrixStack::Pop(MatrixStack::MODELVIEW);
-	MatrixStack::Pop(MatrixStack::PROJECTION);
-
-	glReadBuffer(GL_BACK);glCheckError();
-	glReadPixels((int)0,(int)0,(int)rectangle.z,(int)rectangle.w,GL_BGRA,GL_UNSIGNED_BYTE,viewport->surface->renderBuffer);glCheckError();//@mic should implement pbo for performance
-
-	viewport->surface->renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)rectangle.z,(int)rectangle.w),viewport->surface->renderBuffer,(int)(rectangle.z*4));
-
-	if(paint)
-		viewport->OnPaint(viewport->surface->tab);
-
-	viewport->surface->lastFrameTime=Timer::instance->currentFrameTime;
+	viewport->OnPaint(tabContainer);
 }
 
-void OpenGLRenderer::Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model)
+
+void OpenGLRenderer::Render()
 {
-	if(!this->hglrc)
-		return;
-
-	ID2D1Bitmap* renderBitmap;
-
-	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=tabContainer->renderTarget->GetPixelFormat();
-
-	tabContainer->renderTarget->CreateBitmap(D2D1::SizeU((int)rectangle.z,(int)rectangle.w),bp,&renderBitmap);
-
-	if(!renderBitmap)
-		__debugbreak();
-
-	unsigned char* renderBuffer=new unsigned char[(int)(rectangle.z*rectangle.w*4)];
-
-	glViewport((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
-	glScissor((int)0,(int)0,(int)rectangle.z,(int)rectangle.w);glCheckError();
-
-	glEnable(GL_DEPTH_TEST);
+	for(std::list<GuiViewport*>::iterator vport=this->viewports.begin();vport!=this->viewports.end();vport++)
+		this->Render(*vport);
 	
-	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
-	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
-
-	MatrixStack::Push(MatrixStack::PROJECTION,_projection);
-	MatrixStack::Multiply(MatrixStack::PROJECTION,_view);
-	MatrixStack::Push(MatrixStack::MODELVIEW,_model);
-
-	draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-	draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-	draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
-
-	//Entity::pool.empty() ? Entity::pool.empty() : Entity::pool.front()->draw(this);
-
-	MatrixStack::Pop(MatrixStack::MODELVIEW);
-	MatrixStack::Pop(MatrixStack::PROJECTION);
-
-	glReadBuffer(GL_BACK);glCheckError();
-	glReadPixels((int)0,(int)0,(int)rectangle.z,(int)rectangle.w,GL_BGRA,GL_UNSIGNED_BYTE,renderBuffer);glCheckError();//@mic should implement pbo for performance
-
-	renderBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)rectangle.z,(int)rectangle.w),renderBuffer,(int)(rectangle.z*4));
-
-	if(!tabContainer->isRender)
-		tabContainer->renderTarget->BeginDraw();
-
-	tabContainer->renderTarget->DrawBitmap(renderBitmap,D2D1::RectF(0.0f,(float)TabContainer::CONTAINER_HEIGHT,rectangle.z,rectangle.w+30));
-
-	//tabContainer->renderTarget->DrawRectangle(D2D1::RectF(1.0f,(float)TabContainer::CONTAINER_HEIGHT + 0.5f,(float)width-1.0f,(float)tabContainer->height-1.0f),tabContainer->SetColor(D2D1::ColorF::Yellow));
-
-	//Direct2DGuiBase::DrawText(tabContainer->renderTarget,tabContainer->SetColor(TabContainer::COLOR_TEXT),this->mousePositionString.Buf(),0,tabContainer->height-20,tabContainer->width,tabContainer->height);
-
-	if(!tabContainer->isRender)
-		tabContainer->renderTarget->EndDraw();
-
-	SAFERELEASE(renderBitmap);
-	SAFEDELETEARRAY(renderBuffer);
-
-}
-
-
-
-void OpenGLRenderer::RenderViewports()
-{
-	for(std::list<GuiViewport*>::iterator it=this->viewports.begin();it!=this->viewports.end();it++)
-	{
-		if(it==this->viewports.begin())
-			this->ChangeContext();
-
-		this->Render(*it);
-	}
 }
 
 

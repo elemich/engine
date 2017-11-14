@@ -3,6 +3,9 @@
 
 #include "win32includes.h"
 
+
+
+
 struct Direct2DGuiBase
 {
 	static ID2D1Factory *factory;
@@ -68,8 +71,16 @@ struct WindowData
 	virtual void Create(HWND container)=0;
 	
 
-	virtual void OnSize(){width=LOWORD(lparam),height=HIWORD(lparam);}
-	virtual void OnWindowPosChanging(){width=(float)((LPWINDOWPOS)lparam)->cx,height=(float)((LPWINDOWPOS)lparam)->cy;}
+	virtual void OnSize()
+	{
+		width=LOWORD(lparam);
+		height=HIWORD(lparam);
+	}
+	virtual void OnWindowPosChanging()
+	{
+		width=(float)((LPWINDOWPOS)lparam)->cx;
+		height=(float)((LPWINDOWPOS)lparam)->cy;
+	}
 
 };
 
@@ -124,6 +135,11 @@ struct TabContainer : WindowData , TPoolVector<TabContainer>
 	bool mouseDown;
 	bool isRender;
 	bool recreateTarget;
+	bool resizeTarget;
+
+	GuiRect* drawRect;
+	bool	drawFrame;
+	Task*	drawTask;
 
 	float mousex,mousey;
 
@@ -131,6 +147,12 @@ struct TabContainer : WindowData , TPoolVector<TabContainer>
 
 	bool buttonLeftMouseDown;
 	bool buttonControlDown;
+
+	unsigned int lastFrameTime;
+
+	bool skip;
+
+	Thread thread;
 
 	TabContainer(float x,float y,float w,float h,HWND parent);
 	~TabContainer();
@@ -154,6 +176,9 @@ struct TabContainer : WindowData , TPoolVector<TabContainer>
 	virtual void OnGuiActivate(void* data=0);
 	virtual void OnGuiDeactivate(void* data=0);
 	virtual void OnGuiEntitySelected(void* data=0);
+
+	void RecreateTarget();
+	void DrawFrame();
 	
 
 	virtual void OnGuiRecreateTarget(void* data=0);
@@ -172,8 +197,13 @@ struct TabContainer : WindowData , TPoolVector<TabContainer>
 			(*tabContainer)->BroadcastToSelected(func,data);
 	}
 
-	void BeginDraw();
+	void Draw();
+
+	bool BeginDraw();
 	void EndDraw();
+
+
+	void SetDraw(GuiRect* iRect,bool iFrame);
 };
 
 struct SplitterContainer 
@@ -240,7 +270,6 @@ struct ContainerWindow : WindowData , SplitterContainer
 	void OnCreate(HWND);
 	void OnSizing();
 	void OnSize();
-	void OnGuiPaint();
 	
 };
 
@@ -263,8 +292,8 @@ struct MainAppContainerWindow : ContainerWindow
 
 struct TimerWin32 : Timer
 {
-	void update();
-	unsigned int GetTime();
+	virtual void update();
+	virtual unsigned int GetTime();
 };
 
 struct App : AppInterface , TStaticInstance<App>
@@ -273,14 +302,8 @@ struct App : AppInterface , TStaticInstance<App>
 	TimerWin32 timerMain;
 	MainAppContainerWindow mainAppWindow;
 
-	bool threadLockedEntities;
-	bool threadUpdateNeeded;
-	bool threadPaintNeeded;
-	static int threadGuiTab;
 	
 	String projectFolder;
-
-	App();
 
 	int Init();	
 	void Close();
@@ -301,7 +324,7 @@ struct RenderSurface
 	~RenderSurface(){SAFERELEASE(renderBitmap);SAFEDELETEARRAY(renderBuffer);}
 };
 
-struct OpenGLRenderer : RendererInterface , TPoolVector<OpenGLRenderer>
+struct OpenGLRenderer : RendererInterface
 {
 	GLuint vertexArrayObject;
 	GLuint vertexBufferObject;
@@ -349,9 +372,8 @@ struct OpenGLRenderer : RendererInterface , TPoolVector<OpenGLRenderer>
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
 	void draw(Camera*);
 
-	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model);
-	virtual void Render(GuiViewport*,bool paint=true);
-	virtual void RenderViewports();
+	virtual void Render(GuiViewport*,bool force=false);
+	virtual void Render();
 };
 
 

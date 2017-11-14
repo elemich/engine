@@ -15,9 +15,13 @@ struct AppInterface
 	virtual void CreateMainWindow()=0;
 };
 
-struct RendererInterface
+struct RendererInterface : TPoolVector<RendererInterface>
 {
 	std::list<GuiViewport*> viewports;
+	Task* rendererTask;
+
+	void Register(GuiViewport*);
+	void Unregister(GuiViewport*);
 
 	virtual char* Name()=0;
 
@@ -42,9 +46,10 @@ struct RendererInterface
 
 	virtual void ChangeContext()=0;
 
-	virtual void Render(vec4 rectangle,mat4 _projection,mat4 _view,mat4 _model)=0;
 	virtual void Render(GuiViewport*,bool)=0;
+	virtual void Render()=0;
 
+	RendererInterface();
 	virtual ~RendererInterface(){};
 };
 
