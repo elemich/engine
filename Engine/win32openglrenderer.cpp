@@ -75,6 +75,8 @@ PFNGLDRAWBUFFERSPROC glDrawBuffers = 0;
 PFNGLBLITNAMEDFRAMEBUFFERPROC glBlitNamedFramebuffer = 0;
 PFNGLFRAMEBUFFERTEXTUREPROC glFramebufferTexture = 0;
 PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = 0;
+PFNGLREADNPIXELSPROC glReadnPixels = 0;
+
 
 #endif
 
@@ -206,6 +208,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 		if(!glBlitNamedFramebuffer) glBlitNamedFramebuffer = (PFNGLBLITNAMEDFRAMEBUFFERPROC) wglGetProcAddress("glBlitNamedFramebuffer");
 		if(!glFramebufferTexture)glFramebufferTexture = (PFNGLFRAMEBUFFERTEXTUREPROC)wglGetProcAddress("glFramebufferTexture");
 		if(!glFramebufferTexture2D)glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");
+		if(!glReadnPixels)glReadnPixels = (PFNGLREADNPIXELSPROC) wglGetProcAddress("glReadnPixels");
 #endif
 
 		wglMakeCurrent(NULL, NULL);
@@ -250,8 +253,6 @@ void OpenGLRenderer::Create(HWND hwnd)
 	if(!wglMakeCurrent(hdc,hglrc))
 		__debugbreak();
 
-	//wglMakeCurrent(TClassPool<OpenGLRenderer>::pool[0]->hdc, TClassPool<OpenGLRenderer>::pool[0]->hglrc);
-
 	//if(!vertexArrayObject)
 	{
 		{
@@ -283,11 +284,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 
 	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
 	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
-	//printf("Status: Using extension %s\n", glGetString(GL_EXTENSIONS));
 
-	
-
-	//SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)this);
 
 	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
 	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);

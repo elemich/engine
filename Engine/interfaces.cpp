@@ -773,12 +773,14 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 	if(!tabContainer->renderer)
 		return;
 
-	tabContainer->skip=true;
+	//tabContainer->skip=true;
+
+	vec4 canvas=this->rect;
 
 	ID2D1Bitmap*& bitmap=(ID2D1Bitmap*&)this->renderBitmap;
 	unsigned char*& buffer=(unsigned char*&)this->renderBuffer;
 
-	if(!bitmap || bitmap->GetSize().width!=this->rect.z || bitmap->GetSize().height!=this->rect.w || !this->renderBuffer || !this->renderBitmap)
+	if(!bitmap || bitmap->GetSize().width!=canvas.z || bitmap->GetSize().height!=canvas.w || !this->renderBuffer || !this->renderBitmap)
 	{
 		SAFERELEASE(bitmap);
 		SAFEDELETEARRAY(this->renderBuffer);
@@ -786,11 +788,11 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 		bp.pixelFormat=tabContainer->renderTarget->GetPixelFormat();
 
-		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU(this->rect.z,this->rect.w),bp,&bitmap);
+		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU(canvas.z,canvas.w),bp,&bitmap);
 
-		buffer=new unsigned char[(int)(this->rect.z*this->rect.w*4)];
+		buffer=new unsigned char[(int)canvas.z*canvas.w*4];
 
-		printf("[%i,%i]\n",(int)this->rect.z,(int)this->rect.w);
+		printf("[%i,%i]\n",(int)canvas.z,(int)canvas.w);
 	}
 
 	if(this->rootEntity)
@@ -798,8 +800,8 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 
 	tabContainer->renderer->ChangeContext();
 
-	glViewport((int)0,(int)0,(int)this->rect.z,(int)this->rect.w);glCheckError();
-	glScissor((int)0,(int)0,(int)this->rect.z,(int)this->rect.w);glCheckError();
+	glViewport((int)0,(int)0,(int)canvas.z,(int)canvas.w);glCheckError();
+	glScissor((int)0,(int)0,(int)canvas.z,(int)canvas.w);glCheckError();
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -821,13 +823,13 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 	MatrixStack::Pop(MatrixStack::PROJECTION);
 
 	glReadBuffer(GL_BACK);glCheckError();
-	glReadPixels((int)0,(int)0,(int)this->rect.z,(int)this->rect.w,GL_BGRA,GL_UNSIGNED_BYTE,buffer);glCheckError();//@mic should implement pbo for performance
+	glReadnPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,canvas.z*canvas.w*4,buffer);glCheckError();//@mic should implement pbo for performance
 
-	bitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)this->rect.z,(int)this->rect.w),buffer,(int)(this->rect.z*4));
+	bitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)canvas.z,(int)canvas.w),buffer,(int)(canvas.z*4));
 
-	tabContainer->renderTarget->DrawBitmap(bitmap,D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w));
+	tabContainer->renderTarget->DrawBitmap(bitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
 
-	tabContainer->skip=false;
+	//tabContainer->skip=false;
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);

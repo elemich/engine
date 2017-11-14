@@ -311,7 +311,7 @@ float* VectorMathNamespace::maximum(float *c,const float *a,const float *b,int d
 bool VectorMathNamespace::equal(const float *a,const float *b,int dim)
 {
     for(int i=0;i<dim;i++)
-        if(a[1]!=b[i])return false;
+        if(a[i]!=b[i])return false;
     return true;
 }
 

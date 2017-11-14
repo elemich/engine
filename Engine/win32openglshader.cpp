@@ -46,7 +46,7 @@ extern PFNGLUNIFORM4FVPROC glUniform4fv;
 extern PFNGLTEXBUFFERPROC glTexBuffer;
 extern PFNGLTEXTUREBUFFERPROC glTextureBuffer;
 extern PFNGLBUFFERSUBDATAPROC glBufferSubData;
-
+extern PFNGLREADNPIXELSPROC glReadnPixels;
 
 #endif
 
