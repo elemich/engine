@@ -538,7 +538,7 @@ void TabContainer::OnGuiPaint(void* data)
 	bool isDrawing=this->BeginDraw();
 
 	renderTarget->Clear(D2D1::ColorF(TabContainer::COLOR_GUI_BACKGROUND));
-	
+
 	this->DrawFrame();
 
 	this->BroadcastToSelected(&GuiRect::OnPaint,data);

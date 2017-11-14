@@ -294,9 +294,14 @@ void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,cons
 {
 	if(!inputText)
 		return;
-	size_t retLen=0;
+
+	size_t slen=sizeof(const char)*strlen(inputText);
+	size_t retLen=slen;
 	wchar_t retText[CHAR_MAX];
-	mbstowcs_s(&retLen,retText,CHAR_MAX,inputText,strlen(inputText));
+	size_t sizewInWords=sizeof(wchar_t)*CHAR_MAX;
+	int err=mbstowcs(retText,inputText,slen);
+
+	//printf("");
 
 	renderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
 
@@ -309,8 +314,12 @@ void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,cons
 		if(!hwndRenderer)
 			__debugbreak();
 
+		HDC hdc=GetDC(hwndRenderer->GetHwnd());
+
 		SIZE tSize;
-		GetTextExtentPoint32(GetDC(hwndRenderer->GetHwnd()),inputText,strlen(inputText),&tSize);
+		GetTextExtentPoint32(hdc,inputText,slen,&tSize);
+
+		ReleaseDC(hwndRenderer->GetHwnd(),hdc);//@mic avoid this causes serious performance degradation on windowing
 
 		vec4 rect(-tSize.cx/2.0f,-tSize.cy/2.0f,(float)tSize.cx,(float)tSize.cy);
 
