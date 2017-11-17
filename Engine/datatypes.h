@@ -1,7 +1,7 @@
 #ifndef DATATYPES_H
 #define DATATYPES_H
 
-#include "shader_data.h"
+
 
 #include "interfaces.h"
 #include "entities.h"
@@ -87,6 +87,8 @@ struct OpenGLShader : ShaderInterface
 	int GetLightdiffSlot();
 	int GetLightambSlot();
 	int GetNormalSlot();
+	int GetMouseSlot();
+	int GetHoveringSlot();
 
 	bool SetMatrix4f(int slot,float* mtx);
 

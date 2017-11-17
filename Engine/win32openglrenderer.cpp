@@ -1,5 +1,7 @@
 #include "win32.h"
 
+#include "shader_data.cpp"
+
 #pragma message (LOCATION " processNode should go to common part (maybe entities.h) of the project cause there is no os-related call within")
 #pragma message (LOCATION " multiple opengl context needs glew32mx.lib")
 #pragma message (LOCATION " TODO: move OpenGL bitmap render in the RendererViewportInterface cause is for the gui only")
@@ -20,65 +22,53 @@ PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
 PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
 
 #ifndef GL_GLEXT_PROTOTYPES
-
-PFNGLATTACHSHADERPROC glAttachShader = 0;
-PFNGLBINDBUFFERPROC glBindBuffer = 0;
-PFNGLBINDVERTEXARRAYPROC glBindVertexArray = 0;
-PFNGLBUFFERDATAPROC glBufferData = 0;
-PFNGLCOMPILESHADERPROC glCompileShader = 0;
-PFNGLCREATEPROGRAMPROC glCreateProgram = 0;
-PFNGLCREATESHADERPROC glCreateShader = 0;
-PFNGLDELETEBUFFERSPROC glDeleteBuffers = 0;
-PFNGLDELETEPROGRAMPROC glDeleteProgram = 0;
-PFNGLDELETESHADERPROC glDeleteShader = 0;
-PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays = 0;
-PFNGLDETACHSHADERPROC glDetachShader = 0;
-PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray = 0;
-PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib = 0;
-PFNGLGENBUFFERSPROC glGenBuffers = 0;
-PFNGLGENVERTEXARRAYSPROC glGenVertexArrays = 0;
-PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation = 0;
-PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog = 0;
-PFNGLGETPROGRAMIVPROC glGetProgramiv = 0;
-PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog = 0;
-PFNGLGETSHADERIVPROC glGetShaderiv = 0;
-PFNGLLINKPROGRAMPROC glLinkProgram = 0;
-PFNGLSHADERSOURCEPROC glShaderSource = 0;
-PFNGLUSEPROGRAMPROC glUseProgram = 0;
-PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer = 0;
-PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation = 0;
-PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation = 0;
-PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv = 0;
-PFNGLACTIVETEXTUREPROC glActiveTexture = 0;
-PFNGLUNIFORM1IPROC glUniform1i = 0;
-PFNGLUNIFORM1FPROC glUniform1f = 0;
-PFNGLUNIFORM3FPROC glUniform3f = 0;
-PFNGLGENERATEMIPMAPPROC glGenerateMipmap = 0;
-PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray = 0;
-PFNGLUNIFORM3FVPROC glUniform3fv = 0;
-PFNGLUNIFORM4FVPROC glUniform4fv = 0;
-PFNGLTEXBUFFERPROC glTexBuffer = 0;
-PFNGLTEXTUREBUFFERPROC glTextureBuffer = 0;
-PFNGLBUFFERSUBDATAPROC glBufferSubData = 0;
-PFNGLVIEWPORTINDEXEDFPROC glViewportIndexedf = 0;
-PFNGLADDSWAPHINTRECTWINPROC glAddSwapHintRectWIN = 0;
-PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers = 0;
-PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = 0;
-PFNGLNAMEDRENDERBUFFERSTORAGEPROC glNamedRenderbufferStorage = 0;
-PFNGLRENDERBUFFERSTORAGEPROC glRenderbufferStorage = 0;
-PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers = 0;
-PFNGLBINDRENDERBUFFERPROC glBindRenderbuffer = 0;
-PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer = 0;
-PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer = 0;
-PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = 0;
-PFNGLDRAWBUFFERSPROC glDrawBuffers = 0;
-PFNGLBLITNAMEDFRAMEBUFFERPROC glBlitNamedFramebuffer = 0;
-PFNGLFRAMEBUFFERTEXTUREPROC glFramebufferTexture = 0;
-PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = 0;
-PFNGLREADNPIXELSPROC glReadnPixels = 0;
-
-
+extern PFNGLATTACHSHADERPROC glAttachShader=0;
+extern PFNGLBINDBUFFERPROC glBindBuffer=0;
+extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray=0;
+extern PFNGLBUFFERDATAPROC glBufferData=0;
+extern PFNGLCOMPILESHADERPROC glCompileShader=0;
+extern PFNGLCREATEPROGRAMPROC glCreateProgram=0;
+extern PFNGLCREATESHADERPROC glCreateShader=0;
+extern PFNGLDELETEBUFFERSPROC glDeleteBuffers=0;
+extern PFNGLDELETEPROGRAMPROC glDeleteProgram=0;
+extern PFNGLDELETESHADERPROC glDeleteShader=0;
+extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays=0;
+extern PFNGLDETACHSHADERPROC glDetachShader=0;
+extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray=0;
+extern PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib=0;
+extern PFNGLGENBUFFERSPROC glGenBuffers=0;
+extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays=0;
+extern PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation=0;
+extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog=0;
+extern PFNGLGETPROGRAMIVPROC glGetProgramiv=0;
+extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog=0;
+extern PFNGLGETSHADERIVPROC glGetShaderiv=0;
+extern PFNGLLINKPROGRAMPROC glLinkProgram=0;
+extern PFNGLSHADERSOURCEPROC glShaderSource=0;
+extern PFNGLUSEPROGRAMPROC glUseProgram=0;
+extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer=0;
+extern PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation=0;
+extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation=0;
+extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv=0;
+extern PFNGLACTIVETEXTUREPROC glActiveTexture=0;
+extern PFNGLUNIFORM1IPROC glUniform1i=0;
+extern PFNGLUNIFORM1FPROC glUniform1f=0;
+extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap=0;
+extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray=0;
+extern PFNGLUNIFORM3FVPROC glUniform3fv=0;
+extern PFNGLUNIFORM4FVPROC glUniform4fv=0;
+extern PFNGLTEXBUFFERPROC glTexBuffer=0;
+extern PFNGLTEXTUREBUFFERPROC glTextureBuffer=0;
+extern PFNGLBUFFERSUBDATAPROC glBufferSubData=0;
+extern PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers=0;
+extern PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers=0;
+extern PFNGLREADNPIXELSPROC glReadnPixels=0;
+extern PFNGLUNIFORM2FPROC glUniform2f=0;
+extern PFNGLUNIFORM2FVPROC glUniform2fv=0;
+extern PFNGLUNIFORM3FPROC glUniform3f=0;
+extern PFNGLUNIFORM4FPROC glUniform4f=0;
 #endif
+
 
 bool GLEW_INITED=false;
 
@@ -193,13 +183,13 @@ void OpenGLRenderer::Create(HWND hwnd)
 		if(!glTexBuffer) glTexBuffer = (PFNGLTEXBUFFERPROC) wglGetProcAddress("glTexBuffer");
 		if(!glTextureBuffer) glTextureBuffer = (PFNGLTEXTUREBUFFERPROC) wglGetProcAddress("glTextureBuffer");
 		if(!glBufferSubData) glBufferSubData = (PFNGLBUFFERSUBDATAPROC) wglGetProcAddress("glBufferSubData");
-		if(!glBufferSubData)glViewportIndexedf = (PFNGLVIEWPORTINDEXEDFPROC) wglGetProcAddress("glViewportIndexedf");
-		if(!glAddSwapHintRectWIN)glAddSwapHintRectWIN = (PFNGLADDSWAPHINTRECTWINPROC) wglGetProcAddress("glAddSwapHintRectWIN");
 		if(!glGenFramebuffers)glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) wglGetProcAddress("glGenFramebuffers");
+		if(!glGenRenderbuffers)glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) wglGetProcAddress("glGenRenderbuffers");
+		/*if(!glBufferSubData)glViewportIndexedf = (PFNGLVIEWPORTINDEXEDFPROC) wglGetProcAddress("glViewportIndexedf");
+		if(!glAddSwapHintRectWIN)glAddSwapHintRectWIN = (PFNGLADDSWAPHINTRECTWINPROC) wglGetProcAddress("glAddSwapHintRectWIN");
 		if(!glBindFramebuffer)glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) wglGetProcAddress("glBindFramebuffer");
 		if(!glNamedRenderbufferStorage)glNamedRenderbufferStorage = (PFNGLNAMEDRENDERBUFFERSTORAGEPROC) wglGetProcAddress("glNamedRenderbufferStorage");
 		if(!glRenderbufferStorage)glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) wglGetProcAddress("glRenderbufferStorage");
-		if(!glGenRenderbuffers)glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) wglGetProcAddress("glGenRenderbuffers");
 		if(!glBindRenderbuffer)glBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) wglGetProcAddress("glBindRenderbuffer");
 		if(!glFramebufferRenderbuffer)glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) wglGetProcAddress("glFramebufferRenderbuffer");
 		if(!glBlitFramebuffer)glBlitFramebuffer = (PFNGLBLITFRAMEBUFFERPROC) wglGetProcAddress("glBlitFramebuffer");
@@ -207,8 +197,12 @@ void OpenGLRenderer::Create(HWND hwnd)
 		if(!glDrawBuffers)glDrawBuffers = (PFNGLDRAWBUFFERSPROC) wglGetProcAddress("glDrawBuffers");
 		if(!glBlitNamedFramebuffer) glBlitNamedFramebuffer = (PFNGLBLITNAMEDFRAMEBUFFERPROC) wglGetProcAddress("glBlitNamedFramebuffer");
 		if(!glFramebufferTexture)glFramebufferTexture = (PFNGLFRAMEBUFFERTEXTUREPROC)wglGetProcAddress("glFramebufferTexture");
-		if(!glFramebufferTexture2D)glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");
+		if(!glFramebufferTexture2D)glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");*/
 		if(!glReadnPixels)glReadnPixels = (PFNGLREADNPIXELSPROC) wglGetProcAddress("glReadnPixels");
+		if(!glUniform2f)glUniform2f = (PFNGLUNIFORM2FPROC) wglGetProcAddress("glUniform2f");
+		if(!glUniform2fv)glUniform2fv = (PFNGLUNIFORM2FVPROC) wglGetProcAddress("glUniform2fv");
+		if(!glUniform3f)glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
+		if(!glUniform4f)glUniform4f = (PFNGLUNIFORM4FPROC) wglGetProcAddress("glUniform4f");
 #endif
 
 		wglMakeCurrent(NULL, NULL);
@@ -285,14 +279,11 @@ void OpenGLRenderer::Create(HWND hwnd)
 	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
 	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-
-	OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
-	OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
-	OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
-	OpenGLShader::Create("font",font_pixsh,font_frgsh);
-	OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
-
-	
+	this->unlit=OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
+	this->unlit_color=OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
+	this->unlit_texture=OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	this->font=OpenGLShader::Create("font",font_pixsh,font_frgsh);
+	this->shaded_texture=OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
 }
 
 
@@ -326,7 +317,7 @@ void OpenGLRenderer::draw(vec2)
 
 void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 {
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+	ShaderInterface* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -335,6 +326,10 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+		glUniform4f(ptrclr,0,0,0,0);
 
 	if(mdl>=0)
 		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -370,7 +365,7 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 void OpenGLRenderer::draw(vec4 rect)
 {
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+	ShaderInterface* shader=this->unlit_color;
 
 	int position_slot=-1;
 	int modelview_slot=-1;
@@ -381,6 +376,10 @@ void OpenGLRenderer::draw(vec4 rect)
 		
 		int mdl=shader->GetModelviewSlot();
 		int view=shader->GetProjectionSlot();
+		int ptrclr=shader->GetUniform("ptrclr");
+
+		if(ptrclr>=0)
+			glUniform4f(ptrclr,0,0,0,0);
 
 		if(mdl>=0)
 			shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -414,7 +413,7 @@ void OpenGLRenderer::draw(vec4 rect)
 
 void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 {
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+	ShaderInterface* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -423,6 +422,10 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+		glUniform4f(ptrclr,0,0,0,0);
 
 	if(mdl>=0)
 		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -471,7 +474,7 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 
 void OpenGLRenderer::draw(AABB aabb,vec3 color)
 {
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+	ShaderInterface* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -480,6 +483,10 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+		glUniform4f(ptrclr,0,0,0,0);
 
 	if(mdl>=0)
 		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -545,7 +552,7 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 
 void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 {
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+	ShaderInterface* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -564,6 +571,11 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 	int col=shader->GetUniform("color");
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
+	int mpos=shader->GetMouseSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+		glUniform4f(ptrclr,0,0,0,0);
 
 	if(mdl>=0)
 		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -878,13 +890,15 @@ void OpenGLRenderer::draw(Mesh* mesh)
 
 void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 {
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_texture");
+	ShaderInterface* shader=this->unlit_texture;
 
 	if(!shader || !mesh)
 		return;
 
 	vec3 lightpos(0,200,-100);
-	this->draw(lightpos,5);
+
+	if(shader==this->shaded_texture)
+		this->draw(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
@@ -895,6 +909,27 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
+	int mpos=shader->GetMouseSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+	{
+		if(picking)
+		{
+			unsigned char* clr1=(unsigned char*)&mesh->entity;
+
+			float fcx=clr1[3]/255.0f;
+			float fcy=clr1[2]/255.0f;
+			float fcz=clr1[1]/255.0f;
+			float fcw=clr1[0]/255.0f;
+
+			glUniform4f(ptrclr,fcx,fcy,fcz,fcw);
+		}
+		else glUniform4f(ptrclr,0,0,0,0);
+	}
+	
+	if(mpos)
+		glUniform2f(mpos,this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height);
 
 	if(mdl>=0)
 		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -915,7 +950,7 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 
 	if(!textureIndices.size())
 	{
-		ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+		ShaderInterface* shader=this->unlit_color;
 
 		if(shader)
 			shader->Use();
@@ -967,7 +1002,7 @@ void OpenGLRenderer::draw(Skin *skin)
 	/*this->draw((Mesh*)skin);
 	return;*/
 
-	ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_texture");
+	ShaderInterface* shader=this->unlit_texture;
 
 	if(!skin || !skin->skin_vertexcache || !shader)
 	{
@@ -976,7 +1011,9 @@ void OpenGLRenderer::draw(Skin *skin)
 	}
 
 	vec3 lightpos(0,200,-100);
-	this->draw(lightpos,10.0f);
+
+	if(shader==this->shaded_texture)
+		this->draw(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
@@ -990,6 +1027,23 @@ void OpenGLRenderer::draw(Skin *skin)
 
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+	{
+		if(picking)
+		{
+			unsigned char* clr1=(unsigned char*)&skin->entity;
+
+			float fcx=clr1[3]/255.0f;
+			float fcy=clr1[2]/255.0f;
+			float fcz=clr1[1]/255.0f;
+			float fcw=clr1[0]/255.0f;
+
+			glUniform4f(ptrclr,fcx,fcy,fcz,fcw);
+		}
+		else glUniform4f(ptrclr,0,0,0,0);
+	}
 
 	if(mdl>=0)
 		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
@@ -1020,7 +1074,7 @@ void OpenGLRenderer::draw(Skin *skin)
 
 	if(!textureIndices.size())
 	{
-		ShaderInterface* shader=ShaderInterface::shadersPool.Find("unlit_color");
+		ShaderInterface* shader=this->unlit_color;
 
 		if(shader)
 			shader->Use();
@@ -1084,19 +1138,71 @@ void OpenGLRenderer::draw(Camera*)
 
 void OpenGLRenderer::draw(Bone* bone)
 {
-	if(!bone)
+	ShaderInterface* shader=this->unlit_color;
+
+	if(!shader)
 		return;
 
-	Bone* ec=bone->entity->parent->findComponent<Bone>();
-	
-	if(ec)
-	{
-		Bone* bone=(Bone*)ec;
+	vec3 &a=bone->entity->parent->world.position();
+	vec3 &b=bone->entity->world.position();
 
-		vec3 b2p=bone->entity->parent->world.position();
-		vec3 b1p=bone->entity->world.position();
-		this->draw(b1p,b2p,bone->bone_color);
+	float line[]=
+	{
+		a[0],a[1],a[2],
+		b[0],b[1],b[2], 
+	};
+
+	shader->Use();
+
+	glEnable(GL_DEPTH_TEST);
+
+	int pos=shader->GetPositionSlot();
+	int col=shader->GetUniform("color");
+	int mdl=shader->GetModelviewSlot();
+	int view=shader->GetProjectionSlot();
+	int mpos=shader->GetMouseSlot();
+	int ptrclr=shader->GetUniform("ptrclr");
+
+	if(ptrclr>=0)
+	{
+		if(picking)
+		{
+			unsigned char* clr1=(unsigned char*)&bone->entity;
+
+			float fcx=clr1[3]/255.0f;
+			float fcy=clr1[2]/255.0f;
+			float fcz=clr1[1]/255.0f;
+			float fcw=clr1[0]/255.0f;
+
+			glUniform4f(ptrclr,fcx,fcy,fcz,fcw);
+		}
+		else glUniform4f(ptrclr,0,0,0,0);
 	}
+
+	if(mdl>=0)
+		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+
+	if(view>=0)
+		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
+
+	glUniform3fv(col,1,bone->bone_color);
+
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
+
+	glBufferData(GL_ARRAY_BUFFER,6*sizeof(float),line,GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(pos);glCheckError();
+
+	glVertexAttribPointer(pos,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
+
+	glDrawArrays(GL_LINES,0,2);glCheckError();
+	//glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,)
+
+	glDisableVertexAttribArray(pos);
+
+
+	glDisable(GL_DEPTH_TEST);
+
 }
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}

@@ -251,6 +251,8 @@ struct EntityComponent
 {
 	Entity* entity;
 
+	std::list<ShaderInterface*> shaders;
+
 	EntityComponent():entity(0){}
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}

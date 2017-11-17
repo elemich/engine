@@ -386,7 +386,7 @@ void TabContainer::OnGuiMouseMove(void* data)
 	mousex=tmx;
 	mousey=tmy;
 
-	if(mousey>TabContainer::CONTAINER_HEIGHT)
+	//if(mousey>TabContainer::CONTAINER_HEIGHT)
 		this->BroadcastToSelected(&GuiRect::OnMouseMove,vec2(this->mousex,this->mousey));
 }
 
@@ -596,7 +596,7 @@ void TabContainer::OnResizeContainer(void* data)
 
 void TabContainer::OnEntitiesChange(void* data)
 {
-	this->BroadcastToAll(&GuiRect::OnEntitiesChange,data);
+	this->BroadcastToSelected(&GuiRect::OnEntitiesChange,data);
 }
 void TabContainer::OnGuiActivate(void* data)
 {
@@ -610,7 +610,7 @@ void TabContainer::OnGuiDeactivate(void* data)
 }
 void TabContainer::OnGuiEntitySelected(void* data)
 {
-	this->BroadcastToAll(&GuiRect::OnEntitySelected,data);
+	this->BroadcastToSelected(&GuiRect::OnEntitySelected,data);
 }
 
 

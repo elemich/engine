@@ -324,7 +324,7 @@ struct RenderSurface
 	~RenderSurface(){SAFERELEASE(renderBitmap);SAFEDELETEARRAY(renderBuffer);}
 };
 
-
+#ifndef GL_GLEXT_PROTOTYPES
 extern PFNGLATTACHSHADERPROC glAttachShader;
 extern PFNGLBINDBUFFERPROC glBindBuffer;
 extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
@@ -356,7 +356,6 @@ extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
 extern PFNGLACTIVETEXTUREPROC glActiveTexture;
 extern PFNGLUNIFORM1IPROC glUniform1i;
 extern PFNGLUNIFORM1FPROC glUniform1f;
-extern PFNGLUNIFORM3FPROC glUniform3f;
 extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
 extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
 extern PFNGLUNIFORM3FVPROC glUniform3fv;
@@ -364,7 +363,14 @@ extern PFNGLUNIFORM4FVPROC glUniform4fv;
 extern PFNGLTEXBUFFERPROC glTexBuffer;
 extern PFNGLTEXTUREBUFFERPROC glTextureBuffer;
 extern PFNGLBUFFERSUBDATAPROC glBufferSubData;
+extern PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
+extern PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers;
 extern PFNGLREADNPIXELSPROC glReadnPixels;
+extern PFNGLUNIFORM2FPROC glUniform2f;
+extern PFNGLUNIFORM2FVPROC glUniform2fv;
+extern PFNGLUNIFORM3FPROC glUniform3f;
+extern PFNGLUNIFORM4FPROC glUniform4f;
+#endif
 
 struct OpenGLRenderer : RendererInterface
 {
@@ -475,6 +481,7 @@ struct GuiSceneViewer : GuiScrollRect
 	void OnPaint(TabContainer*,void* data=0);
 	void OnLMouseDown(TabContainer*,void* data=0);
 	void OnEntitiesChange(TabContainer*,void* data=0);
+	void OnEntitySelected(TabContainer*,void* data=0);
 	void OnRecreateTarget(TabContainer*,void* data=0);
 	void OnRMouseUp(TabContainer*,void* data=0);
 	void OnMouseWheel(TabContainer*,void* data=0);
@@ -484,6 +491,7 @@ struct GuiSceneViewer : GuiScrollRect
 	void DrawNodes(TabContainer*,Entity*,vec2&);
 	int UpdateNodes(Entity*);
 	void UnselectNodes(Entity*);
+	void ExpandUntil(Entity* iTarget);
 };	
 
 

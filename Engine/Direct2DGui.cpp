@@ -666,6 +666,8 @@ GuiSceneViewer::~GuiSceneViewer()
 
 void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 {
+	GuiRect::OnEntitiesChange(tabContainer,data);
+
 	Entity* entity=(Entity*)data;
 
 	if(entity)
@@ -684,11 +686,40 @@ void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 	this->BroadcastToChilds(&GuiRect::OnEntitiesChange,tabContainer);
 }
 
+void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnEntitySelected(tabContainer,data);
+
+	Entity* entity=(Entity*)data;
+
+	if(entity)
+	{
+		if(this->selection.end()==std::find(this->selection.begin(),this->selection.end(),entity))
+		{
+			this->UnselectNodes(this->entityRoot);
+			this->ExpandUntil(entity);
+			this->selection.push_back(entity);
+
+			this->UpdateNodes(this->entityRoot);
+			this->OnSize(tabContainer);
+
+			entity->selected=true;
+
+			tabContainer->SetDraw(this,0);
+		}
+	}
+}
+
+void GuiSceneViewer::ExpandUntil(Entity* iTarget)
+{
+	iTarget->expanded=true;
+
+	if(iTarget->parent)
+		GuiSceneViewer::ExpandUntil(iTarget->parent);
+}
+
 void GuiSceneViewer::UnselectNodes(Entity* node)
 {
-	if(!node)
-		return;
-
 	node->selected=false;
 
 	for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
@@ -905,6 +936,9 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 			lvl[0]=iEntity->properties->Container("Entity");
 
 			lvl[0]->Property("Name",iEntity->name);
+			char cptr[11];
+			sprintf(cptr,"0x%p",iEntity);
+			lvl[0]->Property("Ptr",cptr);
 			lvl[0]->Property("Position",iEntity->world.position());
 			lvl[1]=lvl[0]->Container("AABB");
 			lvl[1]->Property("min",iEntity->bbox.a);

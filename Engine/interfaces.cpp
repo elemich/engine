@@ -2,7 +2,13 @@
 #include "win32.h"
 
 RendererInterface::RendererInterface():
-	rendererTask(0)
+	rendererTask(0),
+		unlit(0),
+		unlit_color(0),
+		unlit_texture(0),
+		font(0),
+		shaded_texture(0),
+		picking(false)
 {
 
 }
@@ -750,7 +756,12 @@ void GuiPropertyAnimation::OnMouseMove(TabContainer* tab,void* data)
 ////////////////////////////
 
 
-GuiViewport::GuiViewport():renderBuffer(0),renderBitmap(0),rootEntity(0)
+GuiViewport::GuiViewport():
+	renderBuffer(0),
+	renderBitmap(0),
+	rootEntity(0),
+	needsPicking(0),
+	pickedEntity(0)
 {
 	this->name="Viewport";
 }
@@ -773,24 +784,23 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 	if(!tabContainer->renderer)
 		return;
 
-	//tabContainer->skip=true;
-
 	vec4 canvas=this->rect;
+	vec2 mouse(tabContainer->mousex,tabContainer->mousey);
 
-	ID2D1Bitmap*& bitmap=(ID2D1Bitmap*&)this->renderBitmap;
-	unsigned char*& buffer=(unsigned char*&)this->renderBuffer;
+	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)this->renderBitmap;
+	unsigned char*& rBuffer=(unsigned char*&)this->renderBuffer;
 
-	if(!bitmap || bitmap->GetSize().width!=canvas.z || bitmap->GetSize().height!=canvas.w || !this->renderBuffer || !this->renderBitmap)
+	if(!rBitmap || rBitmap->GetSize().width!=canvas.z || rBitmap->GetSize().height!=canvas.w || !this->renderBuffer || !this->renderBitmap)
 	{
-		SAFERELEASE(bitmap);
+		SAFERELEASE(rBitmap);
 		SAFEDELETEARRAY(this->renderBuffer);
 
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 		bp.pixelFormat=tabContainer->renderTarget->GetPixelFormat();
 
-		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU(canvas.z,canvas.w),bp,&bitmap);
+		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU(canvas.z,canvas.w),bp,&rBitmap);
 
-		buffer=new unsigned char[(int)canvas.z*canvas.w*4];
+		rBuffer=new unsigned char[(int)canvas.z*canvas.w*4];
 
 		printf("[%i,%i]\n",(int)canvas.z,(int)canvas.w);
 	}
@@ -805,31 +815,80 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 
 	glEnable(GL_DEPTH_TEST);
 
-	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
-	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+	{
+		glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-	MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
-	MatrixStack::Multiply(MatrixStack::PROJECTION,this->view);
-	MatrixStack::Push(MatrixStack::MODELVIEW,this->model);
+		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+		MatrixStack::Multiply(MatrixStack::PROJECTION,this->view);
+		MatrixStack::Push(MatrixStack::MODELVIEW,this->model);
 
-	tabContainer->renderer->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-	tabContainer->renderer->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-	tabContainer->renderer->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+		tabContainer->renderer->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+		tabContainer->renderer->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+		tabContainer->renderer->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-	if(this->rootEntity)
-		this->rootEntity->draw(tabContainer->renderer);
+		if(this->rootEntity)
+			this->rootEntity->draw(tabContainer->renderer);
 
-	MatrixStack::Pop(MatrixStack::MODELVIEW);
-	MatrixStack::Pop(MatrixStack::PROJECTION);
+		MatrixStack::Pop(MatrixStack::MODELVIEW);
+		MatrixStack::Pop(MatrixStack::PROJECTION);
 
-	glReadBuffer(GL_BACK);glCheckError();
-	glReadnPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,canvas.z*canvas.w*4,buffer);glCheckError();//@mic should implement pbo for performance
+		glReadBuffer(GL_BACK);glCheckError();
+		glReadnPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,canvas.z*canvas.w*4,rBuffer);glCheckError();//@mic should implement pbo for performance
 
-	bitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)canvas.z,(int)canvas.w),buffer,(int)(canvas.z*4));
+		rBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)canvas.z,(int)canvas.w),rBuffer,(int)(canvas.z*4));
 
-	tabContainer->renderTarget->DrawBitmap(bitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
+		tabContainer->renderTarget->DrawBitmap(rBitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
+	}
 
-	//tabContainer->skip=false;
+	if(this->needsPicking && mouse.y-canvas.y>=0)
+	{
+		glDisable(GL_DITHER);
+
+		tabContainer->renderer->picking=true;
+
+		glClearColor(0.0f,0.0f,0.0f,0.0f);glCheckError();
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+
+		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+		MatrixStack::Multiply(MatrixStack::PROJECTION,this->view);
+		MatrixStack::Push(MatrixStack::MODELVIEW,this->model);
+
+		if(this->rootEntity)
+			this->rootEntity->draw(tabContainer->renderer);
+
+		MatrixStack::Pop(MatrixStack::MODELVIEW);
+		MatrixStack::Pop(MatrixStack::PROJECTION);
+
+		glReadBuffer(GL_BACK);glCheckError();
+
+		this->pickedPixel;
+		glReadPixels((int)mouse.x,(int)mouse.y-canvas.y,(int)1,(int)1,GL_RGBA,GL_UNSIGNED_BYTE,&this->pickedPixel);glCheckError();//@mic should implement pbo for performance
+	
+		unsigned int address=0;
+
+		unsigned char* ptrPixel=(unsigned char*)&this->pickedPixel;
+		unsigned char* ptrAddress=(unsigned char*)&address;
+
+		{
+			this->pickedEntity=this->pickedPixel ? 
+		
+			ptrAddress[0]=ptrPixel[3],
+			ptrAddress[1]=ptrPixel[2],
+			ptrAddress[2]=ptrPixel[1],
+			ptrAddress[3]=ptrPixel[0],
+
+			dynamic_cast<Entity*>((Entity*)address)
+		
+			: 0 ;
+		}
+
+		tabContainer->renderer->picking=false;
+
+		glEnable(GL_DITHER);
+
+		this->needsPicking=false;
+	}
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
@@ -847,54 +906,67 @@ void GuiViewport::OnMouseWheel(TabContainer* tabContainer,void* data)
 	this->view*=mat4().translate(0,0,factor*10);
 }
 
+void GuiViewport::OnLMouseDown(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnLMouseDown(tabContainer,data);
+
+	if(this->hovering)
+		TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,(void*)this->pickedEntity);
+}
+
 void GuiViewport::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnMouseMove(tabContainer,data);
 
-	vec2& mpos=*(vec2*)data;
-	vec2 &pos=InputManager::mouseInput.mouse_pos;
-	vec2 &oldpos=InputManager::mouseInput.mouse_posold;
-
-	oldpos=pos;
-	pos.x=mpos.x;
-	pos.y=mpos.y;
-
-	if(tabContainer->buttonLeftMouseDown && GetFocus()==tabContainer->hwnd)
+	if(this->hovering)
 	{
-		float dX=(pos.x-oldpos.x);
-		float dY=(pos.y-oldpos.y);
+		vec2& mpos=*(vec2*)data;
+		vec2 &pos=InputManager::mouseInput.mouse_pos;
+		vec2 &oldpos=InputManager::mouseInput.mouse_posold;
 
-		if(tabContainer->buttonControlDown)
+		oldpos=pos;
+		pos.x=mpos.x;
+		pos.y=mpos.y;
+
+		if(tabContainer->buttonLeftMouseDown && GetFocus()==tabContainer->hwnd)
 		{
+			float dX=(pos.x-oldpos.x);
+			float dY=(pos.y-oldpos.y);
 
-			mat4 mview;
-			vec3 vx,vy,vz;
-			vec3 pos;
-			mat4 rot;
+			if(tabContainer->buttonControlDown)
+			{
 
-			mview=this->view;
+				mat4 mview;
+				vec3 vx,vy,vz;
+				vec3 pos;
+				mat4 rot;
 
-			mview.traspose();
-			mview.inverse();
+				mview=this->view;
 
-			mview.axes(vx,vy,vz);
+				mview.traspose();
+				mview.inverse();
 
-			pos=this->model.position();
+				mview.axes(vx,vy,vz);
 
-			this->model.move(vec3());
+				pos=this->model.position();
 
-			if(dY)
-				rot.rotate(dY,vx);
-			this->model.rotate(dX,0,0,1);
+				this->model.move(vec3());
 
-			this->model*=rot;
+				if(dY)
+					rot.rotate(dY,vx);
+				this->model.rotate(dX,0,0,1);
 
-			this->model.move(pos);
+				this->model*=rot;
+
+				this->model.move(pos);
+			}
+			else
+			{
+				this->view*=mat4().translate(dX,dY,0);
+			}
 		}
-		else
-		{
-			this->view*=mat4().translate(dX,dY,0);
-		}
+
+		this->needsPicking=true;
 	}
 }
 

@@ -1,54 +1,10 @@
 #include "win32.h"
 
+#include "shader_data.cpp"
+
 #pragma message (LOCATION " this should go to common opengl part of the project cause there is no os-related call within")
 
-extern PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB;
-extern PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
 
-#ifndef GL_GLEXT_PROTOTYPES
-
-extern PFNGLATTACHSHADERPROC glAttachShader;
-extern PFNGLBINDBUFFERPROC glBindBuffer;
-extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
-extern PFNGLBUFFERDATAPROC glBufferData;
-extern PFNGLCOMPILESHADERPROC glCompileShader;
-extern PFNGLCREATEPROGRAMPROC glCreateProgram;
-extern PFNGLCREATESHADERPROC glCreateShader;
-extern PFNGLDELETEBUFFERSPROC glDeleteBuffers;
-extern PFNGLDELETEPROGRAMPROC glDeleteProgram;
-extern PFNGLDELETESHADERPROC glDeleteShader;
-extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
-extern PFNGLDETACHSHADERPROC glDetachShader;
-extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
-extern PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib;
-extern PFNGLGENBUFFERSPROC glGenBuffers;
-extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
-extern PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
-extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
-extern PFNGLGETPROGRAMIVPROC glGetProgramiv;
-extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
-extern PFNGLGETSHADERIVPROC glGetShaderiv;
-extern PFNGLLINKPROGRAMPROC glLinkProgram;
-extern PFNGLSHADERSOURCEPROC glShaderSource;
-extern PFNGLUSEPROGRAMPROC glUseProgram;
-extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
-extern PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation;
-extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
-extern PFNGLACTIVETEXTUREPROC glActiveTexture;
-extern PFNGLUNIFORM1IPROC glUniform1i;
-extern PFNGLUNIFORM1FPROC glUniform1f;
-extern PFNGLUNIFORM3FPROC glUniform3f;
-extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
-extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
-extern PFNGLUNIFORM3FVPROC glUniform3fv;
-extern PFNGLUNIFORM4FVPROC glUniform4fv;
-extern PFNGLTEXBUFFERPROC glTexBuffer;
-extern PFNGLTEXTUREBUFFERPROC glTextureBuffer;
-extern PFNGLBUFFERSUBDATAPROC glBufferSubData;
-extern PFNGLREADNPIXELSPROC glReadnPixels;
-
-#endif
 
 
 void glCheckError()
@@ -188,7 +144,7 @@ ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const cha
 		shader->init();
 		shader->Use();
 		
-		shadersPool.pool.push_back(shader);
+		ShaderInterface::pool.push_back(shader);
 
 		//printf("adding %s to shaders list\n",name);
 
@@ -244,16 +200,7 @@ void OpenGLShader::SetByMatrixStack()
 
 void OpenGLShader::Use()
 {
-	ShaderInterface* current_shader=shadersPool.GetCurrent();
-
-	if(!program || current_shader==this)
-		return;
-	
 	glUseProgram(program);glCheckError();
-
-	this->SetByMatrixStack();
-	
-	shadersPool.SetCurrent(this);
 }
 
 const char* OpenGLShader::GetPixelShader(){return 0;}
@@ -307,6 +254,10 @@ int OpenGLShader::GetTextureSlot()
 {
 	return GetUniform("texture");
 }
+int OpenGLShader::GetMouseSlot()
+{
+	return GetUniform("mpos");
+}
 int OpenGLShader::GetLightposSlot()
 {
 	return GetUniform("lightpos");
@@ -322,6 +273,10 @@ int OpenGLShader::GetLightambSlot()
 int OpenGLShader::GetNormalSlot()
 {
 	return GetAttribute("normal");
+}
+int OpenGLShader::GetHoveringSlot()
+{
+	return GetAttribute("hovered");
 }
 
 bool OpenGLShader::SetMatrix4f(int slot,float* mtx)

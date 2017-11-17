@@ -1,14 +1,12 @@
 #include "datatypes.h"
 
 
-ShadersPool ShaderInterface::shadersPool;
+ShaderInterface::ShaderInterface()
+{}
 
 
 
-std::vector<ShaderInterface*> ShadersPool::pool;
-ShaderInterface*			  currentShader=0;
-
-ShaderInterface* ShadersPool::Find(const char* name,bool exact)
+ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
 {
 	for(int i=0;i<(int)pool.size();i++)
 	{
@@ -25,27 +23,6 @@ ShaderInterface* ShadersPool::Find(const char* name,bool exact)
 }
 
 
-void ShadersPool::SetMatrices(float* proj,float* mdlv)
-{
-	for(int i=0;i<(int)pool.size();i++)
-	{
-		ShaderInterface* shader=pool[i];
 
-		if(GetCurrent()!=shader)
-			shader->Use();
-
-		shader->SetProjectionMatrix(proj);
-		shader->SetModelviewMatrix(mdlv);
-	}
-}
-
-ShaderInterface* ShadersPool::GetCurrent()
-{
-	return currentShader;
-}
-void ShadersPool::SetCurrent(ShaderInterface* shader)
-{
-	currentShader=shader;
-}
 
 

@@ -250,6 +250,8 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 	{
 		if(!GetCapture())
 		{
+			TabContainer::BroadcastToPool(&TabContainer::OnGuiMouseMove,(void*)0);
+
 			int pixelDistance=6;
 
 			POINT probePoints[4]={{p.x-pixelDistance,p.y},{p.x+pixelDistance,p.y},{p.x,p.y-pixelDistance},{p.x,p.y+pixelDistance}};

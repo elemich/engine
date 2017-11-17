@@ -236,7 +236,7 @@ struct GuiScrollRect : GuiRect
 
 	virtual void OnMouseWheel(TabContainer*,void* data=0);
 	virtual void OnSize(TabContainer*,void* data=0);
-};
+};	
 
 struct GuiPropertyString : GuiRect
 {
@@ -302,6 +302,11 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 
 	unsigned int lastFrameTime;
 
+	bool needsPicking;
+
+	unsigned char pickedPixel[4];
+	Entity*		  pickedEntity;
+
 	GuiViewport();
 	~GuiViewport();
 
@@ -312,6 +317,7 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	virtual void OnActivate(TabContainer*,void* data=0);
 	virtual void OnDeactivate(TabContainer*,void* data=0);
 	virtual void OnReparent(TabContainer*,void* data=0);
+	virtual void OnLMouseDown(TabContainer*,void* data=0);
 };
 
 

@@ -120,7 +120,7 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
     <ClInclude Include="picopng.h" />
     <ClInclude Include="primitives.h" />
     <ClInclude Include="SceneEntitiesResource.h" />
-    <ClInclude Include="shader_data.h" />
+    <ClInclude Include="shader_data.cpp" />
     <ClInclude Include="tga_reader.h" />
     <ClInclude Include="t_datatypes.h" />
     <ClInclude Include="interfaces.h" />
