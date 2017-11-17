@@ -99,7 +99,7 @@ void MainAppContainerWindow::Create(HWND)
 
 LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	MainAppContainerWindow* mainw=(MainAppContainerWindow*)GetWindowLongPtr(hwnd,GWL_USERDATA);
+	MainAppContainerWindow* mainw=(MainAppContainerWindow*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
 	LRESULT result=0;
 
@@ -115,7 +115,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 		case WM_CREATE:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)((LPCREATESTRUCT)lparam)->lpCreateParams);
+			SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)((LPCREATESTRUCT)lparam)->lpCreateParams);
 		}
 		break;
 		case WM_CLOSE:

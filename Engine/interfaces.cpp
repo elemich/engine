@@ -43,7 +43,8 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 {
 	this->Set(iParent,0,0,-1,ix,iy,iw,ih,_alignPos.x,_alignPos.y,_alignRect.x,_alignRect.y);
 
-	memset(this->sibling,0,16);
+	for(size_t i=0;i<4;i++)
+		this->sibling[i]=0;
 }
 
 GuiRect::~GuiRect()
@@ -801,8 +802,6 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 		tabContainer->renderTarget->CreateBitmap(D2D1::SizeU(canvas.z,canvas.w),bp,&rBitmap);
 
 		rBuffer=new unsigned char[(int)canvas.z*canvas.w*4];
-
-		printf("[%i,%i]\n",(int)canvas.z,(int)canvas.w);
 	}
 
 	if(this->rootEntity)

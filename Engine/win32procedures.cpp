@@ -6,7 +6,7 @@
 
 LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	TabContainer* tc=(TabContainer*)GetWindowLongPtr(hwnd,GWL_USERDATA);
+	TabContainer* tc=(TabContainer*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
 	LPARAM result=0;
 
@@ -26,7 +26,7 @@ LRESULT CALLBACK TabContainer::TabContainerWindowClassProcedure(HWND hwnd,UINT m
 			if(lpcs)
 			{
 				TabContainer* tabContainer=(TabContainer*)lpcs->lpCreateParams;
-				SetWindowLongPtr(hwnd,GWL_USERDATA,(LONG_PTR)tabContainer);
+				SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)tabContainer);
 				tabContainer->hwnd=hwnd;
 			}
 		}
@@ -149,10 +149,10 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 
 	HWND parentWindow=GetParent(hwnd);
 
-	this->parentContainer=(ContainerWindow*)GetWindowLongPtr(parent,GWL_USERDATA);
+	this->parentContainer=(ContainerWindow*)GetWindowLongPtr(parent,GWLP_USERDATA);
 	this->parentContainer->tabContainers.push_back(this);
 
-	splitterContainer=(SplitterContainer*)(ContainerWindow*)GetWindowLongPtr(GetParent(hwnd),GWL_USERDATA);
+	splitterContainer=(SplitterContainer*)(ContainerWindow*)GetWindowLongPtr(GetParent(hwnd),GWLP_USERDATA);
 
 	if(!splitterContainer)
 		__debugbreak();

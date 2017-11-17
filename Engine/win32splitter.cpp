@@ -158,7 +158,7 @@ void SplitterContainer::OnMouseMove(HWND hwnd,LPARAM lparam)
 
 		if(target!=GetParent(*floatingTab) && target!=floatingTab->hwnd && /*floatingTabTarget!=floatingTabRef*/(floatingTabRefTabCount==1 ? target!=floatingTabRef->hwnd : true))
 		{
-			floatingTabTarget=(TabContainer*)GetWindowLongPtr(target,GWL_USERDATA);
+			floatingTabTarget=(TabContainer*)GetWindowLongPtr(target,GWLP_USERDATA);
 
 			int hh=TabContainer::CONTAINER_HEIGHT;
 

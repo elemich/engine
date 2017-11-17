@@ -892,14 +892,6 @@ void GuiSceneViewer::OnPaint(TabContainer* tabContainer,void* data)
 	this->SelfRenderEnd(tabContainer,selfRender);
 }
 
-
-
-
-
-
-
-
-
 GuiEntityViewer::GuiEntityViewer():
 	entity(0)
 {
