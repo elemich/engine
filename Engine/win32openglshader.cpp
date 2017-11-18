@@ -23,7 +23,7 @@ void glCheckError()
 
 
 
-int simple_shader(int shader_type, const char* shader_src)
+int simple_shader(const char* name,int shader_type, const char* shader_src)
 {
 	GLint compile_success = 0;
 	GLchar message[1024];
@@ -45,38 +45,17 @@ int simple_shader(int shader_type, const char* shader_src)
 
 	if (GL_FALSE==compile_success)
 	{
-		printf( "\nglCompileShader error for %s\n",shader_src);
-		glGetShaderInfoLog(shader_id, sizeof(message), &len, message);
+		sprintf(message,"glCompileShader[%s] error:\n",name);
+		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
+		MessageBox(0,message,"Engine",MB_OK|MB_ICONEXCLAMATION);
 		__debugbreak();
 	}
-
-	/*glGetShaderInfoLog(shader_id, sizeof(message), &len, message);
-
-	if(len && len<sizeof(message))
-	{
-		char shaderName[100];
-
-		switch(shader_type)
-		{
-		case GL_VERTEX_SHADER:
-			sprintf_s(shaderName,"%s","GL_VERTEX_SHADER");
-			break;
-		case GL_FRAGMENT_SHADER:
-			sprintf_s(shaderName,"%s","GL_FRAGMENT_SHADER");
-			break;
-		}
-
-		char* s=strrchr(message,'\n');
-		if(s)
-			*s=0;
-		printf("%s:%s",shaderName,message);
-	}*/
 
 	return shader_id;
 }
 
 
-int create_program(const char* vertexsh,const char* fragmentsh)
+int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 {
 	GLint link_success=0;
 	GLint program=0;
@@ -94,8 +73,8 @@ int create_program(const char* vertexsh,const char* fragmentsh)
 		return 0;
 	}
 
-	vertex_shader=simple_shader(GL_VERTEX_SHADER, vertexsh);
-	fragment_shader=simple_shader(GL_FRAGMENT_SHADER, fragmentsh);
+	vertex_shader=simple_shader(name,GL_VERTEX_SHADER, vertexsh);
+	fragment_shader=simple_shader(name,GL_FRAGMENT_SHADER, fragmentsh);
 
 	glAttachShader(program, vertex_shader);glCheckError();
 	glAttachShader(program, fragment_shader);glCheckError();
@@ -131,7 +110,7 @@ ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const cha
 		return 0;
 	}*/
 
-	int program=create_program(pix,frag);
+	int program=create_program(name,pix,frag);
 
 	if(program)
 	{

@@ -67,6 +67,7 @@ extern PFNGLUNIFORM2FPROC glUniform2f=0;
 extern PFNGLUNIFORM2FVPROC glUniform2fv=0;
 extern PFNGLUNIFORM3FPROC glUniform3f=0;
 extern PFNGLUNIFORM4FPROC glUniform4f=0;
+extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB=0;
 #endif
 
 
@@ -106,6 +107,9 @@ void OpenGLRenderer::Create(HWND hwnd)
 
 	DWORD error=0;
 
+
+	int pixelFormat;
+
 	for(int i=0;i<1;i++)
 	{
 		if(!hdc)
@@ -120,7 +124,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 		pfd.cDepthBits=32;
 		pfd.cStencilBits=32;
 
-		int pixelFormat = ChoosePixelFormat(hdc,&pfd);
+		pixelFormat = ChoosePixelFormat(hdc,&pfd);
 
 		error=GetLastError();
 
@@ -203,13 +207,13 @@ void OpenGLRenderer::Create(HWND hwnd)
 		if(!glUniform2fv)glUniform2fv = (PFNGLUNIFORM2FVPROC) wglGetProcAddress("glUniform2fv");
 		if(!glUniform3f)glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
 		if(!glUniform4f)glUniform4f = (PFNGLUNIFORM4FPROC) wglGetProcAddress("glUniform4f");
+		if(!wglGetPixelFormatAttribivARB)wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC) wglGetProcAddress("wglGetPixelFormatAttribivARB");
 #endif
 
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(hglrc);
 	}
-
-
+	
 	const int pixelFormatAttribList[] = 
 	{
 		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
@@ -223,23 +227,22 @@ void OpenGLRenderer::Create(HWND hwnd)
 		0
 	};
 
-	int pixelFormat;
 	UINT numFormats;
 
 	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
-		__debugbreak();
-
+		MessageBox(0,"wglChoosePixelFormatARB fails","Engine",MB_OK|MB_ICONEXCLAMATION);
 	
 
 	const int versionAttribList[] = 
 	{
-		WGL_CONTEXT_MAJOR_VERSION_ARB,4,
+		WGL_CONTEXT_MAJOR_VERSION_ARB,1,
 		WGL_CONTEXT_MINOR_VERSION_ARB,0, 
 		0,        //End
 	};
 
 	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
-		__debugbreak();
+		MessageBox(0,"wglCreateContextAttribsARB fails","Engine",MB_OK|MB_ICONEXCLAMATION);
+
 
 	if(hglrc)
 		printf("TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);

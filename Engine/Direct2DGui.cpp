@@ -928,7 +928,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 			lvl[0]=iEntity->properties->Container("Entity");
 
 			lvl[0]->Property("Name",iEntity->name);
-			char cptr[11];
+			char cptr[sizeof(void*)*2+3];
 			sprintf(cptr,"0x%p",iEntity);
 			lvl[0]->Property("Ptr",cptr);
 			lvl[0]->Property("Position",iEntity->world.position());

@@ -833,7 +833,7 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 		MatrixStack::Pop(MatrixStack::PROJECTION);
 
 		glReadBuffer(GL_BACK);glCheckError();
-		glReadnPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,canvas.z*canvas.w*4,rBuffer);glCheckError();//@mic should implement pbo for performance
+		glReadPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
 
 		rBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)canvas.z,(int)canvas.w),rBuffer,(int)(canvas.z*4));
 

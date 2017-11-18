@@ -54,8 +54,8 @@ struct MatrixStack
 	static mat4 view;
 };
 
-int simple_shader(int shader_type, const char* shader_src);
-int create_program(const char* vertexsh,const char* fragmentsh);
+int simple_shader(const char* name,int shader_type, const char* shader_src);
+int create_program(const char* name,const char* vertexsh,const char* fragmentsh);
 
 struct OpenGLShader : ShaderInterface
 {

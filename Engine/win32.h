@@ -370,6 +370,7 @@ extern PFNGLUNIFORM2FPROC glUniform2f;
 extern PFNGLUNIFORM2FVPROC glUniform2fv;
 extern PFNGLUNIFORM3FPROC glUniform3f;
 extern PFNGLUNIFORM4FPROC glUniform4f;
+extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
 #endif
 
 struct OpenGLRenderer : RendererInterface
