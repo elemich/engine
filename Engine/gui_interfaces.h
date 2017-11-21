@@ -317,7 +317,7 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	virtual void OnActivate(TabContainer*,void* data=0);
 	virtual void OnDeactivate(TabContainer*,void* data=0);
 	virtual void OnReparent(TabContainer*,void* data=0);
-	virtual void OnLMouseDown(TabContainer*,void* data=0);
+	virtual void OnLMouseUp(TabContainer*,void* data=0);
 };
 
 

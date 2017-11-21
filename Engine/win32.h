@@ -3,7 +3,7 @@
 
 #include "win32includes.h"
 
-
+extern char* cl_path;
 
 
 struct Direct2DGuiBase
@@ -420,6 +420,11 @@ struct OpenGLRenderer : RendererInterface
 	void drawUnlitTextured(Mesh*);
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
 	void draw(Camera*);
+	void draw(Gizmo*);
+	void draw(Piped*);
+	virtual void draw(Sphere*){}
+	virtual void draw(Cylinder*){}
+	virtual void draw(Tetrahedron*){}
 
 	virtual void Render(GuiViewport*,bool force=false);
 	virtual void Render();
@@ -460,16 +465,6 @@ struct DirectXRenderer : WindowData ,  RendererInterface
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
-
-
-
-
-
-
-
-
-
-
 struct GuiSceneViewer : GuiScrollRect
 {
 	GuiSceneViewer();
@@ -488,7 +483,7 @@ struct GuiSceneViewer : GuiScrollRect
 	void OnMouseWheel(TabContainer*,void* data=0);
 
 
-	bool ProcessMouseInput(vec2&,vec2&,Entity* node,Entity*& expChanged,Entity*& selChanged);
+	bool ProcessMouseInput(vec2&,vec2&,Entity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover);
 	void DrawNodes(TabContainer*,Entity*,vec2&);
 	int UpdateNodes(Entity*);
 	void UnselectNodes(Entity*);

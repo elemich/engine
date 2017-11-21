@@ -20,6 +20,11 @@ KeyCurve::KeyCurve():
 	keycurve_end(-1)
 {}
 
+void Gizmo::draw(RendererInterface* renderer)
+{
+	renderer->draw(this);
+}
+
 
 AnimClip::AnimClip():
 	curvegroup_start(-1),

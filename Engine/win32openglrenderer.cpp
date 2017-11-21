@@ -318,6 +318,21 @@ void OpenGLRenderer::draw(vec2)
 
 }
 
+void OpenGLRenderer::draw(Gizmo* gizmo)
+{
+	vec3 &pos=gizmo->entity->world.position();
+
+	this->draw(pos,gizmo->entity->world.transform(100,0,0),vec3(1,0,0));
+	this->draw(pos,gizmo->entity->world.transform(0,100,0),vec3(0,1,0));
+	this->draw(pos,gizmo->entity->world.transform(0,0,100),vec3(0,0,1));
+}
+
+void OpenGLRenderer::draw(Piped* piped)
+{
+	
+}
+
+
 void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 {
 	ShaderInterface* shader=this->unlit_color;

@@ -420,6 +420,11 @@ struct Skin;
 struct Texture;
 struct Light;
 struct Camera;
+struct Gizmo;
+struct Piped;
+struct Sphere;
+struct Cylinder;
+struct Tetrahedron;
 
 struct RenderSurface;
 struct GuiViewport;

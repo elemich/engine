@@ -512,7 +512,7 @@ void TabContainer::OnRMouseUp(void* data)
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnRMouseUp,data);
+		this->BroadcastToSelected(&GuiRect::OnRMouseUp,vec2(this->mousex,this->mousey));
 	}
 	
 }

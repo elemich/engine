@@ -97,6 +97,11 @@ struct RendererInterface : TPoolVector<RendererInterface>
 	virtual void drawUnlitTextured(Mesh*)=0;
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
 	virtual void draw(Camera*)=0;
+	virtual void draw(Gizmo*)=0;
+	virtual void draw(Piped*)=0;
+	virtual void draw(Sphere*)=0;
+	virtual void draw(Cylinder*)=0;
+	virtual void draw(Tetrahedron*)=0;
 
 	virtual void ChangeContext()=0;
 

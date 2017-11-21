@@ -905,9 +905,9 @@ void GuiViewport::OnMouseWheel(TabContainer* tabContainer,void* data)
 	this->view*=mat4().translate(0,0,factor*10);
 }
 
-void GuiViewport::OnLMouseDown(TabContainer* tabContainer,void* data)
+void GuiViewport::OnLMouseUp(TabContainer* tabContainer,void* data)
 {
-	GuiRect::OnLMouseDown(tabContainer,data);
+	GuiRect::OnLMouseUp(tabContainer,data);
 
 	if(this->hovering)
 		TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,(void*)this->pickedEntity);

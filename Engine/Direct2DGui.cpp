@@ -573,20 +573,42 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnRMouseUp(tabContainer,data);
 
+	vec2& mpos=*(vec2*)data;
+
+	Entity* expChanged=0;
+	Entity* selChanged=0;
+	Entity* curHover=0;
+
 	HMENU menu=CreatePopupMenu();
 	HMENU createEntity=CreatePopupMenu();
 	HMENU createComponent=CreatePopupMenu();
+	HMENU createMesh=CreatePopupMenu();
 
-	InsertMenu(menu,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createEntity,"Entity");
+	if(this->ProcessMouseInput(mpos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),this->entityRoot,true,expChanged,selChanged,curHover))//get current hovered
 	{
-		InsertMenu(createEntity,0,MF_BYPOSITION|MF_STRING,1,"Entity");
-		InsertMenu(createEntity,1,MF_BYPOSITION|MF_STRING,2,"Camera");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
+		InsertMenu(menu,1,MF_BYPOSITION|MF_STRING,2,"Delete");
+		InsertMenu(menu,2,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,"Component");
+		{
+			InsertMenu(createComponent,0,MF_BYPOSITION|MF_STRING,3,"Light");
+			InsertMenu(createComponent,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createMesh,"Mesh");
+			{
+				InsertMenu(createMesh,0,MF_BYPOSITION|MF_STRING,10,"Piped");
+				InsertMenu(createMesh,1,MF_BYPOSITION|MF_STRING,11,"Sphere");
+				InsertMenu(createMesh,2,MF_BYPOSITION|MF_STRING,12,"Cylinder");
+				InsertMenu(createMesh,3,MF_BYPOSITION|MF_STRING,13,"Tetrahedron");
+			}
+			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
+		}
+		
 	}
-	InsertMenu(menu,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,"Component");
+	else
 	{
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
+	}
+		
 
-	}
-	InsertMenu(menu,2,MF_BYPOSITION|MF_STRING,3,"Delete");
+		
 
 	RECT rc;
 	GetWindowRect(tabContainer->hwnd,&rc);
@@ -596,49 +618,33 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 	switch(menuResult)
 	{
 		case 1:
-			{
-
-			
+		{
 			Entity* newEntity=new Entity;
 
 			newEntity->name="Entity";
 
-			newEntity->SetParent(this->entityRoot);
+			newEntity->SetParent(curHover ? curHover : this->entityRoot);
 			newEntity->bbox.a.make(-1,-1,-1);
 			newEntity->bbox.b.make(1,1,1);
 
 			this->UpdateNodes(this->entityRoot);
 
 			this->OnSize(tabContainer);
-			tabContainer->SetDraw(this,0);
-			}
+			
+		}
 		break;
-		case 2:
-			{
-			Entity* newEntity=new Entity;
-
-			newEntity->name="Camera";
-
-			newEntity->SetParent(this->entityRoot);
-			newEntity->bbox.a.make(-1,-1,-1);
-			newEntity->bbox.b.make(1,1,1);
-
-			newEntity->CreateComponent<Camera>();
-
-			this->UpdateNodes(this->entityRoot);
-
-			this->OnSize(tabContainer);
-			tabContainer->SetDraw(this,0);
-			}
-		break;
-		case 3:
-			{
-
-			}
-			break;
+		case 2:curHover->parent->childs.erase(std::find(curHover->parent->childs.begin(),curHover->parent->childs.end(),curHover));break;
+		case 3:curHover->CreateComponent<Light>();break;
+		case 4:curHover->CreateComponent<Mesh>();break;
+		case 5:curHover->CreateComponent<Camera>();break;
+		case 10:curHover->CreateComponent<Piped>();break;
+		case 11:curHover->CreateComponent<Sphere>();break;
+		case 12:curHover->CreateComponent<Cylinder>();break;
+		case 13:curHover->CreateComponent<Tetrahedron>();break;
 	}
 
 	DestroyMenu(menu);
+	tabContainer->SetDraw(this,0);
 }
 
 
@@ -698,12 +704,15 @@ void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		{
 			this->UnselectNodes(this->entityRoot);
 			this->ExpandUntil(entity);
+			this->selection.clear();
 			this->selection.push_back(entity);
 
 			this->UpdateNodes(this->entityRoot);
 			this->OnSize(tabContainer);
 
 			entity->selected=true;
+
+			entity->CreateComponent<Gizmo>();
 
 			tabContainer->SetDraw(this,0);
 		}
@@ -721,12 +730,15 @@ void GuiSceneViewer::ExpandUntil(Entity* iTarget)
 void GuiSceneViewer::UnselectNodes(Entity* node)
 {
 	node->selected=false;
+	
+	for(std::vector<EntityComponent*>::iterator i=node->components.begin();i!=node->components.end();)
+		(*i)->is<Gizmo>() ? i=node->components.erase(i) : i++ ; 
 
 	for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 		this->UnselectNodes(*nCh);
 }
 
-bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,Entity* node,Entity*& expChanged,Entity*& selChanged)
+bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,Entity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -741,23 +753,31 @@ bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,Entity* node,Entity*
 
 		if(hittedRow)
 		{
-			if(!hittedExpandos)
+			if(iGetHovered)
 			{
-				this->UnselectNodes(this->entityRoot);
-
-				if(!node->selected)
-				{
-					node->selected=true;
-					selChanged=node;
-
-					return true;
-				}
+				curHover=node;
+				return true;
 			}
 			else
-			{
-				node->expanded=!node->expanded;
-				expChanged=node;
-				return true;
+			{ 
+				if(!hittedExpandos)
+				{
+					this->UnselectNodes(this->entityRoot);
+
+					if(!node->selected)
+					{
+						node->selected=true;
+						selChanged=node;
+
+						return true;
+					}
+				}
+				else
+				{
+					node->expanded=!node->expanded;
+					expChanged=node;
+					return true;
+				}
 			}
 		}
 
@@ -769,7 +789,7 @@ bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,Entity* node,Entity*
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 		{
-			if(this->ProcessMouseInput(mpos,pos,*nCh,expChanged,selChanged))
+			if(this->ProcessMouseInput(mpos,pos,*nCh,iGetHovered,expChanged,selChanged,curHover))
 				return true;
 		}
 	}
@@ -791,8 +811,9 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 	{
 		Entity* expChanged=0;
 		Entity* selChanged=0;
+		Entity* curHover=0;
 
-		if(this->ProcessMouseInput(mpos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),this->entityRoot,expChanged,selChanged))
+		if(this->ProcessMouseInput(mpos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),this->entityRoot,false,expChanged,selChanged,curHover))
 		{
 			if(expChanged)
 			{
@@ -988,6 +1009,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 				lvl[0]->Property("End",String(animcont->end));
 				lvl[0]->PropertyAnimControl(animcont);
 			}
+
 		}
 
 		this->entity=iEntity;
@@ -996,10 +1018,31 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		this->scrollBar->SetParent(this);
 		this->entity->properties->SetClip(this);
 
-		this->entity->properties->OnSize(tabContainer);
+		this->OnSize(tabContainer);
 		this->entity->properties->OnActivate(tabContainer);
 
 		tabContainer->SetDraw(this,0);
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																				 
+		/*
+		STARTUPINFO		si;
+		PROCESS_INFORMATION	pi;
+
+		CreateProcess(NULL,cl_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		CreateProcess(NULL,link_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+		WaitForSingleObject(pi.hProcess, INFINITE);
+		*/
+
+		SetCurrentDirectory("C:\\Users\\Michele\\Documents\\Visual Studio 2010\\Projects\\Engine\\Engine\\");
+
+		HINSTANCE cl_result=ShellExecute(0,0,"cl.bat",cl_path,0,0);
+		if((int)(void*)cl_result<=32)
+			__debugbreak();
+
+		HINSTANCE link_result=ShellExecute(0,0,"link.bat","C:\\Users\\Michele\\Documents\\Visual Studio 2010\\Projects\\Engine\\Engine\\ec.cpp",0,0 );
+		if((int)(void*)link_result<=32)
+			__debugbreak();
 	}
 }
 
@@ -1013,6 +1056,8 @@ void GuiEntityViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=this->SelfRender(tabContainer);
 	bool selfClip=this->SelfClip(tabContainer);
+
+	tabContainer->renderTarget->FillRectangle(D2D1::RectF(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w),tabContainer->SetColor(TabContainer::COLOR_GUI_BACKGROUND));
 
 	if(this->entity && this->entity->properties)
 		this->entity->properties->OnPaint(tabContainer);

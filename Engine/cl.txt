@@ -1,0 +1,1 @@
+uso: cl [ opzione... ] nomefile... [ /link opzione di collegamento... ]

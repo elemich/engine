@@ -82,6 +82,9 @@
     <ClCompile Include="win32msg.cpp">
       <Filter>win32</Filter>
     </ClCompile>
+    <ClCompile Include="buildpath.cpp">
+      <Filter>win32</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="win32.h">
