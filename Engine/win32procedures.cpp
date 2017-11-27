@@ -121,6 +121,7 @@ TabContainer::TabContainer(float x,float y,float w,float h,HWND parent):
 	splitterContainer(0),
 	recreateTarget(true),
 	resizeTarget(true),
+	reloadScript(0),
 	iconUp(0),
 	iconRight(0),
 	iconDown(0),
@@ -210,7 +211,76 @@ void TabContainer::Draw()
 	if(this->drawRect && this->drawFrame)
 		__debugbreak();
 
-	if(this->drawRect)
+	if(this->reloadScript)
+	{
+		typedef  EntityScript* (*Create)();
+
+		SetCurrentDirectory("C:\\Users\\Michele\\Documents\\Visual Studio 2010\\Projects\\Engine\\Engine\\tmp");
+
+		if(this->reloadScript->script)
+		{
+			if(!FreeLibrary((HMODULE)this->reloadScript->module))
+				__debugbreak();
+
+			this->reloadScript->script=0;
+		}
+
+		DeleteFile("ec.dll");
+		DeleteFile("ec.obj");
+		DeleteFile("cl.txt");
+		DeleteFile("link.txt");
+		
+		/*{
+			SHELLEXECUTEINFO sei={sizeof(SHELLEXECUTEINFO),SEE_MASK_NOCLOSEPROCESS|SEE_MASK_NOASYNC,0,0,"del","*.obj",0,true,0,0,0,0,0,0};
+
+			if(!ShellExecuteEx(&sei))
+				__debugbreak();
+
+			if(!sei.hProcess)
+				__debugbreak();
+		}*/
+
+		{
+			SHELLEXECUTEINFO sei={sizeof(SHELLEXECUTEINFO),SEE_MASK_NOCLOSEPROCESS,0,0,"cl.bat",cl_arguments,0,/*show*/1,0,0,0,0,0,0};
+
+			if(!ShellExecuteEx(&sei))
+				__debugbreak();
+
+			if(!sei.hProcess)
+				__debugbreak();
+
+			WaitForSingleObject(sei.hProcess,INFINITE);
+		}
+
+		/*{
+			SHELLEXECUTEINFO sei={sizeof(SHELLEXECUTEINFO),SEE_MASK_NOCLOSEPROCESS,0,0,"link.bat",link_arguments,0,true,0,0,0,0,0,0};
+
+			if(!ShellExecuteEx(&sei))
+				__debugbreak();
+
+			if(!sei.hProcess)
+				__debugbreak();
+
+			WaitForSingleObject(sei.hProcess,INFINITE);
+		}*/
+
+
+		this->reloadScript->module=(HMODULE)LoadLibrary("EC.dll");
+
+		if(!this->reloadScript->module)
+			__debugbreak();
+
+		Create createScriptFunc=(Create)GetProcAddress((HMODULE)this->reloadScript->module,"Create");
+		
+		if(createScriptFunc)
+		{
+			this->reloadScript->script=createScriptFunc();
+			this->reloadScript->script->entity=this->reloadScript;
+		}
+
+		this->reloadScript=0;
+	}
+	else if(this->drawRect)
 	{
 		this->drawRect->OnPaint(this);
 		this->drawRect=0;

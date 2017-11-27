@@ -17,11 +17,17 @@ void _setEntitieslevel(Entity* e)
 }
 
 
+EntityScript::EntityScript(Entity* iEntity):entity(iEntity){}
+
+
+
 Entity::Entity():
 	selected(false),
 	expanded(false),
 	level(0),
-	properties(0)
+	properties(0),
+	script(0),
+	module(0)
 {
 	nDrawed=0;
 	nAnimated=0;
@@ -77,6 +83,9 @@ void Entity::update()
 
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->update();
+
+	if(this->script)
+		this->script->update();
 
 	//this->nUpdated++;
 }

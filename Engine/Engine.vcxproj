@@ -88,9 +88,22 @@
       </StackCommitSize>
     </Link>
     <PostBuildEvent>
-      <Command>copy C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll "$(OutDir)glew32.dll" 
-copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.dll" </Command>
+      <Command>copy "C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll" "$(OutDir)glew32.dll" 
+copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.dll" 
+cd $(MSBuildProjectDirectory)\tmp
+del *.obj
+del *.lib
+copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProjectDirectory)\tmp" </Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>cd $(MSBuildProjectDirectory)\tmp
+del *.obj
+del *.lib
+del *.dll
+del *.ipx
+del *.txt
+del *.pdb</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -115,9 +128,17 @@ copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.d
       </StackCommitSize>
     </Link>
     <PostBuildEvent>
-      <Command>copy C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll "$(OutDir)glew32.dll" 
-copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.dll" </Command>
+      <Command>copy "C:\Sdk\glew-1.12.0\bin\Release\Win32\glew32.dll" "$(OutDir)glew32.dll" 
+copy "C:\Sdk\glew-1.12.0\bin\Release MX\Win32\glew32mx.dll" "$(OutDir)glew32mx.dll" 
+cd $(MSBuildProjectDirectory)\tmp
+del *.obj
+del *.lib
+copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProjectDirectory)\tmp" </Command>
     </PostBuildEvent>
+    <PreLinkEvent>
+      <Command>
+      </Command>
+    </PreLinkEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

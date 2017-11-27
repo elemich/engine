@@ -1,1 +1,0 @@
-link.exe %* > link.txt

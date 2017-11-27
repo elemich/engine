@@ -924,6 +924,9 @@ GuiEntityViewer::~GuiEntityViewer()
 	printf("destroying properties %p\n",this);
 }
 
+//__declspec(dllexport) EntityScript* Create(){return new Pippo;}
+
+
 void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnEntitySelected(tabContainer);
@@ -1022,27 +1025,8 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		this->entity->properties->OnActivate(tabContainer);
 
 		tabContainer->SetDraw(this,0);
-																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																				 
-		/*
-		STARTUPINFO		si;
-		PROCESS_INFORMATION	pi;
 
-		CreateProcess(NULL,cl_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
-		WaitForSingleObject(pi.hProcess, INFINITE);
-
-		CreateProcess(NULL,link_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
-		WaitForSingleObject(pi.hProcess, INFINITE);
-		*/
-
-		SetCurrentDirectory("C:\\Users\\Michele\\Documents\\Visual Studio 2010\\Projects\\Engine\\Engine\\");
-
-		HINSTANCE cl_result=ShellExecute(0,0,"cl.bat",cl_path,0,0);
-		if((int)(void*)cl_result<=32)
-			__debugbreak();
-
-		HINSTANCE link_result=ShellExecute(0,0,"link.bat","C:\\Users\\Michele\\Documents\\Visual Studio 2010\\Projects\\Engine\\Engine\\ec.cpp",0,0 );
-		if((int)(void*)link_result<=32)
-			__debugbreak();
+		tabContainer->reloadScript=iEntity;
 	}
 }
 

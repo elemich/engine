@@ -1,1 +1,0 @@
-cl.exe %* > cl.txt

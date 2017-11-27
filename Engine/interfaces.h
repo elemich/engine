@@ -123,8 +123,10 @@ struct InputInterface
 
 };
 
+struct Game
+{
 
-
+};
 
 #endif //INTERFACES_H
 

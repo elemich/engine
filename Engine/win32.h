@@ -3,7 +3,8 @@
 
 #include "win32includes.h"
 
-extern char* cl_path;
+extern char* cl_arguments;;
+extern char* link_arguments;
 
 
 struct Direct2DGuiBase
@@ -136,6 +137,7 @@ struct TabContainer : WindowData , TPoolVector<TabContainer>
 	bool isRender;
 	bool recreateTarget;
 	bool resizeTarget;
+	Entity* reloadScript;
 
 	GuiRect* drawRect;
 	bool	drawFrame;

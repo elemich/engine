@@ -3,6 +3,7 @@
 
 #include "interfaces.h"
 
+
 #define PROCESS_ENTITIES_RECURSIVELY 1
 
 enum EEntity
@@ -263,6 +264,15 @@ struct EntityComponent
 
 };
 
+struct EntityScript
+{
+	Entity* entity;
+
+	EntityScript(Entity* iEntity=0);
+
+	virtual void update()=0;
+};
+
 struct Entity : THierarchyList<Entity>
 {
 	virtual void beginDraw();
@@ -286,8 +296,6 @@ struct Entity : THierarchyList<Entity>
 	int						level;
 
 	GuiRect					*properties;
-
-	void*					script;
 
 	void					SetParent(Entity*);
 	Entity*					Create(Entity*);
@@ -331,6 +339,9 @@ struct Entity : THierarchyList<Entity>
 
 		return vecC;
 	}
+
+	void* module;
+	EntityScript *script;
 };
 
 struct Root : EntityComponent
