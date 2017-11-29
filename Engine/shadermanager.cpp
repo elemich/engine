@@ -21,8 +21,3 @@ ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
 
 	return 0;
 }
-
-
-
-
-

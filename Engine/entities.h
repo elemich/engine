@@ -270,17 +270,17 @@ struct EntityScript
 
 	EntityScript(Entity* iEntity=0);
 
-	virtual void update()=0;
+	virtual void init(){};
+	virtual void deinit(){};
+	virtual void update(){};
 };
 
 struct Entity : THierarchyList<Entity>
 {
-	virtual void beginDraw();
 	virtual void draw(RendererInterface*);
-	virtual void endDraw();
 	virtual void update();	
 
-	mat4					transform;
+	mat4					local;
 	mat4					world;
 
 	String					name;
@@ -348,6 +348,11 @@ struct Root : EntityComponent
 {
 };
 
+struct Skeleton : EntityComponent
+{
+
+};
+
 struct Animation : EntityComponent
 {
 	Animation();
@@ -395,12 +400,11 @@ struct Bone : EntityComponent
 {
 	Bone();
 
-	Bone* bone_root;
+	Bone* root;
 
-	vec3    bone_color;
+	vec3    color;
 
 	void draw(RendererInterface*);
-	void update();
 };
 
 struct Light : EntityComponent
@@ -448,7 +452,6 @@ struct Light : EntityComponent
 	float	light_farstart;
 	float	light_farend;
 
-	void update();
 	void draw(RendererInterface*);
 };
 
@@ -457,7 +460,6 @@ struct Mesh : EntityComponent
 	Mesh();
 
 	virtual void draw(RendererInterface*);
-	virtual void update();
 
 	int save(char*);
 	int load(char*);
@@ -485,8 +487,6 @@ struct Mesh : EntityComponent
 
 	float (*mesh_texcoord)[2];
 	int	  mesh_ntexcoord;
-
-
 
 	float (*mesh_normals)[3];
 	int	  mesh_nnormals;

@@ -287,6 +287,12 @@ void OpenGLRenderer::Create(HWND hwnd)
 	this->unlit_texture=OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
 	this->font=OpenGLShader::Create("font",font_pixsh,font_frgsh);
 	this->shaded_texture=OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+
+	this->shaders.push_back(this->unlit);
+	this->shaders.push_back(this->unlit_color);
+	this->shaders.push_back(this->unlit_texture);
+	this->shaders.push_back(this->font);
+	this->shaders.push_back(this->shaded_texture);
 }
 
 
@@ -320,11 +326,9 @@ void OpenGLRenderer::draw(vec2)
 
 void OpenGLRenderer::draw(Gizmo* gizmo)
 {
-	vec3 &pos=gizmo->entity->world.position();
-
-	this->draw(pos,gizmo->entity->world.transform(100,0,0),vec3(1,0,0));
-	this->draw(pos,gizmo->entity->world.transform(0,100,0),vec3(0,1,0));
-	this->draw(pos,gizmo->entity->world.transform(0,0,100),vec3(0,0,1));
+	this->draw(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
+	this->draw(vec3(0,0,0),vec3(0,10,0),vec3(0,1,0));
+	this->draw(vec3(0,0,0),vec3(0,0,10),vec3(0,0,1));
 }
 
 void OpenGLRenderer::draw(Piped* piped)
@@ -342,25 +346,16 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 	shader->Use();
 
-	int mdl=shader->GetModelviewSlot();
-	int view=shader->GetProjectionSlot();
-	int ptrclr=shader->GetUniform("ptrclr");
+	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	if(ptrclr>=0)
-		glUniform4f(ptrclr,0,0,0,0);
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
+	shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
 	glPointSize(psize);
 
-	int ps=shader->GetPositionSlot();glCheckError();
-	int uniform_color=shader->GetUniform("color");glCheckError();
+	int ps=shader->GetPositionSlot();
+	int uniform_color=shader->GetUniform("color");
 
 	if(uniform_color>=0)
 	{glUniform3fv(uniform_color,1,col);glCheckError();}
@@ -371,7 +366,7 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 
 	glEnableVertexAttribArray(ps);glCheckError();
 	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,0);glCheckError();
-	
+		
 	glDrawArrays(GL_POINTS,0,1);glCheckError();
 
 	glDisableVertexAttribArray(ps);glCheckError();
@@ -392,6 +387,7 @@ void OpenGLRenderer::draw(vec4 rect)
 	{
 		shader->Use();
 		
+		////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 		int mdl=shader->GetModelviewSlot();
 		int view=shader->GetProjectionSlot();
 		int ptrclr=shader->GetUniform("ptrclr");
@@ -399,11 +395,6 @@ void OpenGLRenderer::draw(vec4 rect)
 		if(ptrclr>=0)
 			glUniform4f(ptrclr,0,0,0,0);
 
-		if(mdl>=0)
-			shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-		if(view>=0)
-			shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 	}
 	else
 		return;
@@ -437,6 +428,7 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 		return;
 
 	shader->Use();
+	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
 	int mdl=shader->GetModelviewSlot();
 	int view=shader->GetProjectionSlot();
@@ -444,12 +436,6 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 
 	if(ptrclr>=0)
 		glUniform4f(ptrclr,0,0,0,0);
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
 
 	/*MatrixStack::Push();
 	MatrixStack::Multiply(mtx);*/
@@ -499,18 +485,9 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 
 	shader->Use();
 
-	int mdl=shader->GetModelviewSlot();
-	int view=shader->GetProjectionSlot();
-	int ptrclr=shader->GetUniform("ptrclr");
+	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	if(ptrclr>=0)
-		glUniform4f(ptrclr,0,0,0,0);
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
+	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -583,24 +560,15 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 	
 	shader->Use();
 
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
+
+	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
+	
 	glEnable(GL_DEPTH_TEST);
 
 	int pos=shader->GetPositionSlot();
 	int col=shader->GetUniform("color");
-	int mdl=shader->GetModelviewSlot();
-	int view=shader->GetProjectionSlot();
-	int mpos=shader->GetMouseSlot();
-	int ptrclr=shader->GetUniform("ptrclr");
-
-	if(ptrclr>=0)
-		glUniform4f(ptrclr,0,0,0,0);
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
-
+	
 	glUniform3fv(col,1,color);
 
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
@@ -629,6 +597,8 @@ void OpenGLRenderer::draw(char* text,float x,float y,float width,float height,fl
 		return;
 
 	shader->Use();
+
+	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
 	/*Font* font=FontManager::Instance()->Head()->Data();
 
@@ -908,7 +878,7 @@ void OpenGLRenderer::draw(Mesh* mesh)
 
 void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 {
-	ShaderInterface* shader=this->unlit_texture;
+	ShaderInterface* shader = mesh->mesh_materials.size() ? this->unlit_texture : this->unlit_color;
 
 	if(!shader || !mesh)
 		return;
@@ -925,66 +895,26 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 
 	shader->Use();
 
-	int mdl=shader->GetModelviewSlot();
-	int view=shader->GetProjectionSlot();
-	int mpos=shader->GetMouseSlot();
-	int ptrclr=shader->GetUniform("ptrclr");
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
 
-	if(ptrclr>=0)
-	{
-		if(picking)
-		{
-			unsigned char* clr1=(unsigned char*)&mesh->entity;
 
-			float fcx=clr1[3]/255.0f;
-			float fcy=clr1[2]/255.0f;
-			float fcz=clr1[1]/255.0f;
-			float fcw=clr1[0]/255.0f;
-
-			glUniform4f(ptrclr,fcx,fcy,fcz,fcw);
-		}
-		else glUniform4f(ptrclr,0,0,0,0);
-	}
+	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
 	
-	if(mpos)
-		glUniform2f(mpos,this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height);
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
-
 	int position_slot = shader->GetPositionSlot();
-	int model_slot = shader->GetModelviewSlot();
-	int projection_slot = shader->GetProjectionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
 	int texture_slot = shader->GetTextureSlot();
 	int normal_slot = shader->GetNormalSlot();
 
 	std::vector<unsigned int> textureIndices;
 
-	draw(mesh,textureIndices,texture_slot,texcoord_slot);
-
-	if(!textureIndices.size())
+	if(mesh->mesh_materials.size())
 	{
-		ShaderInterface* shader=this->unlit_color;
+		draw(mesh,textureIndices,texture_slot,texcoord_slot);
 
-		if(shader)
-			shader->Use();
-
-		position_slot = shader->GetPositionSlot();
-		model_slot = shader->GetModelviewSlot();
-		projection_slot = shader->GetProjectionSlot();
-		texcoord_slot = shader->GetTexcoordSlot();
-		texture_slot = shader->GetTextureSlot();
-		normal_slot = shader->GetNormalSlot();
-
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 	else
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 	glBufferData(GL_ARRAY_BUFFER,mesh->mesh_ncontrolpoints*3*sizeof(float),mesh->mesh_controlpoints,GL_DYNAMIC_DRAW);
@@ -1017,10 +947,7 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 
 void OpenGLRenderer::draw(Skin *skin)
 {
-	/*this->draw((Mesh*)skin);
-	return;*/
-
-	ShaderInterface* shader=this->unlit_texture;
+	ShaderInterface* shader = skin->mesh_materials.size() ? this->unlit_texture : this->unlit_color;
 
 	if(!skin || !skin->skin_vertexcache || !shader)
 	{
@@ -1043,35 +970,12 @@ void OpenGLRenderer::draw(Skin *skin)
 
 	shader->Use();
 
-	int mdl=shader->GetModelviewSlot();
-	int view=shader->GetProjectionSlot();
-	int ptrclr=shader->GetUniform("ptrclr");
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	if(ptrclr>=0)
-	{
-		if(picking)
-		{
-			unsigned char* clr1=(unsigned char*)&skin->entity;
 
-			float fcx=clr1[3]/255.0f;
-			float fcy=clr1[2]/255.0f;
-			float fcz=clr1[1]/255.0f;
-			float fcw=clr1[0]/255.0f;
-
-			glUniform4f(ptrclr,fcx,fcy,fcz,fcw);
-		}
-		else glUniform4f(ptrclr,0,0,0,0);
-	}
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
+	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
 
 	int position_slot = shader->GetPositionSlot();
-	int model_slot = shader->GetModelviewSlot();
-	int projection_slot = shader->GetProjectionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
 	int texture_slot = shader->GetTextureSlot();
 	int lightpos_slot = shader->GetLightposSlot();
@@ -1079,9 +983,7 @@ void OpenGLRenderer::draw(Skin *skin)
 	int lightamb_slot = shader->GetLightambSlot();
 	int normal_slot = shader->GetNormalSlot();
 	int color_slot = shader->GetColorSlot();
-
 	
-
 	std::vector<GLuint> textureIndices;
 
 	draw(skin,textureIndices,texture_slot,texcoord_slot);
@@ -1089,26 +991,6 @@ void OpenGLRenderer::draw(Skin *skin)
 	int uniformTextured=shader->GetUniform("textured");
 
 	glUniform1f(uniformTextured,(GLfloat)textureIndices.size());glCheckError();
-
-	if(!textureIndices.size())
-	{
-		ShaderInterface* shader=this->unlit_color;
-
-		if(shader)
-			shader->Use();
-
-
-		position_slot = shader->GetPositionSlot();
-		model_slot = shader->GetModelviewSlot();
-		projection_slot = shader->GetProjectionSlot();
-		texcoord_slot = shader->GetTexcoordSlot();
-		texture_slot = shader->GetTextureSlot();
-		lightpos_slot = shader->GetLightposSlot();
-		lightdiff_slot = shader->GetLightdiffSlot();
-		lightamb_slot = shader->GetLightambSlot();
-		normal_slot = shader->GetNormalSlot();
-		color_slot = shader->GetColorSlot();
-	}
 
 	if(lightdiff_slot>=0)glEnableVertexAttribArray(lightdiff_slot);glCheckError();
 	if(lightamb_slot>=0)glEnableVertexAttribArray(lightamb_slot);glCheckError();
@@ -1172,38 +1054,16 @@ void OpenGLRenderer::draw(Bone* bone)
 
 	shader->Use();
 
+	shader->SetMatrices((MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix()).inverse().traspose(),bone->root->entity->world);
+
+	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
+
 	glEnable(GL_DEPTH_TEST);
 
 	int pos=shader->GetPositionSlot();
 	int col=shader->GetUniform("color");
-	int mdl=shader->GetModelviewSlot();
-	int view=shader->GetProjectionSlot();
-	int mpos=shader->GetMouseSlot();
-	int ptrclr=shader->GetUniform("ptrclr");
 
-	if(ptrclr>=0)
-	{
-		if(picking)
-		{
-			unsigned char* clr1=(unsigned char*)&bone->entity;
-
-			float fcx=clr1[3]/255.0f;
-			float fcy=clr1[2]/255.0f;
-			float fcz=clr1[1]/255.0f;
-			float fcw=clr1[0]/255.0f;
-
-			glUniform4f(ptrclr,fcx,fcy,fcz,fcw);
-		}
-		else glUniform4f(ptrclr,0,0,0,0);
-	}
-
-	if(mdl>=0)
-		shader->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
-
-	if(view>=0)
-		shader->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
-
-	glUniform3fv(col,1,bone->bone_color);
+	glUniform3fv(col,1,bone->color);
 
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 
@@ -1218,9 +1078,7 @@ void OpenGLRenderer::draw(Bone* bone)
 
 	glDisableVertexAttribArray(pos);
 
-
 	glDisable(GL_DEPTH_TEST);
-
 }
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}

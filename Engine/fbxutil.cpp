@@ -131,7 +131,7 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 		if(parent && !entity->name.Count())
 			entity->name=fbxNode->GetName();
 
-		entity->transform=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
+		entity->local=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
 
 		ExtractAnimations(fbxNode,entity);
 		entity->SetParent(parent);
@@ -147,22 +147,23 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 			switch(as.GetUpVector(sign))
 			{
 			case FbxAxisSystem::eXAxis:
-				entity->transform.rotate((float)sign * 90,0,0,1);
+				entity->local.rotate((float)sign * 90,0,0,1);
 				printf("upVector is X\n");
 				break;
 			case FbxAxisSystem::eYAxis:
-				entity->transform.rotate(-90.0f,1,0,0);
+				entity->local.rotate(-90.0f,1,0,0);
 				printf("upVector is Y\n");
 				break;
 			case FbxAxisSystem::eZAxis:
-				axes=entity->transform.axis(1,0,0);
-				entity->transform.rotate((float)sign * 90,axes);
+				
+				/*axes=entity->local.axis(1,0,0);
+				entity->local.rotate((float)sign * 90,axes);*/
 				printf("upVector is Z\n");
 				break;
 			}
 		}
 
-		entity->world = entity->parent ? (entity->transform * entity->parent->world) : entity->transform;
+		entity->world = entity->parent ? (entity->local * entity->parent->world) : entity->local;
 	}
 
 	return entity;
@@ -184,9 +185,9 @@ Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
 			if(bone->entity->parent)
 			{
 				if(bone->entity->parent->findComponent<Bone>())
-					bone->bone_root=bone->entity->parent->findComponent<Bone>()->bone_root;
+					bone->root=bone->entity->parent->findComponent<Bone>()->root;
 				else
-					bone->bone_root=bone;
+					bone->root=bone;
 			}
 		}
 

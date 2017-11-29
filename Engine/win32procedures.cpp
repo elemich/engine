@@ -219,9 +219,12 @@ void TabContainer::Draw()
 
 		if(this->reloadScript->script)
 		{
+			this->reloadScript->script->deinit();
+
 			if(!FreeLibrary((HMODULE)this->reloadScript->module))
 				__debugbreak();
 
+			delete this->reloadScript->script;
 			this->reloadScript->script=0;
 		}
 
@@ -276,6 +279,8 @@ void TabContainer::Draw()
 		{
 			this->reloadScript->script=createScriptFunc();
 			this->reloadScript->script->entity=this->reloadScript;
+
+			this->reloadScript->script->init();
 		}
 
 		this->reloadScript=0;

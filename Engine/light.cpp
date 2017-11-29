@@ -100,10 +100,6 @@ return light_farend;
 
 
 
-void Light::update()
-{
-
-}
 void Light::draw(RendererInterface* renderer)
 {
 

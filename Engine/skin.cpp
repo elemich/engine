@@ -24,8 +24,8 @@ void Skin::update()
 {
 	//this->entity->update();
 
-	/*this->skin_vertexcache=0;
-	return;*/
+	this->skin_vertexcache=0;
+	return;
 
 	if(this->skin_vertexcache)
 		delete [] this->skin_vertexcache;
@@ -79,9 +79,12 @@ void Skin::update()
 				MatrixMathNamespace::transform(dst,skinmtx1,src);
 			}
 
+			//dst=this->entity->local.transform(dst);
+
 			for(int i=1;i<inf.influence_ncontrolpointindex;i++)
 			{
 				memcpy(&this->skin_vertexcache[inf.influence_controlpointindex[i]*3],dst,3*sizeof(float));
+				
 			}
 		}
 	}

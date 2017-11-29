@@ -21,7 +21,7 @@ struct AppInterface
 struct ShaderInterface : TPoolVector<ShaderInterface>
 {
 	static ShaderInterface* Find(const char*,bool exact=true);
-
+	
 	virtual int GetProgram()=0;
 	virtual void SetProgram(int)=0;
 
@@ -54,18 +54,17 @@ struct ShaderInterface : TPoolVector<ShaderInterface>
 	virtual int GetNormalSlot()=0;
 	virtual int GetHoveringSlot()=0;
 
+	virtual void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm)=0;
+
 	virtual bool SetMatrix4f(int slot,float* mtx)=0;
 
 	virtual unsigned int& GetBufferObject()=0;
 
 	virtual void SetProjectionMatrix(float*)=0;
 	virtual void SetModelviewMatrix(float*)=0;
-
-	virtual void SetByMatrixStack()=0;
+	virtual void SetMatrices(float* view,float* mdl)=0;
 
 	ShaderInterface();
-
-	
 };
 
 struct RendererInterface : TPoolVector<RendererInterface>
@@ -73,6 +72,10 @@ struct RendererInterface : TPoolVector<RendererInterface>
 	std::list<GuiViewport*> viewports;
 	Task* rendererTask;
 	bool picking;
+	std::vector<ShaderInterface*> shaders;
+
+	ShaderInterface* FindShader(const char* name,bool exact);
+	void SetMatrices(const float* view,const float* mdl);
 
 	void Register(GuiViewport*);
 	void Unregister(GuiViewport*);

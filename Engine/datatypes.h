@@ -14,17 +14,18 @@ struct MatrixStack
 	enum matrixmode
 	{
 		PROJECTION=0,
-		MODELVIEW,
+		MODEL,
+		VIEW,
 		MATRIXMODE_MAX
 	};
 
-	static void Init();
+	static void Reset();
 
 
 	static void Push();
 	static void Pop();
 	static void Identity();
-	static float* GetMatrix();
+	static float* Get();
 	static void Load(float* m);
 	static void Multiply(float* m);
 
@@ -32,7 +33,7 @@ struct MatrixStack
 	static void Push(MatrixStack::matrixmode);
 	static void Push(MatrixStack::matrixmode,float*);
 	static void Identity(MatrixStack::matrixmode);
-	static float* GetMatrix(MatrixStack::matrixmode,int lev=-1);
+	static float* Get(MatrixStack::matrixmode,int lev=-1);
 	static void Load(MatrixStack::matrixmode,float*);
 	static void Multiply(MatrixStack::matrixmode,float*);
 
@@ -40,11 +41,13 @@ struct MatrixStack
 	static void Translate(float x,float y,float z);
 	static void Scale(float x,float y,float z);
 
-	static float* GetProjectionMatrix();
-	static float* GetModelviewMatrix();
+	static mat4 GetProjectionMatrix();
+	static mat4 GetModelMatrix();
+	static mat4 GetViewMatrix();
 
 	static void SetProjectionMatrix(float*);
-	static void SetModelviewMatrix(float*);
+	static void SetModelMatrix(float*);
+	static void SetViewMatrix(float*);
 
 	static  MatrixStack::matrixmode GetMode();
 	static  void SetMode(MatrixStack::matrixmode m);
@@ -90,14 +93,15 @@ struct OpenGLShader : ShaderInterface
 	int GetMouseSlot();
 	int GetHoveringSlot();
 
+	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
+
 	bool SetMatrix4f(int slot,float* mtx);
 
 	unsigned int& GetBufferObject();
 
 	void SetProjectionMatrix(float*);
 	void SetModelviewMatrix(float*);
-
-	void SetByMatrixStack();
+	void SetMatrices(float* view,float* mdl);
 
 	void SetName(const char*);
 	const char* GetName();

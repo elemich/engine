@@ -24,6 +24,35 @@ void RendererInterface::Unregister(GuiViewport* iViewport)
 	this->viewports.remove(iViewport);
 }
 
+ShaderInterface* RendererInterface::FindShader(const char* name,bool exact)
+{
+	for(size_t i=0;i<this->shaders.size();i++)
+	{
+		ShaderInterface* element=this->shaders[i];
+
+		const char* programName=element->GetName();
+
+		if(element && programName)
+			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
+				return this->shaders[i];
+	}
+
+	return 0;
+}
+
+void RendererInterface::SetMatrices(const float* view,const float* mdl)
+{
+	for(size_t i=0;i<this->shaders.size();i++)
+	{
+		this->shaders[i]->Use();
+
+		if(view)
+			this->shaders[i]->SetProjectionMatrix((float*)view);
+		if(mdl)
+			this->shaders[i]->SetModelviewMatrix((float*)mdl);
+	}
+}
+
 ////////////////////////////
 ////////GuiRect///////
 ////////////////////////////
@@ -805,7 +834,10 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 	}
 
 	if(this->rootEntity)
+	{
+		this->rootEntity->world=this->model;
 		this->rootEntity->update();
+	}
 
 	tabContainer->renderer->ChangeContext();
 
@@ -819,8 +851,8 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
 		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
-		MatrixStack::Multiply(MatrixStack::PROJECTION,this->view);
-		MatrixStack::Push(MatrixStack::MODELVIEW,this->model);
+		MatrixStack::Push(MatrixStack::VIEW,this->view);
+		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
 		tabContainer->renderer->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
 		tabContainer->renderer->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
@@ -829,7 +861,8 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 		if(this->rootEntity)
 			this->rootEntity->draw(tabContainer->renderer);
 
-		MatrixStack::Pop(MatrixStack::MODELVIEW);
+		MatrixStack::Pop(MatrixStack::MODEL);
+		MatrixStack::Pop(MatrixStack::VIEW);
 		MatrixStack::Pop(MatrixStack::PROJECTION);
 
 		glReadBuffer(GL_BACK);glCheckError();
@@ -850,13 +883,14 @@ void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
 		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
-		MatrixStack::Multiply(MatrixStack::PROJECTION,this->view);
-		MatrixStack::Push(MatrixStack::MODELVIEW,this->model);
+		MatrixStack::Push(MatrixStack::VIEW,this->view);
+		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
 		if(this->rootEntity)
 			this->rootEntity->draw(tabContainer->renderer);
 
-		MatrixStack::Pop(MatrixStack::MODELVIEW);
+		MatrixStack::Pop(MatrixStack::MODEL);
+		MatrixStack::Pop(MatrixStack::VIEW);
 		MatrixStack::Pop(MatrixStack::PROJECTION);
 
 		glReadBuffer(GL_BACK);glCheckError();

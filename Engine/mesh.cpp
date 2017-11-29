@@ -65,14 +65,9 @@ std::vector<Material*>& Mesh::GetMaterials()
 	return this->mesh_materials;
 }
 
-void Mesh::update()
-{
-}
 
 void Mesh::draw(RendererInterface* renderer)
 {
-	//renderer->draw(this->entity->bbox,vec3(0,0,0));
-
 	renderer->draw(this);
 }
 

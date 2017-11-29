@@ -104,29 +104,17 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const char* frag)
 {
-	/*if(shadersPool.Find(name))
-	{
-		printf("skipping creating %s: already exists\n",name);
-		return 0;
-	}*/
-
 	int program=create_program(name,pix,frag);
 
 	if(program)
 	{
-		ShaderInterface* shader=new OpenGLShader();
+		ShaderInterface* shader=new OpenGLShader;
+
 		shader->SetName(name);
 		shader->SetProgram(program);
-
-		glUseProgram(program);glCheckError();
-
-		shader->init();
 		shader->Use();
+		shader->init();
 		
-		ShaderInterface::pool.push_back(shader);
-
-		//printf("adding %s to shaders list\n",name);
-
 		return shader;
 	}
 	else
@@ -157,25 +145,22 @@ int OpenGLShader::GetAttrib(int slot,char* var)
 
 void OpenGLShader::SetProjectionMatrix(float* pm)
 {
-	if(!pm)
-		return;
-
 	this->SetMatrix4f(this->GetProjectionSlot(),pm);
-
 }
 void OpenGLShader::SetModelviewMatrix(float* mm)
 {
-	if(!mm)
-		return;
-
 	this->SetMatrix4f(this->GetModelviewSlot(),mm);
 }
 
-void OpenGLShader::SetByMatrixStack()
+void OpenGLShader::SetMatrices(float* view,float* mdl)
 {
-	this->SetProjectionMatrix(MatrixStack::GetProjectionMatrix());
-	this->SetModelviewMatrix(MatrixStack::GetModelviewMatrix());
+	if(view)
+		this->SetProjectionMatrix(view);
+
+	if(mdl)
+		this->SetModelviewMatrix(mdl);
 }
+
 
 void OpenGLShader::Use()
 {
@@ -258,9 +243,34 @@ int OpenGLShader::GetHoveringSlot()
 	return GetAttribute("hovered");
 }
 
+void OpenGLShader::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
+{
+	int _mousepos=this->GetMouseSlot();
+	int _ptrclr=this->GetUniform("ptrclr");
+
+	if(_ptrclr>=0)
+	{
+		if(pick)
+		{
+			unsigned char* clr1=(unsigned char*)&ptr;
+
+			float fcx=clr1[3]/255.0f;
+			float fcy=clr1[2]/255.0f;
+			float fcz=clr1[1]/255.0f;
+			float fcw=clr1[0]/255.0f;
+
+			glUniform4f(_ptrclr,fcx,fcy,fcz,fcw);
+		}
+		else glUniform4f(_ptrclr,0,0,0,0);
+
+		if(_mousepos>=0)
+			glUniform2f(_mousepos,mposNorm.x,mposNorm.y);
+	}
+}
+
 bool OpenGLShader::SetMatrix4f(int slot,float* mtx)
 {
-	if(slot<0 || !mtx)
+	if(slot<0)
 		return false;
 
 	glUniformMatrix4fv(slot,1,0,mtx);glCheckError();

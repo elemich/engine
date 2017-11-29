@@ -63,50 +63,22 @@ Entity::~Entity()
 
 void Entity::update()
 {
-	/*if(this->nDrawed>=1 && this->nUpdated>=1)
-	{
-		this->nAnimated=0;
-		this->nUpdated=0;
-		this->nDrawed=0;
-	}
-
-	
-	if(this->nUpdated>1)
-	{
-		return;
-	}*/
-
-	this->world = this->parent ? (this->transform * this->parent->world) : this->transform;
-
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
-		(*it)->update();
-
-	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->update();
 
 	if(this->script)
 		this->script->update();
 
-	//this->nUpdated++;
+	this->parent ? this->world=(this->local * this->parent->world) : this->world;
+
+	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		(*it)->update();
 }
 
-void Entity::beginDraw()
-{
-	MatrixStack::Push(MatrixStack::MODELVIEW);
-	MatrixStack::Multiply(MatrixStack::MODELVIEW,this->world);
-}
-
-void Entity::endDraw()
-{
-	MatrixStack::Pop(MatrixStack::MODELVIEW);
-}
 
 void Entity::draw(RendererInterface* renderer)
 {	
-	/*if(this->nDrawed>1)
-	{
-		return;
-	}*/
+	MatrixStack::Push(MatrixStack::MODEL,this->world);
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		(*it)->draw(renderer);
@@ -114,8 +86,6 @@ void Entity::draw(RendererInterface* renderer)
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->draw(renderer);
 
-	//renderer->draw(this->bbox);
-
-	//this->nDrawed++;
+	MatrixStack::Pop(MatrixStack::MODEL);
 }
 

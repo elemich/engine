@@ -4,7 +4,7 @@
 
 Bone::Bone()
 	:
-	bone_root(0)
+	root(0)
 {
 	int x;
 	int y;
@@ -21,13 +21,10 @@ Bone::Bone()
 			break;
 	}
 
-	bone_color.make((float)x,(float)y,(float)z);
+	color.make((float)x,(float)y,(float)z);
 }
 
 
-void Bone::update()
-{
-}	
 
 void Bone::draw(RendererInterface* renderer)
 {

@@ -12,10 +12,10 @@ mat4 MatrixStack::model;
 mat4 MatrixStack::projection;
 mat4 MatrixStack::view;
 
-void MatrixStack::Init()
+void MatrixStack::Reset()
 	
 {
-	mode=MatrixStack::MODELVIEW;
+	mode=MatrixStack::MODEL;
 
 	for(int i=0;i<MatrixStack::MATRIXMODE_MAX;i++)
 		for(int j=0;j<MATRIXSTACK_ARRAY_SIZES;j++)
@@ -26,14 +26,14 @@ void MatrixStack::Init()
 
 
 
-float* MatrixStack::GetMatrix(MatrixStack::matrixmode m,int lev)
+float* MatrixStack::Get(MatrixStack::matrixmode m,int lev)
 {
 	return matrixstack[m][(lev<0 ? levels[m] : lev)];
 }
 
-float* MatrixStack::GetMatrix()
+float* MatrixStack::Get()
 {
-	return GetMatrix((MatrixStack::matrixmode)mode);
+	return Get((MatrixStack::matrixmode)mode);
 }
 
 
@@ -41,24 +41,36 @@ void MatrixStack::SetProjectionMatrix(float* pm)
 {
 	memcpy(matrixstack[MatrixStack::PROJECTION][levels[MatrixStack::PROJECTION]],pm,sizeof(float)*16);
 }
-void MatrixStack::SetModelviewMatrix(float* mm)
+void MatrixStack::SetModelMatrix(float* mm)
 {
-	memcpy(matrixstack[MatrixStack::MODELVIEW][levels[MatrixStack::MODELVIEW]],mm,sizeof(float)*16);
+	memcpy(matrixstack[MatrixStack::MODEL][levels[MatrixStack::MODEL]],mm,sizeof(float)*16);
+}
+void MatrixStack::SetViewMatrix(float* mm)
+{
+	memcpy(matrixstack[MatrixStack::VIEW][levels[MatrixStack::VIEW]],mm,sizeof(float)*16);
 }
 
-float* MatrixStack::GetProjectionMatrix()
+mat4 MatrixStack::GetProjectionMatrix()
 {
 	if(!matrixstack[PROJECTION][levels[PROJECTION]])
 		__debugbreak();
 
 	return matrixstack[PROJECTION][levels[PROJECTION]];
 }
-float* MatrixStack::GetModelviewMatrix()
+mat4 MatrixStack::GetModelMatrix()
 {
-	if(!matrixstack[MODELVIEW][levels[MODELVIEW]])
+	if(!matrixstack[MODEL][levels[MODEL]])
 		__debugbreak();
 
-	return matrixstack[MODELVIEW][levels[MODELVIEW]];
+	return matrixstack[MODEL][levels[MODEL]];
+}
+
+mat4 MatrixStack::GetViewMatrix()
+{
+	if(!matrixstack[VIEW][levels[VIEW]])
+		__debugbreak();
+
+	return matrixstack[VIEW][levels[VIEW]];
 }
 
 
@@ -81,7 +93,7 @@ void MatrixStack::Identity()
 
 void MatrixStack::Identity(MatrixStack::matrixmode m)
 {
-	MatrixMathNamespace::identity(GetMatrix(m));
+	MatrixMathNamespace::identity(Get(m));
 }
 
 void MatrixStack::Load(float* m)
@@ -103,7 +115,7 @@ void MatrixStack::Multiply(float* m)
 
 void MatrixStack::Multiply(MatrixStack::matrixmode m,float* mtx)
 {
-	MatrixMathNamespace::multiply(GetMatrix(m),mtx);
+	MatrixMathNamespace::multiply(Get(m),mtx);
 }
 
 void MatrixStack::Push(MatrixStack::matrixmode m)
@@ -138,18 +150,18 @@ void MatrixStack::Pop(MatrixStack::matrixmode m)
 
 void MatrixStack::Rotate(float a,float x,float y,float z)
 {	
-	MatrixMathNamespace::rotate(GetMatrix(),a,x,y,z);
+	MatrixMathNamespace::rotate(Get(),a,x,y,z);
 }
 
 void MatrixStack::Translate(float x,float y,float z)
 {
 	float f[3]={x,y,z};
-	MatrixMathNamespace::translate(GetMatrix(),f);
+	MatrixMathNamespace::translate(Get(),f);
 }
 
 void MatrixStack::Scale(float x,float y,float z)
 {
-	MatrixMathNamespace::scale(GetMatrix(),GetMatrix(),x,y,z);
+	MatrixMathNamespace::scale(Get(),Get(),x,y,z);
 }
 
 MatrixStack::matrixmode MatrixStack::GetMode()
