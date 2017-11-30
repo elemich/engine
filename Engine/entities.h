@@ -213,11 +213,7 @@ struct Cluster
 struct Keyframe
 {
 	Keyframe();
-
-
 	float		 time;
-
-
 	float value;
 };
 

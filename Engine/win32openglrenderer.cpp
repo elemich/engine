@@ -945,7 +945,7 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 }
 
 
-void OpenGLRenderer::draw(Skin *skin)
+void OpenGLRenderer::draw(Skin* skin)
 {
 	ShaderInterface* shader = skin->mesh_materials.size() ? this->unlit_texture : this->unlit_color;
 
@@ -970,7 +970,7 @@ void OpenGLRenderer::draw(Skin *skin)
 
 	shader->Use();
 
-	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
 
 
 	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
@@ -1054,7 +1054,7 @@ void OpenGLRenderer::draw(Bone* bone)
 
 	shader->Use();
 
-	shader->SetMatrices((MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix()).inverse().traspose(),bone->root->entity->world);
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
 	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mousex/this->tabContainer->width,this->tabContainer->mousey/this->tabContainer->height));
 
