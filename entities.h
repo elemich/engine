@@ -1,0 +1,627 @@
+#ifndef __ENTITY_HEADER__
+#define __ENTITY_HEADER__
+
+#include "interfaces.h"
+
+struct Renderer3dInterface;
+struct ShaderInterface;
+
+#define PROCESS_ENTITIES_RECURSIVELY 1
+
+enum EEntity
+{
+	ENTITY_GENERIC=0,
+	ENTITY_IMAGE,
+	ENTITY_MESH,
+	ENTITY_SKIN,
+	ENTITY_BONE,
+	ENTITY_LIGHT,
+	ENTITY_CAMERA,
+	ENTITY_GUI,
+	ENTITY_MAX
+};
+
+enum EInterpolation
+{
+	INTERP_CONSTANT=0,
+	INTERP_ADDITIVE,
+	INTERP_MAX
+};
+
+enum EChannel
+{
+	SCALEX,
+	SCALEY,
+	SCALEZ,
+	TRANSLATEX,
+	TRANSLATEY,
+	TRANSLATEZ,
+	ROTATEX,
+	ROTATEY,
+	ROTATEZ,
+	INVALID_CHANNEL
+};
+
+enum EAnimationState
+{
+	ANIMSTATE_STOP,
+	ANIMSTATE_PLAY,
+	ANIMSTATE_PAUSE,
+	ANIMSTATE_MAX
+};
+
+enum EResourceId
+{
+	RESOURCE_TEXTURE,
+	RESOURCE_MATERIAL
+};
+
+enum ELight//as fbx enum
+{
+	LIGHT_POINT,
+	LIGHT_DIRECTIONAL,
+	LIGHT_SPOT,
+	LIGHT_AREA,
+	LIGHT_VOLUME,
+	LIGHT_MAX
+};
+
+enum EDecay//as fbx
+{
+	DECAY_NONE,
+	DECAY_LINEAR,
+	DECAY_QUADRATIC,
+	DECAY_CUBIC,
+	DECAY_MAX
+};
+
+enum EMaterial
+{
+	MATERIAL_DIFFUSE,
+	MATERIAL_AMBIENT,
+	MATERIAL_SPECULAR,
+	MATERIAL_SHININESS,
+	MATERIAL_BUMP,
+	MATERIAL_NORMALMAP,
+	MATERIAL_TRANSPARENT,
+	MATERIAL_REFLECTION,
+	MATERIAL_EMISSIVE,
+	MATERIAL_DISPLACEMENT,
+	MATERIAL_MAX
+};
+
+enum ETexture
+{
+	TEXTURE_GENERIC,
+	TEXTURE_FILE,
+	TEXTURE_LAYERED,
+	TEXTURE_PROCEDURAL,
+	TEXTURE_MAX
+};
+
+static const char *EEntityNames[ENTITY_MAX]=
+{
+	"ENTITY_GENERIC",
+	"ENTITY_IMAGE",
+	"ENTITY_MESH",
+	"ENTITY_SKIN",
+	"ENTITY_BONE",
+	"ENTITY_LIGHT",
+	"ENTITY_CAMERA",
+	"ENTITY_GUI"
+};
+
+
+struct Resource : THierarchyList<Entity>
+{
+	Resource* GetResource(){return this;}
+	Resource* GetTexture(){return 0;}
+	Resource* GetMaterial(){return 0;}
+};
+
+struct File : Resource
+{
+	String fullPath;
+};
+
+struct Dir : Resource
+{
+	String fullPath;
+};
+
+struct Texture
+{
+	Texture();
+
+	Texture* GetTexture(){return this;}
+	Texture* GetTextureFile(){return 0;}
+	Texture* GetTextureLayered(){return 0;}
+
+	virtual void draw(Renderer3dInterface*)=0;
+
+	virtual int load(char*)=0;
+	virtual int loadBMP(char*)=0;
+	virtual int loadPNG(char*)=0;
+	virtual int loadJPG(char*)=0;
+	virtual int loadTGA(char*)=0;
+	virtual void* GetBuffer()=0;
+	virtual int GetSize()=0;
+	virtual int GetWidth()=0;
+	virtual int GetHeight()=0;
+	virtual int GetBpp()=0;
+};
+
+
+struct Material : Resource
+{
+	Material();
+
+	Material* GetMaterial(){return this;}
+
+	void update(){}
+	void draw(Renderer3dInterface*){}
+
+	std::vector<Texture*> textures;
+
+
+
+	EMaterial m_type;
+
+	float emissive[3];
+	float femissive;
+	float ambient[3];
+	float fambient;
+	float diffuse[3];
+	float fdiffuse;
+	float normalmap[3];
+	float bump[3];
+	float fbump;
+	float transparent[3];
+	float ftransparent;
+	float displacement[3];
+	float fdisplacement;
+
+	float specular[3];
+	float fspecular;
+	float fshininess;
+	float reflection[3];
+	float freflection;
+};
+
+
+struct Influence
+{
+	int		*influence_controlpointindex;
+	int		influence_ncontrolpointindex;
+	float	influence_weight;
+
+	Influence();
+};
+
+struct Bone;
+struct Cluster
+{
+	Entity* cluster_bone;
+
+	Influence	*cluster_influences;
+	int			cluster_ninfluences;
+
+	mat4		cluster_offset;
+
+	Cluster();
+};
+
+
+struct Keyframe
+{
+	Keyframe();
+	float		 time;
+	float value;
+};
+
+
+
+
+
+struct KeyCurve
+{
+	
+
+	KeyCurve();
+
+	std::vector<Keyframe*>	keycurve_keyframes;
+	EChannel		keycurve_channel;
+	float			keycurve_start;
+	float			keycurve_end;
+};
+
+
+struct AnimClip
+{
+	AnimClip();
+
+	std::vector<KeyCurve*> curvegroup_keycurves;
+
+	float curvegroup_start;
+	float curvegroup_end;
+};
+
+
+struct EntityComponent
+{
+	Entity* entity;
+
+	std::list<ShaderInterface*> shaders;
+
+	EntityComponent():entity(0){}
+
+	template<class C> C* is(){return dynamic_cast<C*>(this);}
+
+	virtual void update(){}
+	virtual void draw(Renderer3dInterface* ri){}
+
+};
+
+struct EntityScript
+{
+	Entity* entity;
+
+	EntityScript(Entity* iEntity=0);
+
+	virtual void init(){};
+	virtual void deinit(){};
+	virtual void update(){};
+};
+
+struct Entity : THierarchyList<Entity>
+{
+	virtual void draw(Renderer3dInterface*);
+	virtual void update();	
+
+	mat4					local;
+	mat4					world;
+
+	String					name;
+
+	AABB					bbox;
+
+	int						nDrawed;
+	int						nUpdated;
+	int						nAnimated;
+
+	bool					selected;
+	bool					expanded;
+	int						level;
+
+	GuiRect					*properties;
+
+	void					SetParent(Entity*);
+	Entity*					Create(Entity*);
+
+	bool operator==(const Entity& e){return this==&e;}
+
+	Entity();
+	~Entity();
+
+	std::vector<EntityComponent*> components;
+	
+	
+	template<class C> C* CreateComponent()
+	{
+		C* newComp=new C;
+		newComp->entity=this;
+		this->components.push_back(newComp);
+		return newComp;
+	}
+
+	template<class C> C* findComponent()
+	{
+		for(int i=0;i<(int)this->components.size();i++)
+		{
+			if(dynamic_cast<C*>(this->components[i]))
+				return (C*)this->components[i];
+		}
+
+		return 0;
+	}
+
+	template<class C> std::vector<C*> findComponents()
+	{
+		std::vector<C*> vecC;
+
+		for(int i=0;i<(int)this->components.size();i++)
+		{
+			if(dynamic_cast<C*>(this->components[i]))
+				vecC.push_back(this->components[i]);
+		}
+
+		return vecC;
+	}
+
+	void* module;
+	EntityScript *script;
+};
+
+struct Root : EntityComponent
+{
+};
+
+struct Skeleton : EntityComponent
+{
+
+};
+
+struct Animation : EntityComponent
+{
+	Animation();
+
+	Entity* entity;
+
+	std::vector<AnimClip*> clips;
+
+	float	start;
+	float	end;
+
+	int clipIdx;
+};
+
+struct Gizmo : EntityComponent
+{
+	void draw(Renderer3dInterface*);
+};
+
+struct AnimationController : EntityComponent
+{
+	std::vector<Animation*> animations;
+
+	float speed;
+	float cursor;
+	bool play;
+	bool looped;
+
+	float start;
+	float end;
+
+	int resolutionFps;
+
+	int lastFrameTime;
+
+	AnimationController():speed(1),cursor(0),play(false),looped(true),start(0),end(0),lastFrameTime(0),resolutionFps(60){}
+
+	void add(Animation* anim);
+
+	void update();
+	void draw(Renderer3dInterface*){}
+};
+
+struct Bone : EntityComponent
+{
+	Bone();
+
+	Bone* root;
+
+	vec3    color;
+
+	void draw(Renderer3dInterface*);
+};
+
+struct Light : EntityComponent
+{
+	Light();
+
+	ELight	LightType();
+	EDecay	DecayType();
+
+	bool    Cast();
+	bool    Volumetric();
+	bool    GroundProjection();
+	bool    NearAttenuation();
+	bool    FarAttenuation();
+	bool    Shadows();
+	float*	Color();
+	float*	ShadowColor();
+	float	Intensity();
+	float	InnerAngle();
+	float	OuterAngle();
+	float   Fog();
+	float	DecayStart();
+	float	NearStart();
+	float	NearEnd();
+	float	FarStart();
+	float	FarEnd();
+
+	ELight	light_type;
+	EDecay	light_decaytype;
+	bool    light_cast;
+	bool    light_volumetric;
+	bool    light_groundprojection;
+	bool    light_nearattenuation;
+	bool    light_farattenuation;
+	bool    light_shadows;
+	vec3	light_color;
+	vec3	light_shadowcolor;
+	float	light_intensity;
+	float	light_innerangle;
+	float	light_outerangle;
+	float   light_fog;
+	float	light_decaystart;
+	float	light_nearstart;
+	float	light_nearend;
+	float	light_farstart;
+	float	light_farend;
+
+	void draw(Renderer3dInterface*);
+};
+
+struct Mesh : EntityComponent
+{
+	Mesh();
+
+	virtual void draw(Renderer3dInterface*);
+
+	int save(char*);
+	int load(char*);
+
+	float** GetControlPoints();
+	int GetNumControlPoints();
+
+	float** GetTriangles();
+	int GetNumTriangles();
+
+	float** GetUV();
+	int GetNumUV();
+	int** GetUVIndices();
+
+	float** GetNormals();
+	int GetNumNormals();
+
+	std::vector<Material*>& GetMaterials();
+
+	float (*mesh_controlpoints)[3];
+	int	  mesh_ncontrolpoints;
+
+	unsigned int *mesh_vertexindices;
+	int	  mesh_nvertexindices;
+
+	float (*mesh_texcoord)[2];
+	int	  mesh_ntexcoord;
+
+	float (*mesh_normals)[3];
+	int	  mesh_nnormals;
+
+	float (*mesh_colors)[3];
+	int	  mesh_ncolors;
+
+	int	  mesh_npolygons;
+
+	bool  mesh_isCCW;
+
+	std::vector<Material*> mesh_materials;
+};
+
+struct Solid : Mesh
+{
+
+};
+
+struct Piped : Solid
+{
+	float widthU;
+	float widthV;
+	float widthW;
+
+	Piped():widthU(10),widthV(10),widthW(10){}
+};
+
+struct Sphere : Solid
+{
+	float ray;
+
+	Sphere():ray(10){}
+};
+
+struct Cylinder : Solid
+{
+	float ray;
+	float height;
+
+	Cylinder():ray(10),height(10){}
+};
+
+struct Tetrahedron : Solid
+{
+	float height;
+
+	Tetrahedron():height(10){}
+};
+
+struct Skin : Mesh
+{
+	Skin();
+
+	void		draw(Renderer3dInterface*);
+	void		update();
+	
+	
+	Texture	    *skin_textures;
+	int			skin_ntextures;
+
+	Cluster		*skin_clusters;
+	int			skin_nclusters;
+
+
+	float*	    skin_vertexcache;
+};
+
+struct Camera : EntityComponent
+{
+	float fov;
+	float ratio;
+	float Near;
+	float Far;
+
+	mat4 matrix;
+
+	vec3 target;
+};
+
+struct TextureFile : Texture
+{
+	TextureFile();
+	~TextureFile();
+
+	TextureFile* GetTextureFile(){return this;}
+
+	int load(char*);
+	int loadBMP(char*);//0 error
+	int loadPNG(char*);
+	int loadJPG(char*);//0 error
+	int loadTGA(char*);//0 error
+	void* GetBuffer();
+	int GetSize();
+	int GetWidth();
+	int GetHeight();
+	int GetBpp();
+
+
+	String filename;
+
+	void* __data;
+
+	void draw(Renderer3dInterface*);
+};
+
+
+
+struct TextureLayered
+{
+	std::vector<Texture*> textures;
+
+	TextureLayered();
+
+	TextureLayered* GetTextureLayered(){return this;}
+
+	void draw(Renderer3dInterface*){}
+};
+
+struct TextureProcedural : Texture 
+{
+	TextureProcedural();
+
+	int load(char*){return 0;}
+	int loadBMP(char*){return 0;}
+	int loadPNG(char*){return 0;}
+	int loadJPG(char*){return 0;}
+	int loadTGA(char*){return 0;}
+	void* GetBuffer(){return 0;}
+	int GetSize(){return 0;}
+	int GetWidth(){return 0;}
+	int GetHeight(){return 0;}
+	int GetBpp(){return 0;}
+
+	void draw(Renderer3dInterface*){}
+};
+
+
+
+#endif //__ENTITY_HEADER__

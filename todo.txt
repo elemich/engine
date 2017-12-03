@@ -1,8 +1,0 @@
-undo/redo system with pointer to function
-c++ parsing and compiling with CLANG
-
-resources:
-antongerdelan.net/opengl
-
-macosx:
-https://developer.apple.com/reference/appkit

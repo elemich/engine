@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Engine", "Engine\Engine.vcxproj", "{723F1E61-5F13-4596-9185-160E49DA5BFC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Engine", "Engine.vcxproj", "{723F1E61-5F13-4596-9185-160E49DA5BFC}"
 EndProject
 Global
 	GlobalSection(TestCaseManagementSettings) = postSolution
@@ -10,6 +10,8 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
 		Debug|x64 = Debug|x64
+		FbxPlugin|Win32 = FbxPlugin|Win32
+		FbxPlugin|x64 = FbxPlugin|x64
 		Release|Win32 = Release|Win32
 		Release|x64 = Release|x64
 	EndGlobalSection
@@ -18,6 +20,10 @@ Global
 		{723F1E61-5F13-4596-9185-160E49DA5BFC}.Debug|Win32.Build.0 = Debug|Win32
 		{723F1E61-5F13-4596-9185-160E49DA5BFC}.Debug|x64.ActiveCfg = Debug|x64
 		{723F1E61-5F13-4596-9185-160E49DA5BFC}.Debug|x64.Build.0 = Debug|x64
+		{723F1E61-5F13-4596-9185-160E49DA5BFC}.FbxPlugin|Win32.ActiveCfg = FbxPlugin|Win32
+		{723F1E61-5F13-4596-9185-160E49DA5BFC}.FbxPlugin|Win32.Build.0 = FbxPlugin|Win32
+		{723F1E61-5F13-4596-9185-160E49DA5BFC}.FbxPlugin|x64.ActiveCfg = FbxPlugin|x64
+		{723F1E61-5F13-4596-9185-160E49DA5BFC}.FbxPlugin|x64.Build.0 = FbxPlugin|x64
 		{723F1E61-5F13-4596-9185-160E49DA5BFC}.Release|Win32.ActiveCfg = Release|Win32
 		{723F1E61-5F13-4596-9185-160E49DA5BFC}.Release|Win32.Build.0 = Release|Win32
 		{723F1E61-5F13-4596-9185-160E49DA5BFC}.Release|x64.ActiveCfg = Release|x64
