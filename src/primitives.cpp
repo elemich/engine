@@ -1,10 +1,16 @@
 #include "primitives.h"
 
+
+#include <cstdio>
+#include <typeinfo>
+#include <algorithm>
+
+
 String::String():data(0){}
 
 String::String(int size,const char* s,...)
 {
-	__debugbreak();
+	//__debugbreak();
 	/*va_list vl;
 	va_start(vl,s);
 	char t[size];
@@ -47,8 +53,8 @@ String::String(const wchar_t* s):data(0)
 
 		wcstombs_s(&checkSize,data,size,s,size);
 
-		if((int)checkSize!=size)
-			__debugbreak();
+		/*if((int)checkSize!=size)
+			__debugbreak();*/
 	}
 }
 
@@ -1203,13 +1209,10 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 }
 
 
+ThreadInterface::ThreadInterface(){}
+ThreadInterface::~ThreadInterface(){}
 
-
-
-
-
-
-Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
+Task* ThreadInterface::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 {
 	Task* task=new Task;
 

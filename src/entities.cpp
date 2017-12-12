@@ -1,15 +1,13 @@
 #include "entities.h"
 
+#include "imgpng.h"
+#include "imgjpg.h"
+#include "imgtga.h"
+
+#include <algorithm>
+
 #include "interfaces.h"
 
-#include <stdio.h>
-#include <string>
-
-#include <stdio.h>
-
-#include "picopng.h"
-#include "jpgdecoder.h"
-#include "tga_reader.h"
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -37,7 +35,7 @@ keycurve_channel(INVALID_CHANNEL),
 	keycurve_end(-1)
 {}
 
-void Gizmo::draw(Renderer3dInterface* renderer)
+void Gizmo::draw(Renderer3DInterface* renderer)
 {
 	renderer->draw(this);
 }
@@ -239,7 +237,7 @@ root(0)
 
 
 
-void Bone::draw(Renderer3dInterface* renderer)
+void Bone::draw(Renderer3DInterface* renderer)
 {
 	renderer->draw(this);
 }
@@ -352,7 +350,7 @@ float	Light::FarEnd()
 
 
 
-void Light::draw(Renderer3dInterface* renderer)
+void Light::draw(Renderer3DInterface* renderer)
 {
 
 }
@@ -457,7 +455,7 @@ std::vector<Material*>& Mesh::GetMaterials()
 }
 
 
-void Mesh::draw(Renderer3dInterface* renderer)
+void Mesh::draw(Renderer3DInterface* renderer)
 {
 	renderer->draw(this);
 }
@@ -483,7 +481,7 @@ skin_textures(NULL),
 
 
 
-void Skin::draw(Renderer3dInterface* renderer)
+void Skin::draw(Renderer3DInterface* renderer)
 {
 	renderer->draw(this);
 }
@@ -566,7 +564,7 @@ void Skin::update()
 
 extern "C"
 {
-#pragma message (LOCATION " remove hidden __dso_handle")
+    //#pragma message (LOCATION " remove hidden __dso_handle")
 	void *__dso_handle=NULL;
 };
 
@@ -772,7 +770,7 @@ int TextureFile::GetBpp()
 	return getdataref(this->__data)->m_bpp;
 }
 
-void TextureFile::draw(Renderer3dInterface* renderer)
+void TextureFile::draw(Renderer3DInterface* renderer)
 {
 	renderer->draw(this);
 }
@@ -809,7 +807,7 @@ void _setEntitieslevel(Entity* e)
 }
 
 
-EntityScript::EntityScript(Entity* iEntity):entity(iEntity){}
+EntityScript::EntityScript():entity(0){}
 
 
 
@@ -853,6 +851,7 @@ Entity::~Entity()
 {
 }
 
+
 void Entity::update()
 {
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
@@ -868,10 +867,8 @@ void Entity::update()
 }
 
 
-void Entity::draw(Renderer3dInterface* renderer)
+void Entity::draw(Renderer3DInterface* renderer)
 {	
-	MatrixStack::Push(MatrixStack::MODEL,this->world);
-
 	renderer->draw(this->local.position(),5,vec3(1,1,1));
 
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
@@ -879,7 +876,5 @@ void Entity::draw(Renderer3dInterface* renderer)
 
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->draw(renderer);
-
-	MatrixStack::Pop(MatrixStack::MODEL);
 }
 

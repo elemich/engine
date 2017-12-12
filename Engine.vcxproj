@@ -36,6 +36,8 @@
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
+    <OutDir />
+    <IntDir />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FbxPlugin|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -96,16 +98,16 @@
     <TargetName>$(ProjectName)_FbxPlugin.dll</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeBuildCommandLine>nmake engine.exe</NMakeBuildCommandLine>
+    <NMakeBuildCommandLine>nmake x86d</NMakeBuildCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeReBuildCommandLine>nmake clean engine.exe</NMakeReBuildCommandLine>
+    <NMakeReBuildCommandLine>nmake clean x86d</NMakeReBuildCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeCleanCommandLine>nmake clean</NMakeCleanCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeOutput>engine.exe</NMakeOutput>
+    <NMakeOutput>build\win32\x86\debug\engine.exe</NMakeOutput>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -146,6 +148,10 @@ del *.ipx
 del *.txt
 del *.pdb</Command>
     </PreBuildEvent>
+    <BuildLog>
+      <Path>
+      </Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='FbxPlugin|Win32'">
     <ClCompile>
@@ -285,26 +291,26 @@ copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProj
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ec.cpp" />
-    <ClCompile Include="entities.cpp" />
-    <ClCompile Include="fbxutil.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="primitives.cpp" />
-    <ClCompile Include="interfaces.cpp" />
-    <ClCompile Include="win32.cpp" />
-    <ClCompile Include="main.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='FbxPlugin|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
+    <ClCompile Include="src\ec.cpp" />
+    <ClCompile Include="src\entities.cpp" />
+    <ClCompile Include="src\fbxutil.cpp" />
+    <ClCompile Include="src\fbxutil_fbx.cpp" />
+    <ClCompile Include="src\imgjpg.cpp" />
+    <ClCompile Include="src\interfaces.cpp" />
+    <ClCompile Include="src\imgpng.cpp" />
+    <ClCompile Include="src\imgtga.cpp" />
+    <ClCompile Include="src\primitives.cpp" />
+    <ClCompile Include="src\win32.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="entities.h" />
-    <ClInclude Include="fbxutil.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="primitives.h" />
-    <ClInclude Include="interfaces.h" />
-    <ClInclude Include="win32.h" />
+    <ClInclude Include="src\entities.h" />
+    <ClInclude Include="src\fbxutil.h" />
+    <ClInclude Include="src\imgjpg.h" />
+    <ClInclude Include="src\imgpng.h" />
+    <ClInclude Include="src\imgtga.h" />
+    <ClInclude Include="src\interfaces.h" />
+    <ClInclude Include="src\primitives.h" />
+    <ClInclude Include="src\win32.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

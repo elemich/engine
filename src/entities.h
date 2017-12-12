@@ -1,9 +1,9 @@
 #ifndef __ENTITY_HEADER__
 #define __ENTITY_HEADER__
 
-#include "interfaces.h"
+#include "primitives.h"
 
-struct Renderer3dInterface;
+struct Renderer3DInterface;
 struct ShaderInterface;
 
 #define PROCESS_ENTITIES_RECURSIVELY 1
@@ -137,7 +137,7 @@ struct Texture
 	Texture* GetTextureFile(){return 0;}
 	Texture* GetTextureLayered(){return 0;}
 
-	virtual void draw(Renderer3dInterface*)=0;
+	virtual void draw(Renderer3DInterface*)=0;
 
 	virtual int load(char*)=0;
 	virtual int loadBMP(char*)=0;
@@ -159,7 +159,7 @@ struct Material : Resource
 	Material* GetMaterial(){return this;}
 
 	void update(){}
-	void draw(Renderer3dInterface*){}
+	void draw(Renderer3DInterface*){}
 
 	std::vector<Texture*> textures;
 
@@ -258,7 +258,7 @@ struct EntityComponent
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
 	virtual void update(){}
-	virtual void draw(Renderer3dInterface* ri){}
+	virtual void draw(Renderer3DInterface* ri){}
 
 };
 
@@ -266,7 +266,7 @@ struct EntityScript
 {
 	Entity* entity;
 
-	EntityScript(Entity* iEntity=0);
+	EntityScript();
 
 	virtual void init(){};
 	virtual void deinit(){};
@@ -275,7 +275,7 @@ struct EntityScript
 
 struct Entity : THierarchyList<Entity>
 {
-	virtual void draw(Renderer3dInterface*);
+	virtual void draw(Renderer3DInterface*);
 	virtual void update();	
 
 	mat4					local;
@@ -367,7 +367,7 @@ struct Animation : EntityComponent
 
 struct Gizmo : EntityComponent
 {
-	void draw(Renderer3dInterface*);
+	void draw(Renderer3DInterface*);
 };
 
 struct AnimationController : EntityComponent
@@ -391,7 +391,7 @@ struct AnimationController : EntityComponent
 	void add(Animation* anim);
 
 	void update();
-	void draw(Renderer3dInterface*){}
+	void draw(Renderer3DInterface*){}
 };
 
 struct Bone : EntityComponent
@@ -402,7 +402,7 @@ struct Bone : EntityComponent
 
 	vec3    color;
 
-	void draw(Renderer3dInterface*);
+	void draw(Renderer3DInterface*);
 };
 
 struct Light : EntityComponent
@@ -450,14 +450,14 @@ struct Light : EntityComponent
 	float	light_farstart;
 	float	light_farend;
 
-	void draw(Renderer3dInterface*);
+	void draw(Renderer3DInterface*);
 };
 
 struct Mesh : EntityComponent
 {
 	Mesh();
 
-	virtual void draw(Renderer3dInterface*);
+	virtual void draw(Renderer3DInterface*);
 
 	int save(char*);
 	int load(char*);
@@ -539,7 +539,7 @@ struct Skin : Mesh
 {
 	Skin();
 
-	void		draw(Renderer3dInterface*);
+	void		draw(Renderer3DInterface*);
 	void		update();
 	
 	
@@ -588,7 +588,7 @@ struct TextureFile : Texture
 
 	void* __data;
 
-	void draw(Renderer3dInterface*);
+	void draw(Renderer3DInterface*);
 };
 
 
@@ -601,7 +601,7 @@ struct TextureLayered
 
 	TextureLayered* GetTextureLayered(){return this;}
 
-	void draw(Renderer3dInterface*){}
+	void draw(Renderer3DInterface*){}
 };
 
 struct TextureProcedural : Texture 
@@ -619,7 +619,7 @@ struct TextureProcedural : Texture
 	int GetHeight(){return 0;}
 	int GetBpp(){return 0;}
 
-	void draw(Renderer3dInterface*){}
+	void draw(Renderer3DInterface*){}
 };
 
 

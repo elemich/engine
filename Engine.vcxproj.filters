@@ -1,32 +1,50 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\win32.cpp">
       <Filter>win32</Filter>
     </ClCompile>
-    <ClCompile Include="fbxutil.cpp">
+    <ClCompile Include="src\imgjpg.cpp">
+      <Filter>img</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgpng.cpp">
+      <Filter>img</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgtga.cpp">
+      <Filter>img</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fbxutil_fbx.cpp">
       <Filter>importers</Filter>
     </ClCompile>
-    <ClCompile Include="win32.cpp">
-      <Filter>win32</Filter>
+    <ClCompile Include="src\fbxutil.cpp">
+      <Filter>importers</Filter>
     </ClCompile>
-    <ClCompile Include="entities.cpp" />
-    <ClCompile Include="interfaces.cpp" />
-    <ClCompile Include="primitives.cpp" />
-    <ClCompile Include="ec.cpp">
-      <Filter>win32</Filter>
+    <ClCompile Include="src\entities.cpp" />
+    <ClCompile Include="src\interfaces.cpp" />
+    <ClCompile Include="src\primitives.cpp" />
+    <ClCompile Include="src\ec.cpp">
+      <Filter>script</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="win32.h">
+    <ClInclude Include="src\win32.h">
       <Filter>win32</Filter>
     </ClInclude>
-    <ClInclude Include="fbxutil.h">
+    <ClInclude Include="src\imgjpg.h">
+      <Filter>img</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgpng.h">
+      <Filter>img</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgtga.h">
+      <Filter>img</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fbxutil.h">
       <Filter>importers</Filter>
     </ClInclude>
-    <ClInclude Include="entities.h" />
-    <ClInclude Include="primitives.h" />
-    <ClInclude Include="interfaces.h" />
+    <ClInclude Include="src\entities.h" />
+    <ClInclude Include="src\interfaces.h" />
+    <ClInclude Include="src\primitives.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">
@@ -34,6 +52,12 @@
     </Filter>
     <Filter Include="importers">
       <UniqueIdentifier>{47efae74-b238-4d58-bb97-898567eaccca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="img">
+      <UniqueIdentifier>{7c99c0b9-51a3-4ab8-b753-6aa3fe71e4da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="script">
+      <UniqueIdentifier>{47bfe5ee-cce4-400e-85da-56873ae51ebb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

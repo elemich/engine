@@ -1,9 +1,13 @@
 #ifndef WIN32_H
 #define WIN32_H
 
+struct TabContainerWin32;
+struct EditorWindowContainerWin32;
+
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 //#pragma warning(disable:4996) //
+
 
 
 #include <windows.h>
@@ -59,17 +63,10 @@
 
 #ifndef WINVER
 #define WINVER 0x0601
-#pragma message (LOCATION "  WINVER: " PRINTF(WINVER))
+//#pragma message (LOCATION "  WINVER: " PRINTF(WINVER))
 #endif
 
-
-
-
 void glCheckError();
-
-
-
-LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
 struct Direct2DGuiBase
 {
@@ -85,12 +82,32 @@ struct Direct2DGuiBase
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
 	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float ax=-1,float ay=-1);
+	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
+	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
+	static void PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h);
+	static void PopScissor(ID2D1RenderTarget*);
+
+	static void Translate(ID2D1RenderTarget*,float,float);
+	static void Identity(ID2D1RenderTarget*);
 };
 
 
+/*
+struct Renderer2DInterfaceWin32 : Renderer"DInterface
+{
+
+};*/
 
 
+
+struct ThreadWin32 : ThreadInterface
+{
+	HANDLE handle;
+
+	ThreadWin32();
+	~ThreadWin32();
+};
 
 
 
@@ -146,7 +163,7 @@ extern PFNGLUNIFORM4FPROC glUniform4f;
 extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
 #endif
 
-struct OpenGLRenderer : Renderer3dInterface
+struct OpenGLRenderer : Renderer3DInterface
 {
 	GLuint vertexArrayObject;
 	GLuint vertexBufferObject;
@@ -166,9 +183,9 @@ struct OpenGLRenderer : Renderer3dInterface
 	GLEWContext* glewContext;
 #endif
 
-	TabContainer* tabContainer;
+	TabContainerWin32* tabContainerWin32;
 
-	OpenGLRenderer(TabContainer*);
+	OpenGLRenderer(TabContainerWin32*);
 	~OpenGLRenderer();
 
 	virtual void Create(HWND container);
@@ -205,7 +222,7 @@ struct OpenGLRenderer : Renderer3dInterface
 
 
 
-struct DirectXRenderer : WindowData ,  Renderer3dInterface
+struct DirectXRenderer : WindowData ,  Renderer3DInterface
 {
 	HINSTANCE               hInst;
 	D3D_DRIVER_TYPE         driverType;
@@ -215,7 +232,7 @@ struct DirectXRenderer : WindowData ,  Renderer3dInterface
 	IDXGISwapChain*         pSwapChain;
 	ID3D11RenderTargetView* pRenderTargetView;
 
-	DirectXRenderer();
+	DirectXRenderer(TabContainer*);
 	~DirectXRenderer();
 
 	virtual char* Name();
@@ -238,7 +255,164 @@ struct DirectXRenderer : WindowData ,  Renderer3dInterface
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
+struct WindowDataWin32 : WindowData
+{
+	HWND hwnd;
+	UINT msg;
+	WPARAM wparam;
+	LPARAM lparam;
 
+	operator HWND(){return this->hwnd;};
+	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
+	void Create(HWND container);
+
+	void OnSize();
+	void OnWindowPosChanging();
+
+	void LinkSibling(WindowData* t,int pos);
+	void UnlinkSibling(WindowData* t=0);
+	WindowDataWin32* FindSiblingOfSameSize();
+	int FindSiblingPosition(WindowData* t);
+	bool FindAndGrowSibling();
+};
+
+
+struct GuiImageWin32 : GuiImage
+{
+	GuiImageWin32();
+	~GuiImageWin32();
+
+	ID2D1Bitmap* image;
+
+	void Draw(TabContainer* tabContainer,float x,float y,float w,float h);
+	void Release();
+	bool Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData);
+};
+
+struct TabContainerWin32 : TabContainer
+{
+	WindowDataWin32*& windowDataWin32;
+	EditorWindowContainerWin32*& editorWindowContainerWin32;
+
+	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
+
+	ID2D1HwndRenderTarget* renderTarget;
+	ID2D1SolidColorBrush*  brush;
+
+	TabContainerWin32(float x,float y,float w,float h,HWND parent);
+	~TabContainerWin32();
+
+	operator TabContainerWin32& (){return *this;}
+
+	void Create(HWND){}//@mic no more used, delete from WindowData
+
+	ID2D1Brush* SetColor(unsigned int color);
+
+	void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1);
+	void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true);
+	void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h);
+	void PushScissor(float x,float y, float w,float h);
+	void PopScissor();
+	void Translate(float x,float y);
+	void Identity();
+
+	bool BeginDraw();
+	void EndDraw();
+
+	void DrawFrame();
+
+	void OnGuiMouseMove(void* data=0);
+	void OnGuiMouseWheel(void* data=0);
+	void OnGuiRMouseUp(void* data=0);
+	void OnGuiPaint(void* data=0);
+	void OnResizeContainer(void* data=0);
+	void OnGuiRecreateTarget(void* data=0);
+
+	int TrackGuiSceneViewerPopup(bool iUnselected);
+
+	void ReloadScript();
+};
+
+struct SplitterContainerWin32 : SplitterContainer 
+{
+	TabContainerWin32*& currentTabContainerWin32;
+
+	TabContainerWin32*& floatingTabRefWin32;
+	TabContainerWin32*& floatingTabWin32;
+	TabContainerWin32*& floatingTabTargetWin32;
+
+	static HMENU popupMenuRoot;
+	static HMENU popupMenuCreate;
+
+	RECT floatingTabRc;
+	RECT floatingTabTargetRc;
+
+	POINTS splitterPreviousPos;
+
+	std::vector<HWND> resizingWindows1;
+	std::vector<HWND> resizingWindows2;
+	HWND hittedWindow1;
+	HWND hittedWindow2;
+
+	SplitterContainerWin32();
+	~SplitterContainerWin32();
+
+	void OnLButtonDown(HWND,LPARAM);
+	void OnLButtonUp(HWND);
+	void OnMouseMove(HWND,LPARAM);
+	void OnSize(HWND,WPARAM,LPARAM);
+
+	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
+
+	void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
+	void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
+
+	void CreateFloatingTab(TabContainer*);
+	void DestroyFloatingTab();
+};
+
+struct EditorWindowContainerWin32 : EditorWindowContainer
+{
+	EditorWindowContainerWin32();
+
+	void OnSizing();
+	void OnSize();
+
+	void SetCursorShape(char* iShape=IDC_ARROW);
+
+	WindowDataWin32*& windowDataWin32;
+	SplitterContainerWin32*& splitterContainerWin32;
+};
+
+struct EditorMainAppWindowWin32 : EditorWindowContainerWin32 , EditorMainAppWindow
+{
+	static LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+
+	HMENU menuMain;
+	HMENU menuEntities;
+
+	void Create(HWND hwnd=0);
+	void OnCreate(HWND);
+};
+
+struct TimerWin32 : Timer
+{
+	virtual void update();
+	virtual unsigned int GetTime();
+};
+
+struct AppWin32 : AppInterface
+{
+	AppWin32();
+
+	int Initialize();	
+	void Deinitialize();
+
+	void Run();
+
+	void CreateNodes(String,ResourceNodeDir*);
+	void ScanDir(String);
+};
 
 
 

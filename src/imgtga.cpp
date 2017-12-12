@@ -6,7 +6,7 @@
 /			LoadCompressedTGA(Texture * texture, char * filename, FILE * fTGA)	*
 /			LoadUncompressedTGA(Texture * texture, char * filename, FILE * fTGA)*	
 /*******************************************************************************/
-#include "tga_reader.h"
+#include "imgtga.h"
 
 
 /********************************************************************************

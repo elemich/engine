@@ -1,11 +1,13 @@
 #include "fbxutil.h"
 
-#pragma message (LOCATION " mesh needs other polygons type ?")		
+//#pragma message (LOCATION " mesh needs other polygons type ?")	
 
 #include <map>
 
 #include <fbxsdk.h>
 #include <fbxsdk\fileio\fbxiosettings.h>
+
+#include <windows.h>
 
 FbxManager* fbxManager=0;
 const char* sceneFilename=0;
@@ -21,7 +23,7 @@ Entity* rootNode=0;
 #define GENERATE_INDEXED_GEOMETRY 1
 #define DEBUG_PRINTF 0
 
-#pragma message (LOCATION " remember to implement generating missing fbx animation keys")
+//#pragma message (LOCATION " remember to implement generating missing fbx animation keys")
 
 void FillSkin(FbxNode* fbxNode,Skin* skin);
 void FillMesh(FbxNode* fbxNode,Mesh* mesh);
@@ -900,5 +902,9 @@ BOOL WINAPI DllMain(
 	_In_ LPVOID    lpvReserved
 	)
 {
-	printf("fbximporter loaded\n");
+	if(fdwReason==DLL_PROCESS_ATTACH)
+	{
+		printf("fbximporter loaded\n");
+		return TRUE;
+	}
 }

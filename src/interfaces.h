@@ -3,10 +3,13 @@
 
 #include "primitives.h"
 
+/*
+#include "primitives.h"
+
 #include "entities.h"
 
 struct ShaderInterface;
-struct Renderer3dInterface;
+struct Renderer3DInterface;
 struct TabContainer;
 struct SceneEntityNode;
 struct GuiRect;
@@ -29,13 +32,50 @@ struct GuiImage;
 struct AnimationController;
 
 struct SplitterContainer;
-struct ContainerWindow;
+struct ContainerWindow;*/
 
-struct AppInterface
+//interfaces forward declaration
+
+struct GuiRect;
+struct GuiRootRect;
+struct GuiString;
+struct GuiButton;
+struct GuiScrollBar;
+struct GuiScrollRect;
+struct GuiPropertyString;
+struct GuiPropertySlider;
+struct GuiPropertyAnimation;
+struct GuiLabel;
+struct GuiButton;
+struct GuiViewport;
+struct GuiSceneViewer;
+struct GuiEntityViewer;
+struct GuiProjectViewer;
+
+struct TabContainer;
+struct EditorWindowContainer;
+struct SplitterContainer;
+struct EditorMainAppWindow;
+struct ResourceNodeDir;
+
+//entity forward declaration 
+
+struct AnimationController;
+
+struct AppInterface : TStaticInstance<AppInterface>
 {
-	virtual int Init()=0;
+	Timer			 *timerMain;
+	EditorMainAppWindow *mainAppWindow;
+	String			  projectFolder;
+
+	AppInterface();
+
+	virtual int Initialize()=0;	
+	virtual void Deinitialize()=0;
 	virtual void Run()=0;
-	virtual void CreateMainWindow()=0;
+
+	virtual void CreateNodes(String,ResourceNodeDir*)=0;
+	virtual void ScanDir(String)=0;
 };
 
 
@@ -89,12 +129,13 @@ struct ShaderInterface : TPoolVector<ShaderInterface>
 	ShaderInterface();
 };
 
-struct Renderer3dInterface : TPoolVector<Renderer3dInterface>
+struct Renderer3DInterface : TPoolVector<Renderer3DInterface>
 {
 	std::list<GuiViewport*> viewports;
 	Task* rendererTask;
 	bool picking;
 	std::vector<ShaderInterface*> shaders;
+	TabContainer* tabContainer;
 
 	ShaderInterface* FindShader(const char* name,bool exact);
 	void SetMatrices(const float* view,const float* mdl);
@@ -133,8 +174,8 @@ struct Renderer3dInterface : TPoolVector<Renderer3dInterface>
 	virtual void Render(GuiViewport*,bool)=0;
 	virtual void Render()=0;
 
-	Renderer3dInterface();
-	virtual ~Renderer3dInterface(){};
+	Renderer3DInterface(TabContainer*);
+	virtual ~Renderer3DInterface(){};
 
 	ShaderInterface* unlit;
 	ShaderInterface* unlit_color;
@@ -702,307 +743,6 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	virtual void OnLMouseUp(TabContainer*,void* data=0);
 };
 
-#ifdef _WIN32	
-#include "windows.h"
-#include <d2d1.h>
-typedef HWND WINDOWHANDLE;
-typedef HMENU MENUHANDLE;
-typedef UINT UINTHANDLE;
-typedef WPARAM WPARAMHANDLE;
-typedef LPARAM LPARAMHANDLE;
-typedef ID2D1HwndRenderTarget* GUIRENDERTARGET;
-typedef ID2D1SolidColorBrush* GUISOLIDCOLORBRUSH;
-typedef ID2D1Bitmap* GUIBITMAP;
-typedef ID2D1Brush* GUIBRUSH;
-#endif
-
-/*
-struct Renderer2DInterface
-{
-	void SetTransform()=0;
-	void FillRectangle()=0;
-	void Clear()=0;
-	void CreateSolidColorBrush()=0;
-	void GetPixelFormat()=0;
-	void CreateBitmap()=0;
-	void DrawRectangle()=0;
-	void FillRoundedRectangle()=0;
-	void DrawBitmap()=0;
-	void PushAxisAlignedClip()=0;
-	void PopAxisAlignedClip()=0;
-	void BeginDraw()=0;
-	void EndDraw()=0;
-	void Flush()=0;
-};*/
-
-struct WindowData
-{
-	WINDOWHANDLE hwnd;
-	float width;
-	float height;
-
-	std::list<WindowData*> siblings[4];
-
-	void LinkSibling(WindowData* t,int pos);
-	void UnlinkSibling(WindowData* t=0);
-	WindowData* FindSiblingOfSameSize();
-	int FindSiblingPosition(WindowData* t);
-	bool FindAndGrowSibling();
-
-	UINTHANDLE msg;
-	WPARAMHANDLE wparam;
-	LPARAMHANDLE lparam;
-
-	operator WINDOWHANDLE(){return this->hwnd;};
-	void CopyProcedureData(WINDOWHANDLE  h,UINTHANDLE m,WPARAMHANDLE w,LPARAMHANDLE l);
-	virtual void Create(WINDOWHANDLE container)=0;
-
-
-	virtual void OnSize();
-	virtual void OnWindowPosChanging();
-};
-
-struct TabContainer : WindowData , TPoolVector<TabContainer>
-{
-	ContainerWindow* parentContainer;
-
-	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
-	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
-	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
-	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
-	static const unsigned int COLOR_TEXT=0xFFFFFF;
-	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
-	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
-
-
-	static const int CONTAINER_HEIGHT=30;
-	static const int TAB_WIDTH=80;
-	static const int TAB_HEIGHT=25;
-
-	static const int CONTAINER_ICON_WH=20;
-	static const int CONTAINER_ICON_STRIDE=CONTAINER_ICON_WH*4;
-
-
-	static unsigned char* rawUpArrow;
-	static unsigned char* rawRightArrow;
-	static unsigned char* rawDownArrow;
-	static unsigned char* rawFolder;
-	static unsigned char* rawFile;
-
-	static LRESULT CALLBACK TabContainerWindowClassProcedure(WINDOWHANDLE,UINT,WPARAM,LPARAM);
-
-	GUIRENDERTARGET renderTarget;
-	GUISOLIDCOLORBRUSH  brush;
-
-	GUIBITMAP iconUp;
-	GUIBITMAP iconRight;
-	GUIBITMAP iconDown;
-	GUIBITMAP iconFolder;
-	GUIBITMAP iconFile;
-
-	GuiRootRect	tabs;
-
-	SplitterContainer* splitterContainer;
-
-	Renderer3dInterface *renderer;
-
-	unsigned int selected;
-	bool mouseDown;
-	bool isRender;
-	bool recreateTarget;
-	bool resizeTarget;
-	Entity* reloadScript;
-
-	GuiRect* drawRect;
-	bool	drawFrame;
-	Task*	drawTask;
-
-	float mousex,mousey;
-
-	int nPainted;
-
-	bool buttonLeftMouseDown;
-	bool buttonControlDown;
-
-	unsigned int lastFrameTime;
-
-	bool skip;
-
-	Thread thread;
-
-	TabContainer(float x,float y,float w,float h,WINDOWHANDLE parent);
-	~TabContainer();
-
-	operator TabContainer& (){return *this;}
-
-	void Create(WINDOWHANDLE){}//@mic no more used, delete from WindowData
-
-	virtual void OnGuiPaint(void* data=0);
-	virtual void OnGuiSize(void* data=0);
-	virtual void OnWindowPosChanging(void* data=0);
-	virtual void OnGuiLMouseDown(void* data=0);
-	virtual void OnGuiLMouseUp(void* data=0);
-	virtual void OnGuiMouseMove(void* data=0);
-	virtual void OnRMouseUp(void* data=0);
-	virtual void OnGuiUpdate(void* data=0);
-	virtual void OnGuiRender(void* data=0);
-	virtual void OnGuiMouseWheel(void* data=0);
-	virtual void OnResizeContainer(void* data=0);
-	virtual void OnEntitiesChange(void* data=0);
-	virtual void OnGuiActivate(void* data=0);
-	virtual void OnGuiDeactivate(void* data=0);
-	virtual void OnGuiEntitySelected(void* data=0);
-
-	void RecreateTarget();
-	void DrawFrame();
-
-	void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1);
-
-	virtual void OnGuiRecreateTarget(void* data=0);
-
-	GUIBRUSH SetColor(unsigned int color);
-
-	GuiRect* GetSelected();
-
-	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
-	void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
-	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void*);
-	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void*);
-	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(TabContainer*,void*),void* data=0)
-	{
-		for(std::vector<TabContainer*>::iterator tabContainer=TPoolVector<TabContainer>::pool.begin();tabContainer!=TPoolVector<TabContainer>::pool.end();tabContainer++)
-			(*tabContainer)->BroadcastToSelected(func,data);
-	}
-
-	void Draw();
-
-	bool BeginDraw();
-	void EndDraw();
-
-
-	void SetDraw(GuiRect* iRect,bool iFrame);
-};
-
-struct SplitterContainer 
-{
-	ContainerWindow* GetContainer(){return (ContainerWindow*)this;}
-
-	static MENUHANDLE popupMenuRoot;
-	static MENUHANDLE popupMenuCreate;
-
-	TabContainer* currentTabContainer;
-
-	TabContainer* floatingTabRef;
-	TabContainer* floatingTab;
-	TabContainer* floatingTabTarget;
-	int  floatingTabRefTabIdx;
-	int  floatingTabRefTabCount;
-	int  floatingTabTargetAnchorPos;
-	int	 floatingTabTargetAnchorTabIndex;
-	RECT floatingTabRc;
-	RECT floatingTabTargetRc;
-
-	const int   splitterSize;
-	LPCSTR		splitterCursor;
-	POINTS splitterPreviousPos;
-
-	std::vector<WINDOWHANDLE> resizingWindows1;
-	std::vector<WINDOWHANDLE> resizingWindows2;
-	WINDOWHANDLE hittedWindow1;
-	WINDOWHANDLE hittedWindow2;
-
-	SplitterContainer();
-	~SplitterContainer();
-
-	void OnLButtonDown(WINDOWHANDLE,LPARAM);
-	void OnLButtonUp(WINDOWHANDLE);
-	void OnMouseMove(WINDOWHANDLE,LPARAM);
-	void OnSize(WINDOWHANDLE,WPARAM,LPARAM);
-
-	void CreateFloatingTab(TabContainer*);
-	void DestroyFloatingTab();
-
-	std::vector<WINDOWHANDLE> findWindoswAtPos(WINDOWHANDLE mainWindow,RECT &srcRect,int rectPosition);
-
-	void EnableChilds(WINDOWHANDLE hwnd,int enable=-1,int show=-1);
-	void EnableAllChildsDescendants(WINDOWHANDLE hwnd,int enable=-1,int show=-1);
-};
-
-
-struct ContainerWindow : WindowData , SplitterContainer
-{
-	std::vector<TabContainer*> tabContainers;
-
-	int ContainerWindow_currentVisibleChildIdx;
-
-	int resizeDiffHeight;
-	int resizeDiffWidth;
-	int resizeEnumType;
-	int resizeCheckWidth;
-	int resizeCheckHeight;
-
-	ContainerWindow();
-
-	void Create(WINDOWHANDLE hwnd=0);
-	void OnCreate(WINDOWHANDLE);
-	void OnSizing();
-	void OnSize();
-
-};
-
-
-
-struct App;
-
-struct MainAppContainerWindow : ContainerWindow
-{
-	MainAppContainerWindow();
-
-	App *application;
-
-	static std::vector<ContainerWindow> windows;
-
-	MENUHANDLE menuMain;
-	MENUHANDLE menuEntities;
-
-	void Create(WINDOWHANDLE hwnd=0);
-	void OnCreate(WINDOWHANDLE);
-};
-
-struct TimerWin32 : Timer
-{
-	virtual void update();
-	virtual unsigned int GetTime();
-};
-
-struct App : AppInterface , TStaticInstance<App>
-{
-
-	TimerWin32 timerMain;
-	MainAppContainerWindow mainAppWindow;
-
-
-	String projectFolder;
-
-	int Init();	
-	void Close();
-
-	void CreateMainWindow();
-	void Run();
-};
-
-
-struct RenderSurface
-{
-	GUIBITMAP renderBitmap;
-	unsigned char* renderBuffer;
-	TabContainer* tab;
-	unsigned int lastFrameTime;
-
-	RenderSurface():renderBitmap(0),renderBuffer(0){}
-	~RenderSurface(){SAFERELEASE(renderBitmap);SAFEDELETEARRAY(renderBuffer);}
-};
-
 struct GuiSceneViewer : GuiScrollRect
 {
 	GuiSceneViewer();
@@ -1052,36 +792,34 @@ struct GuiEntityViewer : GuiScrollRect
 };
 
 
+struct ResourceNode
+{
+	ResourceNode* parent;
 
+	String fileName;
+
+	bool selectedLeft;
+	bool selectedRight;
+	int level;
+	bool isDir;
+
+	ResourceNode();
+	~ResourceNode();
+};
+
+struct ResourceNodeDir : ResourceNode
+{
+	bool expanded;
+
+	std::list<ResourceNodeDir*> dirs;
+	std::list<ResourceNode*>	files;
+
+	ResourceNodeDir();
+	~ResourceNodeDir();
+};
 
 struct GuiProjectViewer : GuiRect
 {
-	struct ResourceNode
-	{
-		ResourceNode* parent;
-
-		String fileName;
-
-		bool selectedLeft;
-		bool selectedRight;
-		int level;
-		bool isDir;
-
-		ResourceNode();
-		~ResourceNode();
-	};
-
-	struct ResourceNodeDir : ResourceNode
-	{
-		bool expanded;
-
-		std::list<ResourceNodeDir*> dirs;
-		std::list<ResourceNode*>	files;
-
-		ResourceNodeDir();
-		~ResourceNodeDir();
-	};
-
 	struct GuiDirView : GuiScrollRect
 	{
 		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&,bool& terminated);
@@ -1125,11 +863,238 @@ struct GuiProjectViewer : GuiRect
 	void OnMouseMove(TabContainer*,void* data=0);
 	void OnReparent(TabContainer*,void* data=0);
 	void OnActivate(TabContainer*,void* data=0);
-
-	void ScanDir(String dir);
-	void CreateNodes(String dir,ResourceNodeDir*);
 };
-bool InitSplitter();
+
+/*
+#ifdef _WIN32	
+#include "windows.h"
+#include <d2d1.h>
+typedef HWND WINDOWHANDLE;
+typedef HMENU MENUHANDLE;
+typedef UINT UINTHANDLE;
+typedef WPARAM WPARAMHANDLE;
+typedef LPARAM LPARAMHANDLE;
+typedef ID2D1HwndRenderTarget* GUIRENDERTARGET;
+typedef ID2D1SolidColorBrush* GUISOLIDCOLORBRUSH;
+typedef ID2D1Bitmap* GUIBITMAP;
+typedef ID2D1Brush* GUIBRUSH;
+#endif*/
+
+/*
+struct Renderer2DInterface
+{
+	virtual void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1)=0;
+	virtual void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawBitmap(void* bitmap,float x,float y, float w,float h)=0;
+	virtual void PushScissor(float x,float y, float w,float h)=0;
+	virtual void PopScissor()=0;
+	virtual void Translate(float x,float y)=0;
+	virtual void Identity()=0;
+};*/
+
+struct WindowData
+{
+	float width;
+	float height;
+
+	std::list<WindowData*> siblings[4];
+
+	virtual void LinkSibling(WindowData* t,int pos)=0;
+	virtual void UnlinkSibling(WindowData* t=0)=0;
+	virtual WindowData* FindSiblingOfSameSize()=0;
+	virtual int FindSiblingPosition(WindowData* t)=0;
+	virtual bool FindAndGrowSibling()=0;
+
+	virtual void OnSize()=0;
+	virtual void OnWindowPosChanging()=0;
+};
+
+struct GuiImage
+{
+	virtual void Draw(TabContainer* tabContainer,float x,float y,float w,float h){};
+	virtual void Release(){};
+	virtual bool Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData){return false;}
+};
+
+struct TabContainer : TPoolVector<TabContainer>
+{
+	WindowData* windowData;
+
+	EditorWindowContainer* editorWindowContainer;
+
+	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
+	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
+	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
+	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
+	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
+	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
+
+	static const int CONTAINER_HEIGHT=30;
+	static const int TAB_WIDTH=80;
+	static const int TAB_HEIGHT=25;
+
+	static const int CONTAINER_ICON_WH=20;
+	static const int CONTAINER_ICON_STRIDE=CONTAINER_ICON_WH*4;
+
+	static unsigned char rawUpArrow[];
+	static unsigned char rawRightArrow[];
+	static unsigned char rawDownArrow[];
+	static unsigned char rawFolder[];
+	static unsigned char rawFile[];
+
+	GuiRootRect	tabs;
+
+	SplitterContainer* splitterContainer;
+
+	Renderer3DInterface *renderer;
+
+	GuiImage* iconUp;
+	GuiImage* iconRight;
+	GuiImage* iconDown;
+	GuiImage* iconFolder;
+	GuiImage* iconFile;
+
+	unsigned int selected;
+	bool mouseDown;
+	bool isRender;
+	bool recreateTarget;
+	bool resizeTarget;
+	Entity* reloadScript;
+
+	GuiRect* drawRect;
+	bool*	 drawPause;
+	bool	 drawFrame;
+	Task*	 drawTask;
+
+	float mousex,mousey;
+
+	int nPainted;
+
+	bool buttonLeftMouseDown;
+	bool buttonControlDown;
+
+	unsigned int lastFrameTime;
+
+	ThreadInterface* thread;
+
+	TabContainer(float x,float y,float w,float h);
+	virtual ~TabContainer();
+
+	operator TabContainer& (){return *this;}
+
+	virtual void OnGuiPaint(void* data=0);
+	virtual void OnGuiSize(void* data=0);
+	virtual void OnWindowPosChanging(void* data=0);
+	virtual void OnGuiLMouseDown(void* data=0);
+	virtual void OnGuiLMouseUp(void* data=0);
+	virtual void OnGuiMouseMove(void* data=0);
+	virtual void OnGuiRMouseUp(void* data=0);
+	virtual void OnGuiUpdate(void* data=0);
+	virtual void OnGuiRender(void* data=0);
+	virtual void OnGuiMouseWheel(void* data=0);
+	virtual void OnResizeContainer(void* data=0);
+	virtual void OnEntitiesChange(void* data=0);
+	virtual void OnGuiActivate(void* data=0);
+	virtual void OnGuiDeactivate(void* data=0);
+	virtual void OnGuiEntitySelected(void* data=0);
+
+	virtual void DrawFrame()=0;
+
+	virtual void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1)=0;
+	virtual void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
+	virtual void PushScissor(float x,float y, float w,float h)=0;
+	virtual void PopScissor()=0;
+	virtual void Translate(float x,float y)=0;
+	virtual void Identity()=0;
+
+	virtual void OnGuiRecreateTarget(void* data=0);
+
+	GuiRect* GetSelected();
+
+	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
+	void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
+	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void*);
+	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void*);
+	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(TabContainer*,void*),void* data=0)
+	{
+		for(std::vector<TabContainer*>::iterator tabContainer=TPoolVector<TabContainer>::pool.begin();tabContainer!=TPoolVector<TabContainer>::pool.end();tabContainer++)
+			(*tabContainer)->BroadcastToSelected(func,data);
+	}
+
+	void Draw();
+
+	virtual bool BeginDraw()=0;
+	virtual void EndDraw()=0;
+
+	void SetDraw(GuiRect* iRect,bool iFrame);
+
+	virtual int TrackGuiSceneViewerPopup(bool iUnselected)=0;
+
+	virtual void ReloadScript()=0;
+
+};
+
+struct SplitterContainer 
+{
+	TabContainer* currentTabContainer;
+
+	TabContainer* floatingTabRef;
+	TabContainer* floatingTab;
+	TabContainer* floatingTabTarget;
+	int  floatingTabRefTabIdx;
+	int  floatingTabRefTabCount;
+	int  floatingTabTargetAnchorPos;
+	int	 floatingTabTargetAnchorTabIndex;
+
+	const int   splitterSize;
+	char*		splitterCursor;
+
+	SplitterContainer();
+	~SplitterContainer();
+
+	virtual void CreateFloatingTab(TabContainer*)=0;
+	virtual void DestroyFloatingTab()=0;
+};
+
+
+struct EditorWindowContainer
+{
+	std::vector<TabContainer*> tabContainers;
+
+	WindowData* window;
+	SplitterContainer* splitter;
+
+	int resizeDiffHeight;
+	int resizeDiffWidth;
+	int resizeEnumType;
+	int resizeCheckWidth;
+	int resizeCheckHeight;
+
+	EditorWindowContainer();
+
+	virtual void OnSizing()=0;
+	virtual void OnSize()=0;
+
+	virtual void SetCursorShape(char*)=0;
+};
+
+
+struct EditorMainAppWindow
+{
+	std::vector<EditorWindowContainer*> mainAppSiblingsWindows;
+
+	
+};
+
+
+
+
+
+
+
+
 
 
 #endif //INTERFACES_H

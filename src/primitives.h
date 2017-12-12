@@ -6,15 +6,7 @@
 
 #define LOCATION " @mic (" __FILE__ " : " PRINTF(__LINE__) ")"
 
-
 #define _CRT_SECURE_NO_WARNINGS
-
-#include <vector>
-#include <list>
-#include <cstdio>
-#include <typeinfo>
-#include <algorithm>
-#include <functional>
 
 #define SAFEDELETE(_ptr) \
 	if(0!=_ptr){\
@@ -34,6 +26,10 @@
 	_ptr=0;\
 	}\
 
+
+#include <vector>
+#include <list>
+#include <functional>
 
 struct THierarchy
 {
@@ -481,7 +477,7 @@ struct Timer : TStaticInstance<Timer>
 
 
 struct ThreadPool;
-struct Thread;
+struct ThreadInterface;
 
 struct Task
 {
@@ -489,20 +485,20 @@ struct Task
 	bool remove;
 	bool executing;
 	bool pause;
-	Thread* owner;
+	ThreadInterface* owner;
 };
 
-struct Thread  : TPoolVector<Thread>
+struct ThreadInterface  : TPoolVector<ThreadInterface>
 {
-	int handle;
+	
 	int id;
 	bool pause;
 	std::list<Task*> tasks;
 	Task* executing;
 	unsigned int sleep;
 
-	Thread();
-	~Thread();
+	ThreadInterface();
+	virtual ~ThreadInterface();
 
 	Task* NewTask(std::function<void()>,bool remove=true,bool iBlock=false);
 };
