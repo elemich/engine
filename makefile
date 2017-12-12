@@ -1,10 +1,11 @@
-DIRPROJ=c:\projects\engine
+DIRPROJ=$(MAKEDIR)
 DIRSRC=$(DIRPROJ)\src
 DIRDST=$(DIRPROJ)\build\win32\x86\debug
 
 DELTMP=debug
 
 x86d:
+ @echo project dir: $(DIRPROJ)
  @cd $(DIRDST)
  @nmake.exe /NOLOGO /S all DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
  
