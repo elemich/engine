@@ -1130,6 +1130,9 @@ void EditorEntity::SetLevel(EditorEntity* iEntity)
 }
 
 
+
+
+
 ////////////////////////////
 ////////GuiRect///////
 ////////////////////////////
@@ -1689,6 +1692,8 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 			newEntity->bbox.a.make(-1,-1,-1);
 			newEntity->bbox.b.make(1,1,1);
 
+			newEntity->OnPropertiesCreate();
+
 			this->UpdateNodes(this->entityRoot);
 
 			this->OnSize(tabContainer);
@@ -1696,14 +1701,10 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 		}
 		break;
 	case 2:curHover->parent->childs.erase(std::find(curHover->parent->childs.begin(),curHover->parent->childs.end(),curHover));break;
-	case 3:curHover->CreateComponent<Light>();break;
-	case 4:curHover->CreateComponent<Mesh>();break;
-	case 5:curHover->CreateComponent<Camera>();break;
-	case 10:curHover->CreateComponent<Piped>();break;
-	case 11:curHover->CreateComponent<Sphere>();break;
-	case 12:curHover->CreateComponent<Cylinder>();break;
-	case 13:curHover->CreateComponent<Tetrahedron>();break;
-	case 14:curHover->CreateComponent<Script>();break;
+	case 3:curHover->CreateComponent<EditorLight>();break;
+	case 4:curHover->CreateComponent<EditorMesh>();break;
+	case 5:curHover->CreateComponent<EditorCamera>();break;
+	case 14:curHover->CreateComponent<EditorScript>();break;
 	}
 
 	
@@ -1775,7 +1776,7 @@ void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 
 			entity->selected=true;
 
-			entity->CreateComponent<Gizmo>();
+			entity->CreateComponent<EditorGizmo>();
 
 			tabContainer->SetDraw(this,0);
 		}
@@ -1795,7 +1796,7 @@ void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 	node->selected=false;
 
 	for(std::vector<EntityComponent*>::iterator i=node->components.begin();i!=node->components.end();)
-		(*i)->is<Gizmo>() ? i=node->components.erase(i) : i++ ; 
+		(*i)->is<EditorGizmo>() ? i=node->components.erase(i) : i++ ; 
 
 	for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 		this->UnselectNodes((EditorEntity*)*nCh);
@@ -2004,83 +2005,6 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 			this->entity->properties.SetParent(0);
 			this->entity->properties.SetClip(0);
 			this->scrollBar->SetParent(0);
-		}
-
-		if(iEntity->properties.childs.empty())
-		{
-			std::vector<GuiRect*> lvl(50);
-
-			lvl[0]=iEntity->properties.Container("Entity");
-
-			lvl[0]->Property("Name",iEntity->name);
-			char cptr[sizeof(void*)*2+3];
-			sprintf(cptr,"0x%p",iEntity);
-			lvl[0]->Property("Ptr",cptr);
-			lvl[0]->Property("Position",iEntity->world.position());
-			lvl[1]=lvl[0]->Container("AABB");
-			lvl[1]->Property("min",iEntity->bbox.a);
-			lvl[1]->Property("max",iEntity->bbox.b);
-			lvl[1]->Property("Volume",iEntity->bbox.b-iEntity->bbox.a);
-			lvl[0]->Property("Child Num",String((int)iEntity->childs.size()));
-
-			Bone* bone=iEntity->findComponent<Bone>();
-			Mesh* mesh=iEntity->findComponent<Mesh>();
-			Skin* skin=iEntity->findComponent<Skin>();
-			Light* light=iEntity->findComponent<Light>();
-			Animation* anim=iEntity->findComponent<Animation>();
-			AnimationController* animcont=iEntity->findComponent<AnimationController>();
-			Script* script=iEntity->findComponent<Script>();
-
-
-			if(bone)
-			{
-				lvl[0]=iEntity->properties.Container("Bone");
-			}
-			if(mesh)
-			{
-				lvl[0]=iEntity->properties.Container("Mesh");
-				lvl[0]->Property("Controlpoints",String(mesh->mesh_ncontrolpoints));
-				lvl[0]->Property("Normals",String(mesh->mesh_nnormals));
-				lvl[0]->Property("Polygons",String(mesh->mesh_npolygons));
-				lvl[0]->Property("Texcoord",String(mesh->mesh_ntexcoord));
-				lvl[0]->Property("Vertexindices",String(mesh->mesh_nvertexindices));
-			}
-			if(skin)
-			{
-				lvl[0]=iEntity->properties.Container("Skin");
-				lvl[0]->Property("Clusters",String(skin->skin_nclusters));
-				lvl[0]->Property("Textures",String(skin->skin_ntextures));
-			}
-			if(light)
-			{
-				lvl[0]=iEntity->properties.Container("Light");
-
-			}
-			if(anim)
-			{
-				lvl[0]=iEntity->properties.Container("Animation");
-				lvl[0]->Property("IsBone",String(anim->entity->findComponent<Bone>() ? "true" : "false"));
-				lvl[0]->Property("Duration",String(anim->end-anim->start));
-				lvl[0]->Property("Begin",String(anim->start));
-				lvl[0]->Property("End",String(anim->end));
-			}
-			if(animcont)
-			{
-				lvl[0]=iEntity->properties.Container("AnimationController");
-				lvl[0]->Property("Number of nodes",String((int)animcont->animations.size()));
-				lvl[0]->Slider("Velocity",&animcont->speed);
-				lvl[0]->Property("Duration",String(animcont->end-animcont->start));
-				lvl[0]->Property("Begin",String(animcont->start));
-				lvl[0]->Property("End",String(animcont->end));
-				lvl[0]->PropertyAnimControl(animcont);
-			}
-			if(script)
-			{
-				lvl[0]=iEntity->properties.Container("Script");
-				lvl[0]->Property("File",script->name);
-				lvl[0]->Property("Running",script->runtime ? "true" : "false");
-			}
-
 		}
 
 		this->entity=iEntity;
@@ -2704,7 +2628,7 @@ void GuiScriptViewer::OnPaint(TabContainer* tabContainer,void* data)
 }
 
 
-void EntityUtils::UpdateEntity(Entity* iEntity)
+void EntityUtils::Update(Entity* iEntity)
 {
 	for(std::vector<EntityComponent*>::iterator it=iEntity->components.begin();it!=iEntity->components.end();it++)
 		(*it)->update();
@@ -2712,10 +2636,10 @@ void EntityUtils::UpdateEntity(Entity* iEntity)
 	iEntity->parent ? iEntity->world=(iEntity->local * iEntity->parent->world) : iEntity->world;
 
 	for(std::list<Entity*>::iterator it=iEntity->childs.begin();it!=iEntity->childs.end();it++)
-		UpdateEntity(*it);
+		Update(*it);
 }
 
-void EntityUtils::DrawEntity(Entity* iEntity,Renderer3DInterface* renderer)
+void EntityUtils::Draw(Entity* iEntity,Renderer3DInterface* renderer)
 {
 	renderer->draw(iEntity->local.position(),5,vec3(1,1,1));
 
@@ -2723,8 +2647,104 @@ void EntityUtils::DrawEntity(Entity* iEntity,Renderer3DInterface* renderer)
 		renderer->draw(*it);
 
 	for(std::list<Entity*>::iterator it=iEntity->childs.begin();it!=iEntity->childs.end();it++)
-		DrawEntity(*it,renderer);
+		Draw(*it,renderer);
 }
+
+void EntityUtils::FillProperties(EntityComponent* ec)
+{
+
+}
+
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+EditorEntityComponent::EditorEntityComponent()
+{
+	this->properties.Set(0,0,-1,0,0,0,0,20,0,0,1,-1);
+}
+
+void EditorEntity::OnPropertiesCreate()
+{
+	std::vector<GuiRect*> lvl;
+
+	lvl[0]=this->properties.Container("Entity");
+	lvl[0]->Property("Name",this->name);
+	char cptr[sizeof(void*)*2+3];
+	sprintf(cptr,"0x%p",this);
+	lvl[0]->Property("Ptr",cptr);
+	lvl[0]->Property("Position",this->world.position());
+	lvl[1]=lvl[0]->Container("AABB");
+	lvl[1]->Property("min",this->bbox.a);
+	lvl[1]->Property("max",this->bbox.b);
+	lvl[1]->Property("Volume",this->bbox.b-this->bbox.a);
+	lvl[0]->Property("Child Num",String((int)this->childs.size()));
+}
+
+void EditorMesh::OnPropertiesCreate()
+{
+	this->properties.text="Mesh";
+}
+
+void EditorSkin::OnPropertiesCreate()
+{
+	this->properties.text="Skin";
+}
+
+void EditorRoot::OnPropertiesCreate()
+{
+	this->properties.text="Root";
+}
+
+void EditorSkeleton::OnPropertiesCreate()
+{
+	this->properties.text="Skeleton";
+}
+
+void EditorGizmo::OnPropertiesCreate()
+{
+	this->properties.text="Gizmo";
+}
+
+void EditorAnimation::OnPropertiesCreate()
+{
+	this->properties.text="Animation";
+}
+
+void EditorAnimationController::OnPropertiesCreate()
+{
+	this->properties.text="AnimationController";
+}
+
+void EditorBone::OnPropertiesCreate()
+{
+	this->properties.text="Bone";
+}
+
+void EditorLight::OnPropertiesCreate()
+{
+	this->properties.text="Light";
+}
+
+void EditorScript::OnPropertiesCreate()
+{
+	this->properties.text="Script";
+}
+
+void EditorCamera::OnPropertiesCreate()
+{
+	this->properties.text="Camera";
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 
 /*

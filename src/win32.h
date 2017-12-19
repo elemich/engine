@@ -148,10 +148,6 @@ struct OpenGLRenderer : Renderer3DInterface
 	void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot);
 	void draw(Camera*);
 	void draw(Gizmo*);
-	void draw(Piped*);
-	virtual void draw(Sphere*){}
-	virtual void draw(Cylinder*){}
-	virtual void draw(Tetrahedron*){}
 
 	virtual void Render(GuiViewport*,bool force=false);
 	virtual void Render();

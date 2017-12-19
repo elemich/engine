@@ -41,7 +41,7 @@ engine.dll: engine.lib
 engine.exe: engine.dll *.obj
  link.exe $(LKOPT) /OUT:engine.exe engine.lib *.obj $(WIN32LIBD)
  
-all: clean primitives.obj entities.obj interfaces.obj imgjpg.obj imgpng.obj imgtga.obj win32.obj engine.lib engine.dll engine.exe
+all: primitives.obj entities.obj interfaces.obj imgjpg.obj imgpng.obj imgtga.obj win32.obj engine.lib engine.dll engine.exe
  
 clean:
  @echo cleaning $(DIRDST)...

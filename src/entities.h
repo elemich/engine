@@ -455,42 +455,6 @@ struct EntityScript
 	virtual void update(){};
 };
 
-struct Solid : Mesh
-{
-
-};
-
-struct Piped : Solid
-{
-	float widthU;
-	float widthV;
-	float widthW;
-
-	Piped():widthU(10),widthV(10),widthW(10){}
-};
-
-struct Sphere : Solid
-{
-	float ray;
-
-	Sphere():ray(10){}
-};
-
-struct Cylinder : Solid
-{
-	float ray;
-	float height;
-
-	Cylinder():ray(10),height(10){}
-};
-
-struct Tetrahedron : Solid
-{
-	float height;
-
-	Tetrahedron():height(10){}
-};
-
 struct Skin : Mesh
 {
 	Skin();

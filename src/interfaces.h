@@ -3,6 +3,8 @@
 
 #include "entities.h"
 
+struct EditorEntity;
+
 struct GuiRect;
 struct GuiRootRect;
 struct GuiString;
@@ -137,10 +139,6 @@ struct Renderer3DInterface : TPoolVector<Renderer3DInterface>
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
 	virtual void draw(Camera*)=0;
 	virtual void draw(Gizmo*)=0;
-	virtual void draw(Piped*)=0;
-	virtual void draw(Sphere*)=0;
-	virtual void draw(Cylinder*)=0;
-	virtual void draw(Tetrahedron*)=0;
 
 	virtual void draw(Entity*)=0;
 	virtual void draw(EntityComponent*)=0;
@@ -553,28 +551,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiScriptViewer* ScriptViewer(Script*&);
 };
 
-struct EditorEntity : Entity
-{
-	GuiRect properties;
 
-	bool					selected;
-	bool					expanded;
-	int						level;
-
-	EditorEntity();
-
-	template<class C> C* CreateComponent()
-	{
-		C* newComp=new C;
-		newComp->entity=this;
-		this->components.push_back(newComp);
-		return newComp;
-	}
-
-	void SetParent(Entity*);
-
-	void SetLevel(EditorEntity*);
-};
 
 struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 {
@@ -1081,13 +1058,63 @@ struct CompilerInterface
 	virtual void Compile(String)=0;
 };
 
+struct EditorEntityComponent
+{
+	GuiString properties;
+
+	EditorEntityComponent();
+
+	virtual void OnPropertiesCreate(){};
+	virtual void OnPropertiesUpdate(){};
+
+	void CreateContainerRect(String iName);
+};
+
+struct EditorEntity : EditorEntityComponent , Entity 
+{
+	bool					selected;
+	bool					expanded;
+	int						level;
+
+	EditorEntity();
+
+	void SetParent(Entity*);
+
+	void SetLevel(EditorEntity*);
+
+	template<class C> C* CreateComponent()
+	{
+		C* component=this->Entity::CreateComponent<C>();
+		component->OnPropertiesCreate();
+		return component;
+	}
+
+	void OnPropertiesCreate();
+};
+
+struct EditorMesh :  EditorEntityComponent , Mesh {void OnPropertiesCreate();};
+struct EditorSkin :  EditorEntityComponent , Skin {void OnPropertiesCreate();};
+struct EditorRoot :  EditorEntityComponent , Root {void OnPropertiesCreate();};
+struct EditorSkeleton :  EditorEntityComponent , Skeleton {void OnPropertiesCreate();};
+struct EditorGizmo :  EditorEntityComponent , Gizmo {void OnPropertiesCreate();};
+struct EditorAnimation :  EditorEntityComponent , Animation {void OnPropertiesCreate();};
+struct EditorAnimationController :  EditorEntityComponent , AnimationController {void OnPropertiesCreate();};
+struct EditorBone :  EditorEntityComponent , Bone {void OnPropertiesCreate();};
+struct EditorLight :  EditorEntityComponent , Light {void OnPropertiesCreate();};
+struct EditorScript :  EditorEntityComponent , Script {void OnPropertiesCreate();};
+struct EditorCamera :  EditorEntityComponent , Camera {void OnPropertiesCreate();};
 
 namespace EntityUtils
 {
-	void UpdateEntity(Entity* iEntity);
-	void DrawEntity(Entity* iEntity,Renderer3DInterface* renderer);
-	void FillProperties(EntityComponent* ec){};
+	void Update(Entity* iEntity);
+	void Draw(Entity* iEntity,Renderer3DInterface* renderer);
+	void FillProperties(EntityComponent* ec);
+	template<class C> C* CreateComponent();
+	template<class C> C* findComponent();
+	template<class C> std::vector<C*> findComponents();
 };
+
+
 
 #endif //INTERFACES_H
 

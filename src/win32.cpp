@@ -1901,10 +1901,6 @@ void OpenGLRenderer::draw(Gizmo* gizmo)
 	this->draw(vec3(0,0,0),vec3(0,0,10),vec3(0,0,1));
 }
 
-void OpenGLRenderer::draw(Piped* piped)
-{
-	
-}
 
 
 void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
@@ -2655,7 +2651,7 @@ float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
 void OpenGLRenderer::draw(Entity* iEntity)
 {
-	EntityUtils::DrawEntity(iEntity,this);
+	EntityUtils::Draw(iEntity,this);
 }
 
 void OpenGLRenderer::draw(EntityComponent* iEntityComponent)
@@ -3028,10 +3024,6 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 			InsertMenu(createComponent,0,MF_BYPOSITION|MF_STRING,3,"Light");
 			InsertMenu(createComponent,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createMesh,"Mesh");
 			{
-				InsertMenu(createMesh,0,MF_BYPOSITION|MF_STRING,10,"Piped");
-				InsertMenu(createMesh,1,MF_BYPOSITION|MF_STRING,11,"Sphere");
-				InsertMenu(createMesh,2,MF_BYPOSITION|MF_STRING,12,"Cylinder");
-				InsertMenu(createMesh,3,MF_BYPOSITION|MF_STRING,13,"Tetrahedron");
 			}
 			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
 			InsertMenu(createComponent,3,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createScript,"Script");
