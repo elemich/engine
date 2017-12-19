@@ -20,6 +20,14 @@ String::String(int size,const char* s,...)
 	strcpy(data,t);*/
 }
 
+String::String(char* from,int t)
+{
+	this->data=new char[t+1];
+	strncpy(this->data,from,t);
+	this->data[t]='\0';
+}
+
+
 String::String(const char* s):data(0)
 {
 	if(s)
@@ -170,6 +178,34 @@ wchar_t* String::Wstring(int& oSize)
 	mbstowcs_s(&_osize,retText,slen,data,slen);
 	oSize=(int)_osize;
 	return retText;
+}
+
+
+String FilePath::Filename()
+{
+	char* last=strrchr(this->data,'\\');
+	if(last && last[1]!=0)
+		return (&last[1]);
+	return "";
+}
+String FilePath::Fullpath()
+{
+	return String(this->data);
+}
+String FilePath::Path()
+{
+	char* last=strrchr(this->data,'\\');
+	if(last)
+		return String(this->data,last-this->data);
+	return "";
+}
+
+String FilePath::Extension()
+{
+	char* last=strrchr(this->data,'.');
+	if(last && last[1]!=0)
+		return String(&last[1]);
+	return "";
 }
 
 

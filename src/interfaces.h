@@ -1,17 +1,8 @@
 #ifndef INTERFACES_H
 #define INTERFACES_H
 
-#include "primitives.h"
-
-/*
-#include "primitives.h"
-
 #include "entities.h"
 
-struct ShaderInterface;
-struct Renderer3DInterface;
-struct TabContainer;
-struct SceneEntityNode;
 struct GuiRect;
 struct GuiRootRect;
 struct GuiString;
@@ -27,46 +18,29 @@ struct GuiViewport;
 struct GuiSceneViewer;
 struct GuiEntityViewer;
 struct GuiProjectViewer;
-struct EntityNode;
-struct GuiImage;
-struct AnimationController;
-
-struct SplitterContainer;
-struct ContainerWindow;*/
-
-//interfaces forward declaration
-
-struct GuiRect;
-struct GuiRootRect;
-struct GuiString;
-struct GuiButton;
-struct GuiScrollBar;
-struct GuiScrollRect;
-struct GuiPropertyString;
-struct GuiPropertySlider;
-struct GuiPropertyAnimation;
-struct GuiLabel;
-struct GuiButton;
-struct GuiViewport;
-struct GuiSceneViewer;
-struct GuiEntityViewer;
-struct GuiProjectViewer;
+struct GuiScriptViewer;
 
 struct TabContainer;
 struct EditorWindowContainer;
 struct SplitterContainer;
 struct EditorMainAppWindow;
 struct ResourceNodeDir;
+struct CompilerInterface;
 
 //entity forward declaration 
 
+struct Entity;
 struct AnimationController;
+struct Script;
 
 struct AppInterface : TStaticInstance<AppInterface>
 {
-	Timer			 *timerMain;
-	EditorMainAppWindow *mainAppWindow;
-	String			  projectFolder;
+	Timer					*timerMain;
+	EditorMainAppWindow		*mainAppWindow;
+	String					projectFolder;
+	FilePath				exeFolder;
+	String					applicationDataFolder;
+	CompilerInterface*		compiler; 
 
 	AppInterface();
 
@@ -77,7 +51,6 @@ struct AppInterface : TStaticInstance<AppInterface>
 	virtual void CreateNodes(String,ResourceNodeDir*)=0;
 	virtual void ScanDir(String)=0;
 };
-
 
 
 struct ShaderInterface : TPoolVector<ShaderInterface>
@@ -168,6 +141,9 @@ struct Renderer3DInterface : TPoolVector<Renderer3DInterface>
 	virtual void draw(Sphere*)=0;
 	virtual void draw(Cylinder*)=0;
 	virtual void draw(Tetrahedron*)=0;
+
+	virtual void draw(Entity*)=0;
+	virtual void draw(EntityComponent*)=0;
 
 	virtual void ChangeContext()=0;
 
@@ -420,10 +396,7 @@ struct MouseInput : InputInterface
 	vec2	mouse_posnorm;
 	float   mouse_timers[BUTTON_MAX];
 
-
-
 	MouseInput();
-
 
 	bool IsClick(int);
 	virtual void Update();
@@ -509,7 +482,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
 	~GuiRect();
 
-	virtual void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float apx=-1.0f,float apy=-1.0f,float arx=-1.0f,float ary=-1.0f);
+	virtual void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
 
 	void SetParent(GuiRect*);
 
@@ -577,6 +550,30 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiSceneViewer* SceneViewer();
 	GuiEntityViewer* EntityViewer();
 	GuiProjectViewer* ProjectViewer();
+	GuiScriptViewer* ScriptViewer(Script*&);
+};
+
+struct EditorEntity : Entity
+{
+	GuiRect properties;
+
+	bool					selected;
+	bool					expanded;
+	int						level;
+
+	EditorEntity();
+
+	template<class C> C* CreateComponent()
+	{
+		C* newComp=new C;
+		newComp->entity=this;
+		this->components.push_back(newComp);
+		return newComp;
+	}
+
+	void SetParent(Entity*);
+
+	void SetLevel(EditorEntity*);
 };
 
 struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
@@ -610,7 +607,6 @@ struct GuiButton : GuiString
 
 	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
 };
-
 
 struct GuiScrollBar : GuiRect
 {
@@ -714,7 +710,7 @@ struct GuiPropertyAnimation : GuiRect
 
 struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 {
-	Entity* rootEntity;
+	EditorEntity* rootEntity;
 
 	mat4 projection;
 	mat4 view;
@@ -728,7 +724,7 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	bool needsPicking;
 
 	unsigned char pickedPixel[4];
-	Entity*		  pickedEntity;
+	EditorEntity*		  pickedEntity;
 
 	GuiViewport();
 	~GuiViewport();
@@ -748,7 +744,7 @@ struct GuiSceneViewer : GuiScrollRect
 	GuiSceneViewer();
 	~GuiSceneViewer();
 
-	Entity* entityRoot;
+	EditorEntity* entityRoot;
 
 	std::vector<Entity*> selection;
 
@@ -761,11 +757,11 @@ struct GuiSceneViewer : GuiScrollRect
 	void OnMouseWheel(TabContainer*,void* data=0);
 
 
-	bool ProcessMouseInput(vec2&,vec2&,Entity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover);
-	void DrawNodes(TabContainer*,Entity*,vec2&);
-	int UpdateNodes(Entity*);
-	void UnselectNodes(Entity*);
-	void ExpandUntil(Entity* iTarget);
+	bool ProcessMouseInput(vec2&,vec2&,EditorEntity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover);
+	void DrawNodes(TabContainer*,EditorEntity*,vec2&);
+	int UpdateNodes(EditorEntity*);
+	void UnselectNodes(EditorEntity*);
+	void ExpandUntil(EditorEntity* iTarget);
 };	
 
 
@@ -775,7 +771,7 @@ struct GuiEntityViewer : GuiScrollRect
 	GuiEntityViewer();
 	~GuiEntityViewer();
 
-	Entity* entity;
+	EditorEntity* entity;
 
 	void OnActivate(TabContainer*,void* data=0);
 
@@ -820,7 +816,7 @@ struct ResourceNodeDir : ResourceNode
 
 struct GuiProjectViewer : GuiRect
 {
-	struct GuiDirView : GuiScrollRect
+	struct GuiProjectDirViewer : GuiScrollRect
 	{
 		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&,bool& terminated);
 		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
@@ -834,7 +830,7 @@ struct GuiProjectViewer : GuiRect
 
 	}left;
 
-	struct GuiFileView : GuiScrollRect
+	struct GuiProjectFileViewer : GuiScrollRect
 	{
 		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&);
 		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
@@ -847,6 +843,11 @@ struct GuiProjectViewer : GuiRect
 		void OnLMouseDown(TabContainer*,void* data=0);
 		void OnPaint(TabContainer*,void* data=0);
 	}right;
+
+	struct GuiProjectDataViewer : GuiScrollRect
+	{
+		
+	}viewer;
 
 
 	ResourceNodeDir rootResource;
@@ -864,33 +865,6 @@ struct GuiProjectViewer : GuiRect
 	void OnReparent(TabContainer*,void* data=0);
 	void OnActivate(TabContainer*,void* data=0);
 };
-
-/*
-#ifdef _WIN32	
-#include "windows.h"
-#include <d2d1.h>
-typedef HWND WINDOWHANDLE;
-typedef HMENU MENUHANDLE;
-typedef UINT UINTHANDLE;
-typedef WPARAM WPARAMHANDLE;
-typedef LPARAM LPARAMHANDLE;
-typedef ID2D1HwndRenderTarget* GUIRENDERTARGET;
-typedef ID2D1SolidColorBrush* GUISOLIDCOLORBRUSH;
-typedef ID2D1Bitmap* GUIBITMAP;
-typedef ID2D1Brush* GUIBRUSH;
-#endif*/
-
-/*
-struct Renderer2DInterface
-{
-	virtual void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1)=0;
-	virtual void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true)=0;
-	virtual void DrawBitmap(void* bitmap,float x,float y, float w,float h)=0;
-	virtual void PushScissor(float x,float y, float w,float h)=0;
-	virtual void PopScissor()=0;
-	virtual void Translate(float x,float y)=0;
-	virtual void Identity()=0;
-};*/
 
 struct WindowData
 {
@@ -914,6 +888,15 @@ struct GuiImage
 	virtual void Draw(TabContainer* tabContainer,float x,float y,float w,float h){};
 	virtual void Release(){};
 	virtual bool Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData){return false;}
+};
+
+struct GuiScriptViewer : GuiRect
+{
+	Script*& script;
+
+	GuiScriptViewer(Script*&);
+
+	void OnPaint(TabContainer*,void* data=0);
 };
 
 struct TabContainer : TPoolVector<TabContainer>
@@ -960,7 +943,6 @@ struct TabContainer : TPoolVector<TabContainer>
 	bool isRender;
 	bool recreateTarget;
 	bool resizeTarget;
-	Entity* reloadScript;
 
 	GuiRect* drawRect;
 	bool*	 drawPause;
@@ -1030,10 +1012,10 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	void SetDraw(GuiRect* iRect,bool iFrame);
 
-	virtual int TrackGuiSceneViewerPopup(bool iUnselected)=0;
+	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
+	virtual int TrackTabMenuPopup()=0;
 
-	virtual void ReloadScript()=0;
-
+	virtual bool Compile(Script*)=0;
 };
 
 struct SplitterContainer 
@@ -1084,18 +1066,28 @@ struct EditorWindowContainer
 struct EditorMainAppWindow
 {
 	std::vector<EditorWindowContainer*> mainAppSiblingsWindows;
-
-	
 };
 
 
+struct CompilerInterface
+{
+	String compilerPath;
+	String linkerPath;
+	String includePath;
+	String libPath;
+	String runBefore;
+	String runAfter;
+
+	virtual void Compile(String)=0;
+};
 
 
-
-
-
-
-
+namespace EntityUtils
+{
+	void UpdateEntity(Entity* iEntity);
+	void DrawEntity(Entity* iEntity,Renderer3DInterface* renderer);
+	void FillProperties(EntityComponent* ec){};
+};
 
 #endif //INTERFACES_H
 

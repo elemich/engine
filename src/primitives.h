@@ -33,7 +33,6 @@
 
 struct THierarchy
 {
-
 };
 
 template <typename T> struct THierarchyVector : THierarchy
@@ -50,6 +49,26 @@ template <typename T> struct THierarchyList : THierarchy
 	std::list<T*> childs;
 
 	THierarchyList():parent(0){}
+
+	void RecurseForward(void (T::*func)())
+	{
+		func();
+
+		for(std::list<T*>::iterator i=childs.begin();i!=childs.end();i++)
+			(*)->RecurseForward(func);
+	}
+
+	void SetParent(T* iParent)
+	{
+		Entity* oldParent=this->parent;
+		this->parent=iParent;
+
+		if(oldParent)
+			oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
+
+		if(this->parent)
+			this->parent->childs.push_back((T*)this);
+	}
 };
 
 template<class T,int size> struct TNumberedVectorInterface
@@ -130,7 +149,7 @@ struct StringWide
 
 struct String
 {
-private:
+protected:
 	char* data;
 public:
 
@@ -141,6 +160,7 @@ public:
 	String(const wchar_t* s);
 	String(int number);
 	String(float scalar);
+	String(char* from,int t);
 
 	~String();
 
@@ -158,6 +178,14 @@ public:
 	bool Contains(const char*);
 	wchar_t* Wstring(int& oSize);
 
+};
+
+struct FilePath : String
+{
+	String Filename();
+	String Fullpath();
+	String Path();
+	String Extension();
 };
 
 

@@ -5,6 +5,8 @@
 
 struct Renderer3DInterface;
 struct ShaderInterface;
+struct EntityScript;
+
 
 #define PROCESS_ENTITIES_RECURSIVELY 1
 
@@ -137,8 +139,6 @@ struct Texture
 	Texture* GetTextureFile(){return 0;}
 	Texture* GetTextureLayered(){return 0;}
 
-	virtual void draw(Renderer3DInterface*)=0;
-
 	virtual int load(char*)=0;
 	virtual int loadBMP(char*)=0;
 	virtual int loadPNG(char*)=0;
@@ -159,7 +159,6 @@ struct Material : Resource
 	Material* GetMaterial(){return this;}
 
 	void update(){}
-	void draw(Renderer3DInterface*){}
 
 	std::vector<Texture*> textures;
 
@@ -191,9 +190,9 @@ struct Material : Resource
 
 struct Influence
 {
-	int		*influence_controlpointindex;
-	int		influence_ncontrolpointindex;
-	float	influence_weight;
+	int		*cpIdx;
+	int		nCpIdx;
+	float	weight;
 
 	Influence();
 };
@@ -201,12 +200,12 @@ struct Influence
 struct Bone;
 struct Cluster
 {
-	Entity* cluster_bone;
+	Entity* bone;
 
-	Influence	*cluster_influences;
-	int			cluster_ninfluences;
+	Influence	*influences;
+	int			ninfluences;
 
-	mat4		cluster_offset;
+	mat4		offset;
 
 	Cluster();
 };
@@ -229,10 +228,10 @@ struct KeyCurve
 
 	KeyCurve();
 
-	std::vector<Keyframe*>	keycurve_keyframes;
-	EChannel		keycurve_channel;
-	float			keycurve_start;
-	float			keycurve_end;
+	std::vector<Keyframe*>	frames;
+	EChannel		channel;
+	float			start;
+	float			end;
 };
 
 
@@ -240,44 +239,27 @@ struct AnimClip
 {
 	AnimClip();
 
-	std::vector<KeyCurve*> curvegroup_keycurves;
+	std::vector<KeyCurve*> curves;
 
-	float curvegroup_start;
-	float curvegroup_end;
+	float start;
+	float end;
 };
-
 
 struct EntityComponent
 {
 	Entity* entity;
-
-	std::list<ShaderInterface*> shaders;
 
 	EntityComponent():entity(0){}
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
 	virtual void update(){}
-	virtual void draw(Renderer3DInterface* ri){}
-
 };
 
-struct EntityScript
-{
-	Entity* entity;
 
-	EntityScript();
-
-	virtual void init(){};
-	virtual void deinit(){};
-	virtual void update(){};
-};
 
 struct Entity : THierarchyList<Entity>
 {
-	virtual void draw(Renderer3DInterface*);
-	virtual void update();	
-
 	mat4					local;
 	mat4					world;
 
@@ -285,26 +267,10 @@ struct Entity : THierarchyList<Entity>
 
 	AABB					bbox;
 
-	int						nDrawed;
-	int						nUpdated;
-	int						nAnimated;
-
-	bool					selected;
-	bool					expanded;
-	int						level;
-
-	GuiRect					*properties;
-
-	void					SetParent(Entity*);
-	Entity*					Create(Entity*);
-
-	bool operator==(const Entity& e){return this==&e;}
-
 	Entity();
 	~Entity();
 
 	std::vector<EntityComponent*> components;
-	
 	
 	template<class C> C* CreateComponent()
 	{
@@ -337,9 +303,6 @@ struct Entity : THierarchyList<Entity>
 
 		return vecC;
 	}
-
-	void* module;
-	EntityScript *script;
 };
 
 struct Root : EntityComponent
@@ -348,7 +311,6 @@ struct Root : EntityComponent
 
 struct Skeleton : EntityComponent
 {
-
 };
 
 struct Animation : EntityComponent
@@ -367,7 +329,6 @@ struct Animation : EntityComponent
 
 struct Gizmo : EntityComponent
 {
-	void draw(Renderer3DInterface*);
 };
 
 struct AnimationController : EntityComponent
@@ -391,7 +352,6 @@ struct AnimationController : EntityComponent
 	void add(Animation* anim);
 
 	void update();
-	void draw(Renderer3DInterface*){}
 };
 
 struct Bone : EntityComponent
@@ -402,33 +362,11 @@ struct Bone : EntityComponent
 
 	vec3    color;
 
-	void draw(Renderer3DInterface*);
 };
 
 struct Light : EntityComponent
 {
 	Light();
-
-	ELight	LightType();
-	EDecay	DecayType();
-
-	bool    Cast();
-	bool    Volumetric();
-	bool    GroundProjection();
-	bool    NearAttenuation();
-	bool    FarAttenuation();
-	bool    Shadows();
-	float*	Color();
-	float*	ShadowColor();
-	float	Intensity();
-	float	InnerAngle();
-	float	OuterAngle();
-	float   Fog();
-	float	DecayStart();
-	float	NearStart();
-	float	NearEnd();
-	float	FarStart();
-	float	FarEnd();
 
 	ELight	light_type;
 	EDecay	light_decaytype;
@@ -449,15 +387,11 @@ struct Light : EntityComponent
 	float	light_nearend;
 	float	light_farstart;
 	float	light_farend;
-
-	void draw(Renderer3DInterface*);
 };
 
 struct Mesh : EntityComponent
 {
 	Mesh();
-
-	virtual void draw(Renderer3DInterface*);
 
 	int save(char*);
 	int load(char*);
@@ -497,6 +431,28 @@ struct Mesh : EntityComponent
 	bool  mesh_isCCW;
 
 	std::vector<Material*> mesh_materials;
+};
+
+struct Script : EntityComponent
+{
+	FilePath name;
+	EntityScript* runtime;
+	String data;
+
+	void* handle;
+
+	Script();
+};
+
+struct EntityScript
+{
+	Entity* entity;
+
+	EntityScript();
+
+	virtual void init(){};
+	virtual void deinit(){};
+	virtual void update(){};
 };
 
 struct Solid : Mesh
@@ -539,7 +495,6 @@ struct Skin : Mesh
 {
 	Skin();
 
-	void		draw(Renderer3DInterface*);
 	void		update();
 	
 	
@@ -588,7 +543,6 @@ struct TextureFile : Texture
 
 	void* __data;
 
-	void draw(Renderer3DInterface*);
 };
 
 
@@ -600,8 +554,6 @@ struct TextureLayered
 	TextureLayered();
 
 	TextureLayered* GetTextureLayered(){return this;}
-
-	void draw(Renderer3DInterface*){}
 };
 
 struct TextureProcedural : Texture 
@@ -618,8 +570,6 @@ struct TextureProcedural : Texture
 	int GetWidth(){return 0;}
 	int GetHeight(){return 0;}
 	int GetBpp(){return 0;}
-
-	void draw(Renderer3DInterface*){}
 };
 
 

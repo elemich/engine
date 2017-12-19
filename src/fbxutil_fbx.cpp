@@ -436,15 +436,15 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 
 	KeyCurve *curve=new KeyCurve[9];
 
-	curve[0].keycurve_channel=KeyCurve::TRANSLATEX;
-	curve[1].keycurve_channel=KeyCurve::TRANSLATEY;
-	curve[2].keycurve_channel=KeyCurve::TRANSLATEZ;
-	curve[3].keycurve_channel=KeyCurve::ROTATEX;
-	curve[4].keycurve_channel=KeyCurve::ROTATEY;
-	curve[5].keycurve_channel=KeyCurve::ROTATEZ;
-	curve[6].keycurve_channel=KeyCurve::SCALEX;
-	curve[7].keycurve_channel=KeyCurve::SCALEY;
-	curve[8].keycurve_channel=KeyCurve::SCALEZ;
+	curve[0].channel=KeyCurve::TRANSLATEX;
+	curve[1].channel=KeyCurve::TRANSLATEY;
+	curve[2].channel=KeyCurve::TRANSLATEZ;
+	curve[3].channel=KeyCurve::ROTATEX;
+	curve[4].channel=KeyCurve::ROTATEY;
+	curve[5].channel=KeyCurve::ROTATEZ;
+	curve[6].channel=KeyCurve::SCALEX;
+	curve[7].channel=KeyCurve::SCALEY;
+	curve[8].channel=KeyCurve::SCALEZ;
 
 	curve[0].keycurve_nkeys=aTransKey.Count();
 	curve[1].keycurve_nkeys=aTransKey.Count();

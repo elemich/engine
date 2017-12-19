@@ -6,8 +6,6 @@
 
 #include <algorithm>
 
-#include "interfaces.h"
-
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -18,32 +16,28 @@
 Keyframe::Keyframe():time(0.0f),value(0){}
 
 Influence::Influence():
-influence_controlpointindex(0),
-	influence_ncontrolpointindex(0),
-	influence_weight(0.0f)
+cpIdx(0),
+	nCpIdx(0),
+	weight(0.0f)
 {}
 
 Cluster::Cluster():
-cluster_bone(0),
-	cluster_influences(NULL),
-	cluster_ninfluences(0)
+bone(0),
+	influences(NULL),
+	ninfluences(0)
 {}
 
 KeyCurve::KeyCurve():
-keycurve_channel(INVALID_CHANNEL),
-	keycurve_start(-1),
-	keycurve_end(-1)
+channel(INVALID_CHANNEL),
+	start(-1),
+	end(-1)
 {}
 
-void Gizmo::draw(Renderer3DInterface* renderer)
-{
-	renderer->draw(this);
-}
 
 
 AnimClip::AnimClip():
-curvegroup_start(-1),
-	curvegroup_end(-1)
+start(-1),
+	end(-1)
 {}
 
 Animation::Animation():
@@ -51,7 +45,8 @@ entity(0),
 	clipIdx(0),
 	start(-1),
 	end(-1)
-{}
+{
+}
 
 void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
 {
@@ -120,22 +115,22 @@ void AnimationController::update()
 
 				if(curvegroup)
 				{
-					int numcurves=(int)curvegroup->curvegroup_keycurves.size();
+					int numcurves=(int)curvegroup->curves.size();
 
 					vec3 poff,roff,soff(1,1,1);
 					float val=0;
 
 					for(int curveIdx=0;curveIdx<numcurves;curveIdx++)
 					{
-						KeyCurve &curve=*curvegroup->curvegroup_keycurves[curveIdx];
+						KeyCurve &curve=*curvegroup->curves[curveIdx];
 
-						int			numCurveKeys=(int)curve.keycurve_keyframes.size();
+						int			numCurveKeys=(int)curve.frames.size();
 						int			lastKeyIdx=numCurveKeys-1;
 
 						if(numCurveKeys==1)
 						{
-							val=curve.keycurve_keyframes[0]->value;
-							copychannel(curve.keycurve_channel,val,poff,roff,soff);
+							val=curve.frames[0]->value;
+							copychannel(curve.channel,val,poff,roff,soff);
 						}
 						else
 						{
@@ -143,26 +138,26 @@ void AnimationController::update()
 							{
 								if(keyIdx!=lastKeyIdx)
 								{
-									if(!(this->cursor>=curve.keycurve_keyframes[keyIdx]->time && this->cursor<=curve.keycurve_keyframes[keyIdx+1]->time))
+									if(!(this->cursor>=curve.frames[keyIdx]->time && this->cursor<=curve.frames[keyIdx+1]->time))
 										continue;
 
-									Keyframe	*aa=curve.keycurve_keyframes[(keyIdx>0 ? keyIdx-1 : keyIdx)];
-									Keyframe	*bb=curve.keycurve_keyframes[keyIdx];
-									Keyframe	*cc=curve.keycurve_keyframes[keyIdx+1];
-									Keyframe	*dd=curve.keycurve_keyframes[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
+									Keyframe	*aa=curve.frames[(keyIdx>0 ? keyIdx-1 : keyIdx)];
+									Keyframe	*bb=curve.frames[keyIdx];
+									Keyframe	*cc=curve.frames[keyIdx+1];
+									Keyframe	*dd=curve.frames[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
 
 									float		t=(this->cursor - bb->time) / (cc->time - bb->time);
 
 									val=cubic_interpolation(aa->value,bb->value,cc->value,dd->value,t);
 
-									copychannel(curve.keycurve_channel,val,poff,roff,soff);
+									copychannel(curve.channel,val,poff,roff,soff);
 
 									break;
 								}
 								else
 								{
-									val=curve.keycurve_keyframes[lastKeyIdx]->value;
-									copychannel(curve.keycurve_channel,val,poff,roff,soff);
+									val=curve.frames[lastKeyIdx]->value;
+									copychannel(curve.channel,val,poff,roff,soff);
 								}
 							}
 						}
@@ -185,8 +180,6 @@ void AnimationController::update()
 				}
 
 			}
-
-			anim->entity->nAnimated++;
 		}
 
 
@@ -213,6 +206,12 @@ void AnimationController::update()
 ///////////////////////////////////////////////
 
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
 Bone::Bone()
 	:
 root(0)
@@ -233,13 +232,6 @@ root(0)
 	}
 
 	color.make((float)x,(float)y,(float)z);
-}
-
-
-
-void Bone::draw(Renderer3DInterface* renderer)
-{
-	renderer->draw(this);
 }
 
 
@@ -267,93 +259,6 @@ light_cast(0),
 	light_farstart(0),
 	light_farend(0)
 {}
-
-ELight	Light::LightType()
-{
-	return light_type;
-}
-
-EDecay	Light::DecayType()
-{
-	return light_decaytype;
-}
-
-bool    Light::Cast()
-{
-	return light_cast;
-}
-bool    Light::Volumetric()
-{
-	return light_volumetric;
-}
-bool    Light::GroundProjection()
-{
-	return light_groundprojection;
-}
-bool    Light::NearAttenuation()
-{
-	return light_nearattenuation;
-}
-bool    Light::FarAttenuation()
-{
-	return light_farattenuation;
-}
-bool    Light::Shadows()
-{
-	return light_shadows;
-}
-float*	Light::Color()
-{
-	return light_color;
-}
-float*	Light::ShadowColor()
-{
-	return light_shadowcolor;
-}
-float	Light::Intensity()
-{
-	return light_intensity;
-}
-float	Light::InnerAngle()
-{
-	return light_innerangle;
-}
-float	Light::OuterAngle()
-{
-	return light_outerangle;
-}
-float  Light::Fog()
-{
-	return light_fog;
-}
-float	Light::DecayStart()
-{
-	return light_decaystart;
-}
-float	Light::NearStart()
-{
-	return light_nearstart;
-}
-float	Light::NearEnd()
-{
-	return light_nearend;
-}
-float	Light::FarStart()
-{
-	return light_farstart;
-}
-float	Light::FarEnd()
-{
-	return light_farend;
-}
-
-
-
-
-void Light::draw(Renderer3DInterface* renderer)
-{
-
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -455,13 +360,6 @@ std::vector<Material*>& Mesh::GetMaterials()
 }
 
 
-void Mesh::draw(Renderer3DInterface* renderer)
-{
-	renderer->draw(this);
-}
-
-
-
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -480,12 +378,6 @@ skin_textures(NULL),
 }
 
 
-
-void Skin::draw(Renderer3DInterface* renderer)
-{
-	renderer->draw(this);
-}
-
 void Skin::update()
 {
 	if(this->skin_vertexcache)
@@ -503,10 +395,10 @@ void Skin::update()
 		float *src=NULL;
 		float *dst=NULL;
 
-		if(!clu || (clu && !clu->cluster_bone))
+		if(!clu || (clu && !clu->bone))
 			continue;
 
-		mat4 palette=clu->cluster_offset * clu->cluster_bone->world;
+		mat4 palette=clu->offset * clu->bone->world;
 
 		mat4 final;
 		final.zero();
@@ -516,24 +408,24 @@ void Skin::update()
 		mat4 skinmtx1=final;
 		mat4 skinmtx2;
 
-		for(int nw=0;nw<clu->cluster_ninfluences;nw++)
+		for(int nw=0;nw<clu->ninfluences;nw++)
 		{
-			Influence &inf=clu->cluster_influences[nw];
+			Influence &inf=clu->influences[nw];
 
-			src=this->mesh_controlpoints[inf.influence_controlpointindex[0]];
-			dst=&this->skin_vertexcache[inf.influence_controlpointindex[0]*3];	
+			src=this->mesh_controlpoints[inf.cpIdx[0]];
+			dst=&this->skin_vertexcache[inf.cpIdx[0]*3];	
 
-			if(inf.influence_weight!=1.0f)
+			if(inf.weight!=1.0f)
 			{
 				float v[3];
 
 				MatrixMathNamespace::transform(v,skinmtx1,src);
 
-				wcache[inf.influence_controlpointindex[0]][0]+=v[0]*inf.influence_weight;
-				wcache[inf.influence_controlpointindex[0]][1]+=v[1]*inf.influence_weight;
-				wcache[inf.influence_controlpointindex[0]][2]+=v[2]*inf.influence_weight;
+				wcache[inf.cpIdx[0]][0]+=v[0]*inf.weight;
+				wcache[inf.cpIdx[0]][1]+=v[1]*inf.weight;
+				wcache[inf.cpIdx[0]][2]+=v[2]*inf.weight;
 
-				memcpy(dst,wcache[inf.influence_controlpointindex[0]],3*sizeof(float));
+				memcpy(dst,wcache[inf.cpIdx[0]],3*sizeof(float));
 			}
 			else
 			{
@@ -542,9 +434,9 @@ void Skin::update()
 
 			//dst=this->entity->local.transform(dst);
 
-			for(int i=1;i<inf.influence_ncontrolpointindex;i++)
+			for(int i=1;i<inf.nCpIdx;i++)
 			{
-				memcpy(&this->skin_vertexcache[inf.influence_controlpointindex[i]*3],dst,3*sizeof(float));
+				memcpy(&this->skin_vertexcache[inf.cpIdx[i]*3],dst,3*sizeof(float));
 
 			}
 		}
@@ -553,7 +445,12 @@ void Skin::update()
 	delete [] wcache;
 }
 
-
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+Script::Script():runtime(0),handle(0){}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -770,10 +667,6 @@ int TextureFile::GetBpp()
 	return getdataref(this->__data)->m_bpp;
 }
 
-void TextureFile::draw(Renderer3DInterface* renderer)
-{
-	renderer->draw(this);
-}
 
 
 
@@ -795,86 +688,19 @@ TextureProcedural::TextureProcedural()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-void _setEntitieslevel(Entity* e)
-{
-	if(!e)
-		return;
 
-	e->level=e->parent ? e->parent->level+1 : e->level;
-	e->expanded=!e->level ? true : false;
-
-	for_each(e->childs.begin(),e->childs.end(),_setEntitieslevel);
-}
 
 
 EntityScript::EntityScript():entity(0){}
 
 
 
-Entity::Entity():
-	selected(false),
-	expanded(false),
-	level(0),
-	properties(0),
-	script(0),
-	module(0)
+Entity::Entity()
 {
-	nDrawed=0;
-	nAnimated=0;
-	nUpdated=0;
 }
 
 	
-void Entity::SetParent(Entity* iParent)
-{
-
-	Entity* oldParent=this->parent;
-	this->parent=iParent;
-
-	if(oldParent)
-		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
-
-	if(this->parent)
-		this->parent->childs.push_back(this);
-
-	_setEntitieslevel(this);
-}
-
-Entity* Entity::Create(Entity* iParent)
-{
-	Entity* e=new Entity;
-	e->SetParent(iParent);
-	return e;
-}
 
 Entity::~Entity()
 {
 }
-
-
-void Entity::update()
-{
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
-		(*it)->update();
-
-	if(this->script)
-		this->script->update();
-
-	this->parent ? this->world=(this->local * this->parent->world) : this->world;
-
-	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
-		(*it)->update();
-}
-
-
-void Entity::draw(Renderer3DInterface* renderer)
-{	
-	renderer->draw(this->local.position(),5,vec3(1,1,1));
-
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
-		(*it)->draw(renderer);
-
-	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
-		(*it)->draw(renderer);
-}
-

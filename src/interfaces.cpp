@@ -4,7 +4,7 @@
 
 #include "entities.h"
 
-AppInterface::AppInterface():timerMain(0),mainAppWindow(0){}
+AppInterface::AppInterface():timerMain(0),mainAppWindow(0),compiler(0){}
 
 EditorWindowContainer::EditorWindowContainer()
 {
@@ -39,6 +39,7 @@ ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+
 
 #define MATRIXSTACK_ARRAY_SIZES 64
 
@@ -235,7 +236,6 @@ tabs(this),
 	splitterContainer(0),
 	recreateTarget(true),
 	resizeTarget(true),
-	reloadScript(0),
 	nPainted(0),
 	buttonLeftMouseDown(false),
 	buttonControlDown(false),
@@ -266,11 +266,7 @@ void TabContainer::Draw()
 	if(this->drawRect && this->drawFrame)
 		__debugbreak();
 
-	if(this->reloadScript)
-	{
-		this->ReloadScript();
-	}
-	else if(this->drawRect)
+	if(this->drawRect)
 	{
 		this->drawRect->OnPaint(this);
 		this->drawRect=0;
@@ -681,7 +677,7 @@ void GuiRect::OnPaint(TabContainer* tabContainer,void* data)
 	else*/
 		tabContainer->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w,this->pressing ? this->colorPressing : (this->hovering ? this->colorHovering : this->colorBackground/*(this->checked ? this->colorChecked : this->colorBackground)*/));
 
-	tabContainer->DrawRectangle(this->rect.x + 0.5f,this->rect.y + 0.5f,this->rect.x+this->rect.z - 0.5f,this->rect.y+this->rect.w - 0.5f,this->colorBorder);
+	tabContainer->DrawRectangle(this->rect.x + 0.5f,this->rect.y + 0.5f,this->rect.x+this->rect.z - 0.5f,this->rect.y+this->rect.w - 0.5f,this->colorBorder,false);
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
@@ -984,6 +980,7 @@ GuiString* GuiRect::Container(const char* iText)
 	return s;
 }
 
+
 GuiPropertyString* GuiRect::Property(const char* iProp,const char* iVal)
 {
 	GuiPropertyString* p=new GuiPropertyString;
@@ -1062,7 +1059,7 @@ GuiPropertyAnimation* GuiRect::PropertyAnimControl(AnimationController* ac)
 
 GuiViewport* GuiRect::Viewport(vec3 pos,vec3 target,vec3 up,bool perspective)
 {
-	GuiViewport* v=new GuiViewport();
+	GuiViewport* v=new GuiViewport;
 	v->Set(this,0,0,-1,0,0,0,0,0,0,1,1);
 	v->projection= !perspective ? v->projection : v->projection.perspective(90,16/9,1,1000);
 	v->view.move(pos);
@@ -1072,22 +1069,64 @@ GuiViewport* GuiRect::Viewport(vec3 pos,vec3 target,vec3 up,bool perspective)
 
 GuiSceneViewer* GuiRect::SceneViewer()
 {
-	GuiSceneViewer* sv=new GuiSceneViewer();
+	GuiSceneViewer* sv=new GuiSceneViewer;
 	sv->Set(this,0,0,-1,0,0,0,0,0,0,1,1);
 	return sv;
 }
 
 GuiEntityViewer* GuiRect::EntityViewer()
 {
-	GuiEntityViewer* sv=new GuiEntityViewer();
+	GuiEntityViewer* sv=new GuiEntityViewer;
 	sv->Set(this,0,0,-1,0,0,0,0,0,0,1,1);
 	return sv;
 }
 GuiProjectViewer* GuiRect::ProjectViewer()
 {
-	GuiProjectViewer* sv=new GuiProjectViewer();
+	GuiProjectViewer* sv=new GuiProjectViewer;
 	sv->Set(this,0,0,-1,0,0,0,0,0,0,1,1);
 	return sv;
+}
+
+GuiScriptViewer* GuiRect::ScriptViewer(Script*& iScript)
+{
+	GuiScriptViewer* sv=new GuiScriptViewer(iScript);
+	sv->Set(this,0,0,-1,0,0,0,0,0,0,1,1);
+	return sv;
+}
+
+
+////////////////////////////
+////////EditorEntity///////
+////////////////////////////
+
+EditorEntity::EditorEntity():
+	selected(false),
+	expanded(false),
+	level(0)
+{
+	this->properties.Set(0,0,0,-1,0,0,0,0,0,0,1,1);
+}
+
+void EditorEntity::SetParent(Entity* iParent)
+{
+	this->THierarchyList<Entity>::SetParent(iParent);
+
+	this->SetLevel(this);
+}
+
+void EditorEntity::SetLevel(EditorEntity* iEntity)
+{
+	EditorEntity*& eeParent=(EditorEntity*&)iEntity->parent;
+
+	iEntity->level=eeParent ? eeParent->level+1 : iEntity->level;
+	iEntity->expanded=!iEntity->level ? true : false;
+
+	std::list<EditorEntity*>& eeChilds=(std::list<EditorEntity*>&)iEntity->childs;
+
+	for(std::list<EditorEntity*>::iterator i=eeChilds.begin();i!=eeChilds.end();i++)
+		(*i)->SetLevel(*i);
+
+	//for_each(eeChilds.begin(),eeChilds.end(),std::mem_fun(&EditorEntity::SetLevel));
 }
 
 
@@ -1642,7 +1681,7 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 	{
 	case 1:
 		{
-			Entity* newEntity=new Entity;
+			EditorEntity* newEntity=new EditorEntity;
 
 			newEntity->name="Entity";
 
@@ -1664,6 +1703,7 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 	case 11:curHover->CreateComponent<Sphere>();break;
 	case 12:curHover->CreateComponent<Cylinder>();break;
 	case 13:curHover->CreateComponent<Tetrahedron>();break;
+	case 14:curHover->CreateComponent<Script>();break;
 	}
 
 	
@@ -1674,7 +1714,7 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 GuiSceneViewer::GuiSceneViewer():
 entityRoot(0)
 {
-	this->entityRoot=new Entity;
+	this->entityRoot=new EditorEntity;
 	this->entityRoot->name="EntitySceneRoot";
 	this->entityRoot->expanded=true;
 
@@ -1697,7 +1737,7 @@ void GuiSceneViewer::OnEntitiesChange(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnEntitiesChange(tabContainer,data);
 
-	Entity* entity=(Entity*)data;
+	EditorEntity* entity=(EditorEntity*)data;
 
 	if(entity)
 		entity->SetParent(this->entityRoot);
@@ -1719,7 +1759,7 @@ void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnEntitySelected(tabContainer,data);
 
-	Entity* entity=(Entity*)data;
+	EditorEntity* entity=(EditorEntity*)data;
 
 	if(entity)
 	{
@@ -1742,15 +1782,15 @@ void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 	}
 }
 
-void GuiSceneViewer::ExpandUntil(Entity* iTarget)
+void GuiSceneViewer::ExpandUntil(EditorEntity* iTarget)
 {
 	iTarget->expanded=true;
 
 	if(iTarget->parent)
-		GuiSceneViewer::ExpandUntil(iTarget->parent);
+		GuiSceneViewer::ExpandUntil((EditorEntity*)iTarget->parent);
 }
 
-void GuiSceneViewer::UnselectNodes(Entity* node)
+void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 {
 	node->selected=false;
 
@@ -1758,10 +1798,10 @@ void GuiSceneViewer::UnselectNodes(Entity* node)
 		(*i)->is<Gizmo>() ? i=node->components.erase(i) : i++ ; 
 
 	for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-		this->UnselectNodes(*nCh);
+		this->UnselectNodes((EditorEntity*)*nCh);
 }
 
-bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,Entity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover)
+bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,EditorEntity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -1812,7 +1852,7 @@ bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,Entity* node,bool iG
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 		{
-			if(this->ProcessMouseInput(mpos,pos,*nCh,iGetHovered,expChanged,selChanged,curHover))
+			if(this->ProcessMouseInput(mpos,pos,(EditorEntity*)*nCh,iGetHovered,expChanged,selChanged,curHover))
 				return true;
 		}
 	}
@@ -1861,7 +1901,7 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 }
 
 
-int GuiSceneViewer::UpdateNodes(Entity* node)
+int GuiSceneViewer::UpdateNodes(EditorEntity* node)
 {
 	if(!node)
 		return 0;
@@ -1874,13 +1914,13 @@ int GuiSceneViewer::UpdateNodes(Entity* node)
 	if(node->expanded)
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-			this->UpdateNodes(*nCh);
+			this->UpdateNodes((EditorEntity*)*nCh);
 	}
 
 	return this->contentHeight;
 }
 
-void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,Entity* node,vec2& pos)
+void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,EditorEntity* node,vec2& pos)
 {
 	if(!node)
 		return;
@@ -1911,7 +1951,7 @@ void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,Entity* node,vec2& pos
 	if(node->expanded)
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-			this->DrawNodes(tabContainer,*nCh,pos);
+			this->DrawNodes(tabContainer,(EditorEntity*)*nCh,pos);
 	}
 
 }
@@ -1954,25 +1994,23 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnEntitySelected(tabContainer);
 
-	Entity* iEntity=static_cast<Entity*>(data);
+	EditorEntity* iEntity=(EditorEntity*)data;
 
 	if(iEntity)
 	{
 		if(this->entity)
 		{
 			this->BroadcastToChilds(&GuiRect::OnDeactivate,tabContainer);
-			this->entity->properties->SetParent(0);
-			this->entity->properties->SetClip(0);
+			this->entity->properties.SetParent(0);
+			this->entity->properties.SetClip(0);
 			this->scrollBar->SetParent(0);
 		}
 
-		if(!iEntity->properties)
+		if(iEntity->properties.childs.empty())
 		{
-			iEntity->properties=new GuiRect();
-
 			std::vector<GuiRect*> lvl(50);
 
-			lvl[0]=iEntity->properties->Container("Entity");
+			lvl[0]=iEntity->properties.Container("Entity");
 
 			lvl[0]->Property("Name",iEntity->name);
 			char cptr[sizeof(void*)*2+3];
@@ -1991,15 +2029,16 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 			Light* light=iEntity->findComponent<Light>();
 			Animation* anim=iEntity->findComponent<Animation>();
 			AnimationController* animcont=iEntity->findComponent<AnimationController>();
+			Script* script=iEntity->findComponent<Script>();
 
 
 			if(bone)
 			{
-				lvl[0]=iEntity->properties->Container("Bone");
+				lvl[0]=iEntity->properties.Container("Bone");
 			}
 			if(mesh)
 			{
-				lvl[0]=iEntity->properties->Container("Mesh");
+				lvl[0]=iEntity->properties.Container("Mesh");
 				lvl[0]->Property("Controlpoints",String(mesh->mesh_ncontrolpoints));
 				lvl[0]->Property("Normals",String(mesh->mesh_nnormals));
 				lvl[0]->Property("Polygons",String(mesh->mesh_npolygons));
@@ -2008,18 +2047,18 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 			}
 			if(skin)
 			{
-				lvl[0]=iEntity->properties->Container("Skin");
+				lvl[0]=iEntity->properties.Container("Skin");
 				lvl[0]->Property("Clusters",String(skin->skin_nclusters));
 				lvl[0]->Property("Textures",String(skin->skin_ntextures));
 			}
 			if(light)
 			{
-				lvl[0]=iEntity->properties->Container("Light");
+				lvl[0]=iEntity->properties.Container("Light");
 
 			}
 			if(anim)
 			{
-				lvl[0]=iEntity->properties->Container("Animation");
+				lvl[0]=iEntity->properties.Container("Animation");
 				lvl[0]->Property("IsBone",String(anim->entity->findComponent<Bone>() ? "true" : "false"));
 				lvl[0]->Property("Duration",String(anim->end-anim->start));
 				lvl[0]->Property("Begin",String(anim->start));
@@ -2027,7 +2066,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 			}
 			if(animcont)
 			{
-				lvl[0]=iEntity->properties->Container("AnimationController");
+				lvl[0]=iEntity->properties.Container("AnimationController");
 				lvl[0]->Property("Number of nodes",String((int)animcont->animations.size()));
 				lvl[0]->Slider("Velocity",&animcont->speed);
 				lvl[0]->Property("Duration",String(animcont->end-animcont->start));
@@ -2035,27 +2074,31 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 				lvl[0]->Property("End",String(animcont->end));
 				lvl[0]->PropertyAnimControl(animcont);
 			}
+			if(script)
+			{
+				lvl[0]=iEntity->properties.Container("Script");
+				lvl[0]->Property("File",script->name);
+				lvl[0]->Property("Running",script->runtime ? "true" : "false");
+			}
 
 		}
 
 		this->entity=iEntity;
-		this->entity->properties->SetParent(this);
+		this->entity->properties.SetParent(this);
 
 		this->scrollBar->SetParent(this);
-		this->entity->properties->SetClip(this);
+		this->entity->properties.SetClip(this);
 
 		this->OnSize(tabContainer);
-		this->entity->properties->OnActivate(tabContainer);
+		this->entity->properties.OnActivate(tabContainer);
 
 		tabContainer->SetDraw(this,0);
-
-		tabContainer->reloadScript=iEntity;
 	}
 }
 
 void GuiEntityViewer::OnExpandos(TabContainer* tabContainer,void* data)
 {
-	this->UpdateNodes(this->entity->properties);
+	this->UpdateNodes(&this->entity->properties);
 	this->OnSize(tabContainer);
 }
 
@@ -2066,8 +2109,8 @@ void GuiEntityViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 	tabContainer->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w,TabContainer::COLOR_GUI_BACKGROUND);
 
-	if(this->entity && this->entity->properties)
-		this->entity->properties->OnPaint(tabContainer);
+	if(this->entity)
+		this->entity->properties.OnPaint(tabContainer);
 
 	this->scrollBar->OnPaint(tabContainer);
 
@@ -2084,8 +2127,8 @@ void GuiEntityViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	vec2& mpos=*(vec2*)data;
 
-	if(this->entity && this->entity->properties)
-		this->entity->properties->OnLMouseDown(tabContainer,vec2(mpos.x,mpos.y+this->scrollBar->scrollerPosition*this->contentHeight));
+	if(this->entity)
+		this->entity->properties.OnLMouseDown(tabContainer,vec2(mpos.x,mpos.y+this->scrollBar->scrollerPosition*this->contentHeight));
 
 	this->scrollBar->OnLMouseDown(tabContainer,data);
 }
@@ -2105,8 +2148,8 @@ void GuiEntityViewer::OnMouseMove(TabContainer* tabContainer,void* data)
 {
 	vec2& mpos=*(vec2*)data;
 
-	if(this->entity && this->entity->properties)
-		this->entity->properties->OnMouseMove(tabContainer,vec2(mpos.x,mpos.y+this->scrollBar->scrollerPosition*this->contentHeight));
+	if(this->entity)
+		this->entity->properties.OnMouseMove(tabContainer,vec2(mpos.x,mpos.y+this->scrollBar->scrollerPosition*this->contentHeight));
 
 	this->scrollBar->OnMouseMove(tabContainer,data);
 }
@@ -2126,7 +2169,7 @@ int GuiEntityViewer::UpdateNodes(GuiRect* node)
 
 	this->contentHeight=0;
 
-	for(std::vector<GuiRect*>::iterator nCh=this->entity->properties->childs.begin();nCh!=this->entity->properties->childs.end();nCh++)
+	for(std::vector<GuiRect*>::iterator nCh=this->entity->properties.childs.begin();nCh!=this->entity->properties.childs.end();nCh++)
 	{
 		GuiRect* prop=(*nCh);
 		this->contentHeight+=prop->rect.w;
@@ -2145,8 +2188,11 @@ lMouseDown(false),
 {
 	this->name="Project";
 
-	left.Set(this,0,0,-1,0,0,0,0,0,0,0.5f,1.0f);
-	right.Set(this,&this->left,0,-1,0,0,0,0,0,0,0.5f,1.0f);
+	left.Set(this,0,0,-1,0,0,0,0,0,0,0.3f,1.0f);
+	right.Set(this,&this->left,0,-1,0,0,0,0,0,0,0.3f,1.0f);
+	viewer.Set(this,&this->right,0,-1,0,0,0,0,0,0,0.3f,1.0f);
+
+	viewer.colorBackground=0xffff0000;
 
 	this->rootResource.fileName=AppInterface::instance->projectFolder;
 	this->rootResource.expanded=true;
@@ -2255,7 +2301,7 @@ void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 
 
-void GuiProjectViewer::GuiDirView::OnLMouseDown(TabContainer* tabContainer,void* data)
+void GuiProjectViewer::GuiProjectDirViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseDown(tabContainer,data);
 
@@ -2291,7 +2337,7 @@ void GuiProjectViewer::GuiDirView::OnLMouseDown(TabContainer* tabContainer,void*
 	tabContainer->SetDraw(this,0);
 }
 
-void GuiProjectViewer::GuiFileView::OnLMouseDown(TabContainer* tabContainer,void* data)
+void GuiProjectViewer::GuiProjectFileViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseDown(tabContainer,data);
 
@@ -2329,7 +2375,7 @@ void GuiProjectViewer::GuiFileView::OnLMouseDown(TabContainer* tabContainer,void
 
 
 
-void GuiProjectViewer::GuiDirView::DrawNodes(TabContainer* tabContainer,ResourceNodeDir* node,vec2& pos,bool& terminated)
+void GuiProjectViewer::GuiProjectDirViewer::DrawNodes(TabContainer* tabContainer,ResourceNodeDir* node,vec2& pos,bool& terminated)
 {
 	if(terminated)
 		return;
@@ -2376,7 +2422,7 @@ void GuiProjectViewer::GuiDirView::DrawNodes(TabContainer* tabContainer,Resource
 	return;
 }
 
-void GuiProjectViewer::GuiFileView::DrawNodes(TabContainer* tabContainer,ResourceNodeDir* _node,vec2& pos)
+void GuiProjectViewer::GuiProjectFileViewer::DrawNodes(TabContainer* tabContainer,ResourceNodeDir* _node,vec2& pos)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2432,7 +2478,7 @@ void GuiProjectViewer::GuiFileView::DrawNodes(TabContainer* tabContainer,Resourc
 	return;
 }
 
-int GuiProjectViewer::GuiDirView::CalcNodesHeight(ResourceNodeDir* node)
+int GuiProjectViewer::GuiProjectDirViewer::CalcNodesHeight(ResourceNodeDir* node)
 {
 	if(!node)
 		return 0;
@@ -2451,7 +2497,7 @@ int GuiProjectViewer::GuiDirView::CalcNodesHeight(ResourceNodeDir* node)
 	return this->contentHeight;
 }
 
-int GuiProjectViewer::GuiFileView::CalcNodesHeight(ResourceNodeDir* node)
+int GuiProjectViewer::GuiProjectFileViewer::CalcNodesHeight(ResourceNodeDir* node)
 {
 	if(!node)
 		return 0;
@@ -2460,7 +2506,7 @@ int GuiProjectViewer::GuiFileView::CalcNodesHeight(ResourceNodeDir* node)
 }
 
 
-void GuiProjectViewer::GuiDirView::UnselectNodes(ResourceNodeDir* node)
+void GuiProjectViewer::GuiProjectDirViewer::UnselectNodes(ResourceNodeDir* node)
 {
 	if(!node)
 		return;
@@ -2474,7 +2520,7 @@ void GuiProjectViewer::GuiDirView::UnselectNodes(ResourceNodeDir* node)
 		this->UnselectNodes(*nCh);
 }
 
-void GuiProjectViewer::GuiFileView::UnselectNodes(ResourceNodeDir* node)
+void GuiProjectViewer::GuiProjectFileViewer::UnselectNodes(ResourceNodeDir* node)
 {
 	if(!node)
 		return;
@@ -2488,7 +2534,7 @@ void GuiProjectViewer::GuiFileView::UnselectNodes(ResourceNodeDir* node)
 		this->UnselectNodes(*nCh);
 }
 
-bool GuiProjectViewer::GuiDirView::ProcessMouseInput(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged)
+bool GuiProjectViewer::GuiProjectDirViewer::ProcessMouseInput(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged)
 {
 	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
 	{
@@ -2537,7 +2583,7 @@ bool GuiProjectViewer::GuiDirView::ProcessMouseInput(vec2& mpos,vec2& pos,float&
 	return 0;
 }
 
-bool GuiProjectViewer::GuiFileView::ProcessMouseInput(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* _node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged)
+bool GuiProjectViewer::GuiProjectFileViewer::ProcessMouseInput(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* _node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged)
 {
 	for(std::list<ResourceNodeDir*>::iterator dir=_node->dirs.begin();dir!=_node->dirs.end();dir++)
 	{
@@ -2602,7 +2648,7 @@ bool GuiProjectViewer::GuiFileView::ProcessMouseInput(vec2& mpos,vec2& pos,float
 
 
 
-void GuiProjectViewer::GuiDirView::OnPaint(TabContainer* tabContainer,void* data)
+void GuiProjectViewer::GuiProjectDirViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=this->SelfRender(tabContainer);
 	bool selfClip=this->SelfClip(tabContainer);
@@ -2623,7 +2669,7 @@ void GuiProjectViewer::GuiDirView::OnPaint(TabContainer* tabContainer,void* data
 }
 
 
-void GuiProjectViewer::GuiFileView::OnPaint(TabContainer* tabContainer,void* data)
+void GuiProjectViewer::GuiProjectFileViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
 	bool selfRender=this->SelfRender(tabContainer);
 	bool selfClip=this->SelfClip(tabContainer);
@@ -2640,6 +2686,44 @@ void GuiProjectViewer::GuiFileView::OnPaint(TabContainer* tabContainer,void* dat
 
 	this->SelfClipEnd(tabContainer,selfClip);
 	this->SelfRenderEnd(tabContainer,selfRender);
+}
+
+GuiScriptViewer::GuiScriptViewer(Script*& iScript):script(iScript){}
+
+void GuiScriptViewer::OnPaint(TabContainer* tabContainer,void* data)
+{
+	bool selfRender=this->SelfRender(tabContainer);
+	bool selfClip=this->SelfClip(tabContainer);
+
+	tabContainer->DrawText(0xffffffff,this->script->data,this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
+
+	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
+
+	this->SelfClipEnd(tabContainer,selfClip);
+	this->SelfRenderEnd(tabContainer,selfRender);
+}
+
+
+void EntityUtils::UpdateEntity(Entity* iEntity)
+{
+	for(std::vector<EntityComponent*>::iterator it=iEntity->components.begin();it!=iEntity->components.end();it++)
+		(*it)->update();
+
+	iEntity->parent ? iEntity->world=(iEntity->local * iEntity->parent->world) : iEntity->world;
+
+	for(std::list<Entity*>::iterator it=iEntity->childs.begin();it!=iEntity->childs.end();it++)
+		UpdateEntity(*it);
+}
+
+void EntityUtils::DrawEntity(Entity* iEntity,Renderer3DInterface* renderer)
+{
+	renderer->draw(iEntity->local.position(),5,vec3(1,1,1));
+
+	for(std::vector<EntityComponent*>::iterator it=iEntity->components.begin();it!=iEntity->components.end();it++)
+		renderer->draw(*it);
+
+	for(std::list<Entity*>::iterator it=iEntity->childs.begin();it!=iEntity->childs.end();it++)
+		DrawEntity(*it,renderer);
 }
 
 

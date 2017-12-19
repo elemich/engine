@@ -32,13 +32,13 @@ imgpng.obj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
 imgtga.obj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
  @cl.exe $(CLOPT) $(DIRSRC)\imgtga.cpp
  
-engine.lib:
+engine.lib: primitives.obj entities.obj interfaces.obj imgpng.obj imgtga.obj imgjpg.obj win32.obj
  lib.exe /OUT:engine.lib /NAME:engine.dll primitives.obj entities.obj interfaces.obj imgpng.obj imgtga.obj imgjpg.obj win32.obj
  
-engine.dll:
+engine.dll: engine.lib
  link.exe $(LKOPT) /DLL /OUT:engine.dll engine.lib *.obj $(WIN32LIBD)
  
-engine.exe:
+engine.exe: engine.dll *.obj
  link.exe $(LKOPT) /OUT:engine.exe engine.lib *.obj $(WIN32LIBD)
  
 all: clean primitives.obj entities.obj interfaces.obj imgjpg.obj imgpng.obj imgtga.obj win32.obj engine.lib engine.dll engine.exe

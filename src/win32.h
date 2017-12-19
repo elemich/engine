@@ -37,6 +37,7 @@ struct EditorWindowContainerWin32;
 #include <d3d11.h>
 
 #include "interfaces.h"
+#include "entities.h"
 
 #define SPLITTER_DEBUG true
 #define BROWSER_DEBUG true
@@ -48,16 +49,6 @@ struct EditorWindowContainerWin32;
 #define WC_MAINAPPWINDOW "MainAppWindow 0.1"
 #define WC_CONTAINERWINDOW "ContainerWindow"
 #define WC_TABCONTAINERWINDOWCLASS "TabContainerWindowClass"
-
-#define TAB_MENU_COMMAND_REMOVE	1
-#define TAB_MENU_COMMAND_OPENGLWINDOW 2
-#define TAB_MENU_COMMAND_PROJECTFOLDER 3
-#define TAB_MENU_COMMAND_LOGGER 4
-#define TAB_MENU_COMMAND_SCENEENTITIES 5
-#define TAB_MENU_COMMAND_PROJECTFOLDER2 6
-#define TAB_MENU_COMMAND_SHAREDOPENGLWINDOW 7
-#define TAB_MENU_COMMAND_ENTITYPROPERTIES 8
-
 
 #define MAINMENU_ENTITIES_IMPORTENTITY 1
 
@@ -108,60 +99,6 @@ struct ThreadWin32 : ThreadInterface
 	ThreadWin32();
 	~ThreadWin32();
 };
-
-
-
-
-
-
-#ifndef GL_GLEXT_PROTOTYPES
-extern PFNGLATTACHSHADERPROC glAttachShader;
-extern PFNGLBINDBUFFERPROC glBindBuffer;
-extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
-extern PFNGLBUFFERDATAPROC glBufferData;
-extern PFNGLCOMPILESHADERPROC glCompileShader;
-extern PFNGLCREATEPROGRAMPROC glCreateProgram;
-extern PFNGLCREATESHADERPROC glCreateShader;
-extern PFNGLDELETEBUFFERSPROC glDeleteBuffers;
-extern PFNGLDELETEPROGRAMPROC glDeleteProgram;
-extern PFNGLDELETESHADERPROC glDeleteShader;
-extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
-extern PFNGLDETACHSHADERPROC glDetachShader;
-extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
-extern PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib;
-extern PFNGLGENBUFFERSPROC glGenBuffers;
-extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
-extern PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
-extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
-extern PFNGLGETPROGRAMIVPROC glGetProgramiv;
-extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
-extern PFNGLGETSHADERIVPROC glGetShaderiv;
-extern PFNGLLINKPROGRAMPROC glLinkProgram;
-extern PFNGLSHADERSOURCEPROC glShaderSource;
-extern PFNGLUSEPROGRAMPROC glUseProgram;
-extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
-extern PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation;
-extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
-extern PFNGLACTIVETEXTUREPROC glActiveTexture;
-extern PFNGLUNIFORM1IPROC glUniform1i;
-extern PFNGLUNIFORM1FPROC glUniform1f;
-extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
-extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
-extern PFNGLUNIFORM3FVPROC glUniform3fv;
-extern PFNGLUNIFORM4FVPROC glUniform4fv;
-extern PFNGLTEXBUFFERPROC glTexBuffer;
-extern PFNGLTEXTUREBUFFERPROC glTextureBuffer;
-extern PFNGLBUFFERSUBDATAPROC glBufferSubData;
-extern PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
-extern PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers;
-extern PFNGLREADNPIXELSPROC glReadnPixels;
-extern PFNGLUNIFORM2FPROC glUniform2f;
-extern PFNGLUNIFORM2FVPROC glUniform2fv;
-extern PFNGLUNIFORM3FPROC glUniform3f;
-extern PFNGLUNIFORM4FPROC glUniform4f;
-extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
-#endif
 
 struct OpenGLRenderer : Renderer3DInterface
 {
@@ -218,6 +155,9 @@ struct OpenGLRenderer : Renderer3DInterface
 
 	virtual void Render(GuiViewport*,bool force=false);
 	virtual void Render();
+
+	void draw(Entity*);
+	void draw(EntityComponent*);
 };
 
 
@@ -328,9 +268,10 @@ struct TabContainerWin32 : TabContainer
 	void OnResizeContainer(void* data=0);
 	void OnGuiRecreateTarget(void* data=0);
 
-	int TrackGuiSceneViewerPopup(bool iUnselected);
+	int TrackGuiSceneViewerPopup(bool iSelected);
+	int TrackTabMenuPopup();
 
-	void ReloadScript();
+	bool Compile(Script*);
 };
 
 struct SplitterContainerWin32 : SplitterContainer 
@@ -414,6 +355,19 @@ struct AppWin32 : AppInterface
 	void ScanDir(String);
 };
 
+struct ScriptWin32 : Script
+{
+	HMODULE dllModule;
+
+	ScriptWin32();
+};
+
+struct CompilerWin32 : CompilerInterface
+{
+	CompilerWin32();
+
+	void Compile(String);
+};
 
 
 #endif //WIN32_H

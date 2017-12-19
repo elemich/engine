@@ -1,6 +1,57 @@
 #include "win32.h"
 #include "entities.h"
 
+PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
+PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
+
+#ifndef GL_GLEXT_PROTOTYPES
+extern PFNGLATTACHSHADERPROC glAttachShader=0;
+extern PFNGLBINDBUFFERPROC glBindBuffer=0;
+extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray=0;
+extern PFNGLBUFFERDATAPROC glBufferData=0;
+extern PFNGLCOMPILESHADERPROC glCompileShader=0;
+extern PFNGLCREATEPROGRAMPROC glCreateProgram=0;
+extern PFNGLCREATESHADERPROC glCreateShader=0;
+extern PFNGLDELETEBUFFERSPROC glDeleteBuffers=0;
+extern PFNGLDELETEPROGRAMPROC glDeleteProgram=0;
+extern PFNGLDELETESHADERPROC glDeleteShader=0;
+extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays=0;
+extern PFNGLDETACHSHADERPROC glDetachShader=0;
+extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray=0;
+extern PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib=0;
+extern PFNGLGENBUFFERSPROC glGenBuffers=0;
+extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays=0;
+extern PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation=0;
+extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog=0;
+extern PFNGLGETPROGRAMIVPROC glGetProgramiv=0;
+extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog=0;
+extern PFNGLGETSHADERIVPROC glGetShaderiv=0;
+extern PFNGLLINKPROGRAMPROC glLinkProgram=0;
+extern PFNGLSHADERSOURCEPROC glShaderSource=0;
+extern PFNGLUSEPROGRAMPROC glUseProgram=0;
+extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer=0;
+extern PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation=0;
+extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation=0;
+extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv=0;
+extern PFNGLACTIVETEXTUREPROC glActiveTexture=0;
+extern PFNGLUNIFORM1IPROC glUniform1i=0;
+extern PFNGLUNIFORM1FPROC glUniform1f=0;
+extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap=0;
+extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray=0;
+extern PFNGLUNIFORM3FVPROC glUniform3fv=0;
+extern PFNGLUNIFORM4FVPROC glUniform4fv=0;
+extern PFNGLTEXBUFFERPROC glTexBuffer=0;
+extern PFNGLTEXTUREBUFFERPROC glTextureBuffer=0;
+extern PFNGLBUFFERSUBDATAPROC glBufferSubData=0;
+extern PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers=0;
+extern PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers=0;
+extern PFNGLREADNPIXELSPROC glReadnPixels=0;
+extern PFNGLUNIFORM2FPROC glUniform2f=0;
+extern PFNGLUNIFORM2FVPROC glUniform2fv=0;
+extern PFNGLUNIFORM3FPROC glUniform3f=0;
+extern PFNGLUNIFORM4FPROC glUniform4f=0;
+extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB=0;
+#endif
 
 
 bool InitSplitter();
@@ -751,9 +802,38 @@ int AppWin32::Initialize()
 			if(SHGetPathFromIDList(tmpProjectFolder,path))
 			{
 				this->projectFolder=path;
+				printf("User project folder: %s\n",this->projectFolder);
 			}
 		}
 	}
+
+	{
+		char ch[5000];
+		if(!GetModuleFileName(0,ch,5000))
+			__debugbreak();
+
+		this->exeFolder.String::operator=(ch);
+
+		printf("Application folder: %s\n",this->exeFolder.Path());
+	}
+
+	{
+		char ch[5000];
+		if(S_OK!=SHGetFolderPath(0,CSIDL_APPDATA,0,SHGFP_TYPE_CURRENT,ch))
+			__debugbreak();
+
+		this->applicationDataFolder=String(ch) + "\\EngineAppData";
+
+		if(!PathFileExists(this->applicationDataFolder))
+		{
+			SECURITY_ATTRIBUTES sa;
+			CreateDirectory(this->applicationDataFolder,&sa);
+		}
+
+		printf("Application data folder: %s\n",this->applicationDataFolder);
+	}
+
+	this->compiler=new CompilerWin32;
 
 	Direct2DGuiBase::Init(L"Verdana",10);
 
@@ -1558,57 +1638,6 @@ GLuint OpenGLRenderer::pixelBuffer=0;
 GLuint OpenGLRenderer::renderBufferColor=0;
 GLuint OpenGLRenderer::renderBufferDepth=0;*/
 
-PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
-PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
-
-#ifndef GL_GLEXT_PROTOTYPES
-extern PFNGLATTACHSHADERPROC glAttachShader=0;
-extern PFNGLBINDBUFFERPROC glBindBuffer=0;
-extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray=0;
-extern PFNGLBUFFERDATAPROC glBufferData=0;
-extern PFNGLCOMPILESHADERPROC glCompileShader=0;
-extern PFNGLCREATEPROGRAMPROC glCreateProgram=0;
-extern PFNGLCREATESHADERPROC glCreateShader=0;
-extern PFNGLDELETEBUFFERSPROC glDeleteBuffers=0;
-extern PFNGLDELETEPROGRAMPROC glDeleteProgram=0;
-extern PFNGLDELETESHADERPROC glDeleteShader=0;
-extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays=0;
-extern PFNGLDETACHSHADERPROC glDetachShader=0;
-extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray=0;
-extern PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib=0;
-extern PFNGLGENBUFFERSPROC glGenBuffers=0;
-extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays=0;
-extern PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation=0;
-extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog=0;
-extern PFNGLGETPROGRAMIVPROC glGetProgramiv=0;
-extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog=0;
-extern PFNGLGETSHADERIVPROC glGetShaderiv=0;
-extern PFNGLLINKPROGRAMPROC glLinkProgram=0;
-extern PFNGLSHADERSOURCEPROC glShaderSource=0;
-extern PFNGLUSEPROGRAMPROC glUseProgram=0;
-extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer=0;
-extern PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation=0;
-extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation=0;
-extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv=0;
-extern PFNGLACTIVETEXTUREPROC glActiveTexture=0;
-extern PFNGLUNIFORM1IPROC glUniform1i=0;
-extern PFNGLUNIFORM1FPROC glUniform1f=0;
-extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap=0;
-extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray=0;
-extern PFNGLUNIFORM3FVPROC glUniform3fv=0;
-extern PFNGLUNIFORM4FVPROC glUniform4fv=0;
-extern PFNGLTEXBUFFERPROC glTexBuffer=0;
-extern PFNGLTEXTUREBUFFERPROC glTextureBuffer=0;
-extern PFNGLBUFFERSUBDATAPROC glBufferSubData=0;
-extern PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers=0;
-extern PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers=0;
-extern PFNGLREADNPIXELSPROC glReadnPixels=0;
-extern PFNGLUNIFORM2FPROC glUniform2f=0;
-extern PFNGLUNIFORM2FVPROC glUniform2fv=0;
-extern PFNGLUNIFORM3FPROC glUniform3f=0;
-extern PFNGLUNIFORM4FPROC glUniform4f=0;
-extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB=0;
-#endif
 
 
 bool GLEW_INITED=false;
@@ -2624,8 +2653,15 @@ void OpenGLRenderer::draw(Bone* bone)
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
+void OpenGLRenderer::draw(Entity* iEntity)
+{
+	EntityUtils::DrawEntity(iEntity,this);
+}
 
-
+void OpenGLRenderer::draw(EntityComponent* iEntityComponent)
+{
+	this->draw(iEntityComponent);
+}
 
 void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 {
@@ -2652,7 +2688,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 	if(viewport->rootEntity)
 	{
 		viewport->rootEntity->world=viewport->model;
-		viewport->rootEntity->update();
+		this->draw(viewport->rootEntity);
 	}
 
 	tabContainerWin32->renderer->ChangeContext();
@@ -2675,7 +2711,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 		tabContainer->renderer->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
 		if(viewport->rootEntity)
-			viewport->rootEntity->draw(tabContainer->renderer);
+			this->draw(viewport->rootEntity);
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -2703,7 +2739,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 		MatrixStack::Push(MatrixStack::MODEL,viewport->model);
 
 		if(viewport->rootEntity)
-			viewport->rootEntity->draw(tabContainer->renderer);
+			this->draw(viewport->rootEntity);
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -2727,7 +2763,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 				ptrAddress[2]=ptrPixel[1],
 				ptrAddress[3]=ptrPixel[0],
 
-				dynamic_cast<Entity*>((Entity*)address)
+				dynamic_cast<EditorEntity*>((EditorEntity*)address)
 
 				: 0 ;
 		}
@@ -2938,14 +2974,52 @@ void TabContainerWin32::Identity()
 	Direct2DGuiBase::Identity(this->renderTarget);
 }
 
-int TabContainerWin32::TrackGuiSceneViewerPopup(bool iUnselected)
+int TabContainerWin32::TrackTabMenuPopup()
+{
+	HMENU root=CreatePopupMenu();
+	HMENU create=CreatePopupMenu();
+
+	/*
+	#define TAB_MENU_COMMAND_REMOVE	1
+	#define TAB_MENU_COMMAND_OPENGLWINDOW 2
+	#define TAB_MENU_COMMAND_PROJECTFOLDER 3
+	#define TAB_MENU_COMMAND_LOGGER 4
+	#define TAB_MENU_COMMAND_SCENEENTITIES 5
+	#define TAB_MENU_COMMAND_PROJECTFOLDER2 6
+	#define TAB_MENU_COMMAND_SHAREDOPENGLWINDOW 7
+	#define TAB_MENU_COMMAND_ENTITYPROPERTIES 8*/
+
+	InsertMenu(root,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)create,"New");
+	{
+		InsertMenu(create,0,MF_BYPOSITION|MF_STRING,2,"Viewport");
+		InsertMenu(create,1,MF_BYPOSITION|MF_STRING,3,"Scene");
+		InsertMenu(create,2,MF_BYPOSITION|MF_STRING,4,"Entity");
+		InsertMenu(create,3,MF_BYPOSITION|MF_STRING,5,"Project");
+		InsertMenu(create,4,MF_BYPOSITION|MF_STRING,6,"Script");
+	}
+	InsertMenu(root,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
+	InsertMenu(root,2,MF_BYPOSITION|MF_STRING,1,"Remove");
+
+	RECT rc;
+	GetWindowRect(windowDataWin32->hwnd,&rc);
+
+	int menuResult=TrackPopupMenu(root,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(this->windowDataWin32->lparam),rc.top+HIWORD(this->windowDataWin32->lparam),0,GetParent(this->windowDataWin32->hwnd),0);
+
+	DestroyMenu(create);
+	DestroyMenu(root);
+
+	return menuResult;
+}
+
+int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 {
 	HMENU menu=CreatePopupMenu();
 	HMENU createEntity=CreatePopupMenu();
 	HMENU createComponent=CreatePopupMenu();
 	HMENU createMesh=CreatePopupMenu();
+	HMENU createScript=CreatePopupMenu();
 
-	if(!iUnselected)
+	if(iSelected)
 	{
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
 		InsertMenu(menu,1,MF_BYPOSITION|MF_STRING,2,"Delete");
@@ -2960,8 +3034,11 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iUnselected)
 				InsertMenu(createMesh,3,MF_BYPOSITION|MF_STRING,13,"Tetrahedron");
 			}
 			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
+			InsertMenu(createComponent,3,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createScript,"Script");
+			{
+				InsertMenu(createScript,0,MF_BYPOSITION|MF_STRING,14,"Script");
+			}
 		}
-
 	}
 	else
 	{
@@ -2981,59 +3058,40 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iUnselected)
 	return result;
 }
 
-void TabContainerWin32::ReloadScript()
+bool TabContainerWin32::Compile(Script* iScript)
 {
-	if(!this->reloadScript)
-		return;
+	if(!iScript->name.Count())
+		return false;
 
-	typedef  EntityScript* (*Create)();
-
-	SetCurrentDirectory("C:\\Users\\Michele\\Documents\\Visual Studio 2010\\Projects\\Engine");
-
-	if(this->reloadScript->script)
+	if(iScript->runtime)
 	{
-		this->reloadScript->script->deinit();
+		iScript->runtime->deinit();
 
-		if(!FreeLibrary((HMODULE)this->reloadScript->module))
+		if(!FreeLibrary((HMODULE)iScript->handle))
 			__debugbreak();
 
-		delete this->reloadScript->script;
-		this->reloadScript->script=0;
+		delete iScript->runtime;
+		iScript->runtime=0;
 	}
 
-	{
-		STARTUPINFO si;
-		PROCESS_INFORMATION pi;
+	AppInterface::instance->compiler->Compile(iScript->name);
 
-		si.cb = sizeof(si);
+	iScript->handle=(HMODULE)LoadLibrary(iScript->name);
 
-		char* command="vcvars32.bat && cl.exe /MDd /ZI /EHsc C:\\projects\\engine\\src\\ec.cpp c:\\projects\\engine\\build\\win32\\x86\\debug\\engine.lib /link /MANIFEST:NO /DLL /NOENTRY /OUT:ec.dll kernel32.lib";
- 
-		if(!CreateProcess( NULL,command,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi))
-			__debugbreak();
-
-		WaitForSingleObject( pi.hProcess, INFINITE );
-
-		CloseHandle( pi.hProcess );
-		CloseHandle( pi.hThread );
-	}
-
-	this->reloadScript->module=(HMODULE)LoadLibrary("EC.dll");
-
-	if(!this->reloadScript->module)
+	if(!iScript->handle)
 		__debugbreak();
 
-	Create createScriptFunc=(Create)GetProcAddress((HMODULE)this->reloadScript->module,"Create");
+	EntityScript* (*CreateScript)()=(EntityScript* (*)())GetProcAddress((HMODULE)iScript->handle,"Create");
 
-	if(createScriptFunc)
+	if(CreateScript)
 	{
-		this->reloadScript->script=createScriptFunc();
-		this->reloadScript->script->entity=this->reloadScript;
+		iScript->runtime=CreateScript();
+		iScript->runtime->entity=iScript->entity;
 
-		this->reloadScript->script->init();
+		iScript->runtime->init();
 	}
 
-	this->reloadScript=0;
+	return true;
 }
 
 TabContainerWin32::~TabContainerWin32()
@@ -3169,52 +3227,48 @@ void TabContainerWin32::OnGuiRMouseUp(void* data)
 
 	if(y<=TabContainer::CONTAINER_HEIGHT)
 	{
-		RECT rc;
-		GetWindowRect(this->windowDataWin32->hwnd,&rc);
-
 		int tabNumberHasChanged=this->tabs.childs.size();
 
 		for(int i=0;i<(int)tabs.childs.size();i++)
 		{
 			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 			{
-				int menuResult=TrackPopupMenu(SplitterContainerWin32::popupMenuRoot,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(this->windowDataWin32->lparam),rc.top+HIWORD(this->windowDataWin32->lparam),0,GetParent(this->windowDataWin32->hwnd),0);
+
+				int menuResult=this->TrackTabMenuPopup();
 
 				switch(menuResult)
 				{
-				case TAB_MENU_COMMAND_OPENGLWINDOW:
-					this->tabs.Viewport();
-					this->selected=this->tabs.childs.size()-1;
+					case 1:
+						if((int)GetPool<TabContainer>().size()>1)
+						{
+							printf("total TabContainer before destroying: %d\n",(int)GetPool<TabContainer>().size());
+							this->~TabContainerWin32();
+							printf("total TabContainer after destroying: %d\n",(int)GetPool<TabContainer>().size());
+						}
 					break;
-				case TAB_MENU_COMMAND_SCENEENTITIES:
-					this->tabs.SceneViewer();
-					this->selected=this->tabs.childs.size()-1;
+					case 2:
+						this->tabs.Viewport();
+						this->selected=this->tabs.childs.size()-1;
 					break;
-				case TAB_MENU_COMMAND_ENTITYPROPERTIES:
-					this->tabs.EntityViewer();
-					this->selected=this->tabs.childs.size()-1;
+					case 3:
+						this->tabs.SceneViewer();
+						this->selected=this->tabs.childs.size()-1;
 					break;
-				case TAB_MENU_COMMAND_PROJECTFOLDER:
-					this->tabs.ProjectViewer();
-					this->selected=this->tabs.childs.size()-1;
+					case 4:
+						this->tabs.EntityViewer();
+						this->selected=this->tabs.childs.size()-1;
 					break;
-				case TAB_MENU_COMMAND_REMOVE:
-					if((int)GetPool<TabContainer>().size()>1)
-					{
-						printf("total TabContainer before destroying: %d\n",(int)GetPool<TabContainer>().size());
-						this->~TabContainerWin32();
-						printf("total TabContainer after destroying: %d\n",(int)GetPool<TabContainer>().size());
-					}
+					case 5:
+						this->tabs.ProjectViewer();
+						this->selected=this->tabs.childs.size()-1;
 					break;
-				case TAB_MENU_COMMAND_LOGGER:
-
-
+					case 6:
+						/*this->tabs.ScriptViewer();
+						this->selected=this->tabs.childs.size()-1;*/
 					break;
 				}
 
 				break;
-
-
 			}
 		}
 
@@ -3824,21 +3878,7 @@ bool InitSplitter()
 			__debugbreak();
 	}
 
-	HMENU& popupMenuRoot=SplitterContainerWin32::popupMenuRoot;
-	HMENU& popupMenuCreate=SplitterContainerWin32::popupMenuCreate;
-
-	InsertMenu(popupMenuRoot,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)popupMenuCreate,"New Tab");
-	{
-		InsertMenu(popupMenuCreate,0,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_OPENGLWINDOW,"OpenGL Renderer");
-		InsertMenu(popupMenuCreate,5,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_SHAREDOPENGLWINDOW,"Shared OpenGL Renderer");
-		InsertMenu(popupMenuCreate,1,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER2,"Project Folder2");
-		InsertMenu(popupMenuCreate,4,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_PROJECTFOLDER,"Project Folder");
-		InsertMenu(popupMenuCreate,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_LOGGER,"Logger");
-		InsertMenu(popupMenuCreate,3,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_SCENEENTITIES,"Scene Entities");
-		InsertMenu(popupMenuCreate,6,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_ENTITYPROPERTIES,"EntityProperties");
-	}
-	InsertMenu(popupMenuRoot,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
-	InsertMenu(popupMenuRoot,2,MF_BYPOSITION|MF_STRING,TAB_MENU_COMMAND_REMOVE,"Remove Tab");
+	
 
 	return returnValue;
 }
@@ -3862,6 +3902,48 @@ bool InitSplitter()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+CompilerWin32::CompilerWin32()
+{
+	this->compilerPath="";
+}
+
+
+void CompilerWin32::Compile(String iSource)
+{
+	SetCurrentDirectory(AppInterface::instance->projectFolder);
+
+	{
+		STARTUPINFO si;
+		PROCESS_INFORMATION pi;
+
+		si.cb = sizeof(si);
+
+		String command="vcvars32 && " + this->compilerPath + "\\cl.exe /MDd /ZI /EHsc ";
+		command+="/I" + this->includePath + " ";
+		command+=AppInterface::instance->projectFolder + "\\" + iSource + " ";
+		command+=AppInterface::instance->exeFolder.Path() + "\\engine.lib " ;
+		command+="/link /MANIFEST:NO /DLL /NOENTRY /OUT:";
+		command+=AppInterface::instance->applicationDataFolder + "\\" + iSource + " kernel32.lib";
+
+		if(!CreateProcess( NULL,command,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi))
+			__debugbreak();
+
+		WaitForSingleObject( pi.hProcess, INFINITE );
+
+		CloseHandle( pi.hProcess );
+		CloseHandle( pi.hThread );
+	}
+}
+
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+ScriptWin32::ScriptWin32():dllModule(0){}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3880,3 +3962,9 @@ int main()
 
 	return 0;
 }
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
