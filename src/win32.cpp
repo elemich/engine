@@ -1894,6 +1894,16 @@ void OpenGLRenderer::draw(vec2)
 
 }
 
+void OpenGLRenderer::draw(Script*)
+{
+
+}
+
+void OpenGLRenderer::draw(EntityComponent*)
+{
+
+}
+
 void OpenGLRenderer::draw(Gizmo* gizmo)
 {
 	this->draw(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
@@ -2654,10 +2664,6 @@ void OpenGLRenderer::draw(Entity* iEntity)
 	EntityUtils::Draw(iEntity,this);
 }
 
-void OpenGLRenderer::draw(EntityComponent* iEntityComponent)
-{
-	this->draw(iEntityComponent);
-}
 
 void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 {

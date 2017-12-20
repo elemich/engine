@@ -1094,6 +1094,12 @@ GuiScriptViewer* GuiRect::ScriptViewer(Script*& iScript)
 	return sv;
 }
 
+void GuiRect::AppendContainer(GuiRect* iRect)
+{
+	iRect->sibling[1]=!this->childs.empty() ? this->childs.back() : 0;
+	this->childs.push_back(iRect);
+}
+
 
 ////////////////////////////
 ////////EditorEntity///////
@@ -1116,15 +1122,13 @@ void EditorEntity::SetParent(Entity* iParent)
 
 void EditorEntity::SetLevel(EditorEntity* iEntity)
 {
-	EditorEntity*& eeParent=(EditorEntity*&)iEntity->parent;
+	EditorEntity* eeParent=(EditorEntity*)iEntity->parent;
 
 	iEntity->level=eeParent ? eeParent->level+1 : iEntity->level;
 	iEntity->expanded=!iEntity->level ? true : false;
 
-	std::list<EditorEntity*>& eeChilds=(std::list<EditorEntity*>&)iEntity->childs;
-
-	for(std::list<EditorEntity*>::iterator i=eeChilds.begin();i!=eeChilds.end();i++)
-		(*i)->SetLevel(*i);
+	for(std::list<Entity*>::iterator i=iEntity->childs.begin();i!=iEntity->childs.end();i++)
+		((EditorEntity*)*i)->SetLevel((EditorEntity*)*i);
 
 	//for_each(eeChilds.begin(),eeChilds.end(),std::mem_fun(&EditorEntity::SetLevel));
 }
@@ -1671,9 +1675,9 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 
 	vec2& mpos=*(vec2*)data;
 
-	Entity* expChanged=0;
-	Entity* selChanged=0;
-	Entity* curHover=0;
+	EditorEntity* expChanged=0;
+	EditorEntity* selChanged=0;
+	EditorEntity* curHover=0;
 
 	bool iSelected = this->ProcessMouseInput(mpos,vec2(-GuiRect::TREEVIEW_ROW_ADVANCE,-GuiRect::TREEVIEW_ROW_HEIGHT),this->entityRoot,true,expChanged,selChanged,curHover) ?
 		true : false;
@@ -1688,11 +1692,11 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 
 			newEntity->name="Entity";
 
-			newEntity->SetParent(curHover ? curHover : this->entityRoot);
+			newEntity->SetParent(iSelected ? this->selection[0] : this->entityRoot);
 			newEntity->bbox.a.make(-1,-1,-1);
 			newEntity->bbox.b.make(1,1,1);
 
-			newEntity->OnPropertiesCreate();
+			newEntity->OnPropertiesCreate(tabContainer);
 
 			this->UpdateNodes(this->entityRoot);
 
@@ -1701,13 +1705,13 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 		}
 		break;
 	case 2:curHover->parent->childs.erase(std::find(curHover->parent->childs.begin(),curHover->parent->childs.end(),curHover));break;
-	case 3:curHover->CreateComponent<EditorLight>();break;
-	case 4:curHover->CreateComponent<EditorMesh>();break;
-	case 5:curHover->CreateComponent<EditorCamera>();break;
-	case 14:curHover->CreateComponent<EditorScript>();break;
+	case 3:curHover->CreateComponent<EditorLight>(tabContainer);break;
+	case 4:curHover->CreateComponent<EditorMesh>(tabContainer);break;
+	case 5:curHover->CreateComponent<EditorCamera>(tabContainer);break;
+	case 14:curHover->CreateComponent<EditorScript>(tabContainer);break;
 	}
 
-	
+
 	tabContainer->SetDraw(this,0);
 }
 
@@ -1776,7 +1780,7 @@ void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 
 			entity->selected=true;
 
-			entity->CreateComponent<EditorGizmo>();
+			entity->CreateComponent<EditorGizmo>(tabContainer);
 
 			tabContainer->SetDraw(this,0);
 		}
@@ -1802,7 +1806,7 @@ void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 		this->UnselectNodes((EditorEntity*)*nCh);
 }
 
-bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,EditorEntity* node,bool iGetHovered,Entity*& expChanged,Entity*& selChanged,Entity*& curHover)
+bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,EditorEntity* node,bool iGetHovered,EditorEntity*& expChanged,EditorEntity*& selChanged,EditorEntity*& curHover)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -1873,9 +1877,9 @@ void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 
 	if(mpos.x<this->rect.x+this->width)
 	{
-		Entity* expChanged=0;
-		Entity* selChanged=0;
-		Entity* curHover=0;
+		EditorEntity* expChanged=0;
+		EditorEntity* selChanged=0;
+		EditorEntity* curHover=0;
 
 		if(this->ProcessMouseInput(mpos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),this->entityRoot,false,expChanged,selChanged,curHover))
 		{
@@ -1997,7 +2001,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 
 	EditorEntity* iEntity=(EditorEntity*)data;
 
-	if(iEntity)
+	if(iEntity && this->entity!=iEntity)
 	{
 		if(this->entity)
 		{
@@ -2015,9 +2019,11 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 
 		this->OnSize(tabContainer);
 		this->entity->properties.OnActivate(tabContainer);
-
-		tabContainer->SetDraw(this,0);
 	}
+	else
+		this->OnSize(tabContainer);
+
+	tabContainer->SetDraw(this,0);
 }
 
 void GuiEntityViewer::OnExpandos(TabContainer* tabContainer,void* data)
@@ -2644,7 +2650,10 @@ void EntityUtils::Draw(Entity* iEntity,Renderer3DInterface* renderer)
 	renderer->draw(iEntity->local.position(),5,vec3(1,1,1));
 
 	for(std::vector<EntityComponent*>::iterator it=iEntity->components.begin();it!=iEntity->components.end();it++)
-		renderer->draw(*it);
+	{
+		EditorProperties* editorComponent=dynamic_cast<EditorProperties*>(*it);
+		editorComponent ? renderer->draw(editorComponent->GetEncapsulatedType()) : 0;
+	}
 
 	for(std::list<Entity*>::iterator it=iEntity->childs.begin();it!=iEntity->childs.end();it++)
 		Draw(*it,renderer);
@@ -2663,14 +2672,14 @@ void EntityUtils::FillProperties(EntityComponent* ec)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-EditorEntityComponent::EditorEntityComponent()
+EditorProperties::EditorProperties()
 {
-	this->properties.Set(0,0,-1,0,0,0,0,20,0,0,1,-1);
+	this->properties.Set(0,0,1,0,0,0,0,20,0,0,1,-1);
 }
 
-void EditorEntity::OnPropertiesCreate()
+void EditorEntity::OnPropertiesCreate(TabContainer*)
 {
-	std::vector<GuiRect*> lvl;
+	std::vector<GuiRect*> lvl(2);
 
 	lvl[0]=this->properties.Container("Entity");
 	lvl[0]->Property("Name",this->name);
@@ -2685,57 +2694,82 @@ void EditorEntity::OnPropertiesCreate()
 	lvl[0]->Property("Child Num",String((int)this->childs.size()));
 }
 
-void EditorMesh::OnPropertiesCreate()
+void EditorMesh::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Mesh";
+	this->properties.Property("Controlpoints",String(this->mesh_ncontrolpoints));
+	this->properties.Property("Normals",String(this->mesh_nnormals));
+	this->properties.Property("Polygons",String(this->mesh_npolygons));
+	this->properties.Property("Texcoord",String(this->mesh_ntexcoord));
+	this->properties.Property("Vertexindices",String(this->mesh_nvertexindices));
 }
 
-void EditorSkin::OnPropertiesCreate()
+void EditorSkin::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Skin";
+	this->properties.Property("Clusters",String(this->skin_nclusters));
+	this->properties.Property("Textures",String(this->skin_ntextures));
 }
 
-void EditorRoot::OnPropertiesCreate()
+void EditorRoot::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Root";
 }
 
-void EditorSkeleton::OnPropertiesCreate()
+void EditorSkeleton::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Skeleton";
 }
 
-void EditorGizmo::OnPropertiesCreate()
+void EditorGizmo::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Gizmo";
 }
 
-void EditorAnimation::OnPropertiesCreate()
+void EditorAnimation::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Animation";
+	this->properties.Property("IsBone",String(this->entity->findComponent<Bone>() ? "true" : "false"));
+	this->properties.Property("Duration",String(this->end-this->start));
+	this->properties.Property("Begin",String(this->start));
+	this->properties.Property("End",String(this->end));
 }
 
-void EditorAnimationController::OnPropertiesCreate()
+void EditorAnimationController::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="AnimationController";
+	this->properties.Property("Number of nodes",String((int)this->animations.size()));
+	this->properties.Slider("Velocity",&this->speed);
+	this->properties.Property("Duration",String(this->end-this->start));
+	this->properties.Property("Begin",String(this->start));
+	this->properties.Property("End",String(this->end));
+	this->properties.PropertyAnimControl(this);
 }
 
-void EditorBone::OnPropertiesCreate()
+void EditorBone::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Bone";
 }
 
-void EditorLight::OnPropertiesCreate()
+void EditorLight::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Light";
 }
 
-void EditorScript::OnPropertiesCreate()
+void EditorScript::OnPropertiesCreate(TabContainer* tabContainer)
 {
 	this->properties.text="Script";
+	this->properties.Property("File",this->Script::name);
+	this->properties.Property("Running",this->Script::runtime ? "true" : "false");
+
+	EditorEntity* eEntity=(EditorEntity*)this->entity;
+
+	eEntity->properties.AppendContainer(&this->properties);
+
+	TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,0);
 }
 
-void EditorCamera::OnPropertiesCreate()
+void EditorCamera::OnPropertiesCreate(TabContainer*)
 {
 	this->properties.text="Camera";
 }
