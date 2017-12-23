@@ -3,12 +3,65 @@
 
 #include "primitives.h"
 
-struct Renderer3DInterface;
+struct Renderer3DInterfaceBase;
 struct ShaderInterface;
 struct EntityScript;
 
 
 #define PROCESS_ENTITIES_RECURSIVELY 1
+
+
+
+struct ShaderInterface : TPoolVector<ShaderInterface>
+{
+	static ShaderInterface* Find(const char*,bool exact=true);
+
+	virtual int GetProgram()=0;
+	virtual void SetProgram(int)=0;
+
+	virtual void SetName(const char*)=0;
+	virtual const char* GetName()=0;
+
+	virtual int GetUniform(int slot,char* var)=0;
+	virtual int GetAttrib(int slot,char* var)=0;
+
+	virtual void Use()=0;
+
+	virtual const char* GetPixelShader()=0;
+	virtual const char* GetFragmentShader()=0;
+
+	virtual int GetAttribute(const char*)=0;
+	virtual int GetUniform(const char*)=0;
+
+	virtual int init()=0;
+
+	virtual int GetPositionSlot()=0;
+	virtual int GetColorSlot()=0;
+	virtual int GetProjectionSlot()=0;
+	virtual int GetModelviewSlot()=0;
+	virtual int GetTexcoordSlot()=0;
+	virtual int GetTextureSlot()=0;
+	virtual int GetLightposSlot()=0;
+	virtual int GetMouseSlot()=0;
+	virtual int GetLightdiffSlot()=0;
+	virtual int GetLightambSlot()=0;
+	virtual int GetNormalSlot()=0;
+	virtual int GetHoveringSlot()=0;
+
+	virtual void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm)=0;
+
+	virtual bool SetMatrix4f(int slot,float* mtx)=0;
+
+	virtual unsigned int& GetBufferObject()=0;
+
+	virtual void SetProjectionMatrix(float*)=0;
+	virtual void SetModelviewMatrix(float*)=0;
+	virtual void SetMatrices(float* view,float* mdl)=0;
+
+	ShaderInterface();
+};
+
+
 
 enum EEntity
 {
@@ -254,6 +307,9 @@ struct EntityComponent
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
 	virtual void update(){}
+	virtual void draw(Renderer3DInterfaceBase*){}
+
+	virtual EntityComponent* GetComponent()=0;
 };
 
 
@@ -307,14 +363,18 @@ struct Entity : THierarchyList<Entity>
 
 struct Root : EntityComponent
 {
+	virtual Root* GetComponent(){return this;}
 };
 
 struct Skeleton : EntityComponent
 {
+	virtual Skeleton* GetComponent(){return this;}
 };
 
 struct Animation : EntityComponent
 {
+	virtual Animation* GetComponent(){return this;}
+
 	Animation();
 
 	Entity* entity;
@@ -329,10 +389,13 @@ struct Animation : EntityComponent
 
 struct Gizmo : EntityComponent
 {
+	virtual Gizmo* GetComponent(){return this;}
 };
 
 struct AnimationController : EntityComponent
 {
+	virtual AnimationController* GetComponent(){return this;}
+
 	std::vector<Animation*> animations;
 
 	float speed;
@@ -356,6 +419,8 @@ struct AnimationController : EntityComponent
 
 struct Bone : EntityComponent
 {
+	virtual Bone* GetComponent(){return this;}
+
 	Bone();
 
 	Bone* root;
@@ -366,6 +431,8 @@ struct Bone : EntityComponent
 
 struct Light : EntityComponent
 {
+	virtual Light* GetComponent(){return this;}
+
 	Light();
 
 	ELight	light_type;
@@ -391,6 +458,8 @@ struct Light : EntityComponent
 
 struct Mesh : EntityComponent
 {
+	virtual Mesh* GetComponent(){return this;}
+
 	Mesh();
 
 	int save(char*);
@@ -431,10 +500,14 @@ struct Mesh : EntityComponent
 	bool  mesh_isCCW;
 
 	std::vector<Material*> mesh_materials;
+
+	void draw(Renderer3DInterfaceBase*);
 };
 
 struct Script : EntityComponent
 {
+	virtual Script* GetComponent(){return this;}
+
 	FilePath name;
 	EntityScript* runtime;
 	String data;
@@ -446,6 +519,8 @@ struct Script : EntityComponent
 
 struct EntityScript
 {
+	virtual EntityScript* GetComponent(){return this;}
+
 	Entity* entity;
 
 	EntityScript();
@@ -457,6 +532,8 @@ struct EntityScript
 
 struct Skin : Mesh
 {
+	virtual Skin* GetComponent(){return this;}
+
 	Skin();
 
 	void		update();
@@ -470,10 +547,14 @@ struct Skin : Mesh
 
 
 	float*	    skin_vertexcache;
+
+	void draw(Renderer3DInterfaceBase*);
 };
 
 struct Camera : EntityComponent
 {
+	virtual Camera* GetComponent(){return this;}
+
 	float fov;
 	float ratio;
 	float Near;
@@ -536,6 +617,26 @@ struct TextureProcedural : Texture
 	int GetBpp(){return 0;}
 };
 
-
+struct Renderer3DInterfaceBase
+{
+	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(vec2)=0;
+	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(vec4)=0;
+	virtual void draw(AABB,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1))=0;
+	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+	virtual void draw(Bone*)=0;
+	virtual void draw(Mesh*)=0;
+	virtual void draw(Skin*)=0;
+	virtual void draw(Texture*)=0;
+	virtual void draw(Light*)=0;
+	virtual void drawUnlitTextured(Mesh*)=0;
+	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
+	virtual void draw(Camera*)=0;
+	virtual void draw(Gizmo*)=0;
+	virtual void draw(Script*)=0;
+};
 
 #endif //__ENTITY_HEADER__

@@ -37,7 +37,7 @@ struct EditorWindowContainerWin32;
 #include <d3d11.h>
 
 #include "interfaces.h"
-#include "entities.h"
+#include "fbxutil.h"
 
 #define SPLITTER_DEBUG true
 #define BROWSER_DEBUG true
@@ -81,6 +81,8 @@ struct Direct2DGuiBase
 
 	static void Translate(ID2D1RenderTarget*,float,float);
 	static void Identity(ID2D1RenderTarget*);
+
+	static vec2 MeasureText(ID2D1RenderTarget*,const char*,int iSlen=-1);
 };
 
 
@@ -149,11 +151,11 @@ struct OpenGLRenderer : Renderer3DInterface
 	void draw(Camera*);
 	void draw(Gizmo*);
 	void draw(Script*);
-	void draw(EntityComponent*);
 
 	virtual void Render(GuiViewport*,bool force=false);
 	virtual void Render();
 
+	void draw(EntityComponent*);
 	void draw(Entity*);
 };
 
@@ -269,6 +271,8 @@ struct TabContainerWin32 : TabContainer
 	int TrackTabMenuPopup();
 
 	bool Compile(Script*);
+
+	vec2 MeasureText(const char* iText);
 };
 
 struct SplitterContainerWin32 : SplitterContainer 

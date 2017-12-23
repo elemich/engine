@@ -3,7 +3,7 @@
 
 #include <cstdio>
 #include <typeinfo>
-#include <algorithm>
+
 
 
 String::String():data(0){}

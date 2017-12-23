@@ -54,57 +54,7 @@ struct AppInterface : TStaticInstance<AppInterface>
 	virtual void ScanDir(String)=0;
 };
 
-
-struct ShaderInterface : TPoolVector<ShaderInterface>
-{
-	static ShaderInterface* Find(const char*,bool exact=true);
-
-	virtual int GetProgram()=0;
-	virtual void SetProgram(int)=0;
-
-	virtual void SetName(const char*)=0;
-	virtual const char* GetName()=0;
-
-	virtual int GetUniform(int slot,char* var)=0;
-	virtual int GetAttrib(int slot,char* var)=0;
-
-	virtual void Use()=0;
-
-	virtual const char* GetPixelShader()=0;
-	virtual const char* GetFragmentShader()=0;
-
-	virtual int GetAttribute(const char*)=0;
-	virtual int GetUniform(const char*)=0;
-
-	virtual int init()=0;
-
-	virtual int GetPositionSlot()=0;
-	virtual int GetColorSlot()=0;
-	virtual int GetProjectionSlot()=0;
-	virtual int GetModelviewSlot()=0;
-	virtual int GetTexcoordSlot()=0;
-	virtual int GetTextureSlot()=0;
-	virtual int GetLightposSlot()=0;
-	virtual int GetMouseSlot()=0;
-	virtual int GetLightdiffSlot()=0;
-	virtual int GetLightambSlot()=0;
-	virtual int GetNormalSlot()=0;
-	virtual int GetHoveringSlot()=0;
-
-	virtual void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm)=0;
-
-	virtual bool SetMatrix4f(int slot,float* mtx)=0;
-
-	virtual unsigned int& GetBufferObject()=0;
-
-	virtual void SetProjectionMatrix(float*)=0;
-	virtual void SetModelviewMatrix(float*)=0;
-	virtual void SetMatrices(float* view,float* mdl)=0;
-
-	ShaderInterface();
-};
-
-struct Renderer3DInterface : TPoolVector<Renderer3DInterface>
+struct Renderer3DInterface : Renderer3DInterfaceBase
 {
 	std::list<GuiViewport*> viewports;
 	Task* rendererTask;
@@ -140,8 +90,8 @@ struct Renderer3DInterface : TPoolVector<Renderer3DInterface>
 	virtual void draw(Camera*)=0;
 	virtual void draw(Gizmo*)=0;
 	virtual void draw(Script*)=0;
-	virtual void draw(EntityComponent*)=0;
 
+	virtual void draw(EntityComponent*)=0;
 	virtual void draw(Entity*)=0;
 
 	virtual void ChangeContext()=0;
@@ -482,6 +432,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnDeactivate(TabContainer*,void* data=0);
 	virtual void OnEntitySelected(TabContainer*,void* data=0);
 	virtual void OnExpandos(TabContainer*,void* data=0);
+	virtual void OnKeyDown(TabContainer*,void* data=0);
+	virtual void OnKeyUp(TabContainer*,void* data=0);
 
 
 
@@ -522,7 +474,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiPropertySlider* Slider(const char* iLeft,float* ref);
 
 	GuiButton* Button(String text,float ix=0, float iy=0, float iw=0,float ih=0);
-	GuiButton* Button(String text,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
+	GuiButton* Button(String text,float iWidth,float iHeight,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
 
 	GuiPropertyAnimation* PropertyAnimControl(AnimationController*);
 	GuiViewport* Viewport(vec3 pos=vec3(100,100,100),vec3 target=vec3(0,0,0),vec3 up=vec3(0,0,1),bool perspective=true);
@@ -532,6 +484,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiScriptViewer* ScriptViewer(Script*&);
 
 	void AppendContainer(GuiRect*);
+
+	template<class C> C* Create(GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
 };
 
 struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
@@ -569,6 +523,7 @@ struct GuiButton : GuiString
 	void (GuiRect::*mouseUpFunc)();
 
 	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
+	virtual void OnSize(TabContainer* tab,void* data=0);
 };
 
 struct GuiScrollBar : GuiRect
@@ -600,6 +555,8 @@ struct GuiScrollBar : GuiRect
 	float GetScrollerTop();
 	float GetScrollerBottom();
 	float GetScrollerHeight();
+
+	void SetRect(GuiRect*);
 
 };
 
@@ -749,7 +706,7 @@ struct GuiEntityViewer : GuiScrollRect
 
 	bool ProcessMouseInput(vec2&,vec2&,GuiRect* node);
 	void DrawNodes(TabContainer*,GuiRect*,vec2&);
-	int UpdateNodes(GuiRect*);
+	int CalcNodesHeight(GuiRect*);
 };
 
 
@@ -945,6 +902,8 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual void OnGuiActivate(void* data=0);
 	virtual void OnGuiDeactivate(void* data=0);
 	virtual void OnGuiEntitySelected(void* data=0);
+	virtual void OnGuiKeyDown(void* data=0);
+	virtual void OnGuiKeyUp(void* data=0);
 
 	virtual void DrawFrame()=0;
 
@@ -981,6 +940,8 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual int TrackTabMenuPopup()=0;
 
 	virtual bool Compile(Script*)=0;
+
+	virtual vec2 MeasureText(const char* iText)=0;
 };
 
 struct SplitterContainer 
@@ -1046,19 +1007,28 @@ struct CompilerInterface
 	virtual void Compile(String)=0;
 };
 
-struct EditorProperties
+struct EditorProperties : GuiString
 {
-	GuiString properties;
-
 	EditorProperties();
 
-	virtual void OnPropertiesCreate(TabContainer*){};
+	virtual void OnPropertiesCreate(){};
 	virtual void OnPropertiesUpdate(TabContainer*){};
 
-	virtual EntityComponent* GetEncapsulatedType(){return 0;}
+	
 };
 
-struct EditorEntity : EditorProperties , Entity 
+
+template<class T> struct EditorObject : T
+{
+	EditorProperties properties;
+	T* object;
+
+	EditorObject(){object=(T*)this;}
+
+	virtual EntityComponent* GetObject(){return 0;}
+};
+
+struct EditorEntity : EditorObject<Entity> 
 {
 	bool					selected;
 	bool					expanded;
@@ -1066,32 +1036,38 @@ struct EditorEntity : EditorProperties , Entity
 
 	EditorEntity();
 
-	void OnPropertiesCreate(TabContainer*);
+	void OnPropertiesCreate();
 
 	void SetParent(Entity*);
 	void SetLevel(EditorEntity*);
 
-	template<class C> C* CreateComponent(TabContainer* tabContainer)
+	template<class C> C* CreateComponent()
 	{
 		C* component=this->Entity::CreateComponent<C>();
-		component->OnPropertiesCreate(tabContainer);
+		component->OnPropertiesCreate();
 		return component;
 	}
+
+	//Entity* GetObject(){return this;}
 };
 
-#define __CASTTO(x) x* GetEncapsulatedType(){return (x*)this;}
+#define CREATEEDITOROBJECT(NAME,OBJECT) struct NAME : EditorObject<OBJECT> \
+{	\
+	void OnPropertiesCreate();	\
+	OBJECT* GetObject(){return (OBJECT*)this;}	\
+};									
 
-struct EditorMesh :  EditorProperties , Mesh {void OnPropertiesCreate(TabContainer*);__CASTTO(Mesh)};
-struct EditorSkin :  EditorProperties , Skin {void OnPropertiesCreate(TabContainer*);__CASTTO(Skin)};
-struct EditorRoot :  EditorProperties , Root {void OnPropertiesCreate(TabContainer*);__CASTTO(Root)};
-struct EditorSkeleton :  EditorProperties , Skeleton {void OnPropertiesCreate(TabContainer*);__CASTTO(Skeleton)};
-struct EditorGizmo :  EditorProperties , Gizmo {void OnPropertiesCreate(TabContainer*);__CASTTO(Gizmo)};
-struct EditorAnimation :  EditorProperties , Animation {void OnPropertiesCreate(TabContainer*);__CASTTO(Animation)};
-struct EditorAnimationController :  EditorProperties , AnimationController {void OnPropertiesCreate(TabContainer*);__CASTTO(AnimationController)};
-struct EditorBone :  EditorProperties , Bone {void OnPropertiesCreate(TabContainer*);__CASTTO(Bone)};
-struct EditorLight :  EditorProperties , Light {void OnPropertiesCreate(TabContainer*);__CASTTO(Light)};
-struct EditorScript :  EditorProperties , Script {void OnPropertiesCreate(TabContainer*);__CASTTO(Script)};
-struct EditorCamera :  EditorProperties , Camera {void OnPropertiesCreate(TabContainer*);__CASTTO(Camera)};
+CREATEEDITOROBJECT(EditorMesh,Mesh);
+CREATEEDITOROBJECT(EditorRoot,Root);
+CREATEEDITOROBJECT(EditorSkeleton,Skeleton);
+CREATEEDITOROBJECT(EditorGizmo,Gizmo);
+CREATEEDITOROBJECT(EditorAnimation,Animation);
+CREATEEDITOROBJECT(EditorAnimationController,AnimationController);
+CREATEEDITOROBJECT(EditorBone,Bone);
+CREATEEDITOROBJECT(EditorLight,Light);
+CREATEEDITOROBJECT(EditorScript,Script);
+CREATEEDITOROBJECT(EditorCamera,Camera);
+CREATEEDITOROBJECT(EditorSkin,Skin);
 
 namespace EntityUtils
 {

@@ -9,15 +9,17 @@
 
 #include <windows.h>
 
+#include "interfaces.h"
+
 FbxManager* fbxManager=0;
 const char* sceneFilename=0;
 
-std::map<FbxNode*,Entity*>				mapFromNodeToEntity;
+std::map<FbxNode*,EditorEntity*>				mapFromNodeToEntity;
 std::map<FbxNode*,AnimationController*> mapFromNodeToAnimationController;
 std::map<FbxSurfaceMaterial*,Material*>	mapFromFbxMaterialToMaterial;
 std::map<FbxTexture*,Texture*>			mapFromFbxTextureToTexture;
 
-Entity* rootNode=0;
+EditorEntity* rootNode=0;
 
 #define GENERATE_MISSING_KEYS 0
 #define GENERATE_INDEXED_GEOMETRY 1
@@ -31,17 +33,17 @@ void FillMaterial(FbxNode*,Material*);
 void FillLight(FbxNode* fbxNode,Light* light);
 
 void StoreKeyframes(float& animationStart,float& animationEnd,AnimClip* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
-void ExtractAnimations(FbxNode*,Entity*);
+void ExtractAnimations(FbxNode*,EditorEntity*);
 void ExtractTexturesandMaterials(FbxScene*);
 void GetSceneDetails(FbxScene*);
 
 bool AnimationPresent(FbxAnimLayer * pAnimLayer, FbxNode* pNode);
 bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,String &animnae);
 
-Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent);
-Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent);
+EditorEntity* acquireNodeStructure(FbxNode* fbxNode,EditorEntity* parent);
+EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent);
 
-Entity* processNodeRecursive(Entity* (*func)(FbxNode*,Entity*),FbxNode* fbxNode,Entity* parent);
+EditorEntity* processNodeRecursive(EditorEntity* (*func)(FbxNode*,EditorEntity*),FbxNode* fbxNode,EditorEntity* parent);
 
 struct cmat
 {
@@ -128,15 +130,15 @@ FbxAMatrix GetGeometry(FbxNode* pNode)
 }
 
 
-Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
+EditorEntity* acquireNodeStructure(FbxNode* fbxNode,EditorEntity* parent)
 {
-	Entity* entity=0;
+	EditorEntity* entity=0;
 
 	Bone* bone=0;
 
 	if(!parent)//create the root and add a child to it
 	{
-		rootNode=entity=new Entity;
+		rootNode=entity=new EditorEntity;
 		
 		const char* begin=strrchr(sceneFilename,'\\');
 		const char* end=strrchr(begin,'.');
@@ -148,13 +150,13 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 
 		entity->name=std::string(begin,i).c_str();
 
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
+		mapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(fbxNode,entity));
 	
 	}
 	else
 	{
-		entity=new Entity;
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,Entity*>(fbxNode,entity));
+		entity=new EditorEntity;
+		mapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(fbxNode,entity));
 	}
 	
 
@@ -202,23 +204,23 @@ Entity* acquireNodeStructure(FbxNode* fbxNode,Entity* parent)
 	return entity;
 }
 
-Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
+EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 {
-	Entity* entity=mapFromNodeToEntity[fbxNode];
+	EditorEntity* entity=mapFromNodeToEntity[fbxNode];
 
 	if(!entity)
 		return 0;
 
 	if(fbxNode->GetSkeleton())
 	{
-		Bone* bone=entity->CreateComponent<Bone>();
+		EditorBone* bone=entity->CreateComponent<EditorBone>();
 
 		if(bone)
 		{
 			if(bone->entity->parent)
 			{
-				if(bone->entity->parent->findComponent<Bone>())
-					bone->root=bone->entity->parent->findComponent<Bone>()->root;
+				if(bone->entity->parent->findComponent<EditorBone>())
+					bone->root=bone->entity->parent->findComponent<EditorBone>()->root;
 				else
 					bone->root=bone;
 			}
@@ -235,12 +237,12 @@ Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
 
 		if(deformerCount)//skin
 		{
-			skin=entity->CreateComponent<Skin>();
+			skin=entity->CreateComponent<EditorSkin>();
 			FillSkin(fbxNode,skin);
 		}
 		else//mesh
 		{
-			mesh=entity->CreateComponent<Mesh>();
+			mesh=entity->CreateComponent<EditorMesh>();
 			FillMesh(fbxNode,mesh);
 		}
 
@@ -264,16 +266,16 @@ Entity* acquireNodeData(FbxNode* fbxNode,Entity* parent)
 	}
 	else if(fbxNode->GetLight())
 	{
-		entity->CreateComponent<Light>();
+		entity->CreateComponent<EditorLight>();
 	}
 
 	return entity;
 }
 
 
-Entity* processNodeRecursive(Entity* (*func)(FbxNode*,Entity*),FbxNode* fbxNode,Entity* parent)
+EditorEntity* processNodeRecursive(EditorEntity* (*func)(FbxNode*,EditorEntity*),FbxNode* fbxNode,EditorEntity* parent)
 {
-	Entity* entity=0;
+	EditorEntity* entity=0;
 
 	if(!fbxNode)
 		return entity;
@@ -317,7 +319,7 @@ void ParseAnimationCurve(Animation* a)
 	}
 }
 
-void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
+void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 {
 	for(int animStackIdx=0;animStackIdx<fbxNode->GetScene()->GetSrcObjectCount<FbxAnimStack>();animStackIdx++)
 	{
@@ -348,7 +350,7 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			delete curvegroup;
 		else
 		{
-			Animation* animation=entity->CreateComponent<Animation>();
+			Animation* animation=entity->CreateComponent<EditorAnimation>();
 			animation->clips.push_back(curvegroup);
 			animation->start=animStart;
 			animation->end=animEnd;
@@ -357,7 +359,7 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 			AnimationController *animController=rootNode->findComponent<AnimationController>();
 
 			if(!animController)
-				animController=rootNode->CreateComponent<AnimationController>();
+				animController=rootNode->CreateComponent<EditorAnimationController>();
 
 			if(!animController)
 				__debugbreak();
@@ -375,7 +377,7 @@ void ExtractAnimations(FbxNode* fbxNode,Entity* entity)
 
 
 
-Entity* ImportFbxScene(char* fname)
+EditorEntity* ImportFbxScene(char* fname)
 {
 	rootNode=0;
 
@@ -896,6 +898,7 @@ void GetSceneDetails(FbxScene* lScene)
 	printf("\n");
 }
 
+/*
 BOOL WINAPI DllMain(
 	_In_ HINSTANCE hinstDLL,
 	_In_ DWORD     fdwReason,
@@ -907,4 +910,4 @@ BOOL WINAPI DllMain(
 		printf("fbximporter loaded\n");
 		return TRUE;
 	}
-}
+}*/

@@ -1,9 +1,5 @@
 #include "interfaces.h"
 
-#include <algorithm>
-
-#include "entities.h"
-
 AppInterface::AppInterface():timerMain(0),mainAppWindow(0),compiler(0){}
 
 EditorWindowContainer::EditorWindowContainer()
@@ -15,24 +11,7 @@ EditorWindowContainer::EditorWindowContainer()
 	resizeCheckHeight=0;
 }
 
-ShaderInterface::ShaderInterface()
-{}
 
-ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
-{
-	for(int i=0;i<(int)pool.size();i++)
-	{
-		ShaderInterface* element=pool[i];
-
-		const char* programName=element->GetName();
-
-		if(element && programName)
-			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
-				return pool[i];
-	}
-
-	return 0;
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -451,6 +430,16 @@ void TabContainer::OnGuiDeactivate(void* data)
 void TabContainer::OnGuiEntitySelected(void* data)
 {
 	this->BroadcastToSelected(&GuiRect::OnEntitySelected,data);
+}
+
+void TabContainer::OnGuiKeyDown(void* data)
+{
+	this->BroadcastToSelected(&GuiRect::OnKeyDown,data);
+}
+
+void TabContainer::OnGuiKeyUp(void* data)
+{
+	this->BroadcastToSelected(&GuiRect::OnKeyUp,data);
 }
 
 void TabContainer::OnGuiRecreateTarget(void* data)
@@ -881,6 +870,16 @@ void GuiRect::OnExpandos(TabContainer* tabContainer,void* data)
 		this->parent->OnExpandos(tabContainer,data);
 }
 
+void GuiRect::OnKeyDown(TabContainer* tabContainer,void* data)
+{
+	this->BroadcastToChilds(&GuiRect::OnKeyDown,tabContainer,data);
+}
+
+void GuiRect::OnKeyUp(TabContainer* tabContainer,void* data)
+{
+	this->BroadcastToChilds(&GuiRect::OnKeyDown,tabContainer,data);
+}
+
 void GuiRect::SetClip(GuiScrollRect* scrollRect)
 {
 	this->clip=scrollRect;
@@ -1017,14 +1016,15 @@ GuiButton* GuiRect::Button(String str,float ix, float iy, float iw,float ih)
 	b->alignText.make(0.5f,0.5f);
 	return b;
 }
-GuiButton* GuiRect::Button(String str,vec2 _alignPos,vec2 _alignRect,vec2 _alignText)
+GuiButton* GuiRect::Button(String str,float iWidth,float iHeight,vec2 _alignPos,vec2 _alignRect,vec2 _alignText)
 {
 	GuiButton* b=new GuiButton;
-	b->Set(this,0,0,-1,0,0,0,0,_alignPos.x,_alignPos.y,_alignRect.x,_alignRect.y);
+	b->Set(this,0,0,-1,0,0,iWidth,iHeight,_alignPos.x,_alignPos.y,_alignRect.x,_alignRect.y);
 	b->text=str;
 	b->alignText=_alignText;
 	return b;
 }
+
 
 GuiPropertyAnimation* GuiRect::PropertyAnimControl(AnimationController* ac)
 {
@@ -1097,13 +1097,30 @@ GuiScriptViewer* GuiRect::ScriptViewer(Script*& iScript)
 void GuiRect::AppendContainer(GuiRect* iRect)
 {
 	iRect->sibling[1]=!this->childs.empty() ? this->childs.back() : 0;
-	this->childs.push_back(iRect);
+	iRect->SetParent(this);
+}
+
+template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(GuiRect* sibling,int sibIdx,int container,float ix, float iy, float iw,float ih,float iAlignPosX,float iAlignPosY,float iAlignRectX,float iAlignRectY)
+{
+	GuiRectDerived* guirectderived=new GuiRectDerived;
+
+	if(!guirectderived)
+		__debugbreak();
+
+	guirectderived->Set(this,sibling,sibIdx,container,ix,iy,iw,ih,iAlignPosX,iAlignPosY,iAlignRectX,iAlignRectY);
+
+	return guirectderived;
 }
 
 
 ////////////////////////////
 ////////EditorEntity///////
 ////////////////////////////
+
+EditorProperties::EditorProperties()
+{
+	this->Set(0,0,0,0,0,0,0,20,0,0,1,-1);
+}
 
 EditorEntity::EditorEntity():
 	selected(false),
@@ -1179,6 +1196,11 @@ void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 ////////////////////////////
 ////////GuiRect///////
 ////////////////////////////
+
+void GuiButton::OnSize(TabContainer* tab,void* data)
+{
+	GuiString::OnSize(tab,data);
+}
 
 void GuiButton::OnLMouseUp(TabContainer* tab,void* data)
 {
@@ -1547,6 +1569,11 @@ bool GuiScrollBar::Scroll(float upOrDown)
 	return this->SetScrollerPosition(amount);
 }
 
+void GuiScrollBar::SetRect(GuiRect* iRect)
+{
+	
+}
+
 bool GuiScrollBar::IsVisible()
 {
 	return this->scrollerRatio<1.0f;
@@ -1696,7 +1723,7 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 			newEntity->bbox.a.make(-1,-1,-1);
 			newEntity->bbox.b.make(1,1,1);
 
-			newEntity->OnPropertiesCreate(tabContainer);
+			newEntity->OnPropertiesCreate();
 
 			this->UpdateNodes(this->entityRoot);
 
@@ -1705,10 +1732,10 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 		}
 		break;
 	case 2:curHover->parent->childs.erase(std::find(curHover->parent->childs.begin(),curHover->parent->childs.end(),curHover));break;
-	case 3:curHover->CreateComponent<EditorLight>(tabContainer);break;
-	case 4:curHover->CreateComponent<EditorMesh>(tabContainer);break;
-	case 5:curHover->CreateComponent<EditorCamera>(tabContainer);break;
-	case 14:curHover->CreateComponent<EditorScript>(tabContainer);break;
+	case 3:curHover->CreateComponent<EditorLight>();break;
+	case 4:curHover->CreateComponent<EditorMesh>();break;
+	case 5:curHover->CreateComponent<EditorCamera>();break;
+	case 14:curHover->CreateComponent<EditorScript>();break;
 	}
 
 
@@ -1780,7 +1807,7 @@ void GuiSceneViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 
 			entity->selected=true;
 
-			entity->CreateComponent<EditorGizmo>(tabContainer);
+			entity->CreateComponent<EditorGizmo>();
 
 			tabContainer->SetDraw(this,0);
 		}
@@ -2017,6 +2044,9 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 		this->scrollBar->SetParent(this);
 		this->entity->properties.SetClip(this);
 
+		this->CalcNodesHeight(&iEntity->properties);
+		this->scrollBar->SetScrollerPosition(0);
+
 		this->OnSize(tabContainer);
 		this->entity->properties.OnActivate(tabContainer);
 	}
@@ -2028,7 +2058,7 @@ void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 
 void GuiEntityViewer::OnExpandos(TabContainer* tabContainer,void* data)
 {
-	this->UpdateNodes(&this->entity->properties);
+	this->CalcNodesHeight(&this->entity->properties);
 	this->OnSize(tabContainer);
 }
 
@@ -2092,7 +2122,7 @@ void GuiEntityViewer::DrawNodes(TabContainer*,GuiRect* node,vec2&)
 {
 
 }
-int GuiEntityViewer::UpdateNodes(GuiRect* node)
+int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
 {
 	if(!node && this->entity)
 		return 0;
@@ -2650,10 +2680,7 @@ void EntityUtils::Draw(Entity* iEntity,Renderer3DInterface* renderer)
 	renderer->draw(iEntity->local.position(),5,vec3(1,1,1));
 
 	for(std::vector<EntityComponent*>::iterator it=iEntity->components.begin();it!=iEntity->components.end();it++)
-	{
-		EditorProperties* editorComponent=dynamic_cast<EditorProperties*>(*it);
-		editorComponent ? renderer->draw(editorComponent->GetEncapsulatedType()) : 0;
-	}
+		(*it)->draw(renderer);
 
 	for(std::list<Entity*>::iterator it=iEntity->childs.begin();it!=iEntity->childs.end();it++)
 		Draw(*it,renderer);
@@ -2672,12 +2699,13 @@ void EntityUtils::FillProperties(EntityComponent* ec)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-EditorProperties::EditorProperties()
-{
-	this->properties.Set(0,0,1,0,0,0,0,20,0,0,1,-1);
-}
+#define __APPENDCOMPONENTTOENTITY()	EditorEntity* eEntity=(EditorEntity*)this->entity; \
+										eEntity->properties.AppendContainer(&this->properties); \
+										TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,0);
 
-void EditorEntity::OnPropertiesCreate(TabContainer*)
+
+
+void EditorEntity::OnPropertiesCreate()
 {
 	std::vector<GuiRect*> lvl(2);
 
@@ -2694,7 +2722,7 @@ void EditorEntity::OnPropertiesCreate(TabContainer*)
 	lvl[0]->Property("Child Num",String((int)this->childs.size()));
 }
 
-void EditorMesh::OnPropertiesCreate(TabContainer*)
+void EditorMesh::OnPropertiesCreate()
 {
 	this->properties.text="Mesh";
 	this->properties.Property("Controlpoints",String(this->mesh_ncontrolpoints));
@@ -2702,40 +2730,52 @@ void EditorMesh::OnPropertiesCreate(TabContainer*)
 	this->properties.Property("Polygons",String(this->mesh_npolygons));
 	this->properties.Property("Texcoord",String(this->mesh_ntexcoord));
 	this->properties.Property("Vertexindices",String(this->mesh_nvertexindices));
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorSkin::OnPropertiesCreate(TabContainer*)
+void EditorSkin::OnPropertiesCreate()
 {
 	this->properties.text="Skin";
 	this->properties.Property("Clusters",String(this->skin_nclusters));
 	this->properties.Property("Textures",String(this->skin_ntextures));
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorRoot::OnPropertiesCreate(TabContainer*)
+void EditorRoot::OnPropertiesCreate()
 {
 	this->properties.text="Root";
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorSkeleton::OnPropertiesCreate(TabContainer*)
+void EditorSkeleton::OnPropertiesCreate()
 {
 	this->properties.text="Skeleton";
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorGizmo::OnPropertiesCreate(TabContainer*)
+void EditorGizmo::OnPropertiesCreate()
 {
 	this->properties.text="Gizmo";
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorAnimation::OnPropertiesCreate(TabContainer*)
+void EditorAnimation::OnPropertiesCreate()
 {
 	this->properties.text="Animation";
 	this->properties.Property("IsBone",String(this->entity->findComponent<Bone>() ? "true" : "false"));
 	this->properties.Property("Duration",String(this->end-this->start));
 	this->properties.Property("Begin",String(this->start));
 	this->properties.Property("End",String(this->end));
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorAnimationController::OnPropertiesCreate(TabContainer*)
+void EditorAnimationController::OnPropertiesCreate()
 {
 	this->properties.text="AnimationController";
 	this->properties.Property("Number of nodes",String((int)this->animations.size()));
@@ -2744,34 +2784,44 @@ void EditorAnimationController::OnPropertiesCreate(TabContainer*)
 	this->properties.Property("Begin",String(this->start));
 	this->properties.Property("End",String(this->end));
 	this->properties.PropertyAnimControl(this);
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorBone::OnPropertiesCreate(TabContainer*)
+
+void EditorBone::OnPropertiesCreate()
 {
 	this->properties.text="Bone";
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorLight::OnPropertiesCreate(TabContainer*)
+void EditorLight::OnPropertiesCreate()
 {
 	this->properties.text="Light";
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorScript::OnPropertiesCreate(TabContainer* tabContainer)
+void EditorScript::OnPropertiesCreate()
 {
 	this->properties.text="Script";
 	this->properties.Property("File",this->Script::name);
 	this->properties.Property("Running",this->Script::runtime ? "true" : "false");
 
-	EditorEntity* eEntity=(EditorEntity*)this->entity;
+	GuiButton* button=this->properties.Create<GuiButton>(0,0,-1,0,0,15,15,0.75f,0,-1,-1);
 
-	eEntity->properties.AppendContainer(&this->properties);
+	button->text="Edit";
+	button->colorBackground=0x00000000;
 
-	TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,0);
+	__APPENDCOMPONENTTOENTITY();
 }
 
-void EditorCamera::OnPropertiesCreate(TabContainer*)
+void EditorCamera::OnPropertiesCreate()
 {
 	this->properties.text="Camera";
+
+	__APPENDCOMPONENTTOENTITY();
 }
 
 ///////////////////////////////////////////////

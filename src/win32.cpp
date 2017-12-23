@@ -1,5 +1,5 @@
 #include "win32.h"
-#include "entities.h"
+
 
 PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
 PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
@@ -257,6 +257,19 @@ void Direct2DGuiBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffe
 	}
 }
 
+vec2 Direct2DGuiBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
+{
+	ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
+	HDC hdc=GetDC(hwndRenderer->GetHwnd());
+
+	SIZE tSize;
+	GetTextExtentPoint32(hdc,iText,iSlen>0 ? iSlen : strlen(iText),&tSize);
+
+	ReleaseDC(hwndRenderer->GetHwnd(),hdc);
+
+	return vec2(tSize.cx,tSize.cy);
+}
+
 void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* inputText,float x1,float y1, float x2,float y2,float ax,float ay)
 {
 	if(!inputText)
@@ -276,19 +289,9 @@ void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,cons
 		renderer->DrawText(retText,retLen,texter,D2D1::RectF(x1,y1,x2,y2),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 	else
 	{
-		ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
-		
-		if(!hwndRenderer)
-			__debugbreak();
+		vec2 tSize=MeasureText(renderer,inputText);
 
-		HDC hdc=GetDC(hwndRenderer->GetHwnd());
-
-		SIZE tSize;
-		GetTextExtentPoint32(hdc,inputText,slen,&tSize);
-
-		ReleaseDC(hwndRenderer->GetHwnd(),hdc);//@mic avoid this causes serious performance degradation on windowing
-
-		vec4 rect(-tSize.cx/2.0f,-tSize.cy/2.0f,(float)tSize.cx,(float)tSize.cy);
+		vec4 rect(-tSize.x/2.0f,-tSize.y/2.0f,(float)tSize.x,(float)tSize.y);
 
 		float ww=x2-x1;
 		float hh=y2-y1;
@@ -298,7 +301,6 @@ void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,cons
 
 		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
 		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
-
 
 		renderer->DrawText(retText,retLen,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 	}
@@ -342,10 +344,6 @@ void Direct2DGuiBase::Identity(ID2D1RenderTarget* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-
-
-
-WNDPROC SystemOriginalTabControlProcedure;
 
 
 
@@ -494,6 +492,11 @@ LRESULT CALLBACK EditorMainAppWindowWin32::MainWindowProc(HWND hwnd,UINT msg,WPA
 			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			mainw->splitterContainerWin32->OnMouseMove(hwnd,lparam);
 		break;
+		/*case WM_KEYDOWN:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			mainw->splitterContainerWin32->OnKeyDown(hwnd,lparam);
+			break;*/
 		case WM_COMMAND:
 			{
 				if(!HIWORD(wparam))//menu notification
@@ -516,10 +519,8 @@ LRESULT CALLBACK EditorMainAppWindowWin32::MainWindowProc(HWND hwnd,UINT msg,WPA
 							 
 							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
 							{
-
-								
-									Entity* importedEntities;//ImportFbxScene(openfilename.lpstrFile);
-									TabContainer::BroadcastToPool(&TabContainer::OnEntitiesChange,importedEntities);
+								EditorEntity* importedEntities=ImportFbxScene(openfilename.lpstrFile);
+								TabContainer::BroadcastToPool(&TabContainer::OnEntitiesChange,importedEntities);
 							}
 						}
 						break;
@@ -603,6 +604,14 @@ LRESULT CALLBACK TabContainerWin32::TabContainerWindowClassProcedure(HWND hwnd,U
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnGuiRMouseUp();
 		break;
+		case WM_KEYDOWN:
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+				tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				unsigned char __byte=(unsigned char)wparam;
+				tc->OnGuiKeyDown((void*)&__byte);
+			}
+			break;
 		case WM_PAINT:
 		{
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
@@ -639,8 +648,6 @@ LRESULT CALLBACK TabContainerWin32::TabContainerWindowClassProcedure(HWND hwnd,U
 
 
 //#pragma message(LOCATION " LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
-
-WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 void WindowDataWin32::CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l){hwnd=h,msg=m,wparam=w,lparam=l;}
 
@@ -2690,7 +2697,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 	if(viewport->rootEntity)
 	{
 		viewport->rootEntity->world=viewport->model;
-		this->draw(viewport->rootEntity);
+		EntityUtils::Update(viewport->rootEntity);
 	}
 
 	tabContainerWin32->renderer->ChangeContext();
@@ -2997,7 +3004,7 @@ int TabContainerWin32::TrackTabMenuPopup()
 		InsertMenu(create,1,MF_BYPOSITION|MF_STRING,3,"Scene");
 		InsertMenu(create,2,MF_BYPOSITION|MF_STRING,4,"Entity");
 		InsertMenu(create,3,MF_BYPOSITION|MF_STRING,5,"Project");
-		InsertMenu(create,4,MF_BYPOSITION|MF_STRING,6,"Script");
+		//InsertMenu(create,4,MF_BYPOSITION|MF_STRING,6,"Script");
 	}
 	InsertMenu(root,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
 	InsertMenu(root,2,MF_BYPOSITION|MF_STRING,1,"Remove");
@@ -3032,10 +3039,7 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 			{
 			}
 			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
-			InsertMenu(createComponent,3,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createScript,"Script");
-			{
-				InsertMenu(createScript,0,MF_BYPOSITION|MF_STRING,14,"Script");
-			}
+			InsertMenu(createComponent,3,MF_BYPOSITION|MF_STRING,14,"Script");
 		}
 	}
 	else
@@ -3090,6 +3094,11 @@ bool TabContainerWin32::Compile(Script* iScript)
 	}
 
 	return true;
+}
+
+vec2 TabContainerWin32::MeasureText(const char* iText)
+{
+	return Direct2DGuiBase::MeasureText(this->renderTarget,iText);
 }
 
 TabContainerWin32::~TabContainerWin32()
@@ -3422,9 +3431,6 @@ void TabContainerWin32::OnGuiRecreateTarget(void* iData)
 ///////////////////////////////////////////////
 
 //#pragma message (LOCATION " beware to new POD initialization (parhentesized or not)")
-
-extern WNDPROC SystemOriginalTabControlProcedure;
-extern WNDPROC SystemOriginalSysTreeView32ControlProcedure;
 
 
 

@@ -6,6 +6,33 @@
 
 #include <algorithm>
 
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+ShaderInterface::ShaderInterface()
+{}
+
+ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
+{
+	for(int i=0;i<(int)pool.size();i++)
+	{
+		ShaderInterface* element=pool[i];
+
+		const char* programName=element->GetName();
+
+		if(element && programName)
+			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
+				return pool[i];
+	}
+
+	return 0;
+}
+
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -359,6 +386,11 @@ std::vector<Material*>& Mesh::GetMaterials()
 	return this->mesh_materials;
 }
 
+void Mesh::draw(Renderer3DInterfaceBase* renderer3d)
+{
+	renderer3d->draw(this);
+}
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -443,6 +475,11 @@ void Skin::update()
 	}
 
 	delete [] wcache;
+}
+
+void Skin::draw(Renderer3DInterfaceBase* renderer3d)
+{
+	renderer3d->draw(this);
 }
 
 ///////////////////////////////////////////////
@@ -697,6 +734,7 @@ EntityScript::EntityScript():entity(0){}
 
 Entity::Entity()
 {
+
 }
 
 	
@@ -704,5 +742,6 @@ Entity::Entity()
 Entity::~Entity()
 {
 }
+
 
 
