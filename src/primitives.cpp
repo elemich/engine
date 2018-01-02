@@ -130,18 +130,20 @@ String& String::operator+=(const String& str)
 	int lena=Count();
 	int lenb=str.Count();
 
-	char* _data=new char[lena+lenb+1];
+	if(lena || lenb)
+	{
+		char* _data=new char[lena+lenb+1];
 
-	if(lena)
-		strcpy(_data,Buf());
-	
-	if(lenb)
-		strcpy(&_data[lena],str.Buf());
+		if(lena)
+			strcpy(_data,Buf());
 
-	SAFEDELETEARRAY(this->data);
+		if(lenb)
+			strcpy(&_data[lena],str.Buf());
 
-	this->data=_data;
+		SAFEDELETEARRAY(this->data);
 
+		this->data=_data;
+	}
 	return *this;
 }
 

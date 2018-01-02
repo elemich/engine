@@ -148,6 +148,10 @@ void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
 			__debugbreak();
 
 		
+		res=texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+		if(S_OK!=res)
+			__debugbreak();
+
 
 		// Center the text horizontally and vertically.
 		//textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -276,7 +280,7 @@ vec2 Direct2DGuiBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,i
 	return vec2(tSize.cx,tSize.cy);
 }
 
-void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* inputText,float x1,float y1, float x2,float y2,float ax,float ay)
+void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* inputText,float x1,float y1, float x2,float y2,bool iWrap,int iCenter)
 {
 	if(!inputText)
 		return;
@@ -296,25 +300,16 @@ void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,cons
 
 	renderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	if(ax<0 && ay<0)
-		renderer->DrawText(retText,slen,texter,D2D1::RectF(x1,y1,x2,y2),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-	else
-	{
-		vec2 tSize=MeasureText(renderer,inputText);
+	DWRITE_WORD_WRAPPING ww=texter->GetWordWrapping();
+	DWRITE_TEXT_ALIGNMENT ta=texter->GetTextAlignment();
 
-		vec4 rect(-tSize.x/2.0f,-tSize.y/2.0f,(float)tSize.x,(float)tSize.y);
+	texter->SetWordWrapping(iWrap ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
+	texter->SetTextAlignment(!iCenter ? DWRITE_TEXT_ALIGNMENT_LEADING : (iCenter==1 ? DWRITE_TEXT_ALIGNMENT_CENTER : DWRITE_TEXT_ALIGNMENT_TRAILING));
 
-		float ww=x2-x1;
-		float hh=y2-y1;
-
-		ax>=0 ? rect.x+=x1+ax*ww : rect.x=x1;
-		ay>=0 ? rect.y+=y1+ay*hh : rect.y=y1;
-
-		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
-		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
-
-		renderer->DrawText(retText,slen,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-	}
+	renderer->DrawText(retText,slen,texter,D2D1::RectF(x1,y1,x2,y2),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	
+	texter->SetTextAlignment(ta);
+	texter->SetWordWrapping(ww);
 
 	renderer->PopAxisAlignedClip();
 
@@ -662,7 +657,7 @@ LRESULT CALLBACK TabContainerWin32::TabContainerWindowClassProcedure(HWND hwnd,U
 			BeginPaint(hwnd,&ps);
 			//tc->OnGuiPaint();
 			EndPaint(hwnd,&ps);
-			tc->SetDraw(0,true);
+			tc->SetDraw();
 			result=0;
 		}
 		break;
@@ -2837,8 +2832,13 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 void OpenGLRenderer::Render()
 {
 	for(std::list<GuiViewport*>::iterator vport=this->viewports.begin();vport!=this->viewports.end();vport++)
-		(*vport)->OnPaint(this->tabContainer);
-	
+	{
+		if(tabContainerWin32->BeginDraw())
+		{
+			(*vport)->OnPaint(this->tabContainer);
+			tabContainerWin32->EndDraw();
+		}
+	}
 }
 
 
@@ -3003,9 +3003,9 @@ TabContainerWin32::TabContainerWin32(float x,float y,float w,float h,HWND parent
 	this->drawTask=this->thread->NewTask(std::function<void()>(std::bind(&TabContainer::Draw,this)),false);
 }
 
-void TabContainerWin32::DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX,float iAlignY)
+void TabContainerWin32::DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,bool iWrap,int iCenter)
 {
-	Direct2DGuiBase::DrawText(this->renderTarget,this->SetColor(iColor),iText,x,y,w,h,iAlignX,iAlignY);
+	Direct2DGuiBase::DrawText(this->renderTarget,this->SetColor(iColor),iText,x,y,w,h,iWrap,iCenter);
 }
 void TabContainerWin32::DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill)
 {
@@ -3152,6 +3152,7 @@ bool TabContainerWin32::BeginDraw()
 		if(this->recreateTarget)
 		{
 			this->OnGuiRecreateTarget();
+			this->recreateTarget=0;
 		}
 		else if(this->resizeTarget)
 		{
@@ -3159,16 +3160,12 @@ bool TabContainerWin32::BeginDraw()
 
 			if(S_OK!=result)
 				__debugbreak();
+
+			this->resizeTarget=0;
 		}
 		
 		this->renderTarget->BeginDraw();
 		this->isRender=true;
-
-		if(this->recreateTarget || this->resizeTarget)
-			this->DrawFrame();
-
-		this->recreateTarget=0;
-		this->resizeTarget=0;
 
 		return true;
 	}
@@ -3280,10 +3277,7 @@ void TabContainerWin32::OnGuiRMouseUp(void* data)
 		}
 
 		if(tabNumberHasChanged!=this->tabs.childs.size())
-		{
-			this->drawRect=0;
 			this->SetDraw(0,true);
-		}
 	}
 	else
 	{
@@ -3302,22 +3296,16 @@ void TabContainerWin32::DrawFrame()
 	this->DrawRectangle((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),COLOR_TAB_SELECTED);
 
 	for(int i=0;i<(int)tabs.childs.size();i++)
-		this->DrawText(TabContainer::COLOR_TEXT,tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,0.5f,0.5f);
+		this->DrawText(TabContainer::COLOR_TEXT,tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,false);
 }
 
 
 
 void TabContainerWin32::OnGuiPaint(void* data)
 {
-	bool isDrawing=this->BeginDraw();
-
-	renderTarget->Clear(D2D1::ColorF(TabContainer::COLOR_GUI_BACKGROUND));
-
-	this->DrawFrame();
+	this->DrawRectangle(0,TabContainer::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height-TabContainer::CONTAINER_HEIGHT,COLOR_GUI_BACKGROUND);
 
 	this->BroadcastToSelected(&GuiRect::OnPaint,data);
-
-	this->EndDraw();
 }
 
 
@@ -3897,104 +3885,6 @@ CompilerInterfaceWin32::CompilerInterfaceWin32()
 	this->compilerPath="";
 }
 
-char* nthOccurrence(char* iStr,char iChar,int iNth)
-{
-	char* str=iStr;
-	int occurr=0;
-
-	char c=*str;
-
-	while(c!='\0')
-	{
-		if(c==iChar)
-		{
-			if(++occurr==iNth)
-				return str;
-		}
-
-		c=*(++str);
-	}
-
-	return 0;
-}
-
-int CountOccurrence(char* iStr,char iChar)
-{
-	char* str=iStr;
-	int occurr=0;
-
-	char c=*str;
-
-	while(c!='\0')
-	{
-		if(c==iChar)
-			++occurr;
-
-		c=*(++str);
-	}
-
-	return occurr;
-}
-
-bool CompilerInterfaceWin32_ParseOutput(File& file)
-{
-	char* fileBuffer=0;
-
-	if(file.Open("r"))
-	{
-		int fileSize=file.Size();
-		int lfSize=file.CountOccurrences('\n');//line feed
-		int crSize=file.CountOccurrences('\r');//carriage return
-
-		int ___size=fileSize-lfSize/2-crSize;
-
-		fileBuffer=(char*)file.Read(1,___size+1);
-		fileBuffer[___size]='\0';
-		file.Close();
-	}
-
-	if(fileBuffer)
-	{
-		std::vector<String> strings;
-
-		char* LineBegin=fileBuffer;
-
-		while(LineBegin!='\0')
-		{
-			char* ErrorString=nthOccurrence(LineBegin,':',2);
-			char* LineEnd=strchr(LineBegin,'\n');
-			char* MessageString;
-
-			if(LineBegin==LineEnd)
-				break;
-
-			if(LineEnd<ErrorString)
-			{
-				MessageString=strchr(LineBegin,'\n');
-				if(MessageString)
-					strings.push_back(String(LineBegin,MessageString-LineBegin));
-
-				LineBegin=++MessageString;
-			}
-			else
-			{
-				strings.push_back(String(LineBegin,ErrorString-LineBegin));//the file path
-				MessageString=strchr(++ErrorString,':');
-				if(MessageString)
-					strings.push_back(String(ErrorString,MessageString-ErrorString));//the error code
-				if(MessageString)
-					strings.push_back(String(++MessageString,LineEnd-MessageString));
-
-				LineBegin=LineEnd;
-			}
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
 bool CompilerInterfaceWin32::Compile(Script* iScript)
 {
 	bool retVal;
@@ -4044,13 +3934,39 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 	WaitForSingleObject( pi.hProcess, INFINITE );
 
 	CloseHandle( pi.hProcess );
-	CloseHandle( pi.hThread );/*
-	CloseHandle( si.hStdInput );
-	CloseHandle( si.hStdError );
-	CloseHandle( si.hStdOutput );*/
+	CloseHandle( pi.hThread );
 	CloseHandle( errorOutput );
 
-	CompilerInterfaceWin32_ParseOutput(errorOutputFile);
+	GuiCompilerViewer* guiCompilerViewer=0;
+
+	//spawn a new GuiCompilerViewer if none
+	if(GuiCompilerViewer::pool.empty())
+	{
+		GuiRootRect* guiCompilerViewer_rootRect=GuiScriptViewer::pool[0]->GetRootRect();
+
+		for(size_t i=0;i<AppInterface::instance->mainAppWindow->containers[0]->tabContainers.size();i++)
+		{
+			if(guiCompilerViewer_rootRect->tabContainer != AppInterface::instance->mainAppWindow->containers[0]->tabContainers[i])
+			{
+				guiCompilerViewer=AppInterface::instance->mainAppWindow->containers[0]->tabContainers[i]->tabs.CompilerViewer();
+
+				break;
+			}
+		}
+	}
+
+	if(!guiCompilerViewer)
+		guiCompilerViewer=GuiCompilerViewer::pool[0];
+
+	//parse and show the GuiCompilerViewer
+
+	GuiRootRect* guiCompilerViewer_rootRect=guiCompilerViewer->GetRootRect();
+
+	guiCompilerViewer->ParseCompilerOutput(guiCompilerViewer_rootRect->tabContainer,errorOutputFile);
+
+	guiCompilerViewer_rootRect->tabContainer->SetSelection(guiCompilerViewer);
+
+	guiCompilerViewer_rootRect->tabContainer->SetDraw();
 
 	errorOutputFile.Delete();
 

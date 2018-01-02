@@ -72,7 +72,7 @@ struct Direct2DGuiBase
 	static ID2D1HwndRenderTarget* InitHWNDRenderer(HWND hwnd);
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float ax=-1,float ay=-1);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,bool iWrap,int iCenter);
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
@@ -247,7 +247,7 @@ struct TabContainerWin32 : TabContainer
 
 	ID2D1Brush* SetColor(unsigned int color);
 
-	void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1);
+	void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,bool wrap=false,int iCenter=0);
 	void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h);
 	void PushScissor(float x,float y, float w,float h);

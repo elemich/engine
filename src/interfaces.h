@@ -19,6 +19,7 @@ struct GuiLabel;
 struct GuiViewport;
 struct GuiSceneViewer;
 struct GuiEntityViewer;
+struct GuiCompilerViewer;
 struct GuiProjectViewer;
 struct GuiScriptViewer;
 struct GuiPropertyVec3;
@@ -368,7 +369,9 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnButtonPressed(TabContainer*,GuiButton*){}
 
 
-	virtual bool SelfRender(TabContainer*);
+	void DrawBackground(TabContainer*);
+
+
 	virtual void SelfRenderEnd(TabContainer*,bool&);
 
 	virtual bool SelfClip(TabContainer*);
@@ -377,6 +380,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void SetClip(GuiScrollRect*);
 
 	virtual GuiRect* GetRoot(); 
+	GuiRootRect* GetRootRect(); 
 
 	bool _contains(vec4& quad,vec2);
 
@@ -412,6 +416,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiEntityViewer* EntityViewer();
 	GuiProjectViewer* ProjectViewer();
 	GuiScriptViewer* ScriptViewer();
+	GuiCompilerViewer* CompilerViewer();
 
 	void Append(GuiRect*);
 
@@ -819,6 +824,17 @@ struct GuiScriptViewer : GuiRect , TPoolVector<GuiScriptViewer>
 	void OnKeyUp(TabContainer*,void* data=0);
 };
 
+struct GuiCompilerViewer : GuiRect , TPoolVector<GuiCompilerViewer>
+{
+	struct OutputLine{String message,error,file;};
+
+	std::vector<OutputLine*> lines;
+
+	GuiCompilerViewer();
+
+	bool ParseCompilerOutput(TabContainer*,File&);
+};
+
 
 struct TabContainer : TPoolVector<TabContainer>
 {
@@ -866,8 +882,8 @@ struct TabContainer : TPoolVector<TabContainer>
 	bool resizeTarget;
 
 	GuiRect* drawRect;
-	bool*	 drawPause;
-	bool	 drawAll;
+	bool	 drawFrame;
+	int		 drawCode;
 	Task*	 drawTask;
 
 	float mousex,mousey;
@@ -901,7 +917,7 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	virtual void DrawFrame()=0;
 
-	virtual void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,float iAlignX=-1,float iAlignY=-1)=0;
+	virtual void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,bool iWrap=false,int iCenter=0)=0;
 	virtual void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
 	virtual void PushScissor(float x,float y, float w,float h)=0;
@@ -928,7 +944,7 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
 
-	void SetDraw(GuiRect* iRect,bool iFrame);
+	void SetDraw(int iCode=1,bool iFrame=true,GuiRect* iRect=0);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
@@ -938,6 +954,7 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual bool DrawCaret(int iX,int iY)=0;
 	virtual bool ShowCaret(bool iShow)=0;
 	virtual bool CreateCaret()=0;
+	void SetSelection(GuiRect* iRect);
 };
 
 struct SplitterContainer 
