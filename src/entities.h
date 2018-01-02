@@ -11,7 +11,6 @@ struct EntityScript;
 #define PROCESS_ENTITIES_RECURSIVELY 1
 
 
-
 struct ShaderInterface : TPoolVector<ShaderInterface>
 {
 	static ShaderInterface* Find(const char*,bool exact=true);
@@ -176,7 +175,27 @@ struct Resource : THierarchyList<Entity>
 
 struct File : Resource
 {
-	String fullPath;
+	FilePath filename;
+	FILE* handle;
+
+	File(String iString=0);
+
+	void SetFilename(String);
+	bool Open(char* mode="r");
+	void Close();
+	bool IsOpen();
+	bool Exist();
+	int Size();
+	bool Create();
+	int CountOccurrences(char);
+	void* Read(int iSize,int iNum);
+	bool Write(void* iData,int iSize,int iNum);
+	bool Delete();
+
+	static bool Create(const char* iFilename);
+	static bool Exist(const char* iFilename);
+	static bool Delete(const char* iFilename);
+	static int Size(const char* iFilename);
 };
 
 struct Dir : Resource
@@ -298,7 +317,13 @@ struct AnimClip
 	float end;
 };
 
-struct EntityComponent
+struct EntityBase
+{
+	virtual void update(){}
+	virtual void draw(Renderer3DInterfaceBase*){}
+};
+
+struct EntityComponent : EntityBase
 {
 	Entity* entity;
 
@@ -308,14 +333,13 @@ struct EntityComponent
 
 	virtual void update(){}
 	virtual void draw(Renderer3DInterfaceBase*){}
-
-	virtual EntityComponent* GetComponent()=0;
 };
 
-
-
-struct Entity : THierarchyList<Entity>
+struct Entity : EntityBase
 {
+	Entity*					parent;
+	std::list<Entity*>		childs;
+
 	mat4					local;
 	mat4					world;
 
@@ -327,6 +351,10 @@ struct Entity : THierarchyList<Entity>
 	~Entity();
 
 	std::vector<EntityComponent*> components;
+
+	virtual void SetParent(Entity* iParent);
+	virtual void update();
+	virtual void draw(Renderer3DInterfaceBase*);
 	
 	template<class C> C* CreateComponent()
 	{
@@ -363,18 +391,14 @@ struct Entity : THierarchyList<Entity>
 
 struct Root : EntityComponent
 {
-	virtual Root* GetComponent(){return this;}
 };
 
 struct Skeleton : EntityComponent
 {
-	virtual Skeleton* GetComponent(){return this;}
 };
 
 struct Animation : EntityComponent
 {
-	virtual Animation* GetComponent(){return this;}
-
 	Animation();
 
 	Entity* entity;
@@ -389,13 +413,10 @@ struct Animation : EntityComponent
 
 struct Gizmo : EntityComponent
 {
-	virtual Gizmo* GetComponent(){return this;}
 };
 
 struct AnimationController : EntityComponent
 {
-	virtual AnimationController* GetComponent(){return this;}
-
 	std::vector<Animation*> animations;
 
 	float speed;
@@ -414,13 +435,16 @@ struct AnimationController : EntityComponent
 
 	void add(Animation* anim);
 
-	void update();
+	void Stop();
+	void Play();
+
+	virtual void update();
+
+	void SetFrame(float iFrame);
 };
 
 struct Bone : EntityComponent
 {
-	virtual Bone* GetComponent(){return this;}
-
 	Bone();
 
 	Bone* root;
@@ -431,8 +455,6 @@ struct Bone : EntityComponent
 
 struct Light : EntityComponent
 {
-	virtual Light* GetComponent(){return this;}
-
 	Light();
 
 	ELight	light_type;
@@ -458,8 +480,6 @@ struct Light : EntityComponent
 
 struct Mesh : EntityComponent
 {
-	virtual Mesh* GetComponent(){return this;}
-
 	Mesh();
 
 	int save(char*);
@@ -480,41 +500,41 @@ struct Mesh : EntityComponent
 
 	std::vector<Material*>& GetMaterials();
 
-	float (*mesh_controlpoints)[3];
-	int	  mesh_ncontrolpoints;
+	float (*controlpoints)[3];
+	int	  ncontrolpoints;
 
-	unsigned int *mesh_vertexindices;
-	int	  mesh_nvertexindices;
+	unsigned int *vertexindices;
+	int	  nvertexindices;
 
-	float (*mesh_texcoord)[2];
-	int	  mesh_ntexcoord;
+	float (*texcoord)[2];
+	int	  ntexcoord;
 
-	float (*mesh_normals)[3];
-	int	  mesh_nnormals;
+	float (*normals)[3];
+	int	  nnormals;
 
-	float (*mesh_colors)[3];
-	int	  mesh_ncolors;
+	float (*colors)[3];
+	int	  ncolors;
 
-	int	  mesh_npolygons;
+	int	  npolygons;
 
-	bool  mesh_isCCW;
+	bool  isCCW;
 
-	std::vector<Material*> mesh_materials;
+	std::vector<Material*> materials;
 
 	void draw(Renderer3DInterfaceBase*);
 };
 
 struct Script : EntityComponent
 {
-	virtual Script* GetComponent(){return this;}
-
-	FilePath name;
+	File file;
 	EntityScript* runtime;
-	String data;
 
 	void* handle;
 
 	Script();
+
+	virtual bool Run(){return false;}
+	virtual bool Exit(){return false;}
 };
 
 struct EntityScript
@@ -532,29 +552,25 @@ struct EntityScript
 
 struct Skin : Mesh
 {
-	virtual Skin* GetComponent(){return this;}
-
 	Skin();
 
-	void		update();
+	virtual void		update();
 	
 	
-	Texture	    *skin_textures;
-	int			skin_ntextures;
+	Texture	    *textures;
+	int			ntextures;
 
-	Cluster		*skin_clusters;
-	int			skin_nclusters;
+	Cluster		*clusters;
+	int			nclusters;
 
 
-	float*	    skin_vertexcache;
+	float*	    vertexcache;
 
 	void draw(Renderer3DInterfaceBase*);
 };
 
 struct Camera : EntityComponent
 {
-	virtual Camera* GetComponent(){return this;}
-
 	float fov;
 	float ratio;
 	float Near;

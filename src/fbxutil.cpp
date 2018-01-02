@@ -253,7 +253,7 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 			if(!material)
 				__debugbreak();
 
-			mesh ? mesh->mesh_materials.push_back(material) : skin->mesh_materials.push_back(material);
+			mesh ? mesh->materials.push_back(material) : skin->materials.push_back(material);
 		}
 
 		fbxNode->GetGeometry()->ComputeBBox();
@@ -527,7 +527,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 	FbxGeometry* fbxGeometry=fbxNode->GetGeometry();
 	FbxMesh* fbxMesh=fbxNode->GetMesh();
 
-	mesh->mesh_isCCW=fbxMesh->CheckIfVertexNormalsCCW();
+	mesh->isCCW=fbxMesh->CheckIfVertexNormalsCCW();
 
 	printf("checking for non-tri polygons...");
 
@@ -570,28 +570,28 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 
 	int nLayers=fbxMesh->GetUVLayerCount();
 
-	mesh->mesh_npolygons=fbxMesh->GetPolygonCount();
-	mesh->mesh_ncontrolpoints=fbxMesh->GetControlPointsCount();
-	mesh->mesh_nvertexindices=fbxMesh->GetPolygonVertexCount();
-	mesh->mesh_ntexcoord=fbxMesh->GetTextureUVCount();
+	mesh->npolygons=fbxMesh->GetPolygonCount();
+	mesh->ncontrolpoints=fbxMesh->GetControlPointsCount();
+	mesh->nvertexindices=fbxMesh->GetPolygonVertexCount();
+	mesh->ntexcoord=fbxMesh->GetTextureUVCount();
 
-	if(!mesh->mesh_nvertexindices)
+	if(!mesh->nvertexindices)
 		__debugbreak();
 
 #if GENERATE_INDEXED_GEOMETRY
-	mesh->mesh_ntexcoord=mesh->mesh_npolygons*3;
-	mesh->mesh_nnormals=mesh->mesh_npolygons*3;
-	mesh->mesh_ncontrolpoints=mesh->mesh_npolygons*3;
+	mesh->ntexcoord=mesh->npolygons*3;
+	mesh->nnormals=mesh->npolygons*3;
+	mesh->ncontrolpoints=mesh->npolygons*3;
 #endif
 	
-	mesh->mesh_controlpoints=new float[mesh->mesh_ncontrolpoints][3];
-	mesh->mesh_vertexindices=new unsigned int[mesh->mesh_nvertexindices];
-	mesh->mesh_normals=new float[mesh->mesh_nnormals][3];
-	mesh->mesh_texcoord=new float[mesh->mesh_ntexcoord][2];
+	mesh->controlpoints=new float[mesh->ncontrolpoints][3];
+	mesh->vertexindices=new unsigned int[mesh->nvertexindices];
+	mesh->normals=new float[mesh->nnormals][3];
+	mesh->texcoord=new float[mesh->ntexcoord][2];
 
 #if DEBUG_PRINTF
-	for(int i=0;i<mesh->mesh_nvertexindices;i++)
-		printf("triIdx[%d]: %d\n",i,mesh->mesh_vertexindices[i]);
+	for(int i=0;i<mesh->nvertexindices;i++)
+		printf("triIdx[%d]: %d\n",i,mesh->vertexindices[i]);
 #endif 
 
 	FbxLayerElementArrayTemplate<FbxVector2> *textureUVs;
@@ -614,7 +614,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 
 	FbxArray<FbxLayerElement::EType> uvLayers=fbxMesh->GetAllChannelUV(0);
 
-	for(int i=0;i<mesh->mesh_npolygons;i++)
+	for(int i=0;i<mesh->npolygons;i++)
 	{
 		for(int j=0;j<3;j++)
 		{
@@ -623,31 +623,31 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 			//mesh->mesh_vertexindices[dstIdx]=fbxMesh->GetPolygonVertex(i,j);
 
 			FbxDouble4 cpoints=fbxMesh->GetControlPointAt(fbxMesh->GetPolygonVertex(i,j));
-			VectorMathNamespace::make(mesh->mesh_controlpoints[dstIdx],3,(float)cpoints[0],(float)cpoints[1],(float)cpoints[2]);
+			VectorMathNamespace::make(mesh->controlpoints[dstIdx],3,(float)cpoints[0],(float)cpoints[1],(float)cpoints[2]);
 			
 			FbxVector2 uv=textureUVs->GetAt(fbxMesh->GetTextureUVIndex(i,j));
-			VectorMathNamespace::make(mesh->mesh_texcoord[dstIdx],2,(float)uv[0],1-(float)uv[1]);
+			VectorMathNamespace::make(mesh->texcoord[dstIdx],2,(float)uv[0],1-(float)uv[1]);
 		}	
 	}
 
 #else
 	//copy triangle indices
-	memcpy(mesh->mesh_vertexindices,fbxMesh->GetPolygonVertices(),sizeof(int)*mesh->mesh_nvertexindices);
+	memcpy(mesh->vertexindices,fbxMesh->GetPolygonVertices(),sizeof(int)*mesh->nvertexindices);
 
 	//copy indexed vertices
 	{
 		FbxDouble4* cpoints=fbxMesh->GetControlPoints();
 
-		for(int i=0;i<mesh->mesh_ncontrolpoints;i++)
-			vector::make(mesh->mesh_controlpoints[i],3,(float)cpoints[i][0],(float)cpoints[i][1],(float)cpoints[i][2]);
+		for(int i=0;i<mesh->ncontrolpoints;i++)
+			vector::make(mesh->controlpoints[i],3,(float)cpoints[i][0],(float)cpoints[i][1],(float)cpoints[i][2]);
 	}
 
-	for(int i=0;i<mesh->mesh_nvertexindices;i++)
+	for(int i=0;i<mesh->nvertexindices;i++)
 	{
 		for(int j=0;j<3;j++)
 		{
 			FbxVector2 &v=textureUVs->GetAt(fbxMesh->GetTextureUVIndex(i,j));
-			vector::make(mesh->mesh_texcoord[mesh->mesh_vertexindices[i]],2,(float)v[0],(float)v[1]);
+			vector::make(mesh->texcoord[mesh->vertexindices[i]],2,(float)v[0],(float)v[1]);
 		}
 	}
 
@@ -655,13 +655,13 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 
 	//copy per-vertex normals
 
-	for(int i=0;i<mesh->mesh_nvertexindices;i++)
+	for(int i=0;i<mesh->nvertexindices;i++)
 	{
 		for(int j=0;j<3;j++)
 		{
 			FbxVector4 v;
-			fbxMesh->GetPolygonVertexNormal(mesh->mesh_vertexindices[i],j,v);
-			VectorMathNamespace::make(mesh->mesh_normals[i],3,(float)v[0],(float)v[1],(float)v[2]);
+			fbxMesh->GetPolygonVertexNormal(mesh->vertexindices[i],j,v);
+			VectorMathNamespace::make(mesh->normals[i],3,(float)v[0],(float)v[1],(float)v[2]);
 		}
 	}
 
@@ -684,14 +684,14 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 	if(fbxNode->GetMesh()->GetDeformerCount()>1)
 		__debugbreak();
 
-	skin->skin_nclusters=fbxSkin->GetClusterCount();
-	skin->skin_clusters=new Cluster[skin->skin_nclusters];
+	skin->nclusters=fbxSkin->GetClusterCount();
+	skin->clusters=new Cluster[skin->nclusters];
 
-	for(int i=0;i<skin->skin_nclusters;i++)
+	for(int i=0;i<skin->nclusters;i++)
 	{
 		FbxCluster* fbxCluster=fbxSkin->GetCluster(i);
 
-		Cluster& cluster=(Cluster&)skin->skin_clusters[i];
+		Cluster& cluster=(Cluster&)skin->clusters[i];
 
 
 		cluster.bone=mapFromNodeToEntity[fbxCluster->GetLink()];

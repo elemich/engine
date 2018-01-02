@@ -270,9 +270,10 @@ struct TabContainerWin32 : TabContainer
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
 
-	bool Compile(Script*);
-
 	vec2 MeasureText(const char* iText);
+	bool DrawCaret(int iX,int iY);
+	bool ShowCaret(bool iShow);
+	bool CreateCaret();
 };
 
 struct SplitterContainerWin32 : SplitterContainer 
@@ -324,17 +325,20 @@ struct EditorWindowContainerWin32 : EditorWindowContainer
 
 	WindowDataWin32*& windowDataWin32;
 	SplitterContainerWin32*& splitterContainerWin32;
+
+	TabContainerWin32* CreateTabContainer(float x,float y,float w,float h);
 };
 
-struct EditorMainAppWindowWin32 : EditorWindowContainerWin32 , EditorMainAppWindow
+struct EditorMainAppWindowWin32 : EditorMainAppWindow
 {
-	static LRESULT CALLBACK MainWindowProc(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
+	static LRESULT CALLBACK MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
 	HMENU menuMain;
 	HMENU menuEntities;
 
-	void Create(HWND hwnd=0);
-	void OnCreate(HWND);
+	void Init();
+
+	EditorWindowContainerWin32* CreateContainer();
 };
 
 struct TimerWin32 : Timer
@@ -361,14 +365,18 @@ struct ScriptWin32 : Script
 	HMODULE dllModule;
 
 	ScriptWin32();
+
+	bool Run();
+	bool Exit();
 };
 
-struct CompilerWin32 : CompilerInterface
+struct CompilerInterfaceWin32 : CompilerInterface
 {
-	CompilerWin32();
+	CompilerInterfaceWin32();
 
-	void Compile(String);
+	bool Compile(Script*);
 };
+
 
 
 #endif //WIN32_H

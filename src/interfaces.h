@@ -9,18 +9,23 @@ struct GuiRect;
 struct GuiRootRect;
 struct GuiString;
 struct GuiButton;
+struct GuiButtonBool;
 struct GuiScrollBar;
 struct GuiScrollRect;
 struct GuiPropertyString;
 struct GuiPropertySlider;
-struct GuiPropertyAnimation;
+struct GuiAnimationController;
 struct GuiLabel;
-struct GuiButton;
 struct GuiViewport;
 struct GuiSceneViewer;
 struct GuiEntityViewer;
 struct GuiProjectViewer;
 struct GuiScriptViewer;
+struct GuiPropertyVec3;
+struct GuiPropertyPtr;
+struct GuiPropertyFloat;
+struct GuiPropertyBool;
+struct GuiPropertyAnimationController;
 
 struct TabContainer;
 struct EditorWindowContainer;
@@ -35,6 +40,76 @@ struct Entity;
 struct AnimationController;
 struct Script;
 
+
+#define MAX_TOUCH_INPUTS 10
+
+
+struct InputInterface
+{
+};
+
+struct TouchInput : InputInterface
+{
+	enum
+	{
+		TOUCH_DOWN,
+		TOUCH_UP,
+		TOUCH_MAX
+	};
+
+	bool pressed[MAX_TOUCH_INPUTS];
+	bool released[MAX_TOUCH_INPUTS];
+
+	vec2 position[MAX_TOUCH_INPUTS];
+
+	TouchInput();
+
+	bool IsPressed(int i);
+	bool IsReleased(int i);
+
+	void SetPressed(bool b,int i);
+	void SetReleased(bool b,int i);
+
+
+	vec2& GetPosition(int i);
+	void   SetPosition(vec2& pos,int i);
+
+
+};
+
+struct KeyboardInput : InputInterface
+{
+	bool IsPressed(unsigned int iCharCode);
+};
+
+struct MouseInput : InputInterface
+{
+	vec2	pos;
+	vec2	posold;
+
+	bool left;
+	bool right;
+	bool middle;
+
+	MouseInput();
+
+	bool Left();
+	bool Right();
+	bool Middle();
+};
+
+
+struct InputManager
+{
+	static TouchInput touchInput;
+	static MouseInput mouseInput;
+	static KeyboardInput keyboardInput;
+	/*static InputInterface voiceInput;
+	static InputInterface joystickInput;*/
+};
+
+
+
 struct AppInterface : TStaticInstance<AppInterface>
 {
 	Timer					*timerMain;
@@ -43,6 +118,7 @@ struct AppInterface : TStaticInstance<AppInterface>
 	FilePath				exeFolder;
 	String					applicationDataFolder;
 	CompilerInterface*		compiler; 
+	InputManager            inputManager;
 
 	AppInterface();
 
@@ -109,10 +185,7 @@ struct Renderer3DInterface : Renderer3DInterfaceBase
 	ShaderInterface* shaded_texture;
 };
 
-struct InputInterface
-{
 
-};
 
 struct Game
 {
@@ -225,150 +298,7 @@ struct OpenGLShader : ShaderInterface
 	unsigned int	  ibo;
 };
 
-struct TouchInput : InputInterface
-{
-	enum
-	{
-		TOUCH_DOWN,
-		TOUCH_UP,
-		TOUCH_MAX
-	};
 
-#define MAX_TOUCH_INPUTS 10
-
-	bool pressed[MAX_TOUCH_INPUTS];
-	bool released[MAX_TOUCH_INPUTS];
-
-	vec2 position[MAX_TOUCH_INPUTS];
-
-	TouchInput()
-	{
-		for(int i=0;i<10;i++)
-		{
-			pressed[i]=0;
-			released[i]=0;
-			position[i].make(0,0);
-		}
-	}
-
-	bool IsPressed(int i){return pressed[i];}
-	bool IsReleased(int i){return released[i];}
-
-	void SetPressed(bool b,int i){pressed[i]=b;}
-	void SetReleased(bool b,int i){released[i]=b;}
-
-
-	vec2& GetPosition(int i){return position[i];}
-	void   SetPosition(vec2& pos,int i){position[i]=pos;}
-
-
-};
-
-struct KeyboardInput : InputInterface
-{
-	enum
-	{
-		KEY_PRESSED=0,
-		KEY_RELEASED,
-		KEY_INACTIVE
-	};
-
-	int keys[255];
-	int nkeys;
-
-	KeyboardInput()
-	{
-		for(int i=0;i<255;i++)
-			SetKey(i,KEY_INACTIVE);
-		nkeys=0;
-	}
-
-	void SetKey(unsigned char c,int state)//pressed,released,inactive
-	{
-		keys[c]=state;
-
-		switch(state)
-		{
-		case KEY_PRESSED:{if(nkeys<sizeof(keys))nkeys++;}break;
-		case KEY_RELEASED:{if(nkeys>0)nkeys--;}break;
-		}
-	}
-
-	int GetKey(unsigned char c)//pressed,released,inactive
-	{
-		return keys[c];
-	}
-
-	bool GetPressed(unsigned char c)
-	{
-		return keys[c]==KEY_PRESSED;
-	}
-
-	bool GetReleased(unsigned char c)
-	{
-		return keys[c]==KEY_RELEASED;
-	}
-
-};
-
-struct MouseInput : InputInterface
-{
-	enum
-	{
-		MOUSE_STATE_PRESSED=0,
-		MOUSE_STATE_RELEASED,
-		MOUSE_STATE_CLICKED,
-		MOUSE_STATE_DBLCLICKED,
-		MOUSE_STATE_INACTIVE,
-		MOUSE_STATE_MAX
-	};
-
-	enum
-	{
-		BUTTON_LEFT=0,
-		BUTTON_CENTER,
-		BUTTON_RIGHT,
-		BUTTON_MAX
-	};
-
-	enum
-	{
-		DIR_LEFT=0,
-		DIR_RIGHT,
-		DIR_UP,
-		DIR_BOTTOM
-	};
-
-	int		mouse_states[BUTTON_MAX];
-	vec2	mouse_pos;
-	vec2	mouse_posold;
-	vec2	mouse_posnorm;
-	float   mouse_timers[BUTTON_MAX];
-
-	MouseInput();
-
-	bool IsClick(int);
-	virtual void Update();
-};
-
-
-struct InputManager
-{
-	static TouchInput touchInput;
-	static MouseInput mouseInput;
-	static KeyboardInput keyboardInput;
-	static InputInterface voiceInput;
-	static InputInterface joystickInput;
-
-	void update()
-	{
-		for(int i=0;i<255;i++)
-		{
-			int state=keyboardInput.GetKey(i);
-			keyboardInput.SetKey(i,state==KeyboardInput::KEY_RELEASED ? KeyboardInput::KEY_INACTIVE : state);
-		}
-	}
-};
 
 struct GuiRect : THierarchyVector<GuiRect>
 {
@@ -435,6 +365,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnKeyDown(TabContainer*,void* data=0);
 	virtual void OnKeyUp(TabContainer*,void* data=0);
 
+	virtual void OnButtonPressed(TabContainer*,GuiButton*){}
 
 
 	virtual bool SelfRender(TabContainer*);
@@ -468,24 +399,25 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiString* Text(String str,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignText=vec2(-1,-1));
 	GuiString* Text(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
 
-	GuiPropertyString* Property(const char* iLeft,const char* iRight);
-	GuiPropertyString* Property(const char* iLeft,vec3 iRight);
+	GuiPropertyString* Property(const char* iLeft,String& iRight);
+	GuiPropertyVec3* Property(const char* iLeft,vec3& iRight);
+	GuiPropertyPtr* Property(const char* iLeft,void* iRight);
+	GuiPropertyFloat* Property(const char* iLeft,float& iRight);
+	GuiPropertyBool* Property(const char* iLeft,bool& iRight);
+	GuiPropertyAnimationController* Property(AnimationController&);
+	GuiPropertySlider* Property(const char* iLeft,float& ref,float& imin,float& imax);
 
-	GuiPropertySlider* Slider(const char* iLeft,float* ref);
-
-	GuiButton* Button(String text,float ix=0, float iy=0, float iw=0,float ih=0);
-	GuiButton* Button(String text,float iWidth,float iHeight,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
-
-	GuiPropertyAnimation* PropertyAnimControl(AnimationController*);
 	GuiViewport* Viewport(vec3 pos=vec3(100,100,100),vec3 target=vec3(0,0,0),vec3 up=vec3(0,0,1),bool perspective=true);
 	GuiSceneViewer* SceneViewer();
 	GuiEntityViewer* EntityViewer();
 	GuiProjectViewer* ProjectViewer();
-	GuiScriptViewer* ScriptViewer(Script*&);
+	GuiScriptViewer* ScriptViewer();
 
-	void AppendContainer(GuiRect*);
+	void Append(GuiRect*);
 
-	template<class C> C* Create(GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
+	template<class C> C* Create(int iSibling=-1,int iContainer=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
+
+
 };
 
 struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
@@ -497,14 +429,8 @@ struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 	GuiRootRect(TabContainer* t):tabContainer(t){this->name="RootRect";this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
 };
 
-struct GuiProperty : GuiRect
-{
-
-};
-
 struct GuiString : GuiRect
 {
-	vec4 textRect;
 	vec2 alignText;
 	String text;
 
@@ -515,15 +441,30 @@ struct GuiString : GuiRect
 
 struct GuiButton : GuiString
 {
-	bool* referenceValue;
-	int		updateMode;
-
-	GuiButton():referenceValue(0),mouseUpFunc(0),updateMode(-1){this->name="Button";}
-
-	void (GuiRect::*mouseUpFunc)();
+	GuiButton();
 
 	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
-	virtual void OnSize(TabContainer* tab,void* data=0);
+	virtual void OnPaint(TabContainer* tab,void* data=0);
+};
+
+struct GuiButtonFunc : GuiButton
+{
+	GuiButtonFunc(void (*iFunc)(void*)=0,void* iParam=0);
+
+	void (*func)(void*);
+	void* param;
+
+	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
+};
+
+struct GuiButtonBool : GuiButton
+{
+	bool& referenceValue;
+	int		updateMode;
+
+	GuiButtonBool(bool& iBool):referenceValue(iBool),updateMode(-1){this->name="Button";}
+
+	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
 };
 
 struct GuiScrollBar : GuiRect
@@ -577,57 +518,101 @@ struct GuiScrollRect : GuiRect
 	virtual void OnSize(TabContainer*,void* data=0);
 };	
 
-
-
-struct GuiPropertyString : GuiProperty
+struct GuiSlider : GuiRect
 {
-	String prp;
-	String val;
+	float& referenceValue;
 
-	GuiPropertyString(){this->name="PropertyString";}
+	float& minimum;
+	float& maximum;
 
-	virtual void OnPaint(TabContainer*,void* data=0);
-};
-
-struct GuiSlider : GuiProperty
-{
-	float *referenceValue;
-
-	float minimum;
-	float maximum;
-
-	GuiSlider():referenceValue(0),minimum(0),maximum(1){this->name="Slider";}
+	GuiSlider(float& iRef,float& iMin,float& iMax):referenceValue(iRef),minimum(iMin),maximum(iMax){this->name="GuiSlider";}
 
 	virtual void OnPaint(TabContainer*,void* data=0);
 	virtual void OnMouseMove(TabContainer*,void* data=0);
 	virtual void OnSize(TabContainer*,void* data=0);
+	void DrawSliderTip(TabContainer*,void* data=0);
 };
 
-struct GuiPropertySlider : GuiRect
+struct GuiProperty : GuiRect
 {
-	String prp;
+	String description;
+};
 
-	GuiSlider slider;
+struct GuiPropertyString : GuiProperty
+{
+	String& val;
 
-	GuiPropertySlider(){this->name="PropertySlider";}
+	GuiPropertyString(String& iVal):val(iVal){this->name="PropertyString";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
 
 	virtual void OnPaint(TabContainer*,void* data=0);
 };
 
-struct GuiPropertyAnimation : GuiProperty
+struct GuiPropertyFloat : GuiProperty
 {
-	AnimationController* animController;
+	float& val;
 
-	GuiPropertyAnimation():animController(0){this->name="PropertyAnimation";}
+	GuiPropertyFloat(float& iVal):val(iVal){this->name="GuiPropertyFloat";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
 
-	GuiString text;
+	virtual void OnPaint(TabContainer*,void* data=0);
+};
 
-	GuiButton play;
-	GuiButton stop;
+struct GuiPropertyVec3 : GuiProperty
+{
+	vec3& val;
+
+	GuiPropertyVec3(vec3& iVal):val(iVal){this->name="GuiPropertyVec3";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
+
+	virtual void OnPaint(TabContainer*,void* data=0);
+};
+
+struct GuiPropertyPtr : GuiProperty
+{
+	void* val;
+
+	GuiPropertyPtr(void* iVal):val(iVal){this->name="GuiPropertyPtr";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
+
+	virtual void OnPaint(TabContainer*,void* data=0);
+};
+
+struct GuiPropertyBool : GuiProperty
+{
+	bool& val;
+
+	GuiPropertyBool(bool& iVal):val(iVal){this->name="GuiPropertyBool";}
+
+	virtual void OnPaint(TabContainer*,void* data=0);
+};
+
+struct GuiPropertySlider : GuiProperty
+{
+	GuiSlider slider;
+
+	GuiPropertySlider(float& iRefVal,float& iMin,float& iMax):slider(iRefVal,iMin,iMax){this->name="PropertySlider";this->Set(0,0,0,-1,0,0,0,25,0,0,1,-1);this->slider.Set(this,0,0,-1,0,0,0,0,0.5f,0,0.5f,1);}
+
+	virtual void OnPaint(TabContainer*,void* data=0);
+};
+
+struct GuiAnimationController : GuiRect
+{
+	AnimationController& animationController;
+
+	GuiAnimationController(AnimationController&);
+
+	GuiButtonBool play;
+	GuiButtonBool stop;
 
 	GuiSlider slider;
 
 	virtual void OnMouseMove(TabContainer*,void* data=0);
+
+	void OnButtonPressed(TabContainer* tabContainer,GuiButtonBool*);
+};
+
+struct GuiPropertyAnimationController : GuiProperty
+{
+	GuiAnimationController guiAnimationController;
+
+	GuiPropertyAnimationController(AnimationController&);
 };
 
 struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
@@ -637,6 +622,8 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	mat4 projection;
 	mat4 view;
 	mat4 model;
+
+	vec2 mouseold;
 
 	void* renderBuffer;
 	void* renderBitmap;
@@ -667,7 +654,7 @@ struct GuiSceneViewer : GuiScrollRect
 	~GuiSceneViewer();
 
 	EditorEntity* entityRoot;
-
+	
 	std::vector<EditorEntity*> selection;
 
 	void OnPaint(TabContainer*,void* data=0);
@@ -688,12 +675,14 @@ struct GuiSceneViewer : GuiScrollRect
 
 
 
-struct GuiEntityViewer : GuiScrollRect
+struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 {
 	GuiEntityViewer();
 	~GuiEntityViewer();
 
 	EditorEntity* entity;
+
+	TabContainer* tabContainer;
 
 	void OnActivate(TabContainer*,void* data=0);
 
@@ -812,14 +801,24 @@ struct GuiImage
 	virtual bool Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData){return false;}
 };
 
-struct GuiScriptViewer : GuiRect
+struct GuiScriptViewer : GuiRect , TPoolVector<GuiScriptViewer>
 {
-	Script*& script;
+	Script* script;
 
-	GuiScriptViewer(Script*&);
+	std::string buffer;
+	int cursor;
+
+	GuiScriptViewer();
+
+	void Open(Script*);
+	bool Save();
+	bool Compile();
 
 	void OnPaint(TabContainer*,void* data=0);
+	void OnKeyDown(TabContainer*,void* data=0);
+	void OnKeyUp(TabContainer*,void* data=0);
 };
+
 
 struct TabContainer : TPoolVector<TabContainer>
 {
@@ -868,15 +867,10 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	GuiRect* drawRect;
 	bool*	 drawPause;
-	bool	 drawFrame;
+	bool	 drawAll;
 	Task*	 drawTask;
 
 	float mousex,mousey;
-
-	int nPainted;
-
-	bool buttonLeftMouseDown;
-	bool buttonControlDown;
 
 	unsigned int lastFrameTime;
 
@@ -939,9 +933,11 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
 
-	virtual bool Compile(Script*)=0;
-
 	virtual vec2 MeasureText(const char* iText)=0;
+
+	virtual bool DrawCaret(int iX,int iY)=0;
+	virtual bool ShowCaret(bool iShow)=0;
+	virtual bool CreateCaret()=0;
 };
 
 struct SplitterContainer 
@@ -986,12 +982,16 @@ struct EditorWindowContainer
 	virtual void OnSize()=0;
 
 	virtual void SetCursorShape(char*)=0;
+
+	virtual TabContainer* CreateTabContainer(float x,float y,float w,float h)=0;
 };
 
 
 struct EditorMainAppWindow
 {
-	std::vector<EditorWindowContainer*> mainAppSiblingsWindows;
+	std::vector<EditorWindowContainer*> containers;
+
+	virtual EditorWindowContainer* CreateContainer()=0;
 };
 
 
@@ -1004,28 +1004,23 @@ struct CompilerInterface
 	String runBefore;
 	String runAfter;
 
-	virtual void Compile(String)=0;
+	virtual bool Compile(Script*)=0;
 };
 
-struct EditorProperties : GuiString
+struct EditorProperties
 {
+	GuiString properties;
+
 	EditorProperties();
 
 	virtual void OnPropertiesCreate(){};
+	virtual void OnResourcesCreate(){};
 	virtual void OnPropertiesUpdate(TabContainer*){};
-
-	
 };
 
 
-template<class T> struct EditorObject : T
+template<class T> struct EditorObject : T , EditorProperties
 {
-	EditorProperties properties;
-	T* object;
-
-	EditorObject(){object=(T*)this;}
-
-	virtual EntityComponent* GetObject(){return 0;}
 };
 
 struct EditorEntity : EditorObject<Entity> 
@@ -1044,37 +1039,79 @@ struct EditorEntity : EditorObject<Entity>
 	template<class C> C* CreateComponent()
 	{
 		C* component=this->Entity::CreateComponent<C>();
+		component->OnResourcesCreate();
 		component->OnPropertiesCreate();
 		return component;
 	}
 
-	//Entity* GetObject(){return this;}
+	void OnPropertiesUpdate(TabContainer*);
+
 };
+				
 
-#define CREATEEDITOROBJECT(NAME,OBJECT) struct NAME : EditorObject<OBJECT> \
-{	\
-	void OnPropertiesCreate();	\
-	OBJECT* GetObject(){return (OBJECT*)this;}	\
-};									
-
-CREATEEDITOROBJECT(EditorMesh,Mesh);
-CREATEEDITOROBJECT(EditorRoot,Root);
-CREATEEDITOROBJECT(EditorSkeleton,Skeleton);
-CREATEEDITOROBJECT(EditorGizmo,Gizmo);
-CREATEEDITOROBJECT(EditorAnimation,Animation);
-CREATEEDITOROBJECT(EditorAnimationController,AnimationController);
-CREATEEDITOROBJECT(EditorBone,Bone);
-CREATEEDITOROBJECT(EditorLight,Light);
-CREATEEDITOROBJECT(EditorScript,Script);
-CREATEEDITOROBJECT(EditorCamera,Camera);
-CREATEEDITOROBJECT(EditorSkin,Skin);
-
-namespace EntityUtils
+struct EditorAnimationController : EditorObject<AnimationController>
 {
-	void Update(Entity* iEntity);
-	void Draw(Entity* iEntity,Renderer3DInterface* renderer);
-	void FillProperties(EntityComponent* ec);
+	float oldCursor;
+	GuiPropertyAnimationController*  guiPropertyAnimationController;
+
+	void OnPropertiesCreate();
+	void OnPropertiesUpdate(TabContainer*);
+
 };
+
+struct EditorMesh : EditorObject<Mesh>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorRoot : EditorObject<Root>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorSkeleton : EditorObject<Skeleton>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorGizmo : EditorObject<Gizmo>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorAnimation : EditorObject<Animation>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorBone : EditorObject<Bone>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorLight : EditorObject<Light>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorScript : EditorObject<Script>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+	void OnResourcesCreate();
+};
+struct EditorCamera : EditorObject<Camera>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+struct EditorSkin : EditorObject<Skin>
+{
+	void OnPropertiesCreate(); 
+	void OnPropertiesUpdate(TabContainer*);
+};
+
+
 
 
 

@@ -158,6 +158,7 @@ String::operator char*()const
 }
 int String::Count()const{return data ? strlen(data) : 0;}
 const char* String::Buf()const{return data;}
+//String::operator bool(){return Buf();}
 
 bool String::Contains(const char* in)
 {
@@ -181,11 +182,24 @@ wchar_t* String::Wstring(int& oSize)
 }
 
 
-String FilePath::Filename()
+String FilePath::File()
 {
 	char* last=strrchr(this->data,'\\');
 	if(last && last[1]!=0)
 		return (&last[1]);
+	return "";
+}
+String FilePath::Name()
+{
+	char* first=strrchr(this->data,'\\');
+	char* last=strrchr(this->data,'.');
+
+	if(first && last)
+	{
+		first++;
+		return String(first,last-first);
+	}
+
 	return "";
 }
 String FilePath::Fullpath()
@@ -1262,8 +1276,3 @@ Task* ThreadInterface::NewTask(std::function<void()> iFunction,bool iRemove,bool
 
 	return task;
 }
-
-
-
-
-

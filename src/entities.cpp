@@ -7,6 +7,194 @@
 #include <algorithm>
 
 
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+File::File(String iString):filename(iString),
+handle(0){}
+
+void File::SetFilename(String iFilename){this->filename=iFilename;}
+bool File::Open(char* mode)
+{
+	if(!this->filename.Count())
+		return false;
+
+	this->handle=fopen(filename,mode);
+
+	if(!handle)
+		return false;
+
+	return true;
+}
+
+bool File::IsOpen()
+{
+	return this->handle ? true : false;
+}
+
+void File::Close()
+{
+	this->handle ? fclose(this->handle) : 0;
+}
+
+bool File::Exist()
+{
+	if(!this->filename.Count())
+		return false;
+
+	return File::Exist(this->filename);
+}
+
+int File::Size()
+{
+	int result;
+
+	if(this->Open())
+	{
+		int curPos=ftell(this->handle);
+		fseek(this->handle,0,SEEK_END);
+		result=ftell(this->handle);
+		fseek(this->handle,0,curPos);
+	}
+	else
+	{
+		if(!this->filename.Count())
+			return -1;
+
+		result=File::Size(this->filename);
+	}
+
+	return result;
+}
+
+bool File::Create()
+{
+	return File::Create(this->filename);
+}
+
+bool File::Delete()
+{
+	if(this->filename.Count())
+		return !::remove(this->filename);
+	return false;
+}
+
+int File::CountOccurrences(char iChar)
+{
+	int occurrences=0;
+
+	bool wasOpen=this->IsOpen();
+
+	if(!this->IsOpen())
+		this->Open();
+
+	if(this->IsOpen())
+	{
+		int oldPos=ftell(this->handle);
+
+		fseek(this->handle,0,SEEK_END);
+
+		int ___size=ftell(this->handle);
+
+		int ___i=0;
+		while(___i < ___size)
+		{
+			fseek(this->handle,___i,SEEK_SET);
+
+			char c=fgetc(this->handle);
+
+			if(iChar==c)
+				occurrences++;
+
+			___i++;
+		}
+
+		fseek(this->handle,oldPos,SEEK_SET);
+	}
+
+	if(!wasOpen)
+		this->Close();
+
+	return occurrences;
+}
+
+//statics function
+
+
+bool File::Create(const char* iFilename)
+{
+	FILE* tFile=fopen(iFilename,"w");
+	if(tFile)
+		fclose(tFile);
+	else return false;
+
+	return true;
+}
+bool File::Exist(const char* iFilename)
+{
+	FILE* tFile=fopen(iFilename,"r");
+
+	if(tFile)
+	{
+		fclose(tFile);
+		return true;
+	}
+	
+	return false;
+}
+bool File::Delete(const char* iFilename)
+{
+	return !::remove(iFilename);
+}
+
+int File::Size(const char* iFilename)
+{
+	if(!iFilename)
+		return -1;
+
+	int RetVal;
+
+	FILE* tFile=fopen(iFilename,"r");
+
+	if(tFile)
+	{
+		fseek(tFile,0,SEEK_END);
+		RetVal=ftell(tFile);
+		fclose(tFile);
+	}
+	else
+		RetVal=-2;
+	
+	return RetVal;
+}
+
+void* File::Read(int iSize,int iNum)
+{
+	if(this->handle)
+	{
+		void* ____data=new char[iNum];
+		fread(____data,iSize,iNum,this->handle);
+		return ____data;
+	}
+
+	return 0;
+}
+
+bool File::Write(void* iData,int iSize,int iNum)
+{
+	if(this->handle)
+	{
+		fwrite(iData,iSize,iNum,this->handle);
+		return true;
+	}
+
+	return false;
+}
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -126,103 +314,111 @@ void AnimationController::add(Animation* anim)
 	}
 }
 
+void AnimationController::Stop()
+{
+	this->play=false;
+	this->lastFrameTime=0;
+}
+
+void AnimationController::Play()
+{
+	this->play=true;
+}
+
+void AnimationController::SetFrame(float iFrame)
+{
+	for(size_t i=0;i<this->animations.size();i++)
+	{
+		Animation* anim=this->animations[i];
+
+		int keyIdx=0;
+
+		if(anim->clipIdx<(int)anim->clips.size())
+		{
+			AnimClip* curvegroup=anim->clips[anim->clipIdx];
+
+			if(curvegroup)
+			{
+				int numcurves=(int)curvegroup->curves.size();
+
+				vec3 poff,roff,soff(1,1,1);
+				float val=0;
+
+				for(int curveIdx=0;curveIdx<numcurves;curveIdx++)
+				{
+					KeyCurve &curve=*curvegroup->curves[curveIdx];
+
+					int			numCurveKeys=(int)curve.frames.size();
+					int			lastKeyIdx=numCurveKeys-1;
+
+					if(numCurveKeys==1)
+					{
+						val=curve.frames[0]->value;
+						copychannel(curve.channel,val,poff,roff,soff);
+					}
+					else
+					{
+						for (keyIdx = 0; keyIdx < numCurveKeys; keyIdx++)
+						{
+							if(keyIdx!=lastKeyIdx)
+							{
+								if(!(iFrame>=curve.frames[keyIdx]->time && iFrame<=curve.frames[keyIdx+1]->time))
+									continue;
+
+								Keyframe	*aa=curve.frames[(keyIdx>0 ? keyIdx-1 : keyIdx)];
+								Keyframe	*bb=curve.frames[keyIdx];
+								Keyframe	*cc=curve.frames[keyIdx+1];
+								Keyframe	*dd=curve.frames[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
+
+								float		t=(iFrame - bb->time) / (cc->time - bb->time);
+
+								val=cubic_interpolation(aa->value,bb->value,cc->value,dd->value,t);
+
+								copychannel(curve.channel,val,poff,roff,soff);
+
+								break;
+							}
+							else
+							{
+								val=curve.frames[lastKeyIdx]->value;
+								copychannel(curve.channel,val,poff,roff,soff);
+							}
+						}
+					}
+				}
+
+				mat4 sm,rm,tm;
+
+				if(poff.iszero())
+					tm.translate(anim->entity->local.position());
+				else
+					tm.translate(poff);
+
+				sm.scale(soff);
+
+				rm.rotate(-roff[2],0,0,1);
+				rm.rotate(-roff[1],0,1,0);
+				rm.rotate(-roff[0],1,0,0);
+
+				anim->entity->local=rm*sm*tm;
+			}
+
+		}
+	}
+}
+
 void AnimationController::update()
 {
 	if(this->play)
 	{
-		for(size_t i=0;i<this->animations.size();i++)
-		{
-			Animation* anim=this->animations[i];
+		this->SetFrame(this->cursor);
 
-			int keyIdx=0;
-
-			if(anim->clipIdx<(int)anim->clips.size())
-			{
-				AnimClip* curvegroup=anim->clips[anim->clipIdx];
-
-				if(curvegroup)
-				{
-					int numcurves=(int)curvegroup->curves.size();
-
-					vec3 poff,roff,soff(1,1,1);
-					float val=0;
-
-					for(int curveIdx=0;curveIdx<numcurves;curveIdx++)
-					{
-						KeyCurve &curve=*curvegroup->curves[curveIdx];
-
-						int			numCurveKeys=(int)curve.frames.size();
-						int			lastKeyIdx=numCurveKeys-1;
-
-						if(numCurveKeys==1)
-						{
-							val=curve.frames[0]->value;
-							copychannel(curve.channel,val,poff,roff,soff);
-						}
-						else
-						{
-							for (keyIdx = 0; keyIdx < numCurveKeys; keyIdx++)
-							{
-								if(keyIdx!=lastKeyIdx)
-								{
-									if(!(this->cursor>=curve.frames[keyIdx]->time && this->cursor<=curve.frames[keyIdx+1]->time))
-										continue;
-
-									Keyframe	*aa=curve.frames[(keyIdx>0 ? keyIdx-1 : keyIdx)];
-									Keyframe	*bb=curve.frames[keyIdx];
-									Keyframe	*cc=curve.frames[keyIdx+1];
-									Keyframe	*dd=curve.frames[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
-
-									float		t=(this->cursor - bb->time) / (cc->time - bb->time);
-
-									val=cubic_interpolation(aa->value,bb->value,cc->value,dd->value,t);
-
-									copychannel(curve.channel,val,poff,roff,soff);
-
-									break;
-								}
-								else
-								{
-									val=curve.frames[lastKeyIdx]->value;
-									copychannel(curve.channel,val,poff,roff,soff);
-								}
-							}
-						}
-					}
-
-					mat4 sm,rm,tm;
-
-					if(poff.iszero())
-						tm.translate(anim->entity->local.position());
-					else
-						tm.translate(poff);
-
-					sm.scale(soff);
-
-					rm.rotate(-roff[2],0,0,1);
-					rm.rotate(-roff[1],0,1,0);
-					rm.rotate(-roff[0],1,0,0);
-
-					anim->entity->local=rm*sm*tm;
-				}
-
-			}
-		}
-
-
-		if(this->cursor>this->end)
-		{
-			this->cursor=0;
-
-			if(!this->looped)
-				this->play=false;
-		}
-		else
-		{
-			float curDelta=(Timer::instance->GetTime()-this->lastFrameTime)/1000.0f;
+			float curDelta=this->lastFrameTime ? (Timer::instance->GetTime()-this->lastFrameTime)/1000.0f : 0;
 			this->cursor+=curDelta*this->speed;
 			this->lastFrameTime=Timer::instance->GetTime();
-		}
+
+			if(this->cursor>this->end)
+				this->cursor=this->cursor-this->end;
 	}
 }
 
@@ -324,66 +520,66 @@ Material::Material()
 ///////////////////////////////////////////////
 
 Mesh::Mesh():
-mesh_controlpoints(NULL),
-	mesh_ncontrolpoints(0),
-	mesh_vertexindices(0),
-	mesh_nvertexindices(0),
-	mesh_texcoord(0),
-	mesh_ntexcoord(0),
-	mesh_normals(NULL),
-	mesh_nnormals(0),
-	mesh_npolygons(0),
-	mesh_colors(NULL),
-	mesh_ncolors(0),
-	mesh_isCCW(true)
+controlpoints(NULL),
+	ncontrolpoints(0),
+	vertexindices(0),
+	nvertexindices(0),
+	texcoord(0),
+	ntexcoord(0),
+	normals(NULL),
+	nnormals(0),
+	npolygons(0),
+	colors(NULL),
+	ncolors(0),
+	isCCW(true)
 {
 }
 
 
 float** Mesh::GetControlPoints()
 {
-	return (float**)this->mesh_controlpoints;
+	return (float**)this->controlpoints;
 }
 
 int Mesh::GetNumControlPoints()
 {
-	return this->mesh_ncontrolpoints;
+	return this->ncontrolpoints;
 }
 
 float** Mesh::GetTriangles()
 {
-	return (float**)this->mesh_vertexindices;
+	return (float**)this->vertexindices;
 }
 
 int Mesh::GetNumTriangles()
 {
-	return this->mesh_nvertexindices;
+	return this->nvertexindices;
 }
 
 float** Mesh::GetUV()
 {
-	return (float**)this->mesh_texcoord;
+	return (float**)this->texcoord;
 }
 
 int Mesh::GetNumUV()
 {
-	return this->mesh_ntexcoord;
+	return this->ntexcoord;
 }
 
 
 float** Mesh::GetNormals()
 {
-	return (float**)this->mesh_normals;
+	return (float**)this->normals;
 }
 
 int Mesh::GetNumNormals()
 {
-	return this->mesh_nnormals;
+	return this->nnormals;
 }
 
 std::vector<Material*>& Mesh::GetMaterials()
 {
-	return this->mesh_materials;
+	return this->materials;
 }
 
 void Mesh::draw(Renderer3DInterfaceBase* renderer3d)
@@ -401,28 +597,28 @@ void Mesh::draw(Renderer3DInterfaceBase* renderer3d)
 
 
 Skin::Skin():
-skin_textures(NULL),
-	skin_ntextures(0),
-	skin_clusters(NULL),
-	skin_nclusters(0),
-	skin_vertexcache(NULL)
+textures(NULL),
+	ntextures(0),
+	clusters(NULL),
+	nclusters(0),
+	vertexcache(NULL)
 {
 }
 
 
 void Skin::update()
 {
-	if(this->skin_vertexcache)
-		delete [] this->skin_vertexcache;
+	if(this->vertexcache)
+		delete [] this->vertexcache;
 
-	this->skin_vertexcache=new float[this->mesh_ncontrolpoints*3];
-	float (*wcache)[3]=new float[this->mesh_ncontrolpoints][3];
+	this->vertexcache=new float[this->ncontrolpoints*3];
+	float (*wcache)[3]=new float[this->ncontrolpoints][3];
 
-	memset(wcache,0,this->mesh_ncontrolpoints*sizeof(float)*3);
+	memset(wcache,0,this->ncontrolpoints*sizeof(float)*3);
 
-	for(int tncluster=0;tncluster<this->skin_nclusters;tncluster++)
+	for(int tncluster=0;tncluster<this->nclusters;tncluster++)
 	{
-		Cluster *clu=&skin_clusters[tncluster];
+		Cluster *clu=&clusters[tncluster];
 
 		float *src=NULL;
 		float *dst=NULL;
@@ -444,8 +640,8 @@ void Skin::update()
 		{
 			Influence &inf=clu->influences[nw];
 
-			src=this->mesh_controlpoints[inf.cpIdx[0]];
-			dst=&this->skin_vertexcache[inf.cpIdx[0]*3];	
+			src=this->controlpoints[inf.cpIdx[0]];
+			dst=&this->vertexcache[inf.cpIdx[0]*3];	
 
 			if(inf.weight!=1.0f)
 			{
@@ -468,7 +664,7 @@ void Skin::update()
 
 			for(int i=1;i<inf.nCpIdx;i++)
 			{
-				memcpy(&this->skin_vertexcache[inf.cpIdx[i]*3],dst,3*sizeof(float));
+				memcpy(&this->vertexcache[inf.cpIdx[i]*3],dst,3*sizeof(float));
 
 			}
 		}
@@ -487,7 +683,10 @@ void Skin::draw(Renderer3DInterfaceBase* renderer3d)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-Script::Script():runtime(0),handle(0){}
+Script::Script():runtime(0),handle(0)
+{
+
+}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -732,16 +931,42 @@ EntityScript::EntityScript():entity(0){}
 
 
 
-Entity::Entity()
-{
+Entity::Entity():parent(0){}
+Entity::~Entity(){}
 
+
+void Entity::SetParent(Entity* iParent)
+{
+	Entity* oldParent=this->parent;
+	this->parent=iParent;
+
+	if(oldParent)
+		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
+
+	if(this->parent)
+		this->parent->childs.push_back(this);
 }
 
-	
-
-Entity::~Entity()
+void Entity::update()
 {
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
+		(*it)->update();
+
+	this->parent ? this->world=(this->local * this->parent->world) : this->world;
+
+	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		(*it)->update();
 }
 
+void Entity::draw(Renderer3DInterfaceBase* renderer)
+{
+	renderer->draw(this->local.position(),5,vec3(1,1,1));
+
+	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
+		(*it)->draw(renderer);
+
+	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		(*it)->draw(renderer);
+}
 
 

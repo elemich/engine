@@ -31,6 +31,7 @@
 #include <list>
 #include <functional>
 #include <algorithm>
+#include <cctype>
 
 struct THierarchy
 {
@@ -51,25 +52,7 @@ template <typename T> struct THierarchyList : THierarchy
 
 	THierarchyList():parent(0){}
 
-	void RecurseForward(void (T::*func)())
-	{
-		func();
-
-		for(std::list<T*>::iterator i=childs.begin();i!=childs.end();i++)
-			(*)->RecurseForward(func);
-	}
-
-	void SetParent(T* iParent)
-	{
-		Entity* oldParent=this->parent;
-		this->parent=iParent;
-
-		if(oldParent)
-			oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
-
-		if(this->parent)
-			this->parent->childs.push_back((T*)this);
-	}
+	
 };
 
 template<class T,int size> struct TNumberedVectorInterface
@@ -166,12 +149,22 @@ public:
 	const char* Buf()const;
 	bool Contains(const char*);
 	wchar_t* Wstring(int& oSize);
-
+	//operator bool();
 };
 
 struct FilePath : String
 {
-	String Filename();
+	FilePath():String(){}
+	FilePath(const char* s):String(s){}
+	FilePath(int i,const char* s,...):String(i,s){}
+	FilePath(const String& s):String(s){}
+	FilePath(const wchar_t* s):String(s){}
+	FilePath(int number):String(number){}
+	FilePath(float scalar):String(scalar){}
+	FilePath(char* from,int t):String(from,t){}
+
+	String File();
+	String Name();
 	String Fullpath();
 	String Path();
 	String Extension();
@@ -528,6 +521,8 @@ void eqSolve(float* result,int nrow,int ncol,float** eqsys);
 
 void printEqSys(int nrow,int ncol,float** eqsys);
 
+
+//inputs
 
 
 
