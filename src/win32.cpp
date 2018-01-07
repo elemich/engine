@@ -115,20 +115,26 @@ ThreadWin32::~ThreadWin32()
 	TerminateThread((HANDLE)handle,0);
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-ID2D1Factory*		Direct2DGuiBase::factory=0;
-IWICImagingFactory*	Direct2DGuiBase::imager=0;
-IDWriteFactory*		Direct2DGuiBase::writer=0;
-IDWriteTextFormat*	Direct2DGuiBase::texter=0;
+ID2D1Factory*		Direct2DBase::factory=0;
+IWICImagingFactory*	Direct2DBase::imager=0;
+IDWriteFactory*		Direct2DBase::writer=0;
+IDWriteTextFormat*	Direct2DBase::texter=0;
 
-void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
+
+void Direct2DBase::Release()
+{
+	SAFERELEASE(factory);
+	SAFERELEASE(imager);
+	SAFERELEASE(writer);
+	SAFERELEASE(texter);
+};
+
+void Direct2DBase::Init(wchar_t* fontName,float fontSize)
 {
 	if(!factory)
 	{
+		printf("Initializing Direct2D\n");
+
 		HRESULT res=S_OK;
 
 		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
@@ -162,37 +168,6 @@ void Direct2DGuiBase::Init(wchar_t* fontName,float fontSize)
 	}
 }
 
-void Direct2DGuiBase::Release()
-{
-	SAFERELEASE(factory);
-	SAFERELEASE(imager);
-	SAFERELEASE(writer);
-	SAFERELEASE(texter);
-};
-
-ID2D1HwndRenderTarget* Direct2DGuiBase::InitHWNDRenderer(HWND hwnd)
-{
-	ID2D1HwndRenderTarget* renderer=0;
-
-	if (hwnd!=0)
-	{
-		RECT rc;
-		GetClientRect(hwnd, &rc);
-
-		D2D1_SIZE_U size = D2D1::SizeU(rc.right - rc.left,rc.bottom - rc.top);
-
-		D2D1_RENDER_TARGET_PROPERTIES rtp=D2D1::RenderTargetProperties();
-
-		rtp.type=D2D1_RENDER_TARGET_TYPE_HARDWARE;
-		rtp.usage=D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE;//we wants resource sharing
-
-		HRESULT res=factory->CreateHwndRenderTarget(rtp,D2D1::HwndRenderTargetProperties(hwnd, size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
-		if(S_OK!=res)
-			__debugbreak();
-	}
-
-	return renderer;
-}
 
 void dump(unsigned char* t)
 {
@@ -205,7 +180,7 @@ void dump(unsigned char* t)
 	system("pause");
 }
 
-void Direct2DGuiBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float &width,float &height)
+void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float &width,float &height)
 {
 	wprintf(L"loading %s from disk...\n",fname);
 
@@ -267,7 +242,7 @@ void Direct2DGuiBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffe
 	}
 }
 
-vec2 Direct2DGuiBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
+vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
 {
 	ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
 	HDC hdc=GetDC(hwndRenderer->GetHwnd());
@@ -280,71 +255,184 @@ vec2 Direct2DGuiBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,i
 	return vec2(tSize.cx,tSize.cy);
 }
 
-void Direct2DGuiBase::DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* inputText,float x1,float y1, float x2,float y2,bool iWrap,int iCenter)
+void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY)
 {
-	if(!inputText)
+	if(!iText)
 		return;
 
-	unsigned int len=strlen(inputText);
-	unsigned int sochar=sizeof(const char);
-	unsigned int slen=sochar*len;
-	wchar_t *retText=new wchar_t[slen+1];
-	int writed=mbstowcs(retText,inputText,slen);//Return Value: The number of wide characters written to dest, not including the eventual terminating null character.
-	
-	if(writed!=slen)
-		__debugbreak();
+	unsigned int tFinalTextLength=0;
+	wchar_t *tWcharTextOutput=0;
 
-	retText[slen]='\0';
+	{
+		unsigned int tTextLength=strlen(iText);
+		unsigned int tCharSize=sizeof(const char);
+		tFinalTextLength=tCharSize*tTextLength;
+		tWcharTextOutput=new wchar_t[tFinalTextLength+1];
+		int tCharsWrited=mbstowcs(tWcharTextOutput,iText,tFinalTextLength);
 
-	//printf("");
+		if(tCharsWrited!=tFinalTextLength)
+			__debugbreak();
 
-	renderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
+		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
+	}
 
-	DWRITE_WORD_WRAPPING ww=texter->GetWordWrapping();
-	DWRITE_TEXT_ALIGNMENT ta=texter->GetTextAlignment();
+	iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
 
-	texter->SetWordWrapping(iWrap ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
-	texter->SetTextAlignment(!iCenter ? DWRITE_TEXT_ALIGNMENT_LEADING : (iCenter==1 ? DWRITE_TEXT_ALIGNMENT_CENTER : DWRITE_TEXT_ALIGNMENT_TRAILING));
+	if(iAlignPosX<0 && iAlignPosY<0)
+		iRenderer->DrawText(tWcharTextOutput,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	else
+	{
+		vec2 tSize=MeasureText(iRenderer,iText);
 
-	renderer->DrawText(retText,slen,texter,D2D1::RectF(x1,y1,x2,y2),brush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-	
-	texter->SetTextAlignment(ta);
-	texter->SetWordWrapping(ww);
+		float width=x2-x1;
+		float height=y2-y1;
 
-	renderer->PopAxisAlignedClip();
+		vec4 rect(-tSize.x/2.0f,-tSize.y/2.0f,(float)tSize.x,(float)tSize.y);
 
-	delete [] retText;
+		if(tSize.x>width || tSize.y>height)
+		{
+
+		}
+		
+		//
+		iAlignPosX>=0 ? rect.x+=x1+iAlignPosX*width : rect.x=x1;
+		iAlignPosY>=0 ? rect.y+=y1+iAlignPosY*height : rect.y=y1;
+
+		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
+		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
+
+		iRenderer->DrawText(tWcharTextOutput,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	}
+
+	iRenderer->PopAxisAlignedClip();
+
+	SAFEDELETEARRAY(tWcharTextOutput);
 }
 
-void Direct2DGuiBase::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill)
+void Direct2DBase::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill)
 {
 	fill ? renderer->FillRectangle(D2D1::RectF(x,y,w,h),brush) : renderer->DrawRectangle(D2D1::RectF(x,y,w,h),brush);
 }
 
-void Direct2DGuiBase::DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h)
+void Direct2DBase::DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h)
 {
 	renderer->DrawBitmap(bitmap,D2D1::RectF(x,y,w,h));
 }
 
-void Direct2DGuiBase::PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h)
+void Direct2DBase::PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h)
 {
 	renderer->PushAxisAlignedClip(D2D1::RectF(x,y,w,h),D2D1_ANTIALIAS_MODE_ALIASED);
 }
-void Direct2DGuiBase::PopScissor(ID2D1RenderTarget*renderer)
+void Direct2DBase::PopScissor(ID2D1RenderTarget*renderer)
 {
 	renderer->PopAxisAlignedClip();
 }
 
-void Direct2DGuiBase::Translate(ID2D1RenderTarget* renderer,float x,float y)
+void Direct2DBase::Translate(ID2D1RenderTarget* renderer,float x,float y)
 {
 	renderer->SetTransform(D2D1::Matrix3x2F::Translation(x,y));
 }
 
-void Direct2DGuiBase::Identity(ID2D1RenderTarget* renderer)
+void Direct2DBase::Identity(ID2D1RenderTarget* renderer)
 {
 	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////Renderer2DInterfaceWin32///////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+
+
+Renderer2DInterfaceWin32::Renderer2DInterfaceWin32(HWND handle):brush(0),renderer(0)
+{
+	Direct2DBase::Init();
+}
+Renderer2DInterfaceWin32::~Renderer2DInterfaceWin32()
+{
+
+}
+
+bool Renderer2DInterfaceWin32::RecreateTarget(HWND iHandle)
+{
+	SAFERELEASE(this->renderer);
+	SAFERELEASE(this->brush);
+
+	HRESULT result=S_OK;
+
+	{
+		RECT rc;
+		GetClientRect(iHandle, &rc);
+
+		D2D1_SIZE_U size = D2D1::SizeU(rc.right - rc.left,rc.bottom - rc.top);
+
+		D2D1_RENDER_TARGET_PROPERTIES rRenderTargetProperties=D2D1::RenderTargetProperties();
+
+		rRenderTargetProperties.type=D2D1_RENDER_TARGET_TYPE_HARDWARE;
+		rRenderTargetProperties.usage=D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE;//we wants resource sharing
+
+		result=Direct2DBase::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
+	}
+	
+	if(S_OK!=result || !this->renderer)
+		__debugbreak();
+
+	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2DInterface::COLOR_TAB_BACKGROUND),&brush);
+
+	if(S_OK!=result || !this->brush)
+		__debugbreak();
+
+	return true;
+}
+
+void Renderer2DInterfaceWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY)
+{
+	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY);
+}
+void Renderer2DInterfaceWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
+{
+	Direct2DBase::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill);
+}
+void Renderer2DInterfaceWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
+{
+	Direct2DBase::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
+}
+void Renderer2DInterfaceWin32::DrawBitmap(GuiImage* iBitmap,float iX,float iY, float iW,float iH)
+{
+	Direct2DBase::DrawBitmap(this->renderer,((GuiImageWin32*)iBitmap)->handle,iX,iY,iW,iH);
+}
+
+void Renderer2DInterfaceWin32::PushScissor(float iX,float iY, float iW,float iH)
+{
+	Direct2DBase::PushScissor(this->renderer,iX,iY,iW,iH);
+}
+void Renderer2DInterfaceWin32::PopScissor()
+{
+	Direct2DBase::PopScissor(this->renderer);
+}
+
+void Renderer2DInterfaceWin32::Translate(float iX,float iY)
+{
+	Direct2DBase::Translate(this->renderer,iX,iY);
+}
+void Renderer2DInterfaceWin32::Identity()
+{
+	Direct2DBase::Identity(this->renderer);
+}
+
+vec2 Renderer2DInterfaceWin32::MeasureText(const char* iText,int iSlen)
+{
+	return Direct2DBase::MeasureText(this->renderer,iText,iSlen);
+}
+
+ID2D1Brush* Renderer2DInterfaceWin32::SetColorWin32(unsigned int color)
+{
+	this->brush->SetColor(D2D1::ColorF(color));
+	return this->brush;
+}
 
 
 ///////////////////////////////////////////////
@@ -880,7 +968,7 @@ int AppWin32::Initialize()
 
 	this->compiler=new CompilerInterfaceWin32;
 
-	Direct2DGuiBase::Init(L"Verdana",10);
+	Direct2DBase::Init(L"Verdana",10);
 
 	int error=ERROR_SUCCESS;
 
@@ -911,7 +999,7 @@ int AppWin32::Initialize()
 
 void AppWin32::Deinitialize()
 {
-	Direct2DGuiBase::Release();
+	Direct2DBase::Release();
 	CoUninitialize();
 }
 
@@ -2722,9 +2810,9 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 		SAFEDELETEARRAY(viewport->renderBuffer);
 
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		bp.pixelFormat=tabContainerWin32->renderTarget->GetPixelFormat();
+		bp.pixelFormat=tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat();
 
-		tabContainerWin32->renderTarget->CreateBitmap(D2D1::SizeU((unsigned int)canvas.z,(unsigned int)canvas.w),bp,&rBitmap);
+		tabContainerWin32->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)canvas.z,(unsigned int)canvas.w),bp,&rBitmap);
 
 		rBuffer=new unsigned char[(int)canvas.z*canvas.w*4];
 	}
@@ -2743,7 +2831,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 		}
 	}
 
-	tabContainerWin32->renderer->ChangeContext();
+	tabContainerWin32->renderer3D->ChangeContext();
 
 	glViewport((int)0,(int)0,(int)canvas.z,(int)canvas.w);glCheckError();
 	glScissor((int)0,(int)0,(int)canvas.z,(int)canvas.w);glCheckError();
@@ -2758,9 +2846,9 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 		MatrixStack::Push(MatrixStack::VIEW,viewport->view);
 		MatrixStack::Push(MatrixStack::MODEL,viewport->model);
 
-		tabContainer->renderer->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-		tabContainer->renderer->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-		tabContainer->renderer->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+		tabContainer->renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+		tabContainer->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+		tabContainer->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
 		if(viewport->rootEntity)
 			this->draw(viewport->rootEntity);
@@ -2774,14 +2862,14 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 
 		rBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)canvas.z,(int)canvas.w),rBuffer,(int)(canvas.z*4));
 
-		tabContainerWin32->renderTarget->DrawBitmap(rBitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
+		tabContainerWin32->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
 	}
 
 	if(viewport->needsPicking && mouse.y-canvas.y>=0)
 	{
 		glDisable(GL_DITHER);
 
-		tabContainer->renderer->picking=true;
+		tabContainer->renderer3D->picking=true;
 
 		glClearColor(0.0f,0.0f,0.0f,0.0f);glCheckError();
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
@@ -2820,7 +2908,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 				: 0 ;
 		}
 
-		tabContainer->renderer->picking=false;
+		tabContainer->renderer3D->picking=false;
 
 		glEnable(GL_DITHER);
 
@@ -2921,68 +3009,96 @@ void OpenGLRenderer::OnGuiLMouseDown()
 
 //#pragma message(LOCATION " remember to use WindowData::CopyProcedureData to properly synchronize messages by the wndproc and the window herself")
 
-GuiImageWin32::GuiImageWin32():image(0){}
+GuiImageWin32::GuiImageWin32():handle(0){}
 
 GuiImageWin32::~GuiImageWin32()
 {
-	SAFERELEASE(this->image);
-}
-
-void GuiImageWin32::Draw(TabContainer* tabContainer,float x,float y,float w,float h)
-{
-	TabContainerWin32* tabContainerWin32=(TabContainerWin32*)tabContainer;
-
-	Direct2DGuiBase::DrawBitmap(tabContainerWin32->renderTarget,this->image,x,y,w,h);
+	SAFERELEASE(this->handle);
 }
 
 void GuiImageWin32::Release()
 {
-	SAFERELEASE(this->image);
+	SAFERELEASE(this->handle);
 }
-bool GuiImageWin32::Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData)
+
+bool GuiImageWin32::Fill(Renderer2DInterface* renderer,unsigned char* iData,float iWidth,float iHeight)
 {
-	if(this->image)
-		this->Release();
+	Renderer2DInterfaceWin32* renderer2DInterfaceWin32=(Renderer2DInterfaceWin32*)renderer;
 
-	TabContainerWin32* tabContainerWin32=(TabContainerWin32*)tabContainer;
+	HRESULT result=S_OK;
 
-	D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-	bp.pixelFormat=tabContainerWin32->renderTarget->GetPixelFormat();
-	bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+	if(!this->handle)
+	{
+		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+		bp.pixelFormat=renderer2DInterfaceWin32->renderer->GetPixelFormat();
+		bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
-	return S_OK==tabContainerWin32->renderTarget->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iStride,bp,&this->image);
+		result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
+
+		if(S_OK!=result || !this->handle)
+			__debugbreak();
+	}
+	else
+	{
+		D2D1_SIZE_F tSize=this->handle->GetSize();
+
+		if(tSize.width!=iWidth || tSize.height!=iHeight)
+		{
+			SAFEDELETE(this->handle)
+
+			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+			bp.pixelFormat=renderer2DInterfaceWin32->renderer->GetPixelFormat();
+			bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+
+			result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
+
+			if(S_OK!=result || !this->handle)
+				__debugbreak();
+		}
+		else
+		{
+			result=this->handle->CopyFromMemory(&D2D1::RectU(0,0,iWidth,iHeight),iData,iWidth*4);
+
+			if(S_OK!=result)
+				__debugbreak();
+		}
+	}
+
+	return true;
 }
 
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
-TabContainerWin32::TabContainerWin32(float x,float y,float w,float h,HWND parent)
-	:TabContainer(x,y,w,h),
+
+TabContainerWin32::TabContainerWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
+	:TabContainer(iX,iY,iW,iH),
 	windowDataWin32((WindowDataWin32*&)windowData),
 	editorWindowContainerWin32((EditorWindowContainerWin32*&)editorWindowContainer),
-	renderTarget(0),
-	brush(0)
+	renderer2DWin32(0)
 {
-	this->iconUp=new GuiImageWin32;
-	this->iconRight=new GuiImageWin32;
-	this->iconDown=new GuiImageWin32;
-	this->iconFolder=new GuiImageWin32;
-	this->iconFile=new GuiImageWin32;
-
 	windowData=new WindowDataWin32;
 
-	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,(int)x,(int)y,(int)w,(int)h,parent,0,0,this);
+	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
 
 	if(!this->windowDataWin32->hwnd)
 		__debugbreak();
 
-	this->OnGuiRecreateTarget();
+	this->iconDown=new GuiImageWin32;
+	this->iconUp=new GuiImageWin32;
+	this->iconRight=new GuiImageWin32;
+	this->iconFolder=new GuiImageWin32;
+	this->iconFile=new GuiImageWin32;
 
-	HWND parentWindow=GetParent(this->windowDataWin32->hwnd);
+	this->renderer2D=this->renderer2DWin32=new Renderer2DInterfaceWin32(this->windowDataWin32->hwnd);
 
-	this->editorWindowContainer=(EditorWindowContainer*)GetWindowLongPtr(parentWindow,GWLP_USERDATA);
+	this->editorWindowContainer=(EditorWindowContainer*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
 	this->editorWindowContainer->tabContainers.push_back(this);
 
-	
 	splitterContainer=this->editorWindowContainer->splitter;
 
 	if(!splitterContainer)
@@ -2993,7 +3109,7 @@ TabContainerWin32::TabContainerWin32(float x,float y,float w,float h,HWND parent
 	if(!_oglRenderer)
 		__debugbreak();
 
-	this->renderer=_oglRenderer;
+	this->renderer3D=_oglRenderer;
 
 	this->thread=new ThreadWin32;
 
@@ -3003,34 +3119,6 @@ TabContainerWin32::TabContainerWin32(float x,float y,float w,float h,HWND parent
 	this->drawTask=this->thread->NewTask(std::function<void()>(std::bind(&TabContainer::Draw,this)),false);
 }
 
-void TabContainerWin32::DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,bool iWrap,int iCenter)
-{
-	Direct2DGuiBase::DrawText(this->renderTarget,this->SetColor(iColor),iText,x,y,w,h,iWrap,iCenter);
-}
-void TabContainerWin32::DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill)
-{
-	Direct2DGuiBase::DrawRectangle(this->renderTarget,this->SetColor(iColor),x,y,w,h,iFill);
-}
-void TabContainerWin32::DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)
-{
-	bitmap->Draw(this,x,y,w,h);
-}
-void TabContainerWin32::PushScissor(float x,float y, float w,float h)
-{
-	Direct2DGuiBase::PushScissor(this->renderTarget,x,y,w,h);
-}
-void TabContainerWin32::PopScissor()
-{
-	Direct2DGuiBase::PopScissor(this->renderTarget);
-}
-void TabContainerWin32::Translate(float x,float y)
-{
-	Direct2DGuiBase::Translate(this->renderTarget,x,y);
-}
-void TabContainerWin32::Identity()
-{
-	Direct2DGuiBase::Identity(this->renderTarget);
-}
 
 int TabContainerWin32::TrackTabMenuPopup()
 {
@@ -3109,15 +3197,11 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 	return result;
 }
 
-vec2 TabContainerWin32::MeasureText(const char* iText)
-{
-	return Direct2DGuiBase::MeasureText(this->renderTarget,iText);
-}
 
 TabContainerWin32::~TabContainerWin32()
 {
-	if(this->renderer)
-		delete this->renderer;
+	if(this->renderer3D)
+		delete this->renderer3D;
 
 	if(!this->windowDataWin32->FindAndGrowSibling())
 		this->windowDataWin32->UnlinkSibling();
@@ -3126,24 +3210,6 @@ TabContainerWin32::~TabContainerWin32()
 
 	DestroyWindow(this->windowDataWin32->hwnd);
 }
-
-ID2D1Brush* TabContainerWin32::SetColor(unsigned int color)
-{
-	brush->SetColor(D2D1::ColorF(color));
-	return brush;
-}
-
-
-/*
-#ifdef _M_X64 //_WIN64 bug in vs2010 la flag seems off but is false
-char* cl_arguments="/MDd /I\"c:\\sdk\\Autodesk\\FBX\\FBX SDK\\2014.1\\include\" /Ic:\\sdk\\openGL /I\"C:\\Sdk\\Windows\\v7.1\\Include\"  /I\"C:\\Program Files (x86)\\Microsoft Visual Studio 10.0\\VC\\include\" \"C:\\USERS\\MICHELE\\DOCUMENTS\\VISUAL STUDIO 2010\\PROJECTS\\ENGINE\\ENGINE\\EC.CPP\" /link /DEBUG /NOENTRY /LIBPATH:\"C:\\Program Files (x86)\\Microsoft Visual Studio 10.0\\VC\\lib\\amd64\" /LIBPATH:\"C:\\Sdk\\Windows\\v7.1\\Lib\\x64\" /LIBPATH:\"C:\\sdk\\Autodesk\\FBX\\FBX SDK\\2014.1\\lib\\vs2010\\x64\\debug\" opengl32.lib d3d11.lib comctl32.lib Shlwapi.lib d2d1.lib dwrite.lib windowscodecs.lib dxgi.lib winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib anim.obj bone.obj buildpath.obj Direct2DGui.obj EC.obj entity.obj inputmanager.obj interfaces.obj imgjpg.obj light.obj main.obj material.obj matrixstack.obj mesh.obj imgpng.obj primitives.obj shadermanager.obj skin.obj texture.obj imgtga.obj win32containers.obj win32interfaces.obj win32msg.obj win32openglrenderer.obj win32openglshader.obj win32procedures.obj win32splitter.obj /DLL ec.obj /OUT:ec.dll";
-#else
-char* cl_arguments="/MDd /I\"c:\\sdk\\Autodesk\\FBX\\FBX SDK\\2014.1\\include\" /Ic:\\sdk\\openGL /I\"C:\\Sdk\\Windows\\v7.1\\Include\"  /I\"C:\\Program Files (x86)\\Microsoft Visual Studio 10.0\\VC\\include\" \"C:\\USERS\\MICHELE\\DOCUMENTS\\VISUAL STUDIO 2010\\PROJECTS\\ENGINE\\ENGINE\\EC.CPP\" /link /DEBUG /NOENTRY /LIBPATH:\"C:\\Program Files (x86)\\Microsoft Visual Studio 10.0\\VC\\lib\" /LIBPATH:\"C:\\Sdk\\Windows\\v7.1\\Lib\" /LIBPATH:\"C:\\sdk\\Autodesk\\FBX\\FBX SDK\\2014.1\\lib\\vs2010\\x86\\debug\" opengl32.lib d3d11.lib comctl32.lib Shlwapi.lib d2d1.lib dwrite.lib windowscodecs.lib dxgi.lib winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib anim.obj bone.obj buildpath.obj Direct2DGui.obj EC.obj entity.obj inputmanager.obj interfaces.obj imgjpg.obj light.obj main.obj material.obj matrixstack.obj mesh.obj imgpng.obj primitives.obj shadermanager.obj skin.obj texture.obj imgtga.obj win32containers.obj win32interfaces.obj win32msg.obj win32openglrenderer.obj win32openglshader.obj win32procedures.obj win32splitter.obj /DLL ec.obj /OUT:ec.dll";
-#endif*/
-
-
-
-
 
 bool TabContainerWin32::BeginDraw()
 {
@@ -3156,7 +3222,7 @@ bool TabContainerWin32::BeginDraw()
 		}
 		else if(this->resizeTarget)
 		{
-			HRESULT result=renderTarget->Resize(D2D1::SizeU((int)this->windowDataWin32->width,(int)this->windowDataWin32->height));
+			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU((int)this->windowDataWin32->width,(int)this->windowDataWin32->height));
 
 			if(S_OK!=result)
 				__debugbreak();
@@ -3164,7 +3230,7 @@ bool TabContainerWin32::BeginDraw()
 			this->resizeTarget=0;
 		}
 		
-		this->renderTarget->BeginDraw();
+		this->renderer2DWin32->renderer->BeginDraw();
 		this->isRender=true;
 
 		return true;
@@ -3179,20 +3245,20 @@ void TabContainerWin32::EndDraw()
 {
 	if(this->isRender)
 	{
-		renderTarget->DrawRectangle(D2D1::RectF(0.5f,0.5f,this->windowDataWin32->width-0.5f,this->windowDataWin32->height-0.5f),this->SetColor(D2D1::ColorF::Red));
+		renderer2D->DrawRectangle(0.5f,0.5f,this->windowDataWin32->width-0.5f,this->windowDataWin32->height-0.5f,0xff000000,false);
 
-		HRESULT endDrawError =renderTarget->EndDraw();
+		HRESULT result=renderer2DWin32->renderer->EndDraw();
+		
+		this->recreateTarget=(result==D2DERR_RECREATE_TARGET);
 
-		this->recreateTarget=endDrawError==D2DERR_RECREATE_TARGET;
-
-		if(endDrawError!=0)
+		if(result!=0)
 		{
-			printf("D2D1HwndRenderTarget::EndDraw error: %x\n",endDrawError);
+			printf("D2D1HwndRenderTarget::EndDraw error: %x\n",result);
 
-			HRESULT flushError=renderTarget->Flush();
+			result=renderer2DWin32->renderer->Flush();
 
-			if(flushError!=0)
-				printf("D2D1HwndRenderTarget::Flush error: %x\n",flushError);
+			if(result!=0)
+				printf("D2D1HwndRenderTarget::Flush error: %x\n",result);
 		}
 
 		this->isRender=false;
@@ -3200,6 +3266,8 @@ void TabContainerWin32::EndDraw()
 	else
 		__debugbreak();
 }
+
+
 
 
 
@@ -3290,20 +3358,30 @@ void TabContainerWin32::OnGuiRMouseUp(void* data)
 
 void TabContainerWin32::DrawFrame()
 {
-	this->renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
+	this->renderer2D->Identity();
 
-	this->DrawRectangle(0,0,(float)this->windowDataWin32->width,(float)CONTAINER_HEIGHT,COLOR_TAB_BACKGROUND);
-	this->DrawRectangle((float)(selected*TAB_WIDTH),(float)(CONTAINER_HEIGHT-TAB_HEIGHT),(float)(selected*TAB_WIDTH+TAB_WIDTH),(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),COLOR_TAB_SELECTED);
+	this->renderer2D->DrawRectangle(0,0,(float)this->windowDataWin32->width,(float)CONTAINER_HEIGHT,Renderer2DInterface::COLOR_TAB_BACKGROUND);
+	this->renderer2D->DrawRectangle((float)(selected*TAB_WIDTH),
+									(float)(CONTAINER_HEIGHT-TAB_HEIGHT),
+									(float)(selected*TAB_WIDTH+TAB_WIDTH),
+									(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),
+									Renderer2DInterface::COLOR_TAB_SELECTED);
 
 	for(int i=0;i<(int)tabs.childs.size();i++)
-		this->DrawText(TabContainer::COLOR_TEXT,tabs.childs[i]->name,(float)i*TAB_WIDTH,(float)CONTAINER_HEIGHT-TAB_HEIGHT,(float)i*TAB_WIDTH + (float)TAB_WIDTH,(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,false);
+		this->renderer2D->DrawText(tabs.childs[i]->name,
+									(float)i*TAB_WIDTH,
+									(float)CONTAINER_HEIGHT-TAB_HEIGHT,
+									(float)i*TAB_WIDTH + (float)TAB_WIDTH,
+									(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,
+									Renderer2DInterface::COLOR_TEXT,
+									0.5f,0.5f);
 }
 
 
 
 void TabContainerWin32::OnGuiPaint(void* data)
 {
-	this->DrawRectangle(0,TabContainer::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height-TabContainer::CONTAINER_HEIGHT,COLOR_GUI_BACKGROUND);
+	this->renderer2D->DrawRectangle(0,TabContainer::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height-TabContainer::CONTAINER_HEIGHT,Renderer2DInterface::COLOR_GUI_BACKGROUND);
 
 	this->BroadcastToSelected(&GuiRect::OnPaint,data);
 }
@@ -3358,39 +3436,26 @@ void TabContainerWin32::OnResizeContainer(void* data)
 
 void TabContainerWin32::OnGuiRecreateTarget(void* iData)
 {
-	HRESULT hr=S_OK;
-
-	float w,h;
-
-	SAFERELEASE(this->renderTarget);
-	SAFERELEASE(this->brush);
+	if(!this->renderer2DWin32->RecreateTarget(this->windowDataWin32->hwnd))
+		__debugbreak();
 
 	this->iconUp->Release();
 	this->iconRight->Release();
 	this->iconDown->Release();
 	this->iconFolder->Release();
 	this->iconFile->Release();
-
-	renderTarget=Direct2DGuiBase::InitHWNDRenderer(this->windowDataWin32->hwnd);
-
-	if(!renderTarget)
+	
+	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+		__debugbreak();
+	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+		__debugbreak();
+	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+		__debugbreak();
+	if(!this->iconFolder->Fill(this->renderer2D,this->rawFolder,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+		__debugbreak();
+	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
 		__debugbreak();
 
-	renderTarget->CreateSolidColorBrush(D2D1::ColorF(COLOR_TAB_BACKGROUND),&brush);
-
-	if(!brush)
-		__debugbreak();
-
-	if(!this->iconUp->Create(this,CONTAINER_ICON_WH,CONTAINER_ICON_WH,CONTAINER_ICON_STRIDE,this->rawUpArrow))
-		__debugbreak();
-	if(!this->iconRight->Create(this,CONTAINER_ICON_WH,CONTAINER_ICON_WH,CONTAINER_ICON_STRIDE,this->rawRightArrow))
-		__debugbreak();
-	if(!this->iconDown->Create(this,CONTAINER_ICON_WH,CONTAINER_ICON_WH,CONTAINER_ICON_STRIDE,this->rawDownArrow))
-		__debugbreak();
-	if(!this->iconFolder->Create(this,CONTAINER_ICON_WH,CONTAINER_ICON_WH,CONTAINER_ICON_STRIDE,this->rawFolder))
-		__debugbreak();
-	if(!this->iconFile->Create(this,CONTAINER_ICON_WH,CONTAINER_ICON_WH,CONTAINER_ICON_STRIDE,this->rawFile))
-		__debugbreak();
 
 	this->TabContainer::OnGuiRecreateTarget(iData);
 
@@ -3836,7 +3901,7 @@ bool InitSplitter()
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=EditorMainAppWindowWin32::MainWindowProcedure;
-		wc.hbrBackground=CreateSolidBrush(TabContainer::COLOR_MAIN_BACKGROUND);
+		wc.hbrBackground=CreateSolidBrush(Renderer2DInterface::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
 			__debugbreak();
@@ -3962,7 +4027,7 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 
 	GuiRootRect* guiCompilerViewer_rootRect=guiCompilerViewer->GetRootRect();
 
-	guiCompilerViewer->ParseCompilerOutput(guiCompilerViewer_rootRect->tabContainer,errorOutputFile);
+	guiCompilerViewer->ParseCompilerOutputFile(guiCompilerViewer_rootRect->tabContainer,errorOutputFile);
 
 	guiCompilerViewer_rootRect->tabContainer->SetSelection(guiCompilerViewer);
 

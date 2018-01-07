@@ -9,6 +9,7 @@ struct GuiRect;
 struct GuiRootRect;
 struct GuiString;
 struct GuiButton;
+struct GuiImage;
 struct GuiButtonBool;
 struct GuiScrollBar;
 struct GuiScrollRect;
@@ -129,6 +130,33 @@ struct AppInterface : TStaticInstance<AppInterface>
 
 	virtual void CreateNodes(String,ResourceNodeDir*)=0;
 	virtual void ScanDir(String)=0;
+};
+
+struct Renderer2DInterface
+{
+	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
+	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
+	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
+	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
+	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
+	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
+
+	unsigned int colorBackgroud;
+	unsigned int colorText;
+
+	virtual void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1)=0;
+	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
+	 
+	virtual void PushScissor(float x,float y,float w,float h)=0;
+	virtual void PopScissor()=0;
+	 
+	virtual void Translate(float,float)=0;
+	virtual void Identity()=0;
+	 
+	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
 };
 
 struct Renderer3DInterface : Renderer3DInterfaceBase
@@ -317,7 +345,6 @@ struct GuiRect : THierarchyVector<GuiRect>
 	unsigned int colorForeground;
 	unsigned int colorHovering;
 	unsigned int colorPressing;
-	unsigned int colorBorder;
 	unsigned int colorChecked;
 
 	bool pressing;
@@ -368,9 +395,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	virtual void OnButtonPressed(TabContainer*,GuiButton*){}
 
-
-	void DrawBackground(TabContainer*);
-
+	virtual void DrawBackground(TabContainer*);
 
 	virtual void SelfRenderEnd(TabContainer*,bool&);
 
@@ -630,8 +655,8 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 
 	vec2 mouseold;
 
-	void* renderBuffer;
-	void* renderBitmap;
+	void*	renderBitmap;
+	void*	renderBuffer;
 
 	unsigned int lastFrameTime;
 
@@ -780,6 +805,7 @@ struct GuiProjectViewer : GuiRect
 	void OnMouseMove(TabContainer*,void* data=0);
 	void OnReparent(TabContainer*,void* data=0);
 	void OnActivate(TabContainer*,void* data=0);
+	void OnSize(TabContainer*,void* data=0);
 };
 
 struct WindowData
@@ -801,9 +827,14 @@ struct WindowData
 
 struct GuiImage
 {
-	virtual void Draw(TabContainer* tabContainer,float x,float y,float w,float h){};
-	virtual void Release(){};
-	virtual bool Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData){return false;}
+	int width,height;
+	int bpp;
+
+	GuiImage();
+	~GuiImage();
+
+	virtual void Release()=0;
+	virtual bool Fill(Renderer2DInterface*,unsigned char* iData,float iWidth,float iHeight)=0;
 };
 
 struct GuiScriptViewer : GuiRect , TPoolVector<GuiScriptViewer>
@@ -832,7 +863,7 @@ struct GuiCompilerViewer : GuiRect , TPoolVector<GuiCompilerViewer>
 
 	GuiCompilerViewer();
 
-	bool ParseCompilerOutput(TabContainer*,File&);
+	bool ParseCompilerOutputFile(TabContainer*,File&);
 };
 
 
@@ -841,14 +872,6 @@ struct TabContainer : TPoolVector<TabContainer>
 	WindowData* windowData;
 
 	EditorWindowContainer* editorWindowContainer;
-
-	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
-	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
-	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
-	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
-	static const unsigned int COLOR_TEXT=0xFFFFFF;
-	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
-	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 
 	static const int CONTAINER_HEIGHT=30;
 	static const int TAB_WIDTH=80;
@@ -867,7 +890,8 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	SplitterContainer* splitterContainer;
 
-	Renderer3DInterface *renderer;
+	Renderer2DInterface *renderer2D;
+	Renderer3DInterface *renderer3D;
 
 	GuiImage* iconUp;
 	GuiImage* iconRight;
@@ -881,9 +905,17 @@ struct TabContainer : TPoolVector<TabContainer>
 	bool recreateTarget;
 	bool resizeTarget;
 
-	GuiRect* drawRect;
-	bool	 drawFrame;
-	int		 drawCode;
+	struct DrawInstance
+	{
+		int		 code;
+		bool	 frame;
+		GuiRect* rect;
+		
+		DrawInstance(int a,bool b,GuiRect* c):code(a),frame(b),rect(c){}
+	};
+
+	std::list<DrawInstance> drawInstances;
+
 	Task*	 drawTask;
 
 	float mousex,mousey;
@@ -917,13 +949,7 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	virtual void DrawFrame()=0;
 
-	virtual void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,bool iWrap=false,int iCenter=0)=0;
-	virtual void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true)=0;
-	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
-	virtual void PushScissor(float x,float y, float w,float h)=0;
-	virtual void PopScissor()=0;
-	virtual void Translate(float x,float y)=0;
-	virtual void Identity()=0;
+	
 
 	virtual void OnGuiRecreateTarget(void* data=0);
 
@@ -949,11 +975,6 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
 
-	virtual vec2 MeasureText(const char* iText)=0;
-
-	virtual bool DrawCaret(int iX,int iY)=0;
-	virtual bool ShowCaret(bool iShow)=0;
-	virtual bool CreateCaret()=0;
 	void SetSelection(GuiRect* iRect);
 };
 

@@ -207,9 +207,6 @@ struct Texture
 {
 	Texture();
 
-	Texture* GetTexture(){return this;}
-	Texture* GetTextureFile(){return 0;}
-	Texture* GetTextureLayered(){return 0;}
 
 	virtual int load(char*)=0;
 	virtual int loadBMP(char*)=0;
@@ -585,8 +582,6 @@ struct TextureFile : Texture
 {
 	TextureFile();
 	~TextureFile();
-
-	TextureFile* GetTextureFile(){return this;}
 
 	int load(char*);
 	int loadBMP(char*);//0 error

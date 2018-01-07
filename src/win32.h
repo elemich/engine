@@ -3,6 +3,7 @@
 
 struct TabContainerWin32;
 struct EditorWindowContainerWin32;
+struct Renderer2DInterfaceWin32;
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
@@ -59,20 +60,19 @@ struct EditorWindowContainerWin32;
 
 void glCheckError();
 
-struct Direct2DGuiBase
+struct Direct2DBase
 {
 	static ID2D1Factory *factory;
 	static IWICImagingFactory *imager;
 	static IDWriteFactory *writer;
 	static IDWriteTextFormat *texter;
 
-	static void Init(wchar_t* fontName,float fontSize);
+	static void Init(wchar_t* fontName=L"Verdana",float fontSize=10);
 	static void Release();
 
-	static ID2D1HwndRenderTarget* InitHWNDRenderer(HWND hwnd);
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,bool iWrap,int iCenter);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1);
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
@@ -86,12 +86,6 @@ struct Direct2DGuiBase
 };
 
 
-/*
-struct Renderer2DInterfaceWin32 : Renderer"DInterface
-{
-
-};*/
-
 
 
 struct ThreadWin32 : ThreadInterface
@@ -100,6 +94,44 @@ struct ThreadWin32 : ThreadInterface
 
 	ThreadWin32();
 	~ThreadWin32();
+};
+
+
+struct GuiImageWin32 : GuiImage
+{
+	GuiImageWin32();
+	~GuiImageWin32();
+
+	ID2D1Bitmap* handle;
+
+	void Release();
+	bool Fill(Renderer2DInterface*,unsigned char* iData,float iWidth,float iHeight);
+};
+
+struct Renderer2DInterfaceWin32 : Renderer2DInterface
+{
+	ID2D1HwndRenderTarget* renderer;
+	ID2D1SolidColorBrush*  brush;
+
+	Renderer2DInterfaceWin32(HWND);
+	~Renderer2DInterfaceWin32();
+
+	void DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY);
+	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true);
+	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
+	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
+
+	void PushScissor(float x,float y,float w,float h);
+	void PopScissor();
+
+	void Translate(float,float);
+	void Identity();
+
+	vec2 MeasureText(const char*,int iSlen=-1);
+
+	ID2D1Brush* SetColorWin32(unsigned int color);
+
+	bool RecreateTarget(HWND);
 };
 
 struct OpenGLRenderer : Renderer3DInterface
@@ -216,44 +248,20 @@ struct WindowDataWin32 : WindowData
 };
 
 
-struct GuiImageWin32 : GuiImage
-{
-	GuiImageWin32();
-	~GuiImageWin32();
 
-	ID2D1Bitmap* image;
-
-	void Draw(TabContainer* tabContainer,float x,float y,float w,float h);
-	void Release();
-	bool Create(TabContainer* tabContainer,float iWidth,float iHeight,float iStride,unsigned char* iData);
-};
 
 struct TabContainerWin32 : TabContainer
 {
 	WindowDataWin32*& windowDataWin32;
 	EditorWindowContainerWin32*& editorWindowContainerWin32;
+	Renderer2DInterfaceWin32* renderer2DWin32;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
-
-	ID2D1HwndRenderTarget* renderTarget;
-	ID2D1SolidColorBrush*  brush;
 
 	TabContainerWin32(float x,float y,float w,float h,HWND parent);
 	~TabContainerWin32();
 
 	operator TabContainerWin32& (){return *this;}
-
-	void Create(HWND){}//@mic no more used, delete from WindowData
-
-	ID2D1Brush* SetColor(unsigned int color);
-
-	void DrawText(unsigned int iColor,const char* iText,float x,float y, float w,float h,bool wrap=false,int iCenter=0);
-	void DrawRectangle(float x,float y, float w,float h,unsigned int iColor,bool iFill=true);
-	void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h);
-	void PushScissor(float x,float y, float w,float h);
-	void PopScissor();
-	void Translate(float x,float y);
-	void Identity();
 
 	bool BeginDraw();
 	void EndDraw();
@@ -270,7 +278,6 @@ struct TabContainerWin32 : TabContainer
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
 
-	vec2 MeasureText(const char* iText);
 	bool DrawCaret(int iX,int iY);
 	bool ShowCaret(bool iShow);
 	bool CreateCaret();
