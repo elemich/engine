@@ -453,10 +453,6 @@ EditorWindowContainerWin32::EditorWindowContainerWin32():
 }
 
 
-void EditorWindowContainerWin32::SetCursorShape(char* iShape)
-{
-	SetCursor(LoadCursor(0,iShape));
-}
 
 TabContainerWin32* EditorWindowContainerWin32::CreateTabContainer(float x,float y,float w,float h)
 {
@@ -3461,6 +3457,23 @@ void TabContainerWin32::OnGuiRecreateTarget(void* iData)
 
 }
 
+
+void TabContainerWin32::SetCursor(int iCursorCode)
+{
+	HCURSOR cursor=0;
+
+	switch(iCursorCode)
+	{
+		case 0: cursor=LoadCursor(0,IDC_ARROW); break;
+		case 1: cursor=LoadCursor(0,IDC_SIZEWE); break;
+		case 2: cursor=LoadCursor(0,IDC_SIZENS); break;
+	}
+	
+	if(cursor)
+		::SetCursor(cursor);
+}
+
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4099,20 +4112,6 @@ bool ScriptWin32::Exit()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-bool TabContainerWin32::DrawCaret(int iX,int iY)
-{
-	return SetCaretPos(iX,iY);
-}
-
-bool TabContainerWin32::ShowCaret(bool iShow)
-{
-	return iShow ? ::ShowCaret(this->windowDataWin32->hwnd) : ::HideCaret(this->windowDataWin32->hwnd) ;
-}
-
-bool TabContainerWin32::CreateCaret()
-{
-	return ::CreateCaret(this->windowDataWin32->hwnd,LoadBitmap(0, MAKEINTRESOURCE(120)), 0, 0) ? true : false;
-}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

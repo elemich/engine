@@ -654,7 +654,12 @@ void GuiRect::SetParent(GuiRect* iParent)
 		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
 
 	if(this->parent)
+	{
 		this->parent->childs.push_back(this);
+
+		if(this->parent->clip)
+			this->SetClip(this->parent->clip);
+	}
 
 	this->active=iParent ? iParent->active : 0;
 }
@@ -736,8 +741,8 @@ void GuiRect::OnSize(TabContainer* tabContainer,void* data)
 			this->rect.z-=20;
 		}
 
-		/*this->rect.x = pRect.x > this->rect.x ? pRect.x : (pRect.x+pRect.z < this->rect.x+this->rect.z ? this->rect.x - (this->rect.x+this->rect.z - (pRect.x+pRect.z)) : this->rect.x);
-		this->rect.y = pRect.y > this->rect.y ? pRect.y : (pRect.y+pRect.w < this->rect.y+this->rect.w ? this->rect.y - (this->rect.y+this->rect.w - (pRect.y+pRect.w)) : this->rect.y);*/
+		this->rect.x = pRect.x > this->rect.x ? pRect.x : (pRect.x+pRect.z < this->rect.x+this->rect.z ? this->rect.x - (this->rect.x+this->rect.z - (pRect.x+pRect.z)) : this->rect.x);
+		this->rect.y = pRect.y > this->rect.y ? pRect.y : (pRect.y+pRect.w < this->rect.y+this->rect.w ? this->rect.y - (this->rect.y+this->rect.w - (pRect.y+pRect.w)) : this->rect.y);
 
 		if(parent->container>=0)
 		{
@@ -920,8 +925,14 @@ void GuiRect::OnKeyUp(TabContainer* tabContainer,void* data)
 	this->BroadcastToChilds(&GuiRect::OnKeyDown,tabContainer,data);
 }
 
-
-
+void GuiRect::OnMouseEnter(TabContainer* tabContainer,void* data)
+{
+	this->BroadcastToChilds(&GuiRect::OnMouseEnter,tabContainer,data);
+}
+void GuiRect::OnMouseExit(TabContainer* tabContainer,void* data)
+{
+	this->BroadcastToChilds(&GuiRect::OnMouseExit,tabContainer,data);
+}
 
 void GuiRect::SetClip(GuiScrollRect* scrollRect)
 {
@@ -1215,7 +1226,7 @@ void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 			tabContainer->renderer2D->DrawText(text,
 												this->container>=0 ? this->rect.x+TREEVIEW_ROW_ADVANCE : this->rect.x,
 												this->rect.y,
-												this->rect.z,
+												this->rect.x+this->rect.z,
 												this->rect.y+TabContainer::CONTAINER_ICON_WH,
 												Renderer2DInterface::COLOR_TEXT,
 												-1,0.5);
@@ -1225,7 +1236,7 @@ void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 			tabContainer->renderer2D->DrawText(text,
 												this->rect.x,
 												this->rect.y,
-												this->rect.z,
+												this->rect.x+this->rect.z,
 												this->rect.y+this->rect.w,
 												Renderer2DInterface::COLOR_TEXT,
 												this->alignText.x,this->alignText.y);
@@ -2191,9 +2202,10 @@ void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,EditorEntity* node,vec
 		float xCursor=this->rect.x+pos.x+TREEVIEW_ROW_ADVANCE*node->level;
 
 		if(node->childs.size())
+		{
 			tabContainer->renderer2D->DrawBitmap(node->expanded ? tabContainer->iconDown : tabContainer->iconRight,xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT);
-
-		xCursor+=TREEVIEW_ROW_ADVANCE;
+			xCursor+=TREEVIEW_ROW_ADVANCE;
+		}
 
 		tabContainer->renderer2D->DrawText(node->name,xCursor,relativeY,xCursor+this->width,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT,Renderer2DInterface::COLOR_TEXT,-1,0.5);
 	}
@@ -2367,16 +2379,15 @@ int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
 
 
 GuiProjectViewer::GuiProjectViewer():
-lMouseDown(false),
-	splitterMoving(false)
+	splitterLeft(false),
+	splitterRight(false),
+	hotspotDist(0)
 {
 	this->name="Project";
 
-	left.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1.0f);
-	right.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1.0f);
-	viewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1.0f);
-
-	viewer.colorBackground=0xffff0000;
+	left.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
+	right.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
+	viewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
 
 	this->rootResource.fileName=AppInterface::instance->projectFolder;
 	this->rootResource.expanded=true;
@@ -2419,49 +2430,83 @@ void GuiProjectViewer::OnActivate(TabContainer* tabContainer,void* data)
 	left.rect.x=0;
 	left.rect.z=tWidth-2;
 	right.rect.x=tWidth+2;
-	right.rect.z=tWidth-2;
+	right.rect.z=tWidth-4;
 	viewer.rect.x=tWidth*2+2;
 	viewer.rect.z=tWidth;
 
 	this->OnSize(tabContainer,data);
 }
 
-void GuiProjectViewer::OnMouseMove(TabContainer* tabContainer,void* data)
-{
-	GuiRect::OnMouseMove(tabContainer,data);
-
-	if(this->hovering)
-	{
-		if(this->splitterMoving)
-		{
-		}
-		else
-		{
-		}
-
-		tabContainer->editorWindowContainer->SetCursorShape("IDC_ARROW");
-	}
-}
-
-
-
-void GuiProjectViewer::OnLMouseUp(TabContainer* tabContainer,void* data)
-{
-	GuiRect::OnLMouseUp(tabContainer);
-
-	lMouseDown=false;
-	splitterMoving=false;
-}
-
 void GuiProjectViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
 {
 	GuiRect::OnLMouseDown(tabContainer,data);
 
-	if(!this->hovering)
-		return;
+	if(this->hovering)
+	{
+		vec2& mpos=*(vec2*)data;
 
-	lMouseDown=true;
+		if(mpos.x<=this->right.rect.x)
+		{
+			this->splitterLeft=true;
+			this->hotspotDist=this->right.rect.x-mpos.x;
+		}
+		else if(mpos.x<=this->viewer.rect.x)
+		{
+			this->splitterRight=true;
+			this->hotspotDist=this->viewer.rect.x-mpos.x;
+		}
+	}
+}
 
+void GuiProjectViewer::OnLMouseUp(TabContainer* tabContainer,void* data)
+{
+	if(this->pressing)
+	{
+		this->splitterLeft=false;
+		this->splitterRight=false;
+	}
+
+	GuiRect::OnLMouseUp(tabContainer);
+}
+
+void GuiProjectViewer::OnMouseMove(TabContainer* tabContainer,void* data)
+{
+
+	if(this->hovering)
+	{
+		tabContainer->SetCursor(1);
+
+		if(this->pressing)
+		{
+			vec2& mpos=*(vec2*)data;
+
+			if(this->splitterLeft)
+			{
+				float tRightWidthAbs=this->right.rect.x+this->right.rect.z;
+				this->left.rect.z=mpos.x-2;
+				this->right.rect.x=mpos.x+2;
+				this->right.rect.z=this->viewer.rect.x-this->right.rect.x-4;
+
+				this->left.OnSize(tabContainer);
+				this->right.OnSize(tabContainer);
+			}
+			if(this->splitterRight)
+			{
+				this->right.rect.z=mpos.x-this->right.rect.x-2;
+				this->viewer.rect.x=mpos.x+2;
+				this->viewer.rect.z=this->rect.x+this->rect.z-this->viewer.rect.x;
+
+				this->right.OnSize(tabContainer);
+				this->viewer.OnSize(tabContainer);
+			}
+
+			
+
+			tabContainer->SetDraw(1,0,0);
+		}
+	}
+
+	GuiRect::OnMouseMove(tabContainer,data);
 }
 
 void GuiProjectViewer::OnReparent(TabContainer* tabContainer,void* data)
@@ -2488,7 +2533,9 @@ void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 void GuiProjectViewer::OnSize(TabContainer* tabContainer,void* data)
 {
-	//GuiRect::OnSize(tabContainer);
+	this->viewer.rect.z=this->rect.x+this->rect.z-this->viewer.rect.x;
+
+	GuiRect::OnSize(tabContainer);
 }
 
 
@@ -2590,9 +2637,10 @@ void GuiProjectViewer::GuiProjectDirViewer::DrawNodes(TabContainer* tabContainer
 		float xCursor=this->rect.x+TREEVIEW_ROW_ADVANCE*node->level;
 
 		if(node->dirs.size())
+		{
 			tabContainer->renderer2D->DrawBitmap(node->expanded ? tabContainer->iconDown : tabContainer->iconRight,xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT);
-
-		xCursor+=TREEVIEW_ROW_ADVANCE;
+			xCursor+=TREEVIEW_ROW_ADVANCE;
+		}
 
 		tabContainer->renderer2D->DrawBitmap(tabContainer->iconFolder,xCursor,relativeY,xCursor+TabContainer::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT);
 
@@ -3005,7 +3053,7 @@ void GuiScriptViewer::OnKeyDown(TabContainer* tabContainer,void* iData)
 		{
 			char charcode=*(int*)iData;
 
-			if(InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
+			if(InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/) && !InputManager::keyboardInput.IsPressed(0x12/*VK_ALT*/))
 			{
 				if(InputManager::keyboardInput.IsPressed('S'))
 				{
@@ -3023,7 +3071,8 @@ void GuiScriptViewer::OnKeyDown(TabContainer* tabContainer,void* iData)
 						break;
 					default:
 					{
-						char token[2]={*(int*)iData,'\0'};
+						charcode=='\r' ? charcode='\n' : 0;
+						char token[2]={charcode,'\0'};
 						this->buffer.insert(this->cursor,token);
 						this->cursor++;
 					}
@@ -3371,10 +3420,10 @@ void EditorScript::OnPropertiesCreate()
 	this->properties.Append(buttonEdit);
 	buttonEdit->func=launchScriptEditorCallback;
 	buttonEdit->param=this;
-	buttonEdit->colorBackground=0x0000ff;
-	buttonEdit->colorHovering=0x00ffff;
-	buttonEdit->colorPressing=0xffffff;
-	buttonEdit->text="Edit Script";
+	//buttonEdit->colorBackground=Renderer2DInterface::COLOR_GUI_BACKGROUND;
+	buttonEdit->colorHovering=Renderer2DInterface::COLOR_GUI_BACKGROUND+30;
+	buttonEdit->colorPressing=Renderer2DInterface::COLOR_GUI_BACKGROUND+90;
+	buttonEdit->text="Edit";
 	buttonEdit->rect.w=20;
 	buttonEdit->alignRect.make(1,-1);
 
@@ -3382,10 +3431,10 @@ void EditorScript::OnPropertiesCreate()
 	this->properties.Append(buttonCompile);
 	buttonCompile->func=compileScriptCallback;
 	buttonCompile->param=this;
-	buttonCompile->colorBackground=0x0000ff;
-	buttonCompile->colorHovering=0x00ffff;
-	buttonCompile->colorPressing=0xffffff;
-	buttonCompile->text="Compile Script";
+	//buttonEdit->colorBackground=Renderer2DInterface::COLOR_GUI_BACKGROUND;
+	buttonCompile->colorHovering=Renderer2DInterface::COLOR_GUI_BACKGROUND+30;
+	buttonCompile->colorPressing=Renderer2DInterface::COLOR_GUI_BACKGROUND+90;
+	buttonCompile->text="Compile";
 	buttonCompile->rect.w=20;
 	buttonCompile->alignRect.make(1,-1);
 

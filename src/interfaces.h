@@ -392,6 +392,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnExpandos(TabContainer*,void* data=0);
 	virtual void OnKeyDown(TabContainer*,void* data=0);
 	virtual void OnKeyUp(TabContainer*,void* data=0);
+	virtual void OnMouseEnter(TabContainer*,void* data=0);
+	virtual void OnMouseExit(TabContainer*,void* data=0);
 
 	virtual void OnButtonPressed(TabContainer*,GuiButton*){}
 
@@ -793,11 +795,13 @@ struct GuiProjectViewer : GuiRect
 
 	ResourceNodeDir rootResource;
 
+	bool splitterLeft;
+	bool splitterRight;
+	float hotspotDist;
+
 	GuiProjectViewer();
 	~GuiProjectViewer();
 
-	bool lMouseDown;
-	bool splitterMoving;
 
 	void OnPaint(TabContainer*,void* data=0);
 	void OnLMouseDown(TabContainer*,void* data=0);
@@ -976,6 +980,8 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual int TrackTabMenuPopup()=0;
 
 	void SetSelection(GuiRect* iRect);
+
+	virtual void SetCursor(int)=0;
 };
 
 struct SplitterContainer 
@@ -1018,8 +1024,6 @@ struct EditorWindowContainer
 
 	virtual void OnSizing()=0;
 	virtual void OnSize()=0;
-
-	virtual void SetCursorShape(char*)=0;
 
 	virtual TabContainer* CreateTabContainer(float x,float y,float w,float h)=0;
 };

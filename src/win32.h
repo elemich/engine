@@ -278,9 +278,7 @@ struct TabContainerWin32 : TabContainer
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
 
-	bool DrawCaret(int iX,int iY);
-	bool ShowCaret(bool iShow);
-	bool CreateCaret();
+	void SetCursor(int);
 };
 
 struct SplitterContainerWin32 : SplitterContainer 
@@ -327,8 +325,6 @@ struct EditorWindowContainerWin32 : EditorWindowContainer
 
 	void OnSizing();
 	void OnSize();
-
-	void SetCursorShape(char* iShape=IDC_ARROW);
 
 	WindowDataWin32*& windowDataWin32;
 	SplitterContainerWin32*& splitterContainerWin32;
