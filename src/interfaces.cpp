@@ -1,4 +1,4 @@
-#include "interfaces.h"
+﻿#include "interfaces.h"
 
 AppInterface::AppInterface():timerMain(0),mainAppWindow(0),compiler(0){}
 
@@ -282,26 +282,30 @@ void TabContainer::Draw()
 {
 	if(!this->drawInstances.empty())
 	{
-		DrawInstance& tDrawInstance=this->drawInstances.front();
+		DrawInstance*& tDrawInstance=this->drawInstances.front();
 
-		if(tDrawInstance.code || tDrawInstance.frame)
+		if(tDrawInstance->code || tDrawInstance->frame)
 		{
 			if(this->BeginDraw())
 			{
-				if(tDrawInstance.frame)
+				if(tDrawInstance->frame)
 					this->DrawFrame();
 
-				switch(tDrawInstance.code)
+				switch(tDrawInstance->code)
 				{
 				case 1:this->OnGuiPaint();break;
-				case 2:tDrawInstance.rect->OnPaint(this);break;
+				case 2:tDrawInstance->rect->OnPaint(this);break;
 				}
 
 				this->EndDraw();
 			}
 		}
 
-		this->drawInstances.pop_front();
+		if(tDrawInstance->remove)
+		{
+			SAFEDELETE(tDrawInstance);
+			this->drawInstances.pop_front();
+		}
 	}
 	else
 	{
@@ -313,9 +317,11 @@ void TabContainer::Draw()
 	}
 }
 
-void TabContainer::SetDraw(int iCode,bool iFrame,GuiRect* iRect)
+DrawInstance* TabContainer::SetDraw(int iCode,bool iFrame,GuiRect* iRect,bool iRemove)
 {
-	this->drawInstances.push_back(DrawInstance(iCode,iFrame,iRect));
+	DrawInstance* newInstance=new DrawInstance(iCode,iFrame,iRect,iRemove);
+	this->drawInstances.push_back(newInstance);
+	return newInstance;
 }
 
 void TabContainer::BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data)
@@ -643,6 +649,7 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 
 GuiRect::~GuiRect()
 {
+	
 }
 
 void GuiRect::SetParent(GuiRect* iParent)
@@ -710,7 +717,7 @@ void GuiRect::DrawBackground(TabContainer* tabContainer)
 
 void GuiRect::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -949,7 +956,7 @@ void GuiRect::SelfRenderEnd(TabContainer* tabContainer,bool& isSelfRender)
 		tabContainer->EndDraw();
 }
 
-bool GuiRect::SelfClip(TabContainer* tabContainer)
+bool GuiRect::SelfClipBegin(TabContainer* tabContainer)
 {
 	bool clipped=false;
 
@@ -1033,7 +1040,7 @@ GuiPropertyString* GuiRect::Property(const char* iProp,String& iVal)
 {
 	GuiPropertyString* p=new GuiPropertyString(iVal);
 	p->description=iProp;
-	this->Append(p);
+	this->AppendChild(p);
 	return p;
 }
 
@@ -1041,7 +1048,7 @@ GuiPropertyVec3* GuiRect::Property(const char* iProp,vec3& iRVal)
 {
 	GuiPropertyVec3* v=new GuiPropertyVec3(iRVal);
 	v->description=iProp;
-	this->Append(v);
+	this->AppendChild(v);
 	return v;
 	
 }
@@ -1050,7 +1057,7 @@ GuiPropertyPtr* GuiRect::Property(const char* iProp,void* iRVal)
 {
 	GuiPropertyPtr* v=new GuiPropertyPtr(iRVal);
 	v->description=iProp;
-	this->Append(v);
+	this->AppendChild(v);
 	return v;
 }
 
@@ -1058,7 +1065,7 @@ GuiPropertyFloat* GuiRect::Property(const char* iProp,float& iRVal)
 {
 	GuiPropertyFloat* v=new GuiPropertyFloat(iRVal);
 	v->description=iProp;
-	this->Append(v);
+	this->AppendChild(v);
 	return v;
 
 }
@@ -1067,7 +1074,7 @@ GuiPropertyBool* GuiRect::Property(const char* iProp,bool& iRVal)
 {
 	GuiPropertyBool* v=new GuiPropertyBool(iRVal);
 	v->description=iProp;
-	this->Append(v);
+	this->AppendChild(v);
 	return v;
 }
 
@@ -1076,7 +1083,7 @@ GuiPropertySlider* GuiRect::Property(const char* iLeft,float& ref,float& imin,fl
 {
 	GuiPropertySlider* s=new GuiPropertySlider(ref,imin,imax);
 	s->description=iLeft;
-	this->Append(s);
+	this->AppendChild(s);
 	return s;
 }
 
@@ -1084,7 +1091,7 @@ GuiPropertySlider* GuiRect::Property(const char* iLeft,float& ref,float& imin,fl
 GuiPropertyAnimationController* GuiRect::Property(AnimationController& ac)
 {
 	GuiPropertyAnimationController* a=new GuiPropertyAnimationController(ac);
-	this->Append(a);
+	this->AppendChild(a);
 	return a;
 }
 
@@ -1132,10 +1139,21 @@ GuiCompilerViewer* GuiRect::CompilerViewer()
 	return sv;
 }
 
-void GuiRect::Append(GuiRect* iRect)
+void GuiRect::AppendChild(GuiRect* iRect)
 {
 	iRect->sibling[1]=!this->childs.empty() ? this->childs.back() : 0;
 	iRect->SetParent(this);
+}
+
+void GuiRect::DestroyChilds()
+{
+	for(size_t i=0;i<this->childs.size();i++)
+	{
+		this->childs[i]->DestroyChilds();
+		SAFEDELETE(this->childs[i]);
+	}
+
+	this->childs.clear();
 }
 
 template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int container,float ix, float iy, float iw,float ih,float iAlignPosX,float iAlignPosY,float iAlignRectX,float iAlignRectY)
@@ -1211,35 +1229,54 @@ void GuiRootRect::OnSize(TabContainer* tab)
 
 void GuiString::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
-	if(text.Buf())
+	if(this->text.Buf() || this->wText.c_str())
 	{
 		if(this->container>=0)
 		{
 			this->container==1 ? 
 			tabContainer->renderer2D->DrawBitmap(tabContainer->iconDown,this->rect.x,this->rect.y,this->rect.x+TabContainer::CONTAINER_ICON_WH,this->rect.y+TabContainer::CONTAINER_ICON_WH) 
 			: tabContainer->renderer2D->DrawBitmap(tabContainer->iconRight,rect.x,this->rect.y,this->rect.x+TabContainer::CONTAINER_ICON_WH,this->rect.y+TabContainer::CONTAINER_ICON_WH);
-
-			tabContainer->renderer2D->DrawText(text,
+			
+			if(this->text.Buf())
+			tabContainer->renderer2D->DrawText(this->text.Buf(),
 												this->container>=0 ? this->rect.x+TREEVIEW_ROW_ADVANCE : this->rect.x,
 												this->rect.y,
 												this->rect.x+this->rect.z,
 												this->rect.y+TabContainer::CONTAINER_ICON_WH,
 												Renderer2DInterface::COLOR_TEXT,
 												-1,0.5);
+			if(this->wText.c_str())
+			tabContainer->renderer2D->DrawText(this->wText.c_str(),
+				this->container>=0 ? this->rect.x+TREEVIEW_ROW_ADVANCE : this->rect.x,
+				this->rect.y,
+				this->rect.x+this->rect.z,
+				this->rect.y+TabContainer::CONTAINER_ICON_WH,
+				Renderer2DInterface::COLOR_TEXT,
+				-1,0.5);
 		}
 		else
 		{
-			tabContainer->renderer2D->DrawText(text,
+			if(this->text.Buf())
+			tabContainer->renderer2D->DrawText(this->text.Buf(),
 												this->rect.x,
 												this->rect.y,
 												this->rect.x+this->rect.z,
 												this->rect.y+this->rect.w,
 												Renderer2DInterface::COLOR_TEXT,
 												this->alignText.x,this->alignText.y);
+
+			if(this->wText.c_str())
+				tabContainer->renderer2D->DrawText(this->wText.c_str(),
+				this->rect.x,
+				this->rect.y,
+				this->rect.x+this->rect.z,
+				this->rect.y+this->rect.w,
+				Renderer2DInterface::COLOR_TEXT,
+				this->alignText.x,this->alignText.y);
 		}
 	}
 
@@ -1350,7 +1387,7 @@ void GuiScrollRect::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiPropertyString::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1369,7 +1406,7 @@ void GuiPropertyString::OnPaint(TabContainer* tabContainer,void* data)
 void GuiPropertyVec3::OnPaint(TabContainer* tabContainer,void* data)
 {
 	
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1391,7 +1428,7 @@ void GuiPropertyVec3::OnPaint(TabContainer* tabContainer,void* data)
 void GuiPropertyFloat::OnPaint(TabContainer* tabContainer,void* data)
 {
 	
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1412,7 +1449,7 @@ void GuiPropertyFloat::OnPaint(TabContainer* tabContainer,void* data)
 
 void GuiPropertyPtr::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1433,7 +1470,7 @@ void GuiPropertyPtr::OnPaint(TabContainer* tabContainer,void* data)
 
 void GuiPropertyBool::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1461,7 +1498,7 @@ void GuiPropertyBool::OnPaint(TabContainer* tabContainer,void* data)
 void GuiSlider::DrawSliderTip(TabContainer* tabContainer,void* data)
 {
 	
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	float tip=(this->rect.x+10) + ((referenceValue)/(maximum-minimum))*(this->rect.z-20);
 	tabContainer->renderer2D->DrawRectangle(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5,Renderer2DInterface::COLOR_TEXT);
@@ -1473,7 +1510,7 @@ void GuiSlider::DrawSliderTip(TabContainer* tabContainer,void* data)
 
 void GuiSlider::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1540,7 +1577,7 @@ void GuiSlider::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiPropertySlider::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -1653,7 +1690,7 @@ void GuiViewport::OnSize(TabContainer* tabContainer,void* data)
 
 void GuiViewport::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	tabContainer->renderer3D->Render(this,false);
 
@@ -1896,7 +1933,7 @@ void GuiScrollBar::OnPaint(TabContainer* tabContainer,void* data)
 	if(this->scrollerRatio==1.0f)
 		return;
 
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	tabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+GuiScrollBar::SCROLLBAR_TIP_HEIGHT,Renderer2DInterface::COLOR_GUI_BACKGROUND);
 	tabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y+this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+this->rect.w,Renderer2DInterface::COLOR_GUI_BACKGROUND);
@@ -1935,14 +1972,10 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 
 	vec2& mpos=*(vec2*)data;
 
-	EditorEntity* expChanged=0;
-	EditorEntity* selChanged=0;
-	EditorEntity* curHover=0;
-
-	bool iSelected = this->ProcessMouseInput(mpos,vec2(-GuiRect::TREEVIEW_ROW_ADVANCE,-GuiRect::TREEVIEW_ROW_HEIGHT),this->entityRoot,true,expChanged,selChanged,curHover) ?
-		true : false;
+	bool eEntityExpanded=false;
+	EditorEntity* eEntity = this->GetHoveredRow(this->entityRoot,mpos,vec2(-GuiRect::TREEVIEW_ROW_ADVANCE,-GuiRect::TREEVIEW_ROW_HEIGHT),eEntityExpanded);
 		
-	int menuResult=tabContainer->TrackGuiSceneViewerPopup(iSelected);
+	int menuResult=tabContainer->TrackGuiSceneViewerPopup(eEntity ? true : false);
 	
 	switch(menuResult)
 	{
@@ -1952,23 +1985,20 @@ void GuiSceneViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
 
 			newEntity->name="Entity";
 
-			newEntity->SetParent(iSelected ? this->selection[0] : this->entityRoot);
+			newEntity->SetParent(eEntity ? eEntity : this->entityRoot);
 			newEntity->bbox.a.make(-1,-1,-1);
 			newEntity->bbox.b.make(1,1,1);
 
 			newEntity->OnPropertiesCreate();
 
 			this->UpdateNodes(this->entityRoot);
-
-			
-
 		}
 		break;
-	case 2:curHover->parent->childs.erase(std::find(curHover->parent->childs.begin(),curHover->parent->childs.end(),curHover));break;
-	case 3:curHover->CreateComponent<EditorLight>();break;
-	case 4:curHover->CreateComponent<EditorMesh>();break;
-	case 5:curHover->CreateComponent<EditorCamera>();break;
-	case 14:curHover->CreateComponent<EditorScript>();break;
+	case 2:eEntity->parent->childs.erase(std::find(eEntity->parent->childs.begin(),eEntity->parent->childs.end(),eEntity));break;
+	case 3:eEntity->CreateComponent<EditorLight>();break;
+	case 4:eEntity->CreateComponent<EditorMesh>();break;
+	case 5:eEntity->CreateComponent<EditorCamera>();break;
+	case 14:eEntity->CreateComponent<EditorScript>();break;
 	}
 
 	this->OnSize(tabContainer);
@@ -2066,100 +2096,75 @@ void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 		this->UnselectNodes((EditorEntity*)*nCh);
 }
 
-bool GuiSceneViewer::ProcessMouseInput(vec2& mpos,vec2& pos,EditorEntity* node,bool iGetHovered,EditorEntity*& expChanged,EditorEntity*& selChanged,EditorEntity*& curHover)
+EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
 {
-	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
+	float tDrawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
-	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+	if(iFramePos.y+TREEVIEW_ROW_HEIGHT>=tDrawFromHeight && iFramePos.y<=tDrawFromHeight+this->rect.w)
 	{
-		float relativeY=this->rect.y+pos.y-drawFromHeight;
+		float tRelativeY=this->rect.y+iFramePos.y-tDrawFromHeight;
 
-		float xCursor=this->rect.x+pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+		float tCursor=this->rect.x+iFramePos.x+TREEVIEW_ROW_ADVANCE*iEntityNode->level;
 
-		bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-		bool hittedExpandos= node->childs.size() && (mpos.x>xCursor && mpos.x<xCursor+TREEVIEW_ROW_ADVANCE);
+		oExpandos= iEntityNode->childs.size() && (iMousePos.x>tCursor && iMousePos.x<tCursor+TREEVIEW_ROW_ADVANCE);
 
-		if(hittedRow)
-		{
-			if(iGetHovered)
-			{
-				curHover=node;
-				return true;
-			}
-			else
-			{ 
-				if(!hittedExpandos)
-				{
-					this->UnselectNodes(this->entityRoot);
-
-					if(!node->selected)
-					{
-						node->selected=true;
-						selChanged=node;
-
-						return true;
-					}
-				}
-				else
-				{
-					node->expanded=!node->expanded;
-					expChanged=node;
-					return true;
-				}
-			}
-		}
-
+		if(iMousePos.y>tRelativeY && iMousePos.y<tRelativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT)
+			return iEntityNode;
 	}
 
-	pos.y+=TREEVIEW_ROW_HEIGHT;
+	iFramePos.y+=TREEVIEW_ROW_HEIGHT;
 
-	if(node->expanded)
+	if(iEntityNode->expanded)
 	{
-		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
+		for(std::list<Entity*>::iterator nCh=iEntityNode->childs.begin();nCh!=iEntityNode->childs.end();nCh++)
 		{
-			if(this->ProcessMouseInput(mpos,pos,(EditorEntity*)*nCh,iGetHovered,expChanged,selChanged,curHover))
-				return true;
+			EditorEntity* tHoveredEntity=this->GetHoveredRow((EditorEntity*)*nCh,iMousePos,iFramePos,oExpandos);
+			if(tHoveredEntity)
+				return tHoveredEntity;
 		}
 	}
 
 	return 0;
 }
 
-
-void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
+void GuiSceneViewer::OnLMouseDown(TabContainer* tabContainer,void* iData)
 {
-	GuiRect::OnLMouseDown(tabContainer,data);
+	GuiRect::OnLMouseDown(tabContainer,iData);
 
 	if(!this->hovering)
 		return;
 
-	vec2& mpos=*(vec2*)data;
+	vec2& tMousePos=*(vec2*)iData;
 
-	if(mpos.x<this->rect.x+this->width)
+	if(tMousePos.x<this->rect.x+this->width)
 	{
-		EditorEntity* expChanged=0;
-		EditorEntity* selChanged=0;
-		EditorEntity* curHover=0;
-
-		if(this->ProcessMouseInput(mpos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),this->entityRoot,false,expChanged,selChanged,curHover))
+		bool eEntityExpandosPressed=false;
+		EditorEntity* eEntity=this->GetHoveredRow(this->entityRoot,tMousePos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),eEntityExpandosPressed);
+	
+		if(eEntity)
 		{
-			if(expChanged)
+			if(!eEntityExpandosPressed)
 			{
+				this->UnselectNodes(this->entityRoot);
+
+				if(!eEntity->selected)
+					eEntity->selected=true;
+			}
+			else
+			{
+				eEntity->expanded=!eEntity->expanded;
+
 				this->UpdateNodes(this->entityRoot);
 				this->OnSize(tabContainer);
 			}
+				
+			if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
+				this->selection.clear();
 
-			if(selChanged)
-			{
-				if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
-					this->selection.clear();
+			this->selection.push_back(eEntity);
 
-				this->selection.push_back(selChanged);
-
-				TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
-			}
-		}	
-
+			TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
+		}
 
 		tabContainer->SetDraw(2,0,this);
 	}
@@ -2225,7 +2230,7 @@ void GuiSceneViewer::DrawNodes(TabContainer* tabContainer,EditorEntity* node,vec
 
 void GuiSceneViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -2252,9 +2257,6 @@ GuiEntityViewer::~GuiEntityViewer()
 {
 	printf("destroying properties %p\n",this);
 }
-
-//__declspec(dllexport) EntityScript* Create(){return new Pippo;}
-
 
 void GuiEntityViewer::OnEntitySelected(TabContainer* tabContainer,void* data)
 {
@@ -2298,8 +2300,7 @@ void GuiEntityViewer::OnExpandos(TabContainer* tabContainer,void* data)
 
 void GuiEntityViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	tabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w,Renderer2DInterface::COLOR_GUI_BACKGROUND);
 
@@ -2309,7 +2310,6 @@ void GuiEntityViewer::OnPaint(TabContainer* tabContainer,void* data)
 	this->scrollBar->OnPaint(tabContainer);
 
 	this->SelfClipEnd(tabContainer,selfClip);
-	
 }
 
 void GuiEntityViewer::OnActivate(TabContainer* iTabContainer,void* data)
@@ -2405,7 +2405,7 @@ GuiProjectViewer::~GuiProjectViewer()
 }
 
 ResourceNode::ResourceNode():
-level(0),
+	level(0),
 	isDir(0),
 	selectedLeft(0),
 	selectedRight(0)
@@ -2520,7 +2520,7 @@ void GuiProjectViewer::OnReparent(TabContainer* tabContainer,void* data)
 
 void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	tabContainer->renderer2D->DrawRectangle(this->rect,Renderer2DInterface::COLOR_MAIN_BACKGROUND,true);
 
@@ -2533,9 +2533,9 @@ void GuiProjectViewer::OnPaint(TabContainer* tabContainer,void* data)
 
 void GuiProjectViewer::OnSize(TabContainer* tabContainer,void* data)
 {
-	this->viewer.rect.z=this->rect.x+this->rect.z-this->viewer.rect.x;
-
 	GuiRect::OnSize(tabContainer);
+
+	this->viewer.rect.z=this->rect.x+this->rect.z-this->viewer.rect.x;
 }
 
 
@@ -2546,77 +2546,57 @@ void GuiProjectViewer::OnSize(TabContainer* tabContainer,void* data)
 
 
 
-void GuiProjectViewer::GuiProjectDirViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
-{
-	GuiRect::OnLMouseDown(tabContainer,data);
 
-	if(!this->hovering)
-		return;
+
+
+
+/*
+void GuiProjectViewer::GuiProjectFileViewer::OnRMouseUp(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnRMouseUp(tabContainer,data);
 
 	vec2& mpos=*(vec2*)data;
 
-	ResourceNodeDir* expChanged=0;
-	ResourceNodeDir* selChanged=0;
+	EditorEntity* expChanged=0;
+	EditorEntity* selChanged=0;
+	EditorEntity* curHover=0;
 
-	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
+	bool iSelected = this->ProcessMouseInput(mpos,vec2(-GuiRect::TREEVIEW_ROW_ADVANCE,-GuiRect::TREEVIEW_ROW_HEIGHT),this->entityRoot,true,expChanged,selChanged,curHover) ?
+		true : false;
 
-	if(this->ProcessMouseInput(mpos,vec2(),drawFromHeight,this->rootResource,this->rootResource,expChanged,selChanged))
+	int menuResult=tabContainer->TrackGuiSceneViewerPopup(iSelected);
+
+	switch(menuResult)
 	{
-		if(expChanged)
+	case 1:
 		{
-			this->CalcNodesHeight(this->rootResource);
-			this->OnSize(tabContainer);
+			EditorEntity* newEntity=new EditorEntity;
+
+			newEntity->name="Entity";
+
+			newEntity->SetParent(iSelected ? this->selection[0] : this->entityRoot);
+			newEntity->bbox.a.make(-1,-1,-1);
+			newEntity->bbox.b.make(1,1,1);
+
+			newEntity->OnPropertiesCreate();
+
+			this->UpdateNodes(this->entityRoot);
+
+
+
 		}
+		break;
+	case 2:curHover->parent->childs.erase(std::find(curHover->parent->childs.begin(),curHover->parent->childs.end(),curHover));break;
+	case 3:curHover->CreateComponent<EditorLight>();break;
+	case 4:curHover->CreateComponent<EditorMesh>();break;
+	case 5:curHover->CreateComponent<EditorCamera>();break;
+	case 14:curHover->CreateComponent<EditorScript>();break;
+	}
 
-		if(selChanged)
-		{
-			if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
-				this->selectedDirs.clear();
-
-			this->selectedDirs.push_back(selChanged);
-
-			//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
-		}
-	}	
-
+	this->OnSize(tabContainer);
 	tabContainer->SetDraw(2,0,this);
 }
-
-void GuiProjectViewer::GuiProjectFileViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
-{
-	GuiRect::OnLMouseDown(tabContainer,data);
-
-	if(!this->hovering)
-		return;
-
-	vec2& mpos=*(vec2*)data;
-
-	ResourceNodeDir* expChanged=0;
-	ResourceNode* selChanged=0;
-
-	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
-
-	if(this->ProcessMouseInput(mpos,vec2(),drawFromHeight,this->rootResource,this->rootResource,expChanged,selChanged))
-	{
-		if(expChanged)
-		{
-			this->CalcNodesHeight(this->rootResource);
-			this->OnSize(tabContainer);
-		}
-
-		if(selChanged)
-		{
-			if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
-				this->selectedFiles.clear();
-
-			this->selectedFiles.push_back(selChanged);
-
-			//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
-		}
-
-		tabContainer->SetDraw(2,0,this);
-	}	
-}
+*/
 
 
 
@@ -2780,123 +2760,156 @@ void GuiProjectViewer::GuiProjectFileViewer::UnselectNodes(ResourceNodeDir* node
 		this->UnselectNodes(*nCh);
 }
 
-bool GuiProjectViewer::GuiProjectDirViewer::ProcessMouseInput(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged)
+
+ResourceNodeDir* GuiProjectViewer::GuiProjectDirViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
 {
-	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+	float tDrawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
+
+	if(iFramePos.y+TREEVIEW_ROW_HEIGHT>=tDrawFromHeight && iFramePos.y<=tDrawFromHeight+this->rect.w)
 	{
-		float relativeY=this->rect.y+pos.y-drawFromHeight;
+		float tRelativeY=this->rect.y+iFramePos.y-tDrawFromHeight;
 
-		float xCursor=this->rect.x+TREEVIEW_ROW_ADVANCE*node->level;
+		float tCursor=this->rect.x+iFramePos.x+TREEVIEW_ROW_ADVANCE*iResourceNodeDirNode->level;
 
-		bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-		bool hittedExpandos= node->dirs.size() && (mpos.x>xCursor && mpos.x<xCursor+TREEVIEW_ROW_ADVANCE);
+		oExpandos= iResourceNodeDirNode->dirs.size() && (iMousePos.x>tCursor && iMousePos.x<tCursor+TREEVIEW_ROW_ADVANCE);
 
-		if(hittedRow)
-		{
-			if(!hittedExpandos)
-			{
-				this->UnselectNodes(root);
-
-				if(!node->selectedLeft)
-				{
-					node->selectedLeft=true;
-					selChanged=node;
-
-					return true;
-				}
-			}
-			else
-			{
-				node->expanded=!node->expanded;
-				expChanged=node;
-				return true;
-			}
-		}
-
+		if(iMousePos.y>tRelativeY && iMousePos.y<tRelativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT)
+			return iResourceNodeDirNode;
 	}
 
-	pos.y+=TREEVIEW_ROW_HEIGHT;
+	iFramePos.y+=TREEVIEW_ROW_HEIGHT;
 
-	if(node->expanded)
+	if(iResourceNodeDirNode->expanded)
 	{
-		for(std::list<ResourceNodeDir*>::iterator nCh=node->dirs.begin();nCh!=node->dirs.end();nCh++)
+		for(std::list<ResourceNodeDir*>::iterator nCh=iResourceNodeDirNode->dirs.begin();nCh!=iResourceNodeDirNode->dirs.end();nCh++)
 		{
-			if(this->ProcessMouseInput(mpos,pos,drawFromHeight,root,*nCh,expChanged,selChanged))
-				return true;
+			ResourceNodeDir* tHoveredEntity=this->GetHoveredRow((ResourceNodeDir*)*nCh,iMousePos,iFramePos,oExpandos);
+			if(tHoveredEntity)
+				return tHoveredEntity;
 		}
 	}
 
 	return 0;
 }
 
-bool GuiProjectViewer::GuiProjectFileViewer::ProcessMouseInput(vec2& mpos,vec2& pos,float& drawFromHeight,ResourceNodeDir* root,ResourceNodeDir* _node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged)
+void GuiProjectViewer::GuiProjectDirViewer::OnLMouseDown(TabContainer* iTabContainer,void* iData)
 {
-	for(std::list<ResourceNodeDir*>::iterator dir=_node->dirs.begin();dir!=_node->dirs.end();dir++)
+	GuiRect::OnLMouseDown(iTabContainer,iData);
+
+	if(!this->hovering)
+		return;
+
+	vec2& tMousePos=*(vec2*)iData;
+
+
+	bool resourceNodeDirExpanded=false;
+
+	ResourceNodeDir* resourceNodeDir=this->GetHoveredRow(this->rootResource,tMousePos,vec2(),resourceNodeDirExpanded);
+
+	if(resourceNodeDir)
 	{
-		if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+		if(!resourceNodeDirExpanded)
 		{
-			float relativeY=this->rect.y+pos.y-drawFromHeight;
+			this->UnselectNodes(this->rootResource);
+
+			if(!resourceNodeDir->selectedLeft)
+				resourceNodeDir->selectedLeft=true;
+
+			this->CalcNodesHeight(this->rootResource);
+			this->OnSize(iTabContainer);
+		}
+		else
+			resourceNodeDir->expanded=!resourceNodeDir->expanded;
+
+		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
+			this->selectedDirs.clear();
+
+		this->selectedDirs.push_back(resourceNodeDir);
+
+		iTabContainer->SetDraw(2,0,this);
+	}
+}
+
+ResourceNode* GuiProjectViewer::GuiProjectFileViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
+{
+	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
+
+	for(std::list<ResourceNodeDir*>::iterator dir=iResourceNodeDirNode->dirs.begin();dir!=iResourceNodeDirNode->dirs.end();dir++)
+	{
+		if(iFramePos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && iFramePos.y<=drawFromHeight+this->rect.w)
+		{
+			float relativeY=this->rect.y+iFramePos.y-drawFromHeight;
 
 			ResourceNodeDir* node=(*dir);
 
 			float xCursor=this->rect.x+TREEVIEW_ROW_ADVANCE*node->level;
 
-			bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
-
-			if(hittedRow)
-			{
-				this->UnselectNodes(root);
-
-				if(!node->selectedRight)
-				{
-					node->selectedRight=true;
-					selChanged=node;
-
-					return true;
-				}
-			}
+			if(iMousePos.y>relativeY && iMousePos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT)
+				return node;
 		}
 
-		pos.y+=TREEVIEW_ROW_HEIGHT;
+		iFramePos.y+=TREEVIEW_ROW_HEIGHT;
 	}
 
-	for(std::list<ResourceNode*>::iterator file=_node->files.begin();file!=_node->files.end();file++)
+	for(std::list<ResourceNode*>::iterator file=iResourceNodeDirNode->files.begin();file!=iResourceNodeDirNode->files.end();file++)
 	{
-		if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+		if(iFramePos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && iFramePos.y<=drawFromHeight+this->rect.w)
 		{
-			float relativeY=this->rect.y+pos.y-drawFromHeight;
+			float relativeY=this->rect.y+iFramePos.y-drawFromHeight;
 
 			ResourceNode* node=(*file);
 
 			float xCursor=this->rect.x+TREEVIEW_ROW_ADVANCE*node->level;
 
-			bool hittedRow=mpos.y>relativeY && mpos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
+			if(iMousePos.y>relativeY && iMousePos.y<relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT)
+				return node;
 
-			if(hittedRow)
-			{
-				this->UnselectNodes(root);
-
-				if(!node->selectedRight)
-				{
-					node->selectedRight=true;
-					selChanged=node;
-
-					return true;
-				}
-			}
 		}
 
-		pos.y+=TREEVIEW_ROW_HEIGHT;
+		iFramePos.y+=TREEVIEW_ROW_HEIGHT;
 	}
 
-	return false;
+	return 0;
 }
+void GuiProjectViewer::GuiProjectFileViewer::OnLMouseDown(TabContainer* tabContainer,void* data)
+{
+	GuiRect::OnLMouseDown(tabContainer,data);
 
+	if(!this->hovering)
+		return;
 
+	vec2& mpos=*(vec2*)data;
+
+	bool exp=false;
+	ResourceNode* node=this->GetHoveredRow(this->rootResource,mpos,vec2(),exp);
+
+	if(node)
+	{
+		this->UnselectNodes(this->rootResource);
+
+		if(!node->selectedRight)
+			node->selectedRight=true;
+
+		if(exp)
+		{
+			this->CalcNodesHeight(this->rootResource);
+			this->OnSize(tabContainer);
+		}
+
+		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
+			this->selectedFiles.clear();
+
+		this->selectedFiles.push_back(node);
+
+		//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
+
+		tabContainer->SetDraw(2,0,this);
+	}	
+}
 
 void GuiProjectViewer::GuiProjectDirViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -2917,7 +2930,7 @@ void GuiProjectViewer::GuiProjectDirViewer::OnPaint(TabContainer* tabContainer,v
 
 void GuiProjectViewer::GuiProjectFileViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -2974,8 +2987,9 @@ void GuiScriptViewer::Open(Script* iScript)
 
 			if(size>0)
 			{
-				char* buf=new char[size];
-				fread(buf,size,1,iScript->file.handle);
+				char* buf=new char[size+1];
+				fread(buf,size,1,iScript->file.cData);
+				buf[size]='\0';
 				buffer=buf;
 				delete [] buf;
 			}
@@ -2989,12 +3003,12 @@ bool GuiScriptViewer::Save()
 {
 	if(this->script)
 	{
-		if(!File::Exist(this->script->file.filename))
-			File::Create(this->script->file.filename);
+		if(!File::Exist(this->script->file.path))
+			File::Create(this->script->file.path);
 
-		if(this->script->file.Open("w"))
+		if(this->script->file.Open("wb"))
 		{
-			fwrite(this->buffer.c_str(),1,this->buffer.size(),this->script->file.handle);
+			int writed=fwrite(this->buffer.c_str(),this->buffer.size(),1,this->script->file.cData);
 
 			this->script->file.Close();
 
@@ -3005,22 +3019,22 @@ bool GuiScriptViewer::Save()
 	}
 
 	return false;
-}
+} 
 
 
 bool GuiScriptViewer::Compile()
 {
-	bool exited;
-	bool compiled;
-	bool runned;
+	bool exited=false;
+	bool compiled=false;
+	bool runned=false;
 
 	if(this->script)
 	{
-		exited=this->script->Exit();
+		exited=AppInterface::instance->compiler->Unload(this->script);
 
 		compiled=AppInterface::instance->compiler->Compile(this->script);
 
-		runned=this->script->Run();
+		runned=AppInterface::instance->compiler->Load(this->script);
 	}
 
 	return exited && compiled && runned;
@@ -3028,7 +3042,7 @@ bool GuiScriptViewer::Compile()
 
 void GuiScriptViewer::OnPaint(TabContainer* tabContainer,void* data)
 {
-	bool selfClip=this->SelfClip(tabContainer);
+	bool selfClip=this->SelfClipBegin(tabContainer);
 
 	this->DrawBackground(tabContainer);
 
@@ -3113,14 +3127,14 @@ void GuiScriptViewer::OnKeyUp(TabContainer* tabContainer,void* data)
 ///////////////////////////////////////////////
 GuiCompilerViewer::GuiCompilerViewer(){this->name="Compiler";}
 
-char* nthOccurrence(char* iStr,char iChar,int iNth)
+wchar_t* nthOccurrenceInLine(wchar_t* iStr,char iChar,int iNth)
 {
-	char* str=iStr;
+	wchar_t* str=iStr;
 	int occurr=0;
 
 	char c=*str;
 
-	while(c!='\0')
+	while(c!='\0' || c!='\n')
 	{
 		if(c==iChar)
 		{
@@ -3135,78 +3149,60 @@ char* nthOccurrence(char* iStr,char iChar,int iNth)
 }
 
 
-bool GuiCompilerViewer::ParseCompilerOutputFile(TabContainer* tabContainer,File& iFile)
+bool GuiCompilerViewer::ParseCompilerOutputFile(TabContainer* tabContainer,wchar_t* fileBuffer)
 {
-	char* fileBuffer=0;
-
-	if(iFile.Open("r"))
-	{
-		int fileSize=iFile.Size();
-		int lfSize=iFile.CountOccurrences('\n');//line feed
-		int crSize=iFile.CountOccurrences('\r');//carriage return
-
-		int ___size=fileSize-lfSize/2-crSize;
-
-		fileBuffer=(char*)iFile.Read(1,___size+1);
-		fileBuffer[___size]='\0';
-		iFile.Close();
-	}
+	this->lines.clear();
+	this->DestroyChilds();
 
 	if(fileBuffer)
 	{
-		this->lines.clear();
+		wchar_t* LineBegin=fileBuffer;
+		wchar_t* FileEnd=LineBegin;
+		while(*FileEnd++);
 
-		char* LineBegin=fileBuffer;
-
-		while(LineBegin!='\0')
+		while(LineBegin!=FileEnd-1)
 		{
-			char* ErrorString=nthOccurrence(LineBegin,':',2);
-			char* LineEnd=strchr(LineBegin,'\n');
-			char* MessageString;
+			wchar_t* LineEnd=wcschr(LineBegin,'\n');
 
-			if(LineBegin==LineEnd)
-				break;
+			wchar_t* compileError=wcsstr(LineBegin,L"error C");
+			wchar_t* linkError=wcsstr(LineBegin,L"error LNK");
+
+			compileError!=0 && LineEnd < compileError ? compileError=0 : 0;
+			linkError!=0 && LineEnd < linkError ? linkError=0 : 0;
+
+			bool simpleMessage=!compileError && !linkError;
 
 			OutputLine* _line=new OutputLine;
 			
-			if(LineEnd<ErrorString)
+			if(simpleMessage)
 			{
-				MessageString=strchr(LineBegin,'\n');
-				if(MessageString)
-					_line->message=String(LineBegin,MessageString-LineBegin);
+				_line->message=std::wstring(LineBegin,LineEnd-LineBegin);
 
 				this->lines.push_back(_line);
-
-				LineBegin=++MessageString;
 			}
 			else
 			{
-				_line->file=String(LineBegin,ErrorString-LineBegin);
+				wchar_t* FileEnd=nthOccurrenceInLine(LineBegin,':', compileError ? 2 : 1);//the first : should be the volume drive
 
-				MessageString=strchr(++ErrorString,':');
-				if(MessageString)
-					_line->error=String(ErrorString,MessageString-ErrorString);
-				if(MessageString)
-					_line->message=String(++MessageString,LineEnd-MessageString);
+				if(FileEnd)
+					FileEnd+=2;
+
+				wchar_t* ErrorEnd=nthOccurrenceInLine(FileEnd,':',1);
+
+				if(ErrorEnd)
+					ErrorEnd+=2;
+
+				_line->file=std::wstring(LineBegin,FileEnd-LineBegin);
+				_line->error=std::wstring(FileEnd,ErrorEnd-FileEnd);
+				_line->message=std::wstring(ErrorEnd,LineEnd-ErrorEnd);
 
 				this->lines.push_back(_line);
-
-				LineBegin=LineEnd;
 			}
+			LineBegin=++LineEnd;
 		}
 
 		for(size_t i=0;i<this->lines.size();i++)
-		{
-			GuiString* compilerMessageRect=new GuiString;
-
-			compilerMessageRect->text=this->lines[i]->file + this->lines[i]->error + this->lines[i]->message;
-			compilerMessageRect->rect.w=20;
-			compilerMessageRect->alignRect.y=-1;
-			compilerMessageRect->alignText.make(-1,0.5f);
-			compilerMessageRect->colorHovering=compilerMessageRect->colorBackground+100;
-
-			this->Append(compilerMessageRect);
-		}
+			this->PushMessage(this->lines[i]->message,this->lines[i]->error,this->lines[i]->file);
 
 		this->OnSize(tabContainer);
 		this->OnActivate(tabContainer);
@@ -3217,6 +3213,24 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(TabContainer* tabContainer,File&
 	return false;
 }
 
+
+void GuiCompilerViewer::PushMessage(std::wstring iMessage,std::wstring iError,std::wstring iFile)
+{
+	GuiString* compilerMessageRect=new GuiString;
+
+	compilerMessageRect->wText.append(iError).append(iMessage);
+	compilerMessageRect->rect.w=20;
+	compilerMessageRect->alignRect.y=-1;
+	compilerMessageRect->alignText.make(-1,0.5f);
+
+	if(iError.size())
+		compilerMessageRect->colorBackground=0xff0000;
+
+	compilerMessageRect->colorHovering=compilerMessageRect->colorBackground+100;
+
+	this->AppendChild(compilerMessageRect);
+}
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3224,7 +3238,7 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(TabContainer* tabContainer,File&
 ///////////////////////////////////////////////
 
 #define __APPENDCOMPONENTTOENTITY()	EditorEntity* eEntity=(EditorEntity*)this->entity; \
-										eEntity->properties.Append(&this->properties); \
+										eEntity->properties.AppendChild(&this->properties); \
 										TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,0);
 
 
@@ -3413,11 +3427,11 @@ void compileScriptCallback(void* iData)
 void EditorScript::OnPropertiesCreate()
 {
 	this->properties.text="Script";
-	GuiRect* fileProp=this->properties.Property("File",this->Script::file.filename);
+	GuiRect* fileProp=this->properties.Property("File",this->Script::file.path);
 	this->properties.Property("Running",this->Script::runtime ? "true" : "false");
 
 	GuiButtonFunc* buttonEdit=new GuiButtonFunc;
-	this->properties.Append(buttonEdit);
+	this->properties.AppendChild(buttonEdit);
 	buttonEdit->func=launchScriptEditorCallback;
 	buttonEdit->param=this;
 	//buttonEdit->colorBackground=Renderer2DInterface::COLOR_GUI_BACKGROUND;
@@ -3428,7 +3442,7 @@ void EditorScript::OnPropertiesCreate()
 	buttonEdit->alignRect.make(1,-1);
 
 	GuiButtonFunc* buttonCompile=new GuiButtonFunc;
-	this->properties.Append(buttonCompile);
+	this->properties.AppendChild(buttonCompile);
 	buttonCompile->func=compileScriptCallback;
 	buttonCompile->param=this;
 	//buttonEdit->colorBackground=Renderer2DInterface::COLOR_GUI_BACKGROUND;
@@ -3446,12 +3460,23 @@ void EditorScript::OnPropertiesUpdate(TabContainer* tab)
 
 void EditorScript::OnResourcesCreate()
 {
-	String baseName=AppInterface::instance->projectFolder + "\\" + this->entity->name;
+	String tFileNamePath=AppInterface::instance->projectFolder + "\\" + this->entity->name;
+	this->file.SetFilename(tFileNamePath + ".cpp");
 
-	this->file.SetFilename(baseName + ".cpp");
+	if(!File::Exist(this->file.path))
+	{
+		if(!File::Create(this->file.path))
+			__debugbreak();
 
-	if(!File::Create(this->file.filename))
-		__debugbreak();
+		if(this->file.Open("wb"))
+		{
+			String content="#include \"entities.h\"\n\nstruct " + this->entity->name + "_ : EntityScript\n{\n\tvoid init()\n\t{\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
+			int contantCount=content.Count();
+
+			this->file.Write((void*)content.Buf(),contantCount,1);
+			this->file.Close();
+		}
+	}
 }
 
 void EditorCamera::OnPropertiesCreate()

@@ -1,4 +1,6 @@
-#include "win32.h"
+﻿#include "win32.h"
+
+#define ENGINE_EXTENSION ".__engine_"
 
 bool KeyboardInput::IsPressed(unsigned int iCharCode)
 {
@@ -255,31 +257,31 @@ vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int 
 	return vec2(tSize.cx,tSize.cy);
 }
 
-void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY)
+vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
+{
+	ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
+	HDC hdc=GetDC(hwndRenderer->GetHwnd());
+
+	SIZE tSize;
+	GetTextExtentPoint32W(hdc,iText,iSlen>0 ? iSlen : wcslen(iText),&tSize);
+
+	ReleaseDC(hwndRenderer->GetHwnd(),hdc);
+
+	return vec2(tSize.cx,tSize.cy);
+}
+
+
+void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY)
 {
 	if(!iText)
 		return;
 
-	unsigned int tFinalTextLength=0;
-	wchar_t *tWcharTextOutput=0;
-
-	{
-		unsigned int tTextLength=strlen(iText);
-		unsigned int tCharSize=sizeof(const char);
-		tFinalTextLength=tCharSize*tTextLength;
-		tWcharTextOutput=new wchar_t[tFinalTextLength+1];
-		int tCharsWrited=mbstowcs(tWcharTextOutput,iText,tFinalTextLength);
-
-		if(tCharsWrited!=tFinalTextLength)
-			__debugbreak();
-
-		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
-	}
+	unsigned int tFinalTextLength=wcslen(iText);
 
 	iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
 
 	if(iAlignPosX<0 && iAlignPosY<0)
-		iRenderer->DrawText(tWcharTextOutput,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 	else
 	{
 		vec2 tSize=MeasureText(iRenderer,iText);
@@ -301,10 +303,34 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
 		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
 
-		iRenderer->DrawText(tWcharTextOutput,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 	}
 
 	iRenderer->PopAxisAlignedClip();
+}
+
+void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY)
+{
+	if(!iText)
+		return;
+
+	unsigned int tFinalTextLength=0;
+	wchar_t *tWcharTextOutput=0;
+
+	{
+		unsigned int tTextLength=strlen(iText);
+		unsigned int tCharSize=sizeof(const char);
+		tFinalTextLength=tCharSize*tTextLength;
+		tWcharTextOutput=new wchar_t[tFinalTextLength+1];
+		int tCharsWrited=mbstowcs(tWcharTextOutput,iText,tFinalTextLength);
+
+		if(tCharsWrited!=tFinalTextLength)
+			__debugbreak();
+
+		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
+	}
+
+	Direct2DBase::DrawText(iRenderer,iBrush,tWcharTextOutput,x1,y1,x2,y2,iAlignPosX,iAlignPosY);
 
 	SAFEDELETEARRAY(tWcharTextOutput);
 }
@@ -387,8 +413,11 @@ bool Renderer2DInterfaceWin32::RecreateTarget(HWND iHandle)
 
 	return true;
 }
-
 void Renderer2DInterfaceWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY)
+{
+	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY);
+}
+void Renderer2DInterfaceWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY)
 {
 	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY);
 }
@@ -896,8 +925,6 @@ bool WindowDataWin32::FindAndGrowSibling()
 
 ///////////////////////////////////////// APP
 
-DWORD WINAPI threadGuiTabFunc(LPVOID);
-
 AppWin32::AppWin32()
 {
 	this->timerMain=new TimerWin32;
@@ -946,6 +973,8 @@ int AppWin32::Initialize()
 		printf("Application folder: %s\n",this->exeFolder.Path());
 	}
 
+	this->compiler=new CompilerInterfaceWin32;
+
 	{//applicationDataFolder
 		char ch[5000];
 		if(S_OK!=SHGetFolderPath(0,CSIDL_APPDATA,0,SHGFP_TYPE_CURRENT,ch))
@@ -958,11 +987,18 @@ int AppWin32::Initialize()
 			SECURITY_ATTRIBUTES sa;
 			CreateDirectory(this->applicationDataFolder,&sa);
 		}
+		else
+		{
+			this->compiler->Execute(this->applicationDataFolder,"del /F /Q *.*");
+			this->compiler->Execute(this->applicationDataFolder,"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
+		}
 
 		printf("Application data folder: %s\n",this->applicationDataFolder);
+
+
 	}
 
-	this->compiler=new CompilerInterfaceWin32;
+	
 
 	Direct2DBase::Init(L"Verdana",10);
 
@@ -1024,7 +1060,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		if(strstr(data.cFileName,".engine"))
+		if(strstr(data.cFileName,ENGINE_EXTENSION))
 		{
 			String engineFile=dir + "\\" + String(data.cFileName);
 
@@ -1108,7 +1144,7 @@ void AppWin32::ScanDir(String dir)
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		if(strstr(data.cFileName,".engine"))
+		if(strstr(data.cFileName,ENGINE_EXTENSION))
 		{
 			String s = dir + "\\" + String(data.cFileName);
 
@@ -1120,7 +1156,7 @@ void AppWin32::ScanDir(String dir)
 		}
 		else
 		{
-			String engineFile = dir + "\\" + String(data.cFileName) + ".engine";
+			String engineFile = dir + "\\" + String(data.cFileName) + ENGINE_EXTENSION;
 
 			if(!PathFileExists(engineFile.Buf()))
 			{
@@ -1150,36 +1186,6 @@ void AppWin32::ScanDir(String dir)
 }
 
 
-bool sem=0;
-
-DWORD WINAPI threadGuiTabFunc(LPVOID _app)
-{
-
-	/*App* app=(App*)_app;
-	while(true)
-	{
-		if(!app->threadLockedEntities && app->threadUpdateNeeded)
-		{
-			app->threadPaintNeeded=false;
-			sem=true;
-
-			for(int i=0;i<(int)GetPool<TabContainer>().size();i++)
-			{
-				if(GetPool<TabContainer>()[i]->GetSelected())
-				{
-					GetPool<TabContainer>()[i]->OnUpdate();
-				}
-			}
-
-			app->threadUpdateNeeded=false;
-			app->threadPaintNeeded=true;
-		}
-	}*/
-	
-
-	return 0;
-}	
-
 void AppWin32::Run()
 {
 //#pragma message (LOCATION " PeekMessage has 0 as hwnd to let other windows work")
@@ -1196,8 +1202,6 @@ void AppWin32::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-		
-		
 	}
 
 	this->Deinitialize();
@@ -3189,8 +3193,51 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 	DestroyMenu(createEntity);
 	DestroyMenu(createComponent);
 	DestroyMenu(createMesh);
+	DestroyMenu(createScript);
 
 	return result;
+}
+
+int TabContainerWin32::TrackProjectFileViewerPopup()
+{
+	/*HMENU menu=CreatePopupMenu();
+	HMENU createEntity=CreatePopupMenu();
+	HMENU createComponent=CreatePopupMenu();
+	HMENU createMesh=CreatePopupMenu();
+	HMENU createScript=CreatePopupMenu();
+
+	if(iSelected)
+	{
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
+		InsertMenu(menu,1,MF_BYPOSITION|MF_STRING,2,"Delete");
+		InsertMenu(menu,2,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,"Component");
+		{
+			InsertMenu(createComponent,0,MF_BYPOSITION|MF_STRING,3,"Light");
+			InsertMenu(createComponent,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createMesh,"Mesh");
+			{
+			}
+			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
+			InsertMenu(createComponent,3,MF_BYPOSITION|MF_STRING,14,"Script");
+		}
+	}
+	else
+	{
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
+	}
+
+	RECT rc;
+	GetWindowRect(windowDataWin32->hwnd,&rc);
+
+	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(windowDataWin32->lparam),rc.top+HIWORD(windowDataWin32->lparam),0,GetParent(windowDataWin32->hwnd),0);
+
+	DestroyMenu(menu);
+	DestroyMenu(createEntity);
+	DestroyMenu(createComponent);
+	DestroyMenu(createMesh);
+	DestroyMenu(createScript);
+
+	return result;*/
+	return 0;
 }
 
 
@@ -3361,7 +3408,7 @@ void TabContainerWin32::DrawFrame()
 									(float)(CONTAINER_HEIGHT-TAB_HEIGHT),
 									(float)(selected*TAB_WIDTH+TAB_WIDTH),
 									(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),
-									Renderer2DInterface::COLOR_TAB_SELECTED);
+									Renderer2DInterface::COLOR_GUI_BACKGROUND);
 
 	for(int i=0;i<(int)tabs.childs.size();i++)
 		this->renderer2D->DrawText(tabs.childs[i]->name,
@@ -3967,6 +4014,59 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 {
 	bool retVal;
 
+	File errorOutputFile(AppInterface::instance->applicationDataFolder + "\\error.output");
+
+	if(errorOutputFile.Exist())
+	{
+		if(!errorOutputFile.Delete())
+			__debugbreak();
+	}
+
+	
+	if(!iScript->modulePath.Count())
+	{
+		String tRandomWorkingDirectory=AppInterface::instance->applicationDataFolder + "\\" + String::Random(8);
+
+		DWORD res;
+
+		while(true)
+		{
+			DWORD res=::GetFileAttributes(tRandomWorkingDirectory);
+
+			if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
+				break;
+
+			tRandomWorkingDirectory=AppInterface::instance->applicationDataFolder + "\\" + String::Random(8);
+		}
+
+		if(!::CreateDirectory(tRandomWorkingDirectory,0))
+			__debugbreak();
+
+		if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
+			__debugbreak();
+
+		iScript->modulePath=tRandomWorkingDirectory;
+	}
+
+	String tSourceFileContent=iScript->file.All();
+
+	String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
+
+	String sourceFullPathFileName=AppInterface::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	if(iScript->file.Open("ab"))
+	{
+		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
+		iScript->file.Close();
+	}
+
+	String compilerOptions="/nologo /MDd /ZI /EHsc";
+	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
+	String includesPath=AppInterface::instance->exeFolder.PathUp(5) + "\\src";
+	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
+	String engineLibraryFullPathFileName=AppInterface::instance->exeFolder.Path() + "\\engine.lib";
+	String kernelLib="kernel32.lib";
+
 	SECURITY_ATTRIBUTES sa;
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -3979,12 +4079,7 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 	sa.lpSecurityDescriptor = 0;
 	sa.bInheritHandle = true;  
 
-	File errorOutputFile(AppInterface::instance->applicationDataFolder + "\\error.output");
-
-	if(errorOutputFile.Exist())
-		errorOutputFile.Delete();
-
-	HANDLE errorOutput = CreateFile(errorOutputFile.filename,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ,&sa,CREATE_NEW,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
+	HANDLE errorOutput = CreateFile(errorOutputFile.path,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
 	si.cb = sizeof(STARTUPINFO);
 	si.wShowWindow = true;
@@ -3993,27 +4088,33 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 	si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 	si.hStdOutput = errorOutput;//GetStdHandle(STD_OUTPUT_HANDLE);
 
-	String compilerOptions="/nologo /MDd /ZI /EHsc";
-	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	String sourceFullPathFileName=AppInterface::instance->projectFolder + "\\" + iScript->file.filename.File();
-	String outputFullPathFileName="/OUT:" + AppInterface::instance->applicationDataFolder + "\\" + iScript->file.filename.Name() + ".dll";
-	String engineLibraryFullPathFileName=AppInterface::instance->exeFolder.Path() + "\\engine.lib";
+	{
+		String CommandLine="vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  sourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
 
-	String CommandLine="vcvars32.bat && cl.exe " + compilerOptions + " " +  sourceFullPathFileName + " " + linkerOptions + " " + outputFullPathFileName + " " + engineLibraryFullPathFileName + "\0";
+		printf("Executing compilation: %s\n\n",CommandLine);
 
-	printf("---------------------------\n");
-	printf("%s\n\n",CommandLine);
+		SetCurrentDirectory(iScript->modulePath);
 
-	SetCurrentDirectory(AppInterface::instance->projectFolder);
+		if(!CreateProcess(0,CommandLine,0,0,true,0,0,0,&si,&pi))
+			retVal=false;
 
-	if(!CreateProcess(0,CommandLine,0,0,true,0,0,0,&si,&pi))
-		retVal=false;
+		WaitForSingleObject( pi.hProcess, INFINITE );
 
-	WaitForSingleObject( pi.hProcess, INFINITE );
+		if(!CloseHandle( pi.hProcess ))
+			__debugbreak();
+		if(!CloseHandle( pi.hThread ))
+			__debugbreak();
+		if(!CloseHandle( errorOutput ))
+			__debugbreak();
 
-	CloseHandle( pi.hProcess );
-	CloseHandle( pi.hThread );
-	CloseHandle( errorOutput );
+		errorOutput=0;
+	}
+
+	if(iScript->file.Open("wb"))
+	{
+		iScript->file.Write(tSourceFileContent,tSourceFileContent.Count(),1);
+		iScript->file.Close();
+	}
 
 	GuiCompilerViewer* guiCompilerViewer=0;
 
@@ -4040,72 +4141,143 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 
 	GuiRootRect* guiCompilerViewer_rootRect=guiCompilerViewer->GetRootRect();
 
-	guiCompilerViewer->ParseCompilerOutputFile(guiCompilerViewer_rootRect->tabContainer,errorOutputFile);
+	wchar_t* tWideCharCompilationOutput=0;
+
+	if(errorOutputFile.Open("rb"))
+	{
+		int size=errorOutputFile.Size();
+
+		String str=errorOutputFile.All();
+		
+		tWideCharCompilationOutput=new wchar_t[str.Count()+1];
+		int nCharsWritten=MultiByteToWideChar(CP_OEMCP,MB_ERR_INVALID_CHARS,str,str.Count(),tWideCharCompilationOutput,str.Count());
+		tWideCharCompilationOutput[nCharsWritten]=L'\0';
+
+		errorOutputFile.Close();
+
+		if(!errorOutputFile.Delete())
+			__debugbreak();
+	}
+
+	guiCompilerViewer->ParseCompilerOutputFile(guiCompilerViewer_rootRect->tabContainer,tWideCharCompilationOutput);
+
+	SAFEDELETEARRAY(tWideCharCompilationOutput);
+
+	
 
 	guiCompilerViewer_rootRect->tabContainer->SetSelection(guiCompilerViewer);
 
 	guiCompilerViewer_rootRect->tabContainer->SetDraw();
 
-	errorOutputFile.Delete();
+	/*if(!CloseHandle( errorOutput ))
+		__debugbreak();*/
 
-	printf("---------------------------\n");
+	
+
+	
 
 	return retVal;
 }
 
-
-
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-ScriptWin32::ScriptWin32():dllModule(0){}
-
-bool ScriptWin32::Run()
+bool CompilerInterfaceWin32::Execute(String iPath,String iCmdLine)
 {
-	if(!this->file.filename.Count())
+	if(iPath=="none")
+		iPath=AppInterface::instance->projectFolder;
+
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+
+	ZeroMemory( &si, sizeof(STARTUPINFO) );
+	ZeroMemory( &pi, sizeof(PROCESS_INFORMATION) );
+
+	si.cb = sizeof(STARTUPINFO);
+	si.wShowWindow = true;
+
+	SetCurrentDirectory(iPath);
+
+	printf("executing command: %s\n",iCmdLine);
+
+	if(!CreateProcess(0,String("cmd.exe /C ") + iCmdLine,0,0,true,0,0,0,&si,&pi))
 		return false;
 
-	this->handle=(HMODULE)LoadLibrary(this->file.filename);
+	WaitForSingleObject( pi.hProcess, INFINITE );
 
-	if(!this->handle)
+	if(!CloseHandle( pi.hProcess ))
+		__debugbreak();
+	if(!CloseHandle( pi.hThread ))
+		__debugbreak();
+
+	return true;
+}
+
+
+bool CompilerInterfaceWin32::Load(Script* iScript)
+{
+	if(!iScript->modulePath.Count())
 		return false;
 
-	EntityScript* (*CreateScript)()=(EntityScript* (*)())GetProcAddress((HMODULE)this->handle,"Create");
+	HMODULE* tModule=this->modules.find(iScript)!=this->modules.end() ? this->modules[iScript] : 0;
+
+	if(!tModule)
+	{
+		tModule=new HMODULE;
+		this->modules.insert(std::pair<Script*,HMODULE*>(iScript,tModule));
+	}
+
+	*tModule=(HMODULE)LoadLibrary(iScript->modulePath + "\\" + iScript->entity->name + ".dll");
+
+	if(!*tModule)
+		return false;
+
+	EntityScript* (*CreateScript)()=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
 
 	if(CreateScript)
 	{
-		this->runtime=CreateScript();
-		this->runtime->entity=this->entity;
+		iScript->runtime=CreateScript();
+		iScript->runtime->entity=iScript->entity;
 
-		this->runtime->init();
+		iScript->runtime->init();
 
 		return true;
+	}
+	else
+	{
+		SAFEDELETEARRAY(iScript->runtime);
+		SAFEDELETE(tModule);
+		this->modules.erase(iScript);
 	}
 
 	return false;
 }
 
-bool ScriptWin32::Exit()
+bool CompilerInterfaceWin32::Unload(Script* iScript)
 {
-	if(this->runtime)
+	if(iScript->runtime)
 	{
-		this->runtime->deinit();
+		HMODULE* tModule=this->modules.find(iScript)!=this->modules.end() ? this->modules[iScript] : 0;
 
-		if(!FreeLibrary((HMODULE)this->handle))
+		if(!tModule)
 			return false;
 
-		delete this->runtime;
-		this->runtime=0;
+		iScript->runtime->deinit();
+
+		if(!FreeLibrary(*tModule))
+			return false;
+		else
+		{
+			SAFEDELETE(tModule);
+			this->modules.erase(iScript);
+		}
+
+		SAFEDELETE(iScript->runtime);
 
 		return true;
 	}
 
 	return true;
 }
+
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4117,6 +4289,13 @@ bool ScriptWin32::Exit()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
 
 //int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 int main()

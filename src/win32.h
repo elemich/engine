@@ -73,6 +73,7 @@ struct Direct2DBase
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
 	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const wchar_t* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1);
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
@@ -83,6 +84,7 @@ struct Direct2DBase
 	static void Identity(ID2D1RenderTarget*);
 
 	static vec2 MeasureText(ID2D1RenderTarget*,const char*,int iSlen=-1);
+	static vec2 MeasureText(ID2D1RenderTarget*,const wchar_t*,int iSlen=-1);
 };
 
 
@@ -117,6 +119,7 @@ struct Renderer2DInterfaceWin32 : Renderer2DInterface
 	~Renderer2DInterfaceWin32();
 
 	void DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY);
+	void DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
@@ -277,6 +280,7 @@ struct TabContainerWin32 : TabContainer
 
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
+	int TrackProjectFileViewerPopup();
 
 	void SetCursor(int);
 };
@@ -363,21 +367,16 @@ struct AppWin32 : AppInterface
 	void ScanDir(String);
 };
 
-struct ScriptWin32 : Script
-{
-	HMODULE dllModule;
-
-	ScriptWin32();
-
-	bool Run();
-	bool Exit();
-};
-
 struct CompilerInterfaceWin32 : CompilerInterface
 {
 	CompilerInterfaceWin32();
 
+	std::map<Script*,HMODULE*> modules;
+
 	bool Compile(Script*);
+	bool Execute(String iPath,String iCmdLine);
+	bool Load(Script*);
+	bool Unload(Script*);
 };
 
 

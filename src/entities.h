@@ -175,8 +175,8 @@ struct Resource : THierarchyList<Entity>
 
 struct File : Resource
 {
-	FilePath filename;
-	FILE* handle;
+	FilePath path;
+	FILE* cData;
 
 	File(String iString=0);
 
@@ -188,9 +188,11 @@ struct File : Resource
 	int Size();
 	bool Create();
 	int CountOccurrences(char);
-	void* Read(int iSize,int iNum);
+	void* Read(int iSize);
+	void* ReadW(int iSize);
 	bool Write(void* iData,int iSize,int iNum);
 	bool Delete();
+	String All();
 
 	static bool Create(const char* iFilename);
 	static bool Exist(const char* iFilename);
@@ -525,19 +527,17 @@ struct Script : EntityComponent
 {
 	File file;
 	EntityScript* runtime;
+	FilePath modulePath;
 
-	void* handle;
+	Script* handle;
 
 	Script();
 
-	virtual bool Run(){return false;}
-	virtual bool Exit(){return false;}
+	void update();
 };
 
 struct EntityScript
 {
-	virtual EntityScript* GetComponent(){return this;}
-
 	Entity* entity;
 
 	EntityScript();

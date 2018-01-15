@@ -123,11 +123,11 @@ struct String
 {
 protected:
 	char* data;
+	size_t size;
 public:
 
 	String();
 	String(const char* s);
-	String(int,const char* s,...);
 	String(const String& s);
 	String(const wchar_t* s);
 	String(int number);
@@ -136,19 +136,25 @@ public:
 
 	~String();
 
+	friend String operator+(const String a,const String& b);
+
 	String& operator=(const char* s);
 	String& operator=(const String& s);
 	bool operator==(const char* s);
 	char operator[](int i);
-	friend String operator+(const String a,const String& b);
 	String& operator+=(const String&);
-
+	
+	
+	
+	static String Random(int iCount);
 	operator char*()const;
 	operator float()const;
 	int Count()const;
 	const char* Buf()const;
 	bool Contains(const char*);
-	wchar_t* Wstring(int& oSize);
+	wchar_t* Wstring();
+	bool Alloc(int iBytes);
+	bool Copy(const char* iChar);
 	//operator bool();
 };
 
@@ -156,7 +162,6 @@ struct FilePath : String
 {
 	FilePath():String(){}
 	FilePath(const char* s):String(s){}
-	FilePath(int i,const char* s,...):String(i,s){}
 	FilePath(const String& s):String(s){}
 	FilePath(const wchar_t* s):String(s){}
 	FilePath(int number):String(number){}
@@ -168,6 +173,8 @@ struct FilePath : String
 	String Fullpath();
 	String Path();
 	String Extension();
+
+	String PathUp(int iLevels);
 };
 
 
@@ -346,7 +353,7 @@ namespace MatrixMathNamespace
 
 	float* negate(float* b,float* a);
 	float* traspose(float* b,float* a);
-	float* translate(float*,vec3 in);
+	float* translate(float*,vec3 iString);
 
 	float* scale(float* b,float* a,float x,float y,float z);
 	float* scale(float* b,float* a,vec3 v);
@@ -373,7 +380,7 @@ namespace MatrixMathNamespace
 	float* invert(float* b,float* a);
 	float det(const float* m);
 
-	float* transform(float* out,float* m,float* in);
+	float* transform(float* out,float* m,float* iString);
 	float* transform(float* out,float* m,float,float,float);
 
 	float* orientation(float* c,float* m,float* a);
@@ -438,7 +445,7 @@ struct mat4 : TNumberedVectorInterface<float,16>
 
 	mat4& identity();
 	mat4& identity33();
-	vec3 transform(vec3 in);
+	vec3 transform(vec3 iString);
 	void transformself(vec3& inout);
 	vec3 transform(float,float,float);
 	mat4& traspose();
@@ -458,7 +465,7 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	mat4& trs(vec3 t,vec3 r,vec3 s);
 	vec3 position();
 	void axes(vec3& a,vec3& b,vec3& c);
-	vec3 axis(vec3 in);
+	vec3 axis(vec3 iString);
 	vec3 axis(float,float,float);
 	void print();
 	mat4& perspective(float fov,float ratio,float near,float far);

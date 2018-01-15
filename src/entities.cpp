@@ -14,39 +14,44 @@
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-File::File(String iString):filename(iString),
-handle(0){}
+File::File(String iString):path(iString),
+cData(0){}
 
-void File::SetFilename(String iFilename){this->filename=iFilename;}
+void File::SetFilename(String iFilename){this->path=iFilename;}
 bool File::Open(char* mode)
 {
-	if(!this->filename.Count())
+	if(!this->path.Count() || this->IsOpen())
 		return false;
 
-	this->handle=fopen(filename,mode);
+	this->cData=fopen(path,mode);
 
-	if(!handle)
+	if(!cData)
 		return false;
+
+	int tell=ftell(this->cData);
+
+	if(tell!=0)
+		__debugbreak();
 
 	return true;
 }
 
 bool File::IsOpen()
 {
-	return this->handle ? true : false;
+	return this->cData ? true : false;
 }
 
 void File::Close()
 {
-	this->handle ? fclose(this->handle) : 0;
+	this->cData ? fclose(this->cData),this->cData=0 : 0;
 }
 
 bool File::Exist()
 {
-	if(!this->filename.Count())
+	if(!this->path.Count())
 		return false;
 
-	return File::Exist(this->filename);
+	return File::Exist(this->path);
 }
 
 int File::Size()
@@ -55,17 +60,17 @@ int File::Size()
 
 	if(this->Open())
 	{
-		int curPos=ftell(this->handle);
-		fseek(this->handle,0,SEEK_END);
-		result=ftell(this->handle);
-		fseek(this->handle,0,curPos);
+		int curPos=ftell(this->cData);
+		fseek(this->cData,0,SEEK_END);
+		result=ftell(this->cData);
+		fseek(this->cData,0,curPos);
 	}
 	else
 	{
-		if(!this->filename.Count())
+		if(!this->path.Count())
 			return -1;
 
-		result=File::Size(this->filename);
+		result=File::Size(this->path);
 	}
 
 	return result;
@@ -73,13 +78,13 @@ int File::Size()
 
 bool File::Create()
 {
-	return File::Create(this->filename);
+	return File::Create(this->path);
 }
 
 bool File::Delete()
 {
-	if(this->filename.Count())
-		return !::remove(this->filename);
+	if(this->path.Count())
+		return !::remove(this->path);
 	return false;
 }
 
@@ -94,18 +99,18 @@ int File::CountOccurrences(char iChar)
 
 	if(this->IsOpen())
 	{
-		int oldPos=ftell(this->handle);
+		int oldPos=ftell(this->cData);
 
-		fseek(this->handle,0,SEEK_END);
+		fseek(this->cData,0,SEEK_END);
 
-		int ___size=ftell(this->handle);
+		int ___size=ftell(this->cData);
 
 		int ___i=0;
 		while(___i < ___size)
 		{
-			fseek(this->handle,___i,SEEK_SET);
+			fseek(this->cData,___i,SEEK_SET);
 
-			char c=fgetc(this->handle);
+			char c=fgetc(this->cData);
 
 			if(iChar==c)
 				occurrences++;
@@ -113,13 +118,46 @@ int File::CountOccurrences(char iChar)
 			___i++;
 		}
 
-		fseek(this->handle,oldPos,SEEK_SET);
+		fseek(this->cData,oldPos,SEEK_SET);
 	}
 
 	if(!wasOpen)
 		this->Close();
 
 	return occurrences;
+}
+
+String File::All()
+{
+	String tS;
+
+	bool wasOpen=this->IsOpen();
+
+	if(!wasOpen)
+		this->Open();
+
+	if(this->IsOpen())
+	{
+		int tSize=this->Size();
+
+		if(tSize>0)
+		{
+			char* tT=new char[tSize+1];
+			fread(tT,tSize,1,this->cData);
+			tT[tSize]='\0';
+			tS=tT;
+			SAFEDELETEARRAY(tT);
+		}
+	}
+
+		
+	if(!wasOpen)
+		this->Close();
+
+	if(tS.Count()==0)
+		tS="";
+
+	return tS;
 }
 
 //statics function
@@ -172,12 +210,25 @@ int File::Size(const char* iFilename)
 	return RetVal;
 }
 
-void* File::Read(int iSize,int iNum)
+void* File::Read(int iSize)
 {
-	if(this->handle)
+	if(this->cData)
 	{
-		void* ____data=new char[iNum];
-		fread(____data,iSize,iNum,this->handle);
+		void* ____data=new char[iSize];
+		fread(____data,iSize,1,this->cData);
+		return ____data;
+	}
+
+	return 0;
+}
+
+void* File::ReadW(int iSize)
+{
+	if(this->cData)
+	{
+		wchar_t* ____data=new wchar_t[iSize+1];
+		fgetws(____data,iSize*2,this->cData);
+		____data[iSize]=L'\0';
 		return ____data;
 	}
 
@@ -186,9 +237,9 @@ void* File::Read(int iSize,int iNum)
 
 bool File::Write(void* iData,int iSize,int iNum)
 {
-	if(this->handle)
+	if(this->cData)
 	{
-		fwrite(iData,iSize,iNum,this->handle);
+		size_t writed=fwrite(iData,iSize,iNum,this->cData);
 		return true;
 	}
 
@@ -683,9 +734,12 @@ void Skin::draw(Renderer3DInterfaceBase* renderer3d)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-Script::Script():runtime(0),handle(0)
-{
+Script::Script():runtime(0),handle(0){}
 
+
+void Script::update()
+{
+	this->runtime ? this->runtime->update() : 0;
 }
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

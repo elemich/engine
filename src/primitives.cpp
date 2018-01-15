@@ -6,63 +6,52 @@
 
 
 
-String::String():data(0){}
+String::String():data(0),size(0){}
 
-String::String(int size,const char* s,...)
-{
-	//__debugbreak();
-	/*va_list vl;
-	va_start(vl,s);
-	char t[size];
-	vsnprintf(t,size,s,vl);
-	va_end(vl);
-	data=new char[strlen(t)+1];
-	strcpy(data,t);*/
-}
 
-String::String(char* from,int t)
+String::String(char* iCharP,int iSize):data(0),size(0)
 {
-	this->data=new char[t+1];
-	strncpy(this->data,from,t);
-	this->data[t]='\0';
+	this->size=iSize;
+	this->data=new char[this->size+1];
+	strncpy(this->data,iCharP,this->size);
+	this->data[this->size]='\0';
 }
 
 
-String::String(const char* s):data(0)
+String::String(const char* iCharP):data(0),size(0)
 {
-	if(s)
+	if(iCharP)
 	{
-		data=new char[strlen(s)+1];
-		strcpy(data,s);
+		this->size=strlen(iCharP);
+		this->data=new char[this->size+1];
+		strcpy(this->data,iCharP);
 	}
 }
 
-String::String(const String& s):data(0)
+String::String(const String& iString):data(0),size(0)
 {
-    if(s.data)
+    if(iString.data)
     {
-        data=new char[strlen(s.data)+1];
-        strcpy(data,s.data);
+		this->size=iString.size;
+        this->data=new char[this->size+1];
+        strcpy(this->data,iString.data);
     }
 }
 
-String::String(const wchar_t* s):data(0)
+String::String(const wchar_t* iWchar):data(0),size(0)
 {
-	if(s)
+	if(iWchar)
 	{
-		int size=wcslen(s);
+		this->size=wcslen(iWchar);
 		
-		if(!size)
+		if(!this->size)
 			return;
 
-		data=new char[size+1];
+		this->data=new char[this->size+1];
 
 		size_t checkSize;
 
-		wcstombs_s(&checkSize,data,size,s,size);
-
-		/*if((int)checkSize!=size)
-			__debugbreak();*/
+		wcstombs_s(&checkSize,this->data,this->size,iWchar,this->size);
 	}
 }
 
@@ -70,80 +59,78 @@ String::String(int number)
 {
     char n[100];
     sprintf(n,"%i",number);
-    data=new char[strlen(n)+1];
-    strcpy(data,n);
+	this->size=strlen(n);
+    this->data=new char[this->size+1];
+    strcpy(this->data,n);
 }
 String::String(float scalar)
 {
     char n[100];
     sprintf(n,"%3.1f",scalar);
-    data=new char[strlen(n)+1];
-    strcpy(data,n);
+	this->size=strlen(n);
+    this->data=new char[this->size+1];
+    strcpy(this->data,n);
 }
 
 String::~String()
 {
-	SAFEDELETEARRAY(data);
+	SAFEDELETEARRAY(this->data);
+	this->size=0;
 }
 
-String& String::operator=(const char* s)
+String& String::operator=(const char* iChar)
 {
-    SAFEDELETEARRAY(data);
+    SAFEDELETEARRAY(this->data);
 
-	if(s)
+	if(iChar)
 	{
-		data=new char[strlen(s)+1];
-		strcpy(data,s);
+		this->size=strlen(iChar);
+		this->data=new char[this->size+1];
+		strcpy(this->data,iChar);
 	}
 	
 	return *this;
 }
 
-String& String::operator=(const String& s)
+String& String::operator=(const String& iString)
 {
-	return operator=(s.Buf());
+	return operator=(iString.Buf());
 }
 
-bool String::operator==(const char* s)
+bool String::operator==(const char* iChar)
 {
-    if(strcmp(data,s)==0)return true;
+    if(strcmp(this->data,iChar)==0)return true;
         return false;
 }
 
-char String::operator[](int i)
+char String::operator[](int iIdx)
 {
-    if(i<(int)strlen(data))
-    {
-        return data[i];
-    }
-    else
-        return '\0';
+    return iIdx<this->size ? this->data[iIdx] : 0;
 }
 
-String operator+(String a,const String& b)
+String operator+(String iStringA,const String& iStringB)
 {
-	return a+=b;
+	return iStringA+=iStringB;
 }
 
-String& String::operator+=(const String& str)
+String& String::operator+=(const String& iString)
 {
-	int lena=Count();
-	int lenb=str.Count();
-
-	if(lena || lenb)
+	if(this->size || iString.size)
 	{
-		char* _data=new char[lena+lenb+1];
+		char* tData=new char[this->size+iString.size+1];
 
-		if(lena)
-			strcpy(_data,Buf());
+		if(this->size)
+			strcpy(tData,Buf());
 
-		if(lenb)
-			strcpy(&_data[lena],str.Buf());
+		if(iString.size)
+			strcpy(&tData[this->size],iString.Buf());
 
 		SAFEDELETEARRAY(this->data);
 
-		this->data=_data;
+		this->data=tData;
+		this->size=this->size+iString.size;
 	}
+
 	return *this;
 }
 
@@ -151,36 +138,81 @@ String& String::operator+=(const String& str)
 
 String::operator float()const
 {
-    return (float)atof(data);
+    return (float)atof(this->data);
 }
 
 String::operator char*()const
 {
-	return data;
+	return this->data;
 }
-int String::Count()const{return data ? strlen(data) : 0;}
-const char* String::Buf()const{return data;}
+int String::Count()const{return this->size;}
+const char* String::Buf()const{return this->data;}
 //String::operator bool(){return Buf();}
 
-bool String::Contains(const char* in)
+bool String::Contains(const char* iString)
 {
-	if(!in || !data)
-		return 0;
-
-	return strstr(data,in) ? true : false;
+	return (!iString || !this->data) ? 0 : (strstr(this->data,iString) ? true : false);
 }
 
 
-wchar_t* String::Wstring(int& oSize)
+wchar_t* String::Wstring()
 {
-	if(!data)
-		return 0;
-	size_t _osize;
-	int slen=strlen(data)+1;
-	wchar_t *retText=new wchar_t[slen];
-	mbstowcs_s(&_osize,retText,slen,data,slen);
-	oSize=(int)_osize;
-	return retText;
+	if(this->size)
+	{
+		size_t _osize;
+		int slen=this->size+1;
+		wchar_t *retText=new wchar_t[slen];
+		mbstowcs_s(&_osize,retText,slen,data,slen);
+		return retText;
+	}
+	return 0;
+}
+
+bool String::Alloc(int iBytes)
+{
+	SAFEDELETE(this->data);
+	this->data=new char[iBytes+1];
+	this->data[iBytes]='\0';
+
+	return true;
+}
+
+bool String::Copy(const char* iChar)
+{
+	if(this->size==strlen(iChar))
+	{
+		strcpy(this->data,iChar);
+		return true;
+	}
+
+	return false;
+}
+
+
+
+String String::Random(int iCount)
+{
+	const char __an[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+
+	String ret;
+
+	char*& __ret=ret.data;
+	
+	__ret=new char[iCount+1];
+
+	unsigned int feed=*(unsigned int*)&__ret;
+	unsigned int anCount=sizeof(__an);
+	srand(feed);
+
+	for(int i=0;i<iCount;i++)
+	{
+		__ret[i]=__an[rand() % anCount];
+	}
+
+	__ret[iCount]='\0';
+	ret.size=iCount;
+
+	return ret;
 }
 
 
@@ -221,6 +253,23 @@ String FilePath::Extension()
 	char* last=strrchr(this->data,'.');
 	if(last && last[1]!=0)
 		return String(&last[1]);
+	return "";
+}
+
+String FilePath::PathUp(int iLevels)
+{
+	if(data)
+	{
+		int len=strlen(this->data);
+		int tLevel=0;
+
+		for(int i=len;i>0;i--)
+		{
+			if(this->data[i]=='\\' && ++tLevel==iLevels)
+				return String(this->data,i);
+		}
+	}
+	
 	return "";
 }
 
@@ -1071,7 +1120,7 @@ float* 	mat4::operator[](int i){return &v[i*4];}
 
 mat4& mat4::identity(){MatrixMathNamespace::identity(v);return *this;}
 mat4& mat4::identity33(){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)v[idx[i]]=(idx[i]%5 ? 0.0f : 1.0f);return *this;}
-vec3 mat4::transform(vec3 in){vec3 r;MatrixMathNamespace::transform(r,v,in);return r;}
+vec3 mat4::transform(vec3 iString){vec3 r;MatrixMathNamespace::transform(r,v,iString);return r;}
 void mat4::transformself(vec3& inout){MatrixMathNamespace::transform(inout,v,inout);}
 vec3 mat4::transform(float x,float y,float z){vec3 r;MatrixMathNamespace::transform(r,v,x,y,z);return r;}
 
@@ -1112,7 +1161,7 @@ mat4& mat4::lookat(vec3 target,vec3 up)
 vec3 mat4::position(){vec3 t;MatrixMathNamespace::transform(t,v,0,0,0);return t;}
 
 void mat4::axes(vec3& a,vec3& b,vec3& c){MatrixMathNamespace::orientations(v,a,b,c);}
-vec3 mat4::axis(vec3 in){MatrixMathNamespace::orientation(in,v,in);return in;}
+vec3 mat4::axis(vec3 iString){MatrixMathNamespace::orientation(iString,v,iString);return iString;}
 vec3 mat4::axis(float x,float y,float z){vec3 out(x,y,z);MatrixMathNamespace::orientation(out,v,out);return out;}
 
 mat4& mat4::ortho(float left, float right,float bottom, float top,float near, float far) 

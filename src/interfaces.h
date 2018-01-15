@@ -121,6 +121,7 @@ struct AppInterface : TStaticInstance<AppInterface>
 	String					applicationDataFolder;
 	CompilerInterface*		compiler; 
 	InputManager            inputManager;
+	unsigned int            caretLastTime;
 
 	AppInterface();
 
@@ -146,6 +147,7 @@ struct Renderer2DInterface
 	unsigned int colorText;
 
 	virtual void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1)=0;
+	virtual void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1)=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
@@ -401,7 +403,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	virtual void SelfRenderEnd(TabContainer*,bool&);
 
-	virtual bool SelfClip(TabContainer*);
+	virtual bool SelfClipBegin(TabContainer*);
 	virtual void SelfClipEnd(TabContainer*,bool&);
 
 	virtual void SetClip(GuiScrollRect*);
@@ -445,7 +447,11 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiScriptViewer* ScriptViewer();
 	GuiCompilerViewer* CompilerViewer();
 
-	void Append(GuiRect*);
+	
+
+	void AppendChild(GuiRect*);
+
+	void DestroyChilds();
 
 	template<class C> C* Create(int iSibling=-1,int iContainer=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
 
@@ -465,6 +471,7 @@ struct GuiString : GuiRect
 {
 	vec2 alignText;
 	String text;
+	std::wstring wText;
 
 	GuiString(){this->name="String";}
 
@@ -530,7 +537,6 @@ struct GuiScrollBar : GuiRect
 	float GetScrollerHeight();
 
 	void SetRect(GuiRect*);
-
 };
 
 
@@ -697,8 +703,7 @@ struct GuiSceneViewer : GuiScrollRect
 	void OnRMouseUp(TabContainer*,void* data=0);
 	void OnMouseWheel(TabContainer*,void* data=0);
 
-
-	bool ProcessMouseInput(vec2&,vec2&,EditorEntity* node,bool iGetHovered,EditorEntity*& expChanged,EditorEntity*& selChanged,EditorEntity*& curHover);
+	EditorEntity* GetHoveredRow(EditorEntity* node,vec2& mpos,vec2& pos,bool& oExpandos);
 	void DrawNodes(TabContainer*,EditorEntity*,vec2&);
 	int UpdateNodes(EditorEntity*);
 	void UnselectNodes(EditorEntity*);
@@ -761,12 +766,14 @@ struct GuiProjectViewer : GuiRect
 {
 	struct GuiProjectDirViewer : GuiScrollRect
 	{
+		ResourceNodeDir* rootResource;
+
 		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&,bool& terminated);
-		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
+		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
+		//bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		std::vector<ResourceNodeDir*> selectedDirs;
-		ResourceNodeDir* rootResource;
 
 		void OnLMouseDown(TabContainer*,void* data=0);
 		void OnPaint(TabContainer*,void* data=0);
@@ -775,16 +782,19 @@ struct GuiProjectViewer : GuiRect
 
 	struct GuiProjectFileViewer : GuiScrollRect
 	{
-		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&);
-		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
-		int CalcNodesHeight(ResourceNodeDir*);
-		void UnselectNodes(ResourceNodeDir*);
 		ResourceNodeDir* rootResource;
 		std::vector<ResourceNodeDir*> selectedDirs;
 		std::vector<ResourceNode*> selectedFiles;
 
+		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&);
+		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
+		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
+		int CalcNodesHeight(ResourceNodeDir*);
+		void UnselectNodes(ResourceNodeDir*);
+		
 		void OnLMouseDown(TabContainer*,void* data=0);
 		void OnPaint(TabContainer*,void* data=0);
+		//void OnRMouseUp(TabContainer*,void* data=0);
 	}right;
 
 	struct GuiProjectDataViewer : GuiScrollRect
@@ -861,15 +871,26 @@ struct GuiScriptViewer : GuiRect , TPoolVector<GuiScriptViewer>
 
 struct GuiCompilerViewer : GuiRect , TPoolVector<GuiCompilerViewer>
 {
-	struct OutputLine{String message,error,file;};
+	struct OutputLine{std::wstring message,error,file;};
 
 	std::vector<OutputLine*> lines;
 
 	GuiCompilerViewer();
 
-	bool ParseCompilerOutputFile(TabContainer*,File&);
+	bool ParseCompilerOutputFile(TabContainer*,wchar_t*);
+	void PushMessage(std::wstring iMessage,std::wstring iError=L"",std::wstring iFile=L"");
 };
 
+struct DrawInstance
+{
+	int		 code;
+	bool	 frame;
+	GuiRect* rect;
+
+	bool remove;
+
+	DrawInstance(int a,bool b,GuiRect* c,bool iRemove):code(a),frame(b),rect(c),remove(true){}
+};
 
 struct TabContainer : TPoolVector<TabContainer>
 {
@@ -909,16 +930,9 @@ struct TabContainer : TPoolVector<TabContainer>
 	bool recreateTarget;
 	bool resizeTarget;
 
-	struct DrawInstance
-	{
-		int		 code;
-		bool	 frame;
-		GuiRect* rect;
-		
-		DrawInstance(int a,bool b,GuiRect* c):code(a),frame(b),rect(c){}
-	};
+	
 
-	std::list<DrawInstance> drawInstances;
+	std::list<DrawInstance*> drawInstances;
 
 	Task*	 drawTask;
 
@@ -974,10 +988,11 @@ struct TabContainer : TPoolVector<TabContainer>
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
 
-	void SetDraw(int iCode=1,bool iFrame=true,GuiRect* iRect=0);
+	DrawInstance* SetDraw(int iCode=1,bool iFrame=true,GuiRect* iRect=0,bool iRemove=true);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
+	virtual int TrackProjectFileViewerPopup()=0;
 
 	void SetSelection(GuiRect* iRect);
 
@@ -1047,6 +1062,9 @@ struct CompilerInterface
 	String runAfter;
 
 	virtual bool Compile(Script*)=0;
+	virtual bool Execute(String iPath,String iCmdLine)=0;
+	virtual bool Load(Script*)=0;
+	virtual bool Unload(Script*)=0;
 };
 
 struct EditorProperties
@@ -1087,7 +1105,6 @@ struct EditorEntity : EditorObject<Entity>
 	}
 
 	void OnPropertiesUpdate(TabContainer*);
-
 };
 				
 
