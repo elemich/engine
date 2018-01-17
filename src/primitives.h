@@ -82,8 +82,11 @@ template <typename T> struct TPoolVector : TStaticInstance< TPoolVector<T> >
 
 	~TPoolVector(){pool.erase(std::find(pool.begin(),pool.end(),(T*)this));}
 
-	static void BroadcastToPool(void (T::*func)()){for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::mem_fun(func));}
-	static void BroadcastToPool(void (T::*func)(void*),void* data=0){for_each(TPoolVector<T>::pool.begin(),TPoolVector<T>::pool.end(),std::bind(func,std::placeholders::_1,data));}
+	static void BroadcastToPool(void (T::*func)(void*),void* data=0)
+	{
+		for(std::vector< T*>::iterator tPoolElement=TPoolVector<T>::pool.begin();tPoolElement!=TPoolVector<T>::pool.end();tPoolElement++)
+			((*tPoolElement)->*func)(data);
+	}
 };
 
 template <class T> std::vector<T*> TPoolVector<T>::pool;

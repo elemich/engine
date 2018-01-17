@@ -72,8 +72,8 @@ struct Direct2DBase
 
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1);
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const wchar_t* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const wchar_t* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
@@ -118,8 +118,8 @@ struct Renderer2DInterfaceWin32 : Renderer2DInterface
 	Renderer2DInterfaceWin32(HWND);
 	~Renderer2DInterfaceWin32();
 
-	void DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY);
-	void DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY);
+	void DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip);
+	void DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
@@ -131,6 +131,7 @@ struct Renderer2DInterfaceWin32 : Renderer2DInterface
 	void Identity();
 
 	vec2 MeasureText(const char*,int iSlen=-1);
+	float GetFontSize();
 
 	ID2D1Brush* SetColorWin32(unsigned int color);
 
@@ -280,7 +281,7 @@ struct TabContainerWin32 : TabContainer
 
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
-	int TrackProjectFileViewerPopup();
+	int TrackProjectFileViewerPopup(bool iSelected);
 
 	void SetCursor(int);
 };

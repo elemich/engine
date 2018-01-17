@@ -42,6 +42,8 @@ struct Entity;
 struct AnimationController;
 struct Script;
 
+#define ENGINE_EXTENSION ".__engine_"
+
 
 #define MAX_TOUCH_INPUTS 10
 
@@ -146,8 +148,8 @@ struct Renderer2DInterface
 	unsigned int colorBackgroud;
 	unsigned int colorText;
 
-	virtual void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1)=0;
-	virtual void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1)=0;
+	virtual void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true)=0;
+	virtual void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true)=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
@@ -159,6 +161,7 @@ struct Renderer2DInterface
 	virtual void Identity()=0;
 	 
 	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
+	virtual float GetFontSize()=0;
 };
 
 struct Renderer3DInterface : Renderer3DInterfaceBase
@@ -342,6 +345,9 @@ struct GuiRect : THierarchyVector<GuiRect>
 	String name;
 
 	vec4 rect;
+	vec4 offset;
+	vec2 alignPos;
+	vec2 alignRect;
 
 	unsigned int colorBackground;
 	unsigned int colorForeground;
@@ -356,9 +362,6 @@ struct GuiRect : THierarchyVector<GuiRect>
 	bool active;
 
 	int container;
-
-	vec2 alignPos;
-	vec2 alignRect;
 
 	GuiRect* sibling[4];
 
@@ -403,8 +406,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	virtual void SelfRenderEnd(TabContainer*,bool&);
 
-	virtual bool SelfClipBegin(TabContainer*);
-	virtual void SelfClipEnd(TabContainer*,bool&);
+	virtual bool BeginSelfClip(TabContainer*);
+	virtual void EndSelfClip(TabContainer*,bool&);
 
 	virtual void SetClip(GuiScrollRect*);
 
@@ -422,7 +425,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 		if(isaC)
 			(this->*func)(iTabContainer);
 
-		for_each(this->childs.begin(),this->childs.end(),std::bind(func,std::placeholders::_1,iTabContainer));
+		for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+			((*tRect)->*func)(iTabContainer);
 	}
 
 	GuiString* Container(const char* iText);
@@ -447,15 +451,11 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiScriptViewer* ScriptViewer();
 	GuiCompilerViewer* CompilerViewer();
 
-	
-
 	void AppendChild(GuiRect*);
 
 	void DestroyChilds();
 
-	template<class C> C* Create(int iSibling=-1,int iContainer=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
-
-
+	template<class C> C* Create(int iSibling=-1,int iContainer=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=0,float iAlignPosY=0,float iAlignRectX=1,float iAlignRectY=1);
 };
 
 struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
@@ -470,10 +470,11 @@ struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 struct GuiString : GuiRect
 {
 	vec2 alignText;
-	String text;
+	std::string text;
 	std::wstring wText;
+	bool clipText;
 
-	GuiString(){this->name="String";}
+	GuiString():alignText(-1,-1),clipText(true){this->name="String";}
 
 	virtual void OnPaint(TabContainer*,void* data=0);
 };
@@ -724,10 +725,8 @@ struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 	void OnActivate(TabContainer*,void* data=0);
 
 	virtual void OnEntitySelected(TabContainer*,void* data=0);
-	virtual void OnLMouseDown(TabContainer*,void* data=0);
 	virtual void OnPaint(TabContainer*,void* data=0);
 	virtual void OnExpandos(TabContainer*,void* data=0);
-	virtual void OnMouseMove(TabContainer*,void* data=0);
 	virtual void OnMouseWheel(TabContainer*,void* data=0);
 
 	bool ProcessMouseInput(vec2&,vec2&,GuiRect* node);
@@ -748,7 +747,7 @@ struct ResourceNode
 	bool isDir;
 
 	ResourceNode();
-	~ResourceNode();
+	virtual ~ResourceNode();
 };
 
 struct ResourceNodeDir : ResourceNode
@@ -770,7 +769,6 @@ struct GuiProjectViewer : GuiRect
 
 		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&,bool& terminated);
 		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
-		//bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNodeDir*& selChanged);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		std::vector<ResourceNodeDir*> selectedDirs;
@@ -788,13 +786,12 @@ struct GuiProjectViewer : GuiRect
 
 		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&);
 		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
-		bool ProcessMouseInput(vec2&,vec2&,float& drawFromY,ResourceNodeDir* root,ResourceNodeDir* node,ResourceNodeDir*& expChanged,ResourceNode*& selChanged);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		
 		void OnLMouseDown(TabContainer*,void* data=0);
 		void OnPaint(TabContainer*,void* data=0);
-		//void OnRMouseUp(TabContainer*,void* data=0);
+		void OnRMouseUp(TabContainer*,void* data=0);
 	}right;
 
 	struct GuiProjectDataViewer : GuiScrollRect
@@ -820,6 +817,8 @@ struct GuiProjectViewer : GuiRect
 	void OnReparent(TabContainer*,void* data=0);
 	void OnActivate(TabContainer*,void* data=0);
 	void OnSize(TabContainer*,void* data=0);
+
+	void DestroyNode(ResourceNode*);
 };
 
 struct WindowData
@@ -851,12 +850,12 @@ struct GuiImage
 	virtual bool Fill(Renderer2DInterface*,unsigned char* iData,float iWidth,float iHeight)=0;
 };
 
-struct GuiScriptViewer : GuiRect , TPoolVector<GuiScriptViewer>
+struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 {
 	Script* script;
 
-	std::string buffer;
-	int cursor;
+	int			cursor;
+	GuiString*	paper;
 
 	GuiScriptViewer();
 
@@ -864,21 +863,18 @@ struct GuiScriptViewer : GuiRect , TPoolVector<GuiScriptViewer>
 	bool Save();
 	bool Compile();
 
-	void OnPaint(TabContainer*,void* data=0);
 	void OnKeyDown(TabContainer*,void* data=0);
 	void OnKeyUp(TabContainer*,void* data=0);
+	void OnLMouseDown(TabContainer*,void* data=0);
+	void OnSize(TabContainer*,void* data=0);
 };
 
-struct GuiCompilerViewer : GuiRect , TPoolVector<GuiCompilerViewer>
+struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
 {
-	struct OutputLine{std::wstring message,error,file;};
-
-	std::vector<OutputLine*> lines;
-
 	GuiCompilerViewer();
 
 	bool ParseCompilerOutputFile(TabContainer*,wchar_t*);
-	void PushMessage(std::wstring iMessage,std::wstring iError=L"",std::wstring iFile=L"");
+	void OnSize(TabContainer*,void* data=0);
 };
 
 struct DrawInstance
@@ -992,7 +988,7 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
-	virtual int TrackProjectFileViewerPopup()=0;
+	virtual int TrackProjectFileViewerPopup(bool iSelected)=0;
 
 	void SetSelection(GuiRect* iRect);
 

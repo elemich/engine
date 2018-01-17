@@ -1,6 +1,5 @@
 ﻿#include "win32.h"
 
-#define ENGINE_EXTENSION ".__engine_"
 
 bool KeyboardInput::IsPressed(unsigned int iCharCode)
 {
@@ -271,14 +270,15 @@ vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,i
 }
 
 
-void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY)
+void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	if(!iText)
 		return;
 
 	unsigned int tFinalTextLength=wcslen(iText);
 
-	iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
+	if(iClip)
+		iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
 
 	if(iAlignPosX<0 && iAlignPosY<0)
 		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
@@ -306,10 +306,11 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 	}
 
-	iRenderer->PopAxisAlignedClip();
+	if(iClip)
+		iRenderer->PopAxisAlignedClip();
 }
 
-void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY)
+void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	if(!iText)
 		return;
@@ -330,7 +331,7 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
 	}
 
-	Direct2DBase::DrawText(iRenderer,iBrush,tWcharTextOutput,x1,y1,x2,y2,iAlignPosX,iAlignPosY);
+	Direct2DBase::DrawText(iRenderer,iBrush,tWcharTextOutput,x1,y1,x2,y2,iAlignPosX,iAlignPosY,iClip);
 
 	SAFEDELETEARRAY(tWcharTextOutput);
 }
@@ -413,13 +414,13 @@ bool Renderer2DInterfaceWin32::RecreateTarget(HWND iHandle)
 
 	return true;
 }
-void Renderer2DInterfaceWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY)
+void Renderer2DInterfaceWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY);
+	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
 }
-void Renderer2DInterfaceWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY)
+void Renderer2DInterfaceWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY);
+	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
 }
 void Renderer2DInterfaceWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
 {
@@ -455,6 +456,19 @@ void Renderer2DInterfaceWin32::Identity()
 vec2 Renderer2DInterfaceWin32::MeasureText(const char* iText,int iSlen)
 {
 	return Direct2DBase::MeasureText(this->renderer,iText,iSlen);
+}
+
+float Renderer2DInterfaceWin32::GetFontSize()
+{
+	float dpX,dpY;
+	this->renderer->GetDpi(&dpX,&dpY);
+
+	DWRITE_LINE_SPACING_METHOD tLineSpaceMethod;
+	float tLineSpaceValue;
+	float tLineSpaceBaseline;
+
+	Direct2DBase::texter->GetLineSpacing(&tLineSpaceMethod,&tLineSpaceValue,&tLineSpaceBaseline);
+	return Direct2DBase::texter->GetFontSize()*(dpY/72.0f);
 }
 
 ID2D1Brush* Renderer2DInterfaceWin32::SetColorWin32(unsigned int color)
@@ -717,6 +731,10 @@ LRESULT CALLBACK TabContainerWin32::TabContainerWindowClassProcedure(HWND hwnd,U
 		break;
 		case WM_LBUTTONDOWN:
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+
+			if(tc->windowDataWin32->hwnd!=GetFocus())
+				SetFocus(tc->windowDataWin32->hwnd);
+			
 			tc->OnGuiLMouseDown();
 		break;
 		case WM_MOUSEWHEEL:
@@ -1055,6 +1073,8 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 	else
 		FindNextFile(handle,&data);
 
+	int tEngineExtensionCharSize=strlen(ENGINE_EXTENSION);
+
 	while(FindNextFile(handle,&data))
 	{
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
@@ -1062,7 +1082,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 
 		if(strstr(data.cFileName,ENGINE_EXTENSION))
 		{
-			String engineFile=dir + "\\" + String(data.cFileName);
+			String tEngineFile=dir + "\\" + String(data.cFileName);
 
 			bool selectedLeft;
 			bool selectedRight;
@@ -1070,7 +1090,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 			bool expanded;
 
 			{
-				FILE* f=fopen(engineFile.Buf(),"r");
+				FILE* f=fopen(tEngineFile.Buf(),"r");
 
 				if(f)
 				{
@@ -1083,7 +1103,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 				}
 			}
 
-			std::string fileName(data.cFileName,&data.cFileName[strlen(data.cFileName)-7]);
+			std::string tOriginalFileName(data.cFileName,&data.cFileName[strlen(data.cFileName)-tEngineExtensionCharSize]);
 
 			if(isDir)
 			{
@@ -1091,7 +1111,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 
 				iParent->dirs.push_back(dirNode);
 				dirNode->parent=iParent;
-				dirNode->fileName=fileName.c_str();
+				dirNode->fileName=tOriginalFileName.c_str();
 				dirNode->level = iParent ? iParent->level+1 : 0;
 				dirNode->selectedLeft=selectedLeft;
 				dirNode->selectedRight=selectedRight;
@@ -1106,7 +1126,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 
 				iParent->files.push_back(fileNode);
 				fileNode->parent=iParent;
-				fileNode->fileName=fileName.c_str();
+				fileNode->fileName=tOriginalFileName.c_str();
 				fileNode->level = iParent ? iParent->level+1 : 0;
 				fileNode->selectedLeft=selectedLeft;
 				fileNode->selectedRight=selectedRight;
@@ -1172,6 +1192,10 @@ void AppWin32::ScanDir(String dir)
 					fwrite((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)? &_true : &_false,1,1,f);//isDir
 					fwrite(&_false,1,1,f);//expanded
 					fclose(f);
+
+					DWORD fileAttribute=GetFileAttributes(engineFile);
+					SetFileAttributes(engineFile,FILE_ATTRIBUTE_HIDDEN|fileAttribute);
+
 
 					if(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 						this->ScanDir(dir +"\\"+data.cFileName);
@@ -3198,31 +3222,17 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 	return result;
 }
 
-int TabContainerWin32::TrackProjectFileViewerPopup()
+int TabContainerWin32::TrackProjectFileViewerPopup(bool iSelected)
 {
-	/*HMENU menu=CreatePopupMenu();
-	HMENU createEntity=CreatePopupMenu();
-	HMENU createComponent=CreatePopupMenu();
-	HMENU createMesh=CreatePopupMenu();
-	HMENU createScript=CreatePopupMenu();
+	HMENU menu=CreatePopupMenu();
 
 	if(iSelected)
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
-		InsertMenu(menu,1,MF_BYPOSITION|MF_STRING,2,"Delete");
-		InsertMenu(menu,2,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,"Component");
-		{
-			InsertMenu(createComponent,0,MF_BYPOSITION|MF_STRING,3,"Light");
-			InsertMenu(createComponent,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createMesh,"Mesh");
-			{
-			}
-			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
-			InsertMenu(createComponent,3,MF_BYPOSITION|MF_STRING,14,"Script");
-		}
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"Delete");
 	}
 	else
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"Create");
 	}
 
 	RECT rc;
@@ -3231,13 +3241,8 @@ int TabContainerWin32::TrackProjectFileViewerPopup()
 	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left+LOWORD(windowDataWin32->lparam),rc.top+HIWORD(windowDataWin32->lparam),0,GetParent(windowDataWin32->hwnd),0);
 
 	DestroyMenu(menu);
-	DestroyMenu(createEntity);
-	DestroyMenu(createComponent);
-	DestroyMenu(createMesh);
-	DestroyMenu(createScript);
 
-	return result;*/
-	return 0;
+	return result;
 }
 
 
@@ -3316,7 +3321,7 @@ void TabContainerWin32::EndDraw()
 
 void TabContainerWin32::OnGuiMouseMove(void* data)
 {
-	SetFocus(this->windowDataWin32->hwnd);
+	
 
 	this->mousex=(float)LOWORD(this->windowDataWin32->lparam);
 	this->mousey=(float)HIWORD(this->windowDataWin32->lparam);
