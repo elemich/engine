@@ -252,14 +252,14 @@ bool File::Write(void* iData,int iSize,int iNum)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-ShaderInterface::ShaderInterface()
+Shader::Shader()
 {}
 
-ShaderInterface* ShaderInterface::Find(const char* name,bool exact)
+Shader* Shader::Find(const char* name,bool exact)
 {
 	for(int i=0;i<(int)pool.size();i++)
 	{
-		ShaderInterface* element=pool[i];
+		Shader* element=pool[i];
 
 		const char* programName=element->GetName();
 
@@ -543,15 +543,15 @@ light_cast(0),
 
 Material::Material()
 {
-	VectorMathNamespace::make(emissive,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(diffuse,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(normalmap,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(bump,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(transparent,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(displacement,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(ambient,3,0.2f,0.2f,0.2f);
-	VectorMathNamespace::make(specular,3,0,0,0);
-	VectorMathNamespace::make(reflection,3,0,0,0);
+	Vector::make(emissive,3,0.2f,0.2f,0.2f);
+	Vector::make(diffuse,3,0.2f,0.2f,0.2f);
+	Vector::make(normalmap,3,0.2f,0.2f,0.2f);
+	Vector::make(bump,3,0.2f,0.2f,0.2f);
+	Vector::make(transparent,3,0.2f,0.2f,0.2f);
+	Vector::make(displacement,3,0.2f,0.2f,0.2f);
+	Vector::make(ambient,3,0.2f,0.2f,0.2f);
+	Vector::make(specular,3,0,0,0);
+	Vector::make(reflection,3,0,0,0);
 
 	fbump=0;
 	femissive=0;
@@ -633,7 +633,7 @@ std::vector<Material*>& Mesh::GetMaterials()
 	return this->materials;
 }
 
-void Mesh::draw(Renderer3DInterfaceBase* renderer3d)
+void Mesh::draw(Renderer3DBase* renderer3d)
 {
 	renderer3d->draw(this);
 }
@@ -698,7 +698,7 @@ void Skin::update()
 			{
 				float v[3];
 
-				MatrixMathNamespace::transform(v,skinmtx1,src);
+				Matrix::transform(v,skinmtx1,src);
 
 				wcache[inf.cpIdx[0]][0]+=v[0]*inf.weight;
 				wcache[inf.cpIdx[0]][1]+=v[1]*inf.weight;
@@ -708,7 +708,7 @@ void Skin::update()
 			}
 			else
 			{
-				MatrixMathNamespace::transform(dst,skinmtx1,src);
+				Matrix::transform(dst,skinmtx1,src);
 			}
 
 			//dst=this->entity->local.transform(dst);
@@ -724,7 +724,7 @@ void Skin::update()
 	delete [] wcache;
 }
 
-void Skin::draw(Renderer3DInterfaceBase* renderer3d)
+void Skin::draw(Renderer3DBase* renderer3d)
 {
 	renderer3d->draw(this);
 }
@@ -734,7 +734,7 @@ void Skin::draw(Renderer3DInterfaceBase* renderer3d)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-Script::Script():runtime(0),handle(0){}
+Script::Script():runtime(0){}
 
 
 void Script::update()
@@ -841,6 +841,8 @@ int TextureFile::load(char* fn)
 			fclose(f);
 			return loadTGA(fn);
 		}
+		else
+			__debugbreak();
 
 		fclose(f);
 	}
@@ -986,7 +988,14 @@ EntityScript::EntityScript():entity(0){}
 
 
 Entity::Entity():parent(0){}
-Entity::~Entity(){}
+Entity::~Entity()
+{
+	for(std::vector<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();tCom++)
+		SAFEDELETE(*tCom);
+
+	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
+		SAFEDELETE(*tEn);
+}
 
 
 void Entity::SetParent(Entity* iParent)
@@ -1012,7 +1021,7 @@ void Entity::update()
 		(*it)->update();
 }
 
-void Entity::draw(Renderer3DInterfaceBase* renderer)
+void Entity::draw(Renderer3DBase* renderer)
 {
 	renderer->draw(this->local.position(),5,vec3(1,1,1));
 

@@ -3,13 +3,11 @@
 
 struct TabContainerWin32;
 struct EditorWindowContainerWin32;
-struct Renderer2DInterfaceWin32;
+struct Renderer2DWin32;
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 //#pragma warning(disable:4996) //
-
-
 
 #include <windows.h>
 #include <windowsx.h>
@@ -19,7 +17,7 @@ struct Renderer2DInterfaceWin32;
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <objbase.h>
-#include <CommCtrl.h>
+#include <CommCtrl.h>};
 
 #include <array>
 #include <map>
@@ -90,12 +88,12 @@ struct Direct2DBase
 
 
 
-struct ThreadWin32 : ThreadInterface
+struct ThreadInterfaceWin32 : ThreadInterface
 {
 	HANDLE handle;
 
-	ThreadWin32();
-	~ThreadWin32();
+	ThreadInterfaceWin32();
+	~ThreadInterfaceWin32();
 };
 
 
@@ -107,16 +105,16 @@ struct GuiImageWin32 : GuiImage
 	ID2D1Bitmap* handle;
 
 	void Release();
-	bool Fill(Renderer2DInterface*,unsigned char* iData,float iWidth,float iHeight);
+	bool Fill(Renderer2D*,unsigned char* iData,float iWidth,float iHeight);
 };
 
-struct Renderer2DInterfaceWin32 : Renderer2DInterface
+struct Renderer2DWin32 : Renderer2D
 {
 	ID2D1HwndRenderTarget* renderer;
 	ID2D1SolidColorBrush*  brush;
 
-	Renderer2DInterfaceWin32(HWND);
-	~Renderer2DInterfaceWin32();
+	Renderer2DWin32(HWND);
+	~Renderer2DWin32();
 
 	void DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip);
 	void DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip);
@@ -138,7 +136,7 @@ struct Renderer2DInterfaceWin32 : Renderer2DInterface
 	bool RecreateTarget(HWND);
 };
 
-struct OpenGLRenderer : Renderer3DInterface
+struct Renderer3DOpenGL : Renderer3D
 {
 	GLuint vertexArrayObject;
 	GLuint vertexBufferObject;
@@ -160,8 +158,8 @@ struct OpenGLRenderer : Renderer3DInterface
 
 	TabContainerWin32* tabContainerWin32;
 
-	OpenGLRenderer(TabContainerWin32*);
-	~OpenGLRenderer();
+	Renderer3DOpenGL(TabContainerWin32*);
+	~Renderer3DOpenGL();
 
 	virtual void Create(HWND container);
 
@@ -197,7 +195,7 @@ struct OpenGLRenderer : Renderer3DInterface
 
 
 
-struct DirectXRenderer : WindowData ,  Renderer3DInterface
+struct DirectXRenderer : WindowData ,  Renderer3D
 {
 	HINSTANCE               hInst;
 	D3D_DRIVER_TYPE         driverType;
@@ -258,7 +256,7 @@ struct TabContainerWin32 : TabContainer
 {
 	WindowDataWin32*& windowDataWin32;
 	EditorWindowContainerWin32*& editorWindowContainerWin32;
-	Renderer2DInterfaceWin32* renderer2DWin32;
+	Renderer2DWin32* renderer2DWin32;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
@@ -281,9 +279,10 @@ struct TabContainerWin32 : TabContainer
 
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
-	int TrackProjectFileViewerPopup(bool iSelected);
+	int TrackProjectFileViewerPopup(ResourceNode*);
 
 	void SetCursor(int);
+	
 };
 
 struct SplitterContainerWin32 : SplitterContainer 
@@ -355,7 +354,7 @@ struct TimerWin32 : Timer
 	virtual unsigned int GetTime();
 };
 
-struct AppWin32 : AppInterface
+struct AppWin32 : App
 {
 	AppWin32();
 

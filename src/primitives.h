@@ -152,7 +152,7 @@ public:
 	static String Random(int iCount);
 	operator char*()const;
 	operator float()const;
-	int Count()const;
+	const int& Count()const;
 	const char* Buf()const;
 	bool Contains(const char*);
 	wchar_t* Wstring();
@@ -181,7 +181,7 @@ struct FilePath : String
 };
 
 
-namespace VectorMathNamespace
+namespace Vector
 {
 	#define PI 				3.141592653589793238462643383279502
 	#define PI_OVER_180	 	0.017453292519943295769236907684886
@@ -342,7 +342,7 @@ struct mat2;
 struct mat3;
 struct mat4;
 
-namespace MatrixMathNamespace
+namespace Matrix
 {
 	float* identity(float* m);
 
@@ -530,42 +530,6 @@ bool isPointOnLine(vec3 a,vec3 b,vec3 point);
 void eqSolve(float* result,int nrow,int ncol,float** eqsys);
 
 void printEqSys(int nrow,int ncol,float** eqsys);
-
-
-//inputs
-
-
-
-struct Cluster;
-struct Influence;
-struct Keyframe;
-
-struct Entity;
-struct EntityComponent;
-struct Animation;
-struct Root;
-struct Skeleton;
-struct BoneSkeleton;
-struct Bone;
-struct Mesh;
-struct Skin;
-struct Texture;
-struct Light;
-struct Camera;
-struct Gizmo;
-struct Piped;
-struct Sphere;
-struct Cylinder;
-struct Tetrahedron;
-
-struct RenderSurface;
-struct GuiViewport;
-struct GuiRect;
-
-
-
-
-
 
 
 #endif //PRIMITIVES_H

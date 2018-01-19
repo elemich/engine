@@ -42,9 +42,6 @@ struct Entity;
 struct AnimationController;
 struct Script;
 
-#define ENGINE_EXTENSION ".__engine_"
-
-
 #define MAX_TOUCH_INPUTS 10
 
 
@@ -114,7 +111,7 @@ struct InputManager
 
 
 
-struct AppInterface : TStaticInstance<AppInterface>
+struct App : TStaticInstance<App>
 {
 	Timer					*timerMain;
 	EditorMainAppWindow		*mainAppWindow;
@@ -125,7 +122,7 @@ struct AppInterface : TStaticInstance<AppInterface>
 	InputManager            inputManager;
 	unsigned int            caretLastTime;
 
-	AppInterface();
+	App();
 
 	virtual int Initialize()=0;	
 	virtual void Deinitialize()=0;
@@ -133,9 +130,12 @@ struct AppInterface : TStaticInstance<AppInterface>
 
 	virtual void CreateNodes(String,ResourceNodeDir*)=0;
 	virtual void ScanDir(String)=0;
+
+	const char* GetSceneExtension();
+	const char* GetEntityExtension();
 };
 
-struct Renderer2DInterface
+struct Renderer2D
 {
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
@@ -164,15 +164,15 @@ struct Renderer2DInterface
 	virtual float GetFontSize()=0;
 };
 
-struct Renderer3DInterface : Renderer3DInterfaceBase
+struct Renderer3D : Renderer3DBase
 {
 	std::list<GuiViewport*> viewports;
 	Task* rendererTask;
 	bool picking;
-	std::vector<ShaderInterface*> shaders;
+	std::vector<Shader*> shaders;
 	TabContainer* tabContainer;
 
-	ShaderInterface* FindShader(const char* name,bool exact);
+	Shader* FindShader(const char* name,bool exact);
 	void SetMatrices(const float* view,const float* mdl);
 
 	void Register(GuiViewport*);
@@ -209,14 +209,14 @@ struct Renderer3DInterface : Renderer3DInterfaceBase
 	virtual void Render(GuiViewport*,bool)=0;
 	virtual void Render()=0;
 
-	Renderer3DInterface(TabContainer*);
-	virtual ~Renderer3DInterface(){};
+	Renderer3D(TabContainer*);
+	virtual ~Renderer3D(){};
 
-	ShaderInterface* unlit;
-	ShaderInterface* unlit_color;
-	ShaderInterface* unlit_texture;
-	ShaderInterface* font;
-	ShaderInterface* shaded_texture;
+	Shader* unlit;
+	Shader* unlit_color;
+	Shader* unlit_texture;
+	Shader* font;
+	Shader* shaded_texture;
 };
 
 
@@ -278,9 +278,9 @@ struct MatrixStack
 int simple_shader(const char* name,int shader_type, const char* shader_src);
 int create_program(const char* name,const char* vertexsh,const char* fragmentsh);
 
-struct OpenGLShader : ShaderInterface
+struct ShaderOpenGL : Shader
 {
-	static ShaderInterface* Create(const char* shader_name,const char* pixel_shader,const char* fragment_shader);
+	static Shader* Create(const char* shader_name,const char* pixel_shader,const char* fragment_shader);
 
 	int GetProgram();
 	void SetProgram(int);
@@ -540,7 +540,6 @@ struct GuiScrollBar : GuiRect
 	void SetRect(GuiRect*);
 };
 
-
 struct GuiScrollRect : GuiRect
 {
 	GuiScrollRect();
@@ -687,13 +686,48 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	virtual void OnLMouseUp(TabContainer*,void* data=0);
 };
 
-struct GuiSceneViewer : GuiScrollRect
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////GuiViewers///////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
+{
+	Script* script;
+
+	int			cursor;
+	GuiString*	paper;
+
+	GuiScriptViewer();
+
+	void Open(Script*);
+	bool Save();
+	bool Compile();
+
+	void OnKeyDown(TabContainer*,void* data=0);
+	void OnKeyUp(TabContainer*,void* data=0);
+	void OnLMouseDown(TabContainer*,void* data=0);
+	void OnSize(TabContainer*,void* data=0);
+};
+
+struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
+{
+	GuiCompilerViewer();
+
+	bool ParseCompilerOutputFile(TabContainer*,wchar_t*);
+	void OnSize(TabContainer*,void* data=0);
+};
+
+struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 {
 	GuiSceneViewer();
 	~GuiSceneViewer();
 
 	EditorEntity* entityRoot;
-	
+
+	std::string sceneName;
+
 	std::vector<EditorEntity*> selection;
 
 	void OnPaint(TabContainer*,void* data=0);
@@ -703,15 +737,19 @@ struct GuiSceneViewer : GuiScrollRect
 	void OnRecreateTarget(TabContainer*,void* data=0);
 	void OnRMouseUp(TabContainer*,void* data=0);
 	void OnMouseWheel(TabContainer*,void* data=0);
+	void OnKeyDown(TabContainer*,void* data=0);
 
 	EditorEntity* GetHoveredRow(EditorEntity* node,vec2& mpos,vec2& pos,bool& oExpandos);
 	void DrawNodes(TabContainer*,EditorEntity*,vec2&);
 	int UpdateNodes(EditorEntity*);
 	void UnselectNodes(EditorEntity*);
 	void ExpandUntil(EditorEntity* iTarget);
+
+	void Save(const char*);
+	void Load(const char*);
+
+
 };	
-
-
 
 struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 {
@@ -734,12 +772,21 @@ struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 	int CalcNodesHeight(GuiRect*);
 };
 
+struct GuiConsoleViewer : GuiScrollRect
+{
+	GuiConsoleViewer();
+	~GuiConsoleViewer();
+
+
+
+	
+};
 
 struct ResourceNode
 {
 	ResourceNode* parent;
 
-	String fileName;
+	FilePath fileName;
 
 	bool selectedLeft;
 	bool selectedRight;
@@ -847,34 +894,7 @@ struct GuiImage
 	~GuiImage();
 
 	virtual void Release()=0;
-	virtual bool Fill(Renderer2DInterface*,unsigned char* iData,float iWidth,float iHeight)=0;
-};
-
-struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
-{
-	Script* script;
-
-	int			cursor;
-	GuiString*	paper;
-
-	GuiScriptViewer();
-
-	void Open(Script*);
-	bool Save();
-	bool Compile();
-
-	void OnKeyDown(TabContainer*,void* data=0);
-	void OnKeyUp(TabContainer*,void* data=0);
-	void OnLMouseDown(TabContainer*,void* data=0);
-	void OnSize(TabContainer*,void* data=0);
-};
-
-struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
-{
-	GuiCompilerViewer();
-
-	bool ParseCompilerOutputFile(TabContainer*,wchar_t*);
-	void OnSize(TabContainer*,void* data=0);
+	virtual bool Fill(Renderer2D*,unsigned char* iData,float iWidth,float iHeight)=0;
 };
 
 struct DrawInstance
@@ -909,10 +929,12 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	GuiRootRect	tabs;
 
+	GuiRect* focused;
+
 	SplitterContainer* splitterContainer;
 
-	Renderer2DInterface *renderer2D;
-	Renderer3DInterface *renderer3D;
+	Renderer2D *renderer2D;
+	Renderer3D *renderer3D;
 
 	GuiImage* iconUp;
 	GuiImage* iconRight;
@@ -926,17 +948,15 @@ struct TabContainer : TPoolVector<TabContainer>
 	bool recreateTarget;
 	bool resizeTarget;
 
-	
-
 	std::list<DrawInstance*> drawInstances;
 
-	Task*	 drawTask;
+	Task*	 taskDraw;
 
 	float mousex,mousey;
 
 	unsigned int lastFrameTime;
 
-	ThreadInterface* thread;
+	ThreadInterface* threadRender;
 
 	TabContainer(float x,float y,float w,float h);
 	virtual ~TabContainer();
@@ -988,11 +1008,14 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
-	virtual int TrackProjectFileViewerPopup(bool iSelected)=0;
+	virtual int TrackProjectFileViewerPopup(ResourceNode*)=0;
 
 	void SetSelection(GuiRect* iRect);
 
 	virtual void SetCursor(int)=0;
+
+	void SetFocus(GuiRect*);
+	GuiRect* GetFocus();
 };
 
 struct SplitterContainer 
@@ -1075,9 +1098,7 @@ struct EditorProperties
 };
 
 
-template<class T> struct EditorObject : T , EditorProperties
-{
-};
+template<class T> struct EditorObject : T , EditorProperties{};
 
 struct EditorEntity : EditorObject<Entity> 
 {
@@ -1151,6 +1172,8 @@ struct EditorLight : EditorObject<Light>
 };
 struct EditorScript : EditorObject<Script>
 {
+	GuiButtonFunc* buttonLaunch;
+
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(TabContainer*);
 	void OnResourcesCreate();

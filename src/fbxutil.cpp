@@ -623,10 +623,10 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 			//mesh->mesh_vertexindices[dstIdx]=fbxMesh->GetPolygonVertex(i,j);
 
 			FbxDouble4 cpoints=fbxMesh->GetControlPointAt(fbxMesh->GetPolygonVertex(i,j));
-			VectorMathNamespace::make(mesh->controlpoints[dstIdx],3,(float)cpoints[0],(float)cpoints[1],(float)cpoints[2]);
+			Vector::make(mesh->controlpoints[dstIdx],3,(float)cpoints[0],(float)cpoints[1],(float)cpoints[2]);
 			
 			FbxVector2 uv=textureUVs->GetAt(fbxMesh->GetTextureUVIndex(i,j));
-			VectorMathNamespace::make(mesh->texcoord[dstIdx],2,(float)uv[0],1-(float)uv[1]);
+			Vector::make(mesh->texcoord[dstIdx],2,(float)uv[0],1-(float)uv[1]);
 		}	
 	}
 
@@ -661,7 +661,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 		{
 			FbxVector4 v;
 			fbxMesh->GetPolygonVertexNormal(mesh->vertexindices[i],j,v);
-			VectorMathNamespace::make(mesh->normals[i],3,(float)v[0],(float)v[1],(float)v[2]);
+			Vector::make(mesh->normals[i],3,(float)v[0],(float)v[1],(float)v[2]);
 		}
 	}
 

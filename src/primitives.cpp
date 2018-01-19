@@ -145,7 +145,7 @@ String::operator char*()const
 {
 	return this->data;
 }
-int String::Count()const{return this->size;}
+const int& String::Count()const{return this->size;}
 const char* String::Buf()const{return this->data;}
 //String::operator bool(){return Buf();}
 
@@ -277,7 +277,7 @@ String FilePath::PathUp(int iLevels)
 //---------------------------------
 
 
-float* VectorMathNamespace::cross(float* c,const float* a,const float* b)
+float* Vector::cross(float* c,const float* a,const float* b)
 {
     c[0]=a[1]*b[2]-a[2]*b[1];
     c[1]=a[2]*b[0]-a[0]*b[2];
@@ -287,25 +287,25 @@ float* VectorMathNamespace::cross(float* c,const float* a,const float* b)
 }
 
 
-float* VectorMathNamespace::sum(float *c,const float *a ,const float *b ,int dim)
+float* Vector::sum(float *c,const float *a ,const float *b ,int dim)
 {
     for(int i=0;i<dim;i++)c[i]=a[i]+b[i];
     return c;
 }
 
-float* VectorMathNamespace::subtract(float *c,const float *a ,const float *b,int dim )
+float* Vector::subtract(float *c,const float *a ,const float *b,int dim )
 {
     for(int i=0;i<dim;i++)c[i]=a[i]-b[i];
     return c;
 }
 
-float* VectorMathNamespace::negate(float *b ,const float *a ,int dim)
+float* Vector::negate(float *b ,const float *a ,int dim)
 {
     for(int i=0;i<dim;i++)b[i]=-a[i];
     return b;
 }
 
-float* VectorMathNamespace::make(float *v ,int dim,float x,float y,float z,float t)
+float* Vector::make(float *v ,int dim,float x,float y,float z,float t)
 {
     float tt[4]={x,y,z,t};
     for(int i=0;i<dim;i++)
@@ -314,19 +314,19 @@ float* VectorMathNamespace::make(float *v ,int dim,float x,float y,float z,float
 }
 
 
-float VectorMathNamespace::angleg(const float *a,const float *b,int dim)
+float Vector::angleg(const float *a,const float *b,int dim)
 {
     return acos(dot(a,b,dim)/length(a,dim) * length(b,dim)) * (float)(180.0/PI);
 }
 
 
-float VectorMathNamespace::angler(const float *a,const float *b,int dim)
+float Vector::angler(const float *a,const float *b,int dim)
 {
     return acos(dot(a,b,dim)/(length(a,dim) * length(b,dim)));
 }
 
 
-float* VectorMathNamespace::copy(float* b,const float* a,int dim)
+float* Vector::copy(float* b,const float* a,int dim)
 {
 	for(int i=0;i<dim;i++)
 		b[i]=a[i];
@@ -335,7 +335,7 @@ float* VectorMathNamespace::copy(float* b,const float* a,int dim)
 
 
 
-float VectorMathNamespace::dot(const float *a ,const float *b,int dim )
+float Vector::dot(const float *a ,const float *b,int dim )
 {
     float ret=0.0f;
     for(int i=0;i<dim;i++)
@@ -345,10 +345,10 @@ float VectorMathNamespace::dot(const float *a ,const float *b,int dim )
     return ret;
 }
 
-void VectorMathNamespace::print(float* v){/*printf("%g,%g,%g\n",v[0],v[1],v[2]);*/}
+void Vector::print(float* v){/*printf("%g,%g,%g\n",v[0],v[1],v[2]);*/}
 
 
-float VectorMathNamespace::length(const float *v,int dim )
+float Vector::length(const float *v,int dim )
 {
     float arg=0.0f;
     for(int i=0;i<dim;i++)
@@ -358,7 +358,7 @@ float VectorMathNamespace::length(const float *v,int dim )
 }
 
 
-float* VectorMathNamespace::normalize(float *b ,const float *a,int dim )
+float* Vector::normalize(float *b ,const float *a,int dim )
 {
     float d=length(a,dim);
 
@@ -369,7 +369,7 @@ float* VectorMathNamespace::normalize(float *b ,const float *a,int dim )
 }
 
 
-float* VectorMathNamespace::scale(float *b ,const float *a ,int dim,float x,float y,float z,float t)
+float* Vector::scale(float *b ,const float *a ,int dim,float x,float y,float z,float t)
 {
     float v[4]={x,y,z,t};
 
@@ -380,7 +380,7 @@ float* VectorMathNamespace::scale(float *b ,const float *a ,int dim,float x,floa
 }
 
 
-float* VectorMathNamespace::scale(float *c,const float *a ,const float *b,int dim )
+float* Vector::scale(float *c,const float *a ,const float *b,int dim )
 {
     for(int i=0;i<dim;i++)
         c[i]=a[i]*b[i];
@@ -388,7 +388,7 @@ float* VectorMathNamespace::scale(float *c,const float *a ,const float *b,int di
 }
 
 
-float* VectorMathNamespace::scale(float *b ,const float *a ,float s,int dim)
+float* Vector::scale(float *b ,const float *a ,float s,int dim)
 {
     for(int i=0;i<dim;i++)
             b[i]=a[i]*s;
@@ -397,7 +397,7 @@ float* VectorMathNamespace::scale(float *b ,const float *a ,float s,int dim)
 
 
 
-float* VectorMathNamespace::minimum(float *c,const float *a,const float *b,int dim)
+float* Vector::minimum(float *c,const float *a,const float *b,int dim)
 {
     for(int i=0;i<dim;i++)
     c[i]=(a[i]<b[i] ? a[i] : b[i]);
@@ -406,7 +406,7 @@ float* VectorMathNamespace::minimum(float *c,const float *a,const float *b,int d
 }
 
 
-float* VectorMathNamespace::maximum(float *c,const float *a,const float *b,int dim)
+float* Vector::maximum(float *c,const float *a,const float *b,int dim)
 {
     for(int i=0;i<dim;i++)
     c[i]=(a[i]>b[i] ? a[i] : b[i]);
@@ -415,7 +415,7 @@ float* VectorMathNamespace::maximum(float *c,const float *a,const float *b,int d
 }
 
 
-bool VectorMathNamespace::equal(const float *a,const float *b,int dim)
+bool Vector::equal(const float *a,const float *b,int dim)
 {
     for(int i=0;i<dim;i++)
         if(a[i]!=b[i])return false;
@@ -426,59 +426,59 @@ bool VectorMathNamespace::equal(const float *a,const float *b,int dim)
 
 
 
-vec2::vec2():x(v[0]),y(v[1]){VectorMathNamespace::make(v,2,0,0);}
-vec2::vec2(const vec2& a):x(v[0]),y(v[1]){VectorMathNamespace::copy(v,a.v,2);}
-vec2::vec2(float fv[2]):x(v[0]),y(v[1]){VectorMathNamespace::copy(v,fv,2);}
-vec2::vec2(float x,float y):x(v[0]),y(v[1]){VectorMathNamespace::make(v,2,x,y);}
-vec2 vec2::operator=(vec2& a){VectorMathNamespace::copy(v,a.v,2);return *this;}
-vec2 vec2::operator+(vec2& a){vec2 r;VectorMathNamespace::sum(r,a.v,v,2);return r;}
-vec2 vec2::operator-(vec2& a){vec2 r;VectorMathNamespace::subtract(r,a.v,v,2);return r;}
-bool vec2::operator==(vec2& a){return VectorMathNamespace::equal(a.v,v,2);}
-bool vec2::operator!=(vec2& a){return !VectorMathNamespace::equal(a.v,v,2);}
+vec2::vec2():x(v[0]),y(v[1]){Vector::make(v,2,0,0);}
+vec2::vec2(const vec2& a):x(v[0]),y(v[1]){Vector::copy(v,a.v,2);}
+vec2::vec2(float fv[2]):x(v[0]),y(v[1]){Vector::copy(v,fv,2);}
+vec2::vec2(float x,float y):x(v[0]),y(v[1]){Vector::make(v,2,x,y);}
+vec2 vec2::operator=(vec2& a){Vector::copy(v,a.v,2);return *this;}
+vec2 vec2::operator+(vec2& a){vec2 r;Vector::sum(r,a.v,v,2);return r;}
+vec2 vec2::operator-(vec2& a){vec2 r;Vector::subtract(r,a.v,v,2);return r;}
+bool vec2::operator==(vec2& a){return Vector::equal(a.v,v,2);}
+bool vec2::operator!=(vec2& a){return !Vector::equal(a.v,v,2);}
 float& vec2::operator[](int i){return v[i];}
-void vec2::scale(float f){VectorMathNamespace::scale(v,v,f,2);}
-void vec2::scale(vec2 a){VectorMathNamespace::scale(v,a.v,v,2);}
-vec2 vec2::minimum(vec2& a){vec2 r; VectorMathNamespace::minimum(r,a.v,v,2);return r;}
-vec2 vec2::maximum(vec2& a){vec2 r; VectorMathNamespace::maximum(r,a.v,v,2);return r;}
-float vec2::dot(vec2& a,vec2& b){return VectorMathNamespace::dot(a.v,b.v,2);}
-float vec2::dot(vec2& a){return VectorMathNamespace::dot(a.v,v,2);}
-float vec2::length(){return VectorMathNamespace::length(v,2);}
-void vec2::normalize(){VectorMathNamespace::normalize(v,v,2);}
-void vec2::make(float a,float b){VectorMathNamespace::make(v,2,a,b);}
-void vec2::negate(){VectorMathNamespace::negate(v,v,2);}
+void vec2::scale(float f){Vector::scale(v,v,f,2);}
+void vec2::scale(vec2 a){Vector::scale(v,a.v,v,2);}
+vec2 vec2::minimum(vec2& a){vec2 r; Vector::minimum(r,a.v,v,2);return r;}
+vec2 vec2::maximum(vec2& a){vec2 r; Vector::maximum(r,a.v,v,2);return r;}
+float vec2::dot(vec2& a,vec2& b){return Vector::dot(a.v,b.v,2);}
+float vec2::dot(vec2& a){return Vector::dot(a.v,v,2);}
+float vec2::length(){return Vector::length(v,2);}
+void vec2::normalize(){Vector::normalize(v,v,2);}
+void vec2::make(float a,float b){Vector::make(v,2,a,b);}
+void vec2::negate(){Vector::negate(v,v,2);}
 String vec2::stringize(){char str[100];/*sprintf(str,"%g,%g",v[0],v[1]);*/String s(str);return s;}
 vec2::operator float* (){return v;}
 vec2::operator void* (){return v;}
 vec2::operator char* (){return stringize();}
 
 
-vec3::vec3():x(v[0]),y(v[1]),z(v[2]){VectorMathNamespace::make(v,3,0,0,0);}
-vec3::vec3(const vec3& a):x(v[0]),y(v[1]),z(v[2]){VectorMathNamespace::copy(v,a.v,3);}
-vec3::vec3(float fv[3]):x(v[0]),y(v[1]),z(v[2]){VectorMathNamespace::copy(v,fv,3);}
-vec3::vec3(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]){VectorMathNamespace::make(v,3,x,y,z);}
+vec3::vec3():x(v[0]),y(v[1]),z(v[2]){Vector::make(v,3,0,0,0);}
+vec3::vec3(const vec3& a):x(v[0]),y(v[1]),z(v[2]){Vector::copy(v,a.v,3);}
+vec3::vec3(float fv[3]):x(v[0]),y(v[1]),z(v[2]){Vector::copy(v,fv,3);}
+vec3::vec3(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]){Vector::make(v,3,x,y,z);}
 float& vec3::operator[](int i){return v[i];}
-bool vec3::operator==(vec3 a){return VectorMathNamespace::equal(v,a.v,3);}
-bool vec3::operator==(vec3& a)const{return VectorMathNamespace::equal(a.v,v,3);}
-bool vec3::operator!=(vec3& a){return !VectorMathNamespace::equal(a.v,v,3);}
-vec3& vec3::operator=(vec3 a){VectorMathNamespace::copy(v,a.v,3);return *this;}
-vec3 vec3::operator+(vec3& a){vec3 r;VectorMathNamespace::sum(r,v,a.v,3);return r;}
-vec3& vec3::operator+=(vec3& a){VectorMathNamespace::sum(v,v,a.v,3);return *this;}
-vec3 vec3::operator-(vec3& a){vec3 r;VectorMathNamespace::subtract(r,v,a.v,3);return r;}
-vec3 vec3::operator-(){vec3 r;VectorMathNamespace::negate(r,v,3);return r;}
-vec3& vec3::operator-=(vec3& a){VectorMathNamespace::subtract(v,v,a.v,3);return *this;}
-vec3 vec3::operator*(float f){vec3 g;VectorMathNamespace::scale(g,v,f,3);return g;}
-vec3& vec3::operator*=(float f){VectorMathNamespace::scale(v,v,f,3);return *this;}
-vec3& vec3::scale(float f){VectorMathNamespace::scale(v,v,f,3);return *this;}
-vec3& vec3::scale(vec3 a){VectorMathNamespace::scale(v,a.v,v,3);return *this;}
-vec3 vec3::minimum(vec3 a){vec3 r; VectorMathNamespace::minimum(r,a.v,v,3);return r;}
-vec3 vec3::maximum(vec3 a){vec3 r; VectorMathNamespace::maximum(r,a.v,v,3);return r;}
-float vec3::length(){return VectorMathNamespace::length(v,3);}
-float vec3::dot(vec3& a,vec3& b){return VectorMathNamespace::dot(a.v,b.v,3);}
-vec3 vec3::cross(vec3& a,vec3& b){vec3 c;VectorMathNamespace::cross(c,a.v,b.v);return c;}
-vec3& vec3::normalize(){VectorMathNamespace::normalize(v,v,3);return *this;}
-vec3& vec3::make(float a,float b,float c){VectorMathNamespace::make(v,3,a,b,c);return *this;}
+bool vec3::operator==(vec3 a){return Vector::equal(v,a.v,3);}
+bool vec3::operator==(vec3& a)const{return Vector::equal(a.v,v,3);}
+bool vec3::operator!=(vec3& a){return !Vector::equal(a.v,v,3);}
+vec3& vec3::operator=(vec3 a){Vector::copy(v,a.v,3);return *this;}
+vec3 vec3::operator+(vec3& a){vec3 r;Vector::sum(r,v,a.v,3);return r;}
+vec3& vec3::operator+=(vec3& a){Vector::sum(v,v,a.v,3);return *this;}
+vec3 vec3::operator-(vec3& a){vec3 r;Vector::subtract(r,v,a.v,3);return r;}
+vec3 vec3::operator-(){vec3 r;Vector::negate(r,v,3);return r;}
+vec3& vec3::operator-=(vec3& a){Vector::subtract(v,v,a.v,3);return *this;}
+vec3 vec3::operator*(float f){vec3 g;Vector::scale(g,v,f,3);return g;}
+vec3& vec3::operator*=(float f){Vector::scale(v,v,f,3);return *this;}
+vec3& vec3::scale(float f){Vector::scale(v,v,f,3);return *this;}
+vec3& vec3::scale(vec3 a){Vector::scale(v,a.v,v,3);return *this;}
+vec3 vec3::minimum(vec3 a){vec3 r; Vector::minimum(r,a.v,v,3);return r;}
+vec3 vec3::maximum(vec3 a){vec3 r; Vector::maximum(r,a.v,v,3);return r;}
+float vec3::length(){return Vector::length(v,3);}
+float vec3::dot(vec3& a,vec3& b){return Vector::dot(a.v,b.v,3);}
+vec3 vec3::cross(vec3& a,vec3& b){vec3 c;Vector::cross(c,a.v,b.v);return c;}
+vec3& vec3::normalize(){Vector::normalize(v,v,3);return *this;}
+vec3& vec3::make(float a,float b,float c){Vector::make(v,3,a,b,c);return *this;}
 //vec3& make(double a,double b,double c){VectorMathNamespace::make(v,3,(float)a,(float)b,(float)c);return *this;}
-vec3& vec3::negate(){VectorMathNamespace::negate(v,v,3);return *this;}
+vec3& vec3::negate(){Vector::negate(v,v,3);return *this;}
 String vec3::stringize(){
 	char str[100];
 	sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);
@@ -490,30 +490,30 @@ vec3::operator char* ()
 {return (char*)stringize().Buf();}
 bool vec3::iszero(){return (v[0]==0 && v[1]==0 && v[2]==0);}
 
-vec4::vec4():x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,0,0,0,0);}
-vec4::vec4(const vec3& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,a.v,3);w=0;}
-vec4::vec4(const vec4& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,a.v,4);}
-vec4::vec4(float fv[4]):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::copy(v,fv,4);}
-vec4::vec4(float x,float y,float z,float t):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,x,y,z,t);}
-vec4::vec4(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]),w(v[3]){VectorMathNamespace::make(v,4,x,y,z,1.0f);}
-vec4& vec4::operator=(const vec4& a){VectorMathNamespace::copy(v,a.v,4);return *this;}
-vec4& vec4::operator=(const vec3& a){VectorMathNamespace::copy(v,a.v,3);v[3]=1.0f;return *this;}
-vec4 vec4::operator+(const vec4& a){vec4 r;VectorMathNamespace::sum(r,a.v,v,4);return r;}
-vec4& vec4::operator+=(const vec4& a){VectorMathNamespace::sum(v,v,a.v,4);return *this;}
-vec4 vec4::operator-(const vec4& a){vec4 r;VectorMathNamespace::subtract(r,a.v,v,4);return r;}
-vec4& vec4::operator-=(vec4& a){VectorMathNamespace::subtract(v,v,a.v,4);return *this;}
-void vec4::scale(float f){VectorMathNamespace::scale(v,v,f,4);}
-void vec4::scale(vec4 a){VectorMathNamespace::scale(v,a.v,v,4);}
-bool vec4::operator==(const vec4& a){return VectorMathNamespace::equal(a.v,v,4);}
-bool vec4::operator!=(const vec4& a){return !VectorMathNamespace::equal(a.v,v,4);}
+vec4::vec4():x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,0,0,0,0);}
+vec4::vec4(const vec3& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::copy(v,a.v,3);w=0;}
+vec4::vec4(const vec4& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::copy(v,a.v,4);}
+vec4::vec4(float fv[4]):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::copy(v,fv,4);}
+vec4::vec4(float x,float y,float z,float t):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,x,y,z,t);}
+vec4::vec4(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,x,y,z,1.0f);}
+vec4& vec4::operator=(const vec4& a){Vector::copy(v,a.v,4);return *this;}
+vec4& vec4::operator=(const vec3& a){Vector::copy(v,a.v,3);v[3]=1.0f;return *this;}
+vec4 vec4::operator+(const vec4& a){vec4 r;Vector::sum(r,a.v,v,4);return r;}
+vec4& vec4::operator+=(const vec4& a){Vector::sum(v,v,a.v,4);return *this;}
+vec4 vec4::operator-(const vec4& a){vec4 r;Vector::subtract(r,a.v,v,4);return r;}
+vec4& vec4::operator-=(vec4& a){Vector::subtract(v,v,a.v,4);return *this;}
+void vec4::scale(float f){Vector::scale(v,v,f,4);}
+void vec4::scale(vec4 a){Vector::scale(v,a.v,v,4);}
+bool vec4::operator==(const vec4& a){return Vector::equal(a.v,v,4);}
+bool vec4::operator!=(const vec4& a){return !Vector::equal(a.v,v,4);}
 float& vec4::operator[](int i){return v[i];}
-vec4 vec4::minimum(const vec4& a){vec4 r; VectorMathNamespace::minimum(r,a.v,v,4);return r;}
-vec4 vec4::maximum(const vec4& a){vec4 r; VectorMathNamespace::maximum(r,a.v,v,4);return r;}
-float vec4::length(){return VectorMathNamespace::length(v,4);}
-float vec4::dot(const vec4& a,const vec4& b){return VectorMathNamespace::dot(a.v,b.v,4);}
-void vec4::normalize(){VectorMathNamespace::normalize(v,v,4);}
-void vec4::make(float a,float b,float c,float d){VectorMathNamespace::make(v,4,a,b,c,d);}
-void vec4::negate(){VectorMathNamespace::negate(v,v,4);}
+vec4 vec4::minimum(const vec4& a){vec4 r; Vector::minimum(r,a.v,v,4);return r;}
+vec4 vec4::maximum(const vec4& a){vec4 r; Vector::maximum(r,a.v,v,4);return r;}
+float vec4::length(){return Vector::length(v,4);}
+float vec4::dot(const vec4& a,const vec4& b){return Vector::dot(a.v,b.v,4);}
+void vec4::normalize(){Vector::normalize(v,v,4);}
+void vec4::make(float a,float b,float c,float d){Vector::make(v,4,a,b,c,d);}
+void vec4::negate(){Vector::negate(v,v,4);}
 String vec4::stringize(){char str[100];/*sprintf(str,"%g,%g,%g,%g",v[0],v[1],v[2],v[3]);*/String s(str);return s;}
 vec4::operator float* (){return v;}
 vec4::operator void* (){return v;}
@@ -537,7 +537,7 @@ vec4::operator vec2 (){return vec2(x,y);}
 
 
 
-float* MatrixMathNamespace::identity(float* m)
+float* Matrix::identity(float* m)
 {
     m[0]=1;
     m[1]=0;
@@ -558,7 +558,7 @@ float* MatrixMathNamespace::identity(float* m)
     return m;
 }
 
-float* MatrixMathNamespace::make(float* mm,float a,float b,float c,float d,float e,float f,float g,float h,float i,float l,float m,float n,float o,float p,float q,float r)
+float* Matrix::make(float* mm,float a,float b,float c,float d,float e,float f,float g,float h,float i,float l,float m,float n,float o,float p,float q,float r)
 {
     mm[0]=a;
     mm[1]=b;
@@ -580,7 +580,7 @@ float* MatrixMathNamespace::make(float* mm,float a,float b,float c,float d,float
     return mm;
 }
 
-float* MatrixMathNamespace::sum(float* c,float* a,float* b)
+float* Matrix::sum(float* c,float* a,float* b)
 {
     c[0]=a[0]+b[0];		c[1]=a[1]+b[1];		c[2]=a[2]+b[2];		c[3]=a[3]+b[3];
     c[4]=a[4]+b[4];		c[5]=a[5]+b[5];		c[6]=a[6]+b[6];		c[7]=a[7]+b[7];
@@ -590,7 +590,7 @@ float* MatrixMathNamespace::sum(float* c,float* a,float* b)
     return c;
 }
 
-float* MatrixMathNamespace::subtract(float* c,float* a,float* b)
+float* Matrix::subtract(float* c,float* a,float* b)
 {
     c[0]=a[0]-b[0];		c[1]=a[1]-b[1];		c[2]=a[2]-b[2];		c[3]=a[3]-b[3];
     c[4]=a[4]-b[4];		c[5]=a[5]-b[5];		c[6]=a[6]-b[6];		c[7]=a[7]-b[7];
@@ -600,7 +600,7 @@ float* MatrixMathNamespace::subtract(float* c,float* a,float* b)
 	return c;
 }
 
-float* MatrixMathNamespace::copy(float* b,const float* a)
+float* Matrix::copy(float* b,const float* a)
 {
 	// if(a==b)return b;
 
@@ -611,7 +611,7 @@ float* MatrixMathNamespace::copy(float* b,const float* a)
 	return b;
 }
 
-float* MatrixMathNamespace::negate(float* b,float* a)
+float* Matrix::negate(float* b,float* a)
 {
     b[0]=-a[0];
     b[1]=-a[1];
@@ -619,7 +619,7 @@ float* MatrixMathNamespace::negate(float* b,float* a)
     return b;
 }
 
-float* MatrixMathNamespace::multiply(float* c,float* a,float* b)
+float* Matrix::multiply(float* c,float* a,float* b)
 {
 	float *aa,*bb,av[16],bv[16];
 
@@ -647,7 +647,7 @@ float* MatrixMathNamespace::multiply(float* c,float* a,float* b)
     return c;
 }
 
-void MatrixMathNamespace::multiply(float* a,float* b)
+void Matrix::multiply(float* a,float* b)
 {
 	float aa[16];
 	memcpy(aa,a,sizeof(float[16]));
@@ -667,7 +667,7 @@ void MatrixMathNamespace::multiply(float* a,float* b)
 }
 
 
-void MatrixMathNamespace::print(float* m)
+void Matrix::print(float* m)
 {
     printf("%g,%g,%g,%g\n",m[0],m[4],m[8],m[12]);
     printf("%g,%g,%g,%g\n",m[1],m[5],m[9],m[13]);
@@ -677,7 +677,7 @@ void MatrixMathNamespace::print(float* m)
 	printf("\n");
 }
 
-float* MatrixMathNamespace::traspose(float* b,float* a)
+float* Matrix::traspose(float* b,float* a)
 {
     float *tt,t[16];
 
@@ -690,7 +690,7 @@ float* MatrixMathNamespace::traspose(float* b,float* a)
 
     return b;
 }
-float* MatrixMathNamespace::translate(float* m,vec3 v)
+float* Matrix::translate(float* m,vec3 v)
 {
     m[12] += m[0] * v[0] + m[4] * v[1] + m[8] * v[2];
     m[13] += m[1] * v[0] + m[5] * v[1] + m[9] * v[2];
@@ -700,7 +700,7 @@ float* MatrixMathNamespace::translate(float* m,vec3 v)
     return m;
 }
 
-float* MatrixMathNamespace::scale(float* b,float* a,float x,float y,float z)
+float* Matrix::scale(float* b,float* a,float x,float y,float z)
 {
     b[0]=a[0]*x;
     b[5]=a[5]*y;
@@ -709,7 +709,7 @@ float* MatrixMathNamespace::scale(float* b,float* a,float x,float y,float z)
     return b;
 }
 
-float* MatrixMathNamespace::scale(float* b,float* a,vec3 v)
+float* Matrix::scale(float* b,float* a,vec3 v)
 {
     b[0]=a[0]*v[0];
     b[5]=a[5]*v[1];
@@ -718,7 +718,7 @@ float* MatrixMathNamespace::scale(float* b,float* a,vec3 v)
     return b;
 }
 
-float* MatrixMathNamespace::scale(float* b,float* a,float s)
+float* Matrix::scale(float* b,float* a,float s)
 {
     b[0]=a[0]*s;
     b[5]=a[5]*s;
@@ -727,19 +727,19 @@ float* MatrixMathNamespace::scale(float* b,float* a,float s)
     return b;
 }
 
-float* MatrixMathNamespace::set(float* m,vec3 s,vec3 r,vec3 t)
+float* Matrix::set(float* m,vec3 s,vec3 r,vec3 t)
 {
     float   ms[16],
             mr[16],
             mt[16];
 
-    MatrixMathNamespace::identity(ms);
-    MatrixMathNamespace::identity(mr);
-    MatrixMathNamespace::identity(mt);
+    Matrix::identity(ms);
+    Matrix::identity(mr);
+    Matrix::identity(mt);
 
-    MatrixMathNamespace::scale(ms,ms,s);
-    MatrixMathNamespace::rotate(mr,mr,r);
-    MatrixMathNamespace::translate(mt,t);
+    Matrix::scale(ms,ms,s);
+    Matrix::rotate(mr,mr,r);
+    Matrix::translate(mt,t);
 
     //multiply(,)
 
@@ -747,7 +747,7 @@ float* MatrixMathNamespace::set(float* m,vec3 s,vec3 r,vec3 t)
 }
 
 
-void MatrixMathNamespace::ortho(float* m,float l,float r,float b,float t,float n,float f)
+void Matrix::ortho(float* m,float l,float r,float b,float t,float n,float f)
 {
     m[0]=(2*n)/(r-l);
     m[1]=0;
@@ -770,7 +770,7 @@ void MatrixMathNamespace::ortho(float* m,float l,float r,float b,float t,float n
     m[15]=0;
 }
 
-void MatrixMathNamespace::perspective(float* m,float fov,float ratio,float near,float far)
+void Matrix::perspective(float* m,float fov,float ratio,float near,float far)
 {
 		float D2R = PI / 180.0;
 		float yScale = 1.0 / tan(D2R * fov / 2);
@@ -785,7 +785,7 @@ void MatrixMathNamespace::perspective(float* m,float fov,float ratio,float near,
 		memcpy(m, mo, sizeof(float)*16);
 }
 
-void MatrixMathNamespace::lookat(float* m,float px,float py,float pz,float cx,float cy,float cz,float ux,float uy,float uz)
+void Matrix::lookat(float* m,float px,float py,float pz,float cx,float cy,float cz,float ux,float uy,float uz)
 {
     float   p[3]={px,py,pz},
             c[3]={cx,cy,cz},
@@ -793,13 +793,13 @@ void MatrixMathNamespace::lookat(float* m,float px,float py,float pz,float cx,fl
             f[3],
             s[3];
 
-    VectorMathNamespace::subtract(f,c,p,3);
-    VectorMathNamespace::normalize(f,f,3);
-    VectorMathNamespace::cross(s,f,u);
-    VectorMathNamespace::normalize(s,s,3);
-    VectorMathNamespace::cross(u,s,f);
+    Vector::subtract(f,c,p,3);
+    Vector::normalize(f,f,3);
+    Vector::cross(s,f,u);
+    Vector::normalize(s,s,3);
+    Vector::cross(u,s,f);
 
-    MatrixMathNamespace::make(m,s[0],u[0],-f[0],0,s[1],u[1],-f[1],0,s[2],u[2],-f[2],0,0,0,0,1);
+    Matrix::make(m,s[0],u[0],-f[0],0,s[1],u[1],-f[1],0,s[2],u[2],-f[2],0,0,0,0,1);
 
 
     m[12] += m[0] * -px + m[4] * -py + m[8] * -pz;
@@ -809,10 +809,10 @@ void MatrixMathNamespace::lookat(float* m,float px,float py,float pz,float cx,fl
 
 }
 
-void MatrixMathNamespace::lookat(float* m,float* at,float px,float py,float pz,float ux,float uy,float uz)
+void Matrix::lookat(float* m,float* at,float px,float py,float pz,float ux,float uy,float uz)
 {
     float atinv[16];
-    MatrixMathNamespace::invert(atinv,at);
+    Matrix::invert(atinv,at);
 
     float   p[3]={px,py,pz},
             c[3]={-atinv[12],-atinv[13],-atinv[14]},
@@ -820,11 +820,11 @@ void MatrixMathNamespace::lookat(float* m,float* at,float px,float py,float pz,f
             f[3],
             s[3];
 
-    VectorMathNamespace::subtract(f,c,p,3);
-    VectorMathNamespace::normalize(f,f,3);
-    VectorMathNamespace::cross(s,f,u);
-    VectorMathNamespace::normalize(s,s,3);
-    VectorMathNamespace::cross(u,s,f);
+    Vector::subtract(f,c,p,3);
+    Vector::normalize(f,f,3);
+    Vector::cross(s,f,u);
+    Vector::normalize(s,s,3);
+    Vector::cross(u,s,f);
 
     float l[16]=
     {
@@ -834,8 +834,8 @@ void MatrixMathNamespace::lookat(float* m,float* at,float px,float py,float pz,f
         0,0,0,1
     };
 
-    MatrixMathNamespace::multiply(m,m,atinv);
-    MatrixMathNamespace::multiply(m,m,l);
+    Matrix::multiply(m,m,atinv);
+    Matrix::multiply(m,m,l);
 
 
     m[12] += m[0] * -px + m[4] * -py + m[8] * -pz;
@@ -844,7 +844,7 @@ void MatrixMathNamespace::lookat(float* m,float* at,float px,float py,float pz,f
     m[15] += m[3] * -px + m[7] * -py + m[11] * -pz;
 }
 
-void MatrixMathNamespace::rotate(float* mr,float* m,float angle,float u,float v,float w)
+void Matrix::rotate(float* mr,float* m,float angle,float u,float v,float w)
 {
     float ang=(float)(angle*PI_OVER_180);
 	float m2[16] = {0};
@@ -883,23 +883,23 @@ void MatrixMathNamespace::rotate(float* mr,float* m,float angle,float u,float v,
 	m2[14] = 0;
 	m2[15] = 1.0f;
 
-    MatrixMathNamespace::multiply(mr,m,m2);
+    Matrix::multiply(mr,m,m2);
 }
 
-void MatrixMathNamespace::rotate(float* mr,float* m,vec3 v)
+void Matrix::rotate(float* mr,float* m,vec3 v)
 {
     float rx[16],ry[16],rz[16];
 
-    MatrixMathNamespace::identity(rx);
-    MatrixMathNamespace::identity(ry);
-    MatrixMathNamespace::identity(rz);
+    Matrix::identity(rx);
+    Matrix::identity(ry);
+    Matrix::identity(rz);
 
     if(v[2]!=0)
-        MatrixMathNamespace::rotate(rz,rz,v[2],0,0,1);
+        Matrix::rotate(rz,rz,v[2],0,0,1);
     if(v[1]!=0)
-        MatrixMathNamespace::rotate(ry,ry,v[1],0,1,0);
+        Matrix::rotate(ry,ry,v[1],0,1,0);
     if(v[0]!=0)
-        MatrixMathNamespace::rotate(rx,rx,v[0],1,0,0);
+        Matrix::rotate(rx,rx,v[0],1,0,0);
 
     float zy[16],zyx[16];
 
@@ -908,13 +908,13 @@ void MatrixMathNamespace::rotate(float* mr,float* m,vec3 v)
     multiply(mr,m,zyx);
 }
 
-void MatrixMathNamespace::rotate(float* m,float a,float x,float y,float z)
+void Matrix::rotate(float* m,float a,float x,float y,float z)
 {
 	rotate(m,m,a,x,y,z);
 }
 
 
-float MatrixMathNamespace::det(const float* m)
+float Matrix::det(const float* m)
 {
     return  m[12]*m[9]*m[6]*m[3]-
             m[8]*m[13]*m[6]*m[3]-
@@ -942,7 +942,7 @@ float MatrixMathNamespace::det(const float* m)
             m[0]*m[5]*m[10]*m[15];
 }
 
-float* MatrixMathNamespace::invert(float* i,float* m)
+float* Matrix::invert(float* i,float* m)
 {
     float *mc,mcc[16];
 
@@ -989,7 +989,7 @@ float* MatrixMathNamespace::invert(float* i,float* m)
 }
 
 
-float* MatrixMathNamespace::transform(float* c,float* m,float* a)
+float* Matrix::transform(float* c,float* m,float* a)
 {
     float *t,tt[3];
 
@@ -1004,7 +1004,7 @@ float* MatrixMathNamespace::transform(float* c,float* m,float* a)
 return c;
 }
 
-float* MatrixMathNamespace::transform(float* c,float* m,float x,float y,float z)
+float* Matrix::transform(float* c,float* m,float x,float y,float z)
 {
     float v[3]={x,y,z};
     return transform(c,m,v);;
@@ -1020,7 +1020,7 @@ float* MatrixMathNamespace::transform(float* c,float* m,float x,float y,float z)
     */
 
 
-float* MatrixMathNamespace::orientation(float* c,float* m,float* a)
+float* Matrix::orientation(float* c,float* m,float* a)
 {
     float *t,tt[3];
 
@@ -1031,19 +1031,19 @@ float* MatrixMathNamespace::orientation(float* c,float* m,float* a)
     c[1] = m[1] * t[0] + m[5] * t[1] + m[9] * t[2] ;
     c[2] = m[2] * t[0] + m[6] * t[1] + m[10] * t[2];
 
-    VectorMathNamespace::normalize(c,c,3);
+    Vector::normalize(c,c,3);
 
     return c;
 }
 
-float* MatrixMathNamespace::orientation(float* c,float* m,float x,float y,float z)
+float* Matrix::orientation(float* c,float* m,float x,float y,float z)
 {
     float v[3]={x,y,z};
-    return MatrixMathNamespace::orientation(c,m,v);
+    return Matrix::orientation(c,m,v);
 }
 
 
-void MatrixMathNamespace::orientations(float* m,float* a,float* b,float*c)
+void Matrix::orientations(float* m,float* a,float* b,float*c)
 {
     orientation(a,m,1,0,0);
     orientation(b,m,0,1,0);
@@ -1086,17 +1086,17 @@ float* mat3::operator[](int i){return &v[i*3];}
 
 
 
-mat4::mat4():init_mat4_references{MatrixMathNamespace::identity(v);};
-mat4::mat4(const mat4& mm):init_mat4_references{MatrixMathNamespace::copy(v,mm.v);}
-mat4::mat4(const float* mm):init_mat4_references{MatrixMathNamespace::copy(v,mm);}
+mat4::mat4():init_mat4_references{Matrix::identity(v);};
+mat4::mat4(const mat4& mm):init_mat4_references{Matrix::copy(v,mm.v);}
+mat4::mat4(const float* mm):init_mat4_references{Matrix::copy(v,mm);}
 mat4::mat4(const double* mm):init_mat4_references{for(int i=0;i<16;i++)v[i]=(float)mm[i];}
 mat4::mat4(mat3 a):init_mat4_references{v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;}
 mat4& mat4::operator=(mat3 a){v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;return *this;}
-mat4& mat4::operator=(const mat4& mm){MatrixMathNamespace::copy(v,mm.v);return *this;}
+mat4& mat4::operator=(const mat4& mm){Matrix::copy(v,mm.v);return *this;}
 bool mat4::operator==(mat4& mm){for(int i=0;i<16;i++){if(v[i]!=mm.v[i])return false;}return true;}
 
-mat4 mat4::operator*(mat4 mm){mat4 t;MatrixMathNamespace::multiply(t.v,mm.v,v);return t;}
-mat4 mat4::operator*(float f){mat4 t;MatrixMathNamespace::scale(t,v,f);return t;}
+mat4 mat4::operator*(mat4 mm){mat4 t;Matrix::multiply(t.v,mm.v,v);return t;}
+mat4 mat4::operator*(float f){mat4 t;Matrix::scale(t,v,f);return t;}
 vec4 mat4::operator*(vec4 v)
 {
 	vec4 result;
@@ -1108,61 +1108,61 @@ vec4 mat4::operator*(vec4 v)
 	}
 	return result;
 }
-mat4& mat4::operator*=(mat4 mm){MatrixMathNamespace::multiply(v,mm.v,v);return *this;}
-mat4& mat4::operator*=(vec3 v3){MatrixMathNamespace::scale(v,v,v3);return *this;}
-mat4& mat4::operator*=(float f){MatrixMathNamespace::scale(v,v,f);return *this;}
-mat4 mat4::operator+(mat4& mm){mat4 t;MatrixMathNamespace::sum(t.v,v,mm.v);return t;}
-mat4& mat4::operator+=(mat4& mm){MatrixMathNamespace::sum(v,v,mm.v);return *this;}
-mat4 mat4::operator-(mat4& mm){mat4 t;MatrixMathNamespace::subtract(t.v,v,mm.v);return t;}
-mat4& mat4::operator-=(mat4& mm){MatrixMathNamespace::subtract(v,v,mm.v);return *this;}
-mat4 mat4::operator-(){mat4 t;MatrixMathNamespace::negate(t,v);return t;}
+mat4& mat4::operator*=(mat4 mm){Matrix::multiply(v,mm.v,v);return *this;}
+mat4& mat4::operator*=(vec3 v3){Matrix::scale(v,v,v3);return *this;}
+mat4& mat4::operator*=(float f){Matrix::scale(v,v,f);return *this;}
+mat4 mat4::operator+(mat4& mm){mat4 t;Matrix::sum(t.v,v,mm.v);return t;}
+mat4& mat4::operator+=(mat4& mm){Matrix::sum(v,v,mm.v);return *this;}
+mat4 mat4::operator-(mat4& mm){mat4 t;Matrix::subtract(t.v,v,mm.v);return t;}
+mat4& mat4::operator-=(mat4& mm){Matrix::subtract(v,v,mm.v);return *this;}
+mat4 mat4::operator-(){mat4 t;Matrix::negate(t,v);return t;}
 float* 	mat4::operator[](int i){return &v[i*4];}
 
-mat4& mat4::identity(){MatrixMathNamespace::identity(v);return *this;}
+mat4& mat4::identity(){Matrix::identity(v);return *this;}
 mat4& mat4::identity33(){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)v[idx[i]]=(idx[i]%5 ? 0.0f : 1.0f);return *this;}
-vec3 mat4::transform(vec3 iString){vec3 r;MatrixMathNamespace::transform(r,v,iString);return r;}
-void mat4::transformself(vec3& inout){MatrixMathNamespace::transform(inout,v,inout);}
-vec3 mat4::transform(float x,float y,float z){vec3 r;MatrixMathNamespace::transform(r,v,x,y,z);return r;}
+vec3 mat4::transform(vec3 iString){vec3 r;Matrix::transform(r,v,iString);return r;}
+void mat4::transformself(vec3& inout){Matrix::transform(inout,v,inout);}
+vec3 mat4::transform(float x,float y,float z){vec3 r;Matrix::transform(r,v,x,y,z);return r;}
 
-mat4& mat4::traspose(){MatrixMathNamespace::traspose(v,v);return *this;}
+mat4& mat4::traspose(){Matrix::traspose(v,v);return *this;}
 
-mat4& mat4::rotate(float a,float x,float y,float z){MatrixMathNamespace::rotate(v,v,a,x,y,z);return *this;}
-mat4& mat4::rotate(float a,vec3 v3){MatrixMathNamespace::rotate(v,v,a,v3[0],v3[1],v3[2]);return *this;}
-mat4& mat4::rotate(vec3 v3){MatrixMathNamespace::rotate(v,v,v3);return *this;}
+mat4& mat4::rotate(float a,float x,float y,float z){Matrix::rotate(v,v,a,x,y,z);return *this;}
+mat4& mat4::rotate(float a,vec3 v3){Matrix::rotate(v,v,a,v3[0],v3[1],v3[2]);return *this;}
+mat4& mat4::rotate(vec3 v3){Matrix::rotate(v,v,v3);return *this;}
 
-mat4& mat4::scale(float scalar){MatrixMathNamespace::scale(v,v,scalar);return *this;}
-mat4& mat4::scale(vec3 scalevector){MatrixMathNamespace::scale(v,v,scalevector);return *this;}
+mat4& mat4::scale(float scalar){Matrix::scale(v,v,scalar);return *this;}
+mat4& mat4::scale(vec3 scalevector){Matrix::scale(v,v,scalevector);return *this;}
 
-mat4& mat4::srt(vec3 s,vec3 r,vec3 t){mat4 ms;ms.scale(s);mat4 mr;MatrixMathNamespace::rotate(mr,mr,r);mat4 mt;mt.translate(t);*this=ms*mr*mt;return *this;}
-mat4& mat4::trs(vec3 t,vec3 r,vec3 s){mat4 ms;ms.scale(s);mat4 mr;MatrixMathNamespace::rotate(mr,mr,r);mat4 mt;mt.translate(t);*this=mt*mr*ms;return *this;}
+mat4& mat4::srt(vec3 s,vec3 r,vec3 t){mat4 ms;ms.scale(s);mat4 mr;Matrix::rotate(mr,mr,r);mat4 mt;mt.translate(t);*this=ms*mr*mt;return *this;}
+mat4& mat4::trs(vec3 t,vec3 r,vec3 s){mat4 ms;ms.scale(s);mat4 mr;Matrix::rotate(mr,mr,r);mat4 mt;mt.translate(t);*this=mt*mr*ms;return *this;}
 
 
-mat4& mat4::copy(float* mm){MatrixMathNamespace::copy(mm,v);return *this;}
+mat4& mat4::copy(float* mm){Matrix::copy(mm,v);return *this;}
 mat4& mat4::copy33(mat4& mm){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)v[idx[i]]=mm.v[idx[i]];return *this;}
 mat4& mat4::move(vec3 v3){v[12] = v3[0];v[13] = v3[1];v[14] = v3[2];return *this;}
 
-mat4& mat4::translate(float x,float y,float z){vec3 t(x,y,z);MatrixMathNamespace::translate(v,t);return *this;}
-mat4& mat4::translate(vec3 v3){MatrixMathNamespace::translate(v,v3);return *this;}
+mat4& mat4::translate(float x,float y,float z){vec3 t(x,y,z);Matrix::translate(v,t);return *this;}
+mat4& mat4::translate(vec3 v3){Matrix::translate(v,v3);return *this;}
 
-mat4& mat4::invert(){MatrixMathNamespace::invert(v,v);return *this;}
-mat4 mat4::inverse(){float ret[16];MatrixMathNamespace::invert(ret,v);return mat4(ret);}
+mat4& mat4::invert(){Matrix::invert(v,v);return *this;}
+mat4 mat4::inverse(){float ret[16];Matrix::invert(ret,v);return mat4(ret);}
 
-void mat4::print(){MatrixMathNamespace::print(v);}
+void mat4::print(){Matrix::print(v);}
 
-mat4& mat4::perspective(float fov,float ratio,float near,float far){MatrixMathNamespace::perspective(v,fov,ratio,near,far);return *this;}
+mat4& mat4::perspective(float fov,float ratio,float near,float far){Matrix::perspective(v,fov,ratio,near,far);return *this;}
 //mat4& mat4::lookat(vec3 target,vec3 p,vec3 y){matrix::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
 mat4& mat4::lookat(vec3 target,vec3 up)
 {
 	vec3 p=position();
-	MatrixMathNamespace::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],up[0],up[1],up[2]);
+	Matrix::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],up[0],up[1],up[2]);
 	return *this;
 }
 
-vec3 mat4::position(){vec3 t;MatrixMathNamespace::transform(t,v,0,0,0);return t;}
+vec3 mat4::position(){vec3 t;Matrix::transform(t,v,0,0,0);return t;}
 
-void mat4::axes(vec3& a,vec3& b,vec3& c){MatrixMathNamespace::orientations(v,a,b,c);}
-vec3 mat4::axis(vec3 iString){MatrixMathNamespace::orientation(iString,v,iString);return iString;}
-vec3 mat4::axis(float x,float y,float z){vec3 out(x,y,z);MatrixMathNamespace::orientation(out,v,out);return out;}
+void mat4::axes(vec3& a,vec3& b,vec3& c){Matrix::orientations(v,a,b,c);}
+vec3 mat4::axis(vec3 iString){Matrix::orientation(iString,v,iString);return iString;}
+vec3 mat4::axis(float x,float y,float z){vec3 out(x,y,z);Matrix::orientation(out,v,out);return out;}
 
 mat4& mat4::ortho(float left, float right,float bottom, float top,float near, float far) 
 { 
@@ -1181,7 +1181,7 @@ mat4& mat4::ortho(float left, float right,float bottom, float top,float near, fl
 		tx, ty, tz, 1
 	};
 
-	MatrixMathNamespace::copy(this->v,om);
+	Matrix::copy(this->v,om);
 	return *this;
 }
 
@@ -1274,7 +1274,7 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 	for(int i=0;i<nrow;i++)
 	{
 		if(eqsys[i][i]!=0)
-			VectorMathNamespace::scale(&eqsys[i][0],&eqsys[i][0],1.0f/eqsys[i][i],ncol);
+			Vector::scale(&eqsys[i][0],&eqsys[i][0],1.0f/eqsys[i][i],ncol);
 
 		for(int j=0;j<ncol-1;j++)
 		{
@@ -1287,8 +1287,8 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 						float *p=new float[ncol];
 						memcpy(p,&eqsys[i][0],ncol*sizeof(float));
 
-						VectorMathNamespace::scale(p,p,eqsys[k][j],ncol);
-						VectorMathNamespace::subtract(&eqsys[k][0],&eqsys[k][0],p,ncol);
+						Vector::scale(p,p,eqsys[k][j],ncol);
+						Vector::subtract(&eqsys[k][0],&eqsys[k][0],p,ncol);
 						delete p;
 					}	
 				}

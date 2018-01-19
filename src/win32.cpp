@@ -103,7 +103,7 @@ DWORD WINAPI threadFunc(LPVOID data)
 }
 
 
-ThreadWin32::ThreadWin32()
+ThreadInterfaceWin32::ThreadInterfaceWin32()
 {
 	handle=CreateThread(0,0,threadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&id);
 	pause=false;
@@ -111,7 +111,7 @@ ThreadWin32::ThreadWin32()
 	sleep=1;
 }
 
-ThreadWin32::~ThreadWin32()
+ThreadInterfaceWin32::~ThreadInterfaceWin32()
 {
 	TerminateThread((HANDLE)handle,0);
 }
@@ -374,16 +374,16 @@ void Direct2DBase::Identity(ID2D1RenderTarget* renderer)
 
 
 
-Renderer2DInterfaceWin32::Renderer2DInterfaceWin32(HWND handle):brush(0),renderer(0)
+Renderer2DWin32::Renderer2DWin32(HWND handle):brush(0),renderer(0)
 {
 	Direct2DBase::Init();
 }
-Renderer2DInterfaceWin32::~Renderer2DInterfaceWin32()
+Renderer2DWin32::~Renderer2DWin32()
 {
 
 }
 
-bool Renderer2DInterfaceWin32::RecreateTarget(HWND iHandle)
+bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
 	SAFERELEASE(this->renderer);
 	SAFERELEASE(this->brush);
@@ -407,58 +407,58 @@ bool Renderer2DInterfaceWin32::RecreateTarget(HWND iHandle)
 	if(S_OK!=result || !this->renderer)
 		__debugbreak();
 
-	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2DInterface::COLOR_TAB_BACKGROUND),&brush);
+	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2D::COLOR_TAB_BACKGROUND),&brush);
 
 	if(S_OK!=result || !this->brush)
 		__debugbreak();
 
 	return true;
 }
-void Renderer2DInterfaceWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
+void Renderer2DWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
 }
-void Renderer2DInterfaceWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
+void Renderer2DWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
 }
-void Renderer2DInterfaceWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
+void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
 {
 	Direct2DBase::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill);
 }
-void Renderer2DInterfaceWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
+void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
 {
 	Direct2DBase::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
 }
-void Renderer2DInterfaceWin32::DrawBitmap(GuiImage* iBitmap,float iX,float iY, float iW,float iH)
+void Renderer2DWin32::DrawBitmap(GuiImage* iBitmap,float iX,float iY, float iW,float iH)
 {
 	Direct2DBase::DrawBitmap(this->renderer,((GuiImageWin32*)iBitmap)->handle,iX,iY,iW,iH);
 }
 
-void Renderer2DInterfaceWin32::PushScissor(float iX,float iY, float iW,float iH)
+void Renderer2DWin32::PushScissor(float iX,float iY, float iW,float iH)
 {
 	Direct2DBase::PushScissor(this->renderer,iX,iY,iW,iH);
 }
-void Renderer2DInterfaceWin32::PopScissor()
+void Renderer2DWin32::PopScissor()
 {
 	Direct2DBase::PopScissor(this->renderer);
 }
 
-void Renderer2DInterfaceWin32::Translate(float iX,float iY)
+void Renderer2DWin32::Translate(float iX,float iY)
 {
 	Direct2DBase::Translate(this->renderer,iX,iY);
 }
-void Renderer2DInterfaceWin32::Identity()
+void Renderer2DWin32::Identity()
 {
 	Direct2DBase::Identity(this->renderer);
 }
 
-vec2 Renderer2DInterfaceWin32::MeasureText(const char* iText,int iSlen)
+vec2 Renderer2DWin32::MeasureText(const char* iText,int iSlen)
 {
 	return Direct2DBase::MeasureText(this->renderer,iText,iSlen);
 }
 
-float Renderer2DInterfaceWin32::GetFontSize()
+float Renderer2DWin32::GetFontSize()
 {
 	float dpX,dpY;
 	this->renderer->GetDpi(&dpX,&dpY);
@@ -471,7 +471,7 @@ float Renderer2DInterfaceWin32::GetFontSize()
 	return Direct2DBase::texter->GetFontSize()*(dpY/72.0f);
 }
 
-ID2D1Brush* Renderer2DInterfaceWin32::SetColorWin32(unsigned int color)
+ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color)
 {
 	this->brush->SetColor(D2D1::ColorF(color));
 	return this->brush;
@@ -732,8 +732,8 @@ LRESULT CALLBACK TabContainerWin32::TabContainerWindowClassProcedure(HWND hwnd,U
 		case WM_LBUTTONDOWN:
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 
-			if(tc->windowDataWin32->hwnd!=GetFocus())
-				SetFocus(tc->windowDataWin32->hwnd);
+			if(tc->windowDataWin32->hwnd!=::GetFocus())
+				::SetFocus(tc->windowDataWin32->hwnd);
 			
 			tc->OnGuiLMouseDown();
 		break;
@@ -1073,14 +1073,14 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 	else
 		FindNextFile(handle,&data);
 
-	int tEngineExtensionCharSize=strlen(ENGINE_EXTENSION);
+	int tEngineExtensionCharSize=strlen(App::instance->GetEntityExtension());
 
 	while(FindNextFile(handle,&data))
 	{
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		if(strstr(data.cFileName,ENGINE_EXTENSION))
+		if(strstr(data.cFileName,App::instance->GetEntityExtension()))
 		{
 			String tEngineFile=dir + "\\" + String(data.cFileName);
 
@@ -1164,7 +1164,7 @@ void AppWin32::ScanDir(String dir)
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		if(strstr(data.cFileName,ENGINE_EXTENSION))
+		if(strstr(data.cFileName,App::instance->GetEntityExtension()))
 		{
 			String s = dir + "\\" + String(data.cFileName);
 
@@ -1176,7 +1176,7 @@ void AppWin32::ScanDir(String dir)
 		}
 		else
 		{
-			String engineFile = dir + "\\" + String(data.cFileName) + ENGINE_EXTENSION;
+			String engineFile = dir + "\\" + String(data.cFileName) + App::instance->GetEntityExtension();
 
 			if(!PathFileExists(engineFile.Buf()))
 			{
@@ -1250,7 +1250,7 @@ void TimerWin32::update()
 
 
 DirectXRenderer::DirectXRenderer(TabContainer* iTabContainer):
-	Renderer3DInterface(iTabContainer)
+	Renderer3D(iTabContainer)
 {
 	driverType = D3D_DRIVER_TYPE_NULL;
 	featureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -1445,13 +1445,13 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 //--------------------OpenGLShader-------------------------
 
 
-ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const char* frag)
+Shader* ShaderOpenGL::Create(const char* name,const char* pix,const char* frag)
 {
 	int program=create_program(name,pix,frag);
 
 	if(program)
 	{
-		ShaderInterface* shader=new OpenGLShader;
+		Shader* shader=new ShaderOpenGL;
 
 		shader->SetName(name);
 		shader->SetProgram(program);
@@ -1469,33 +1469,33 @@ ShaderInterface* OpenGLShader::Create(const char* name,const char* pix,const cha
 
 
 
-unsigned int& OpenGLShader::GetBufferObject()
+unsigned int& ShaderOpenGL::GetBufferObject()
 {
 	return vbo;
 }
 
-int OpenGLShader::GetProgram(){return program;}
-void OpenGLShader::SetProgram(int p){program=p;}
+int ShaderOpenGL::GetProgram(){return program;}
+void ShaderOpenGL::SetProgram(int p){program=p;}
 
-int OpenGLShader::GetUniform(int slot,char* var)
+int ShaderOpenGL::GetUniform(int slot,char* var)
 {
 	return glGetUniformLocation(slot,var);glCheckError();
 }
-int OpenGLShader::GetAttrib(int slot,char* var)
+int ShaderOpenGL::GetAttrib(int slot,char* var)
 {
 	return glGetAttribLocation(slot,var);glCheckError();
 }
 
-void OpenGLShader::SetProjectionMatrix(float* pm)
+void ShaderOpenGL::SetProjectionMatrix(float* pm)
 {
 	this->SetMatrix4f(this->GetProjectionSlot(),pm);
 }
-void OpenGLShader::SetModelviewMatrix(float* mm)
+void ShaderOpenGL::SetModelviewMatrix(float* mm)
 {
 	this->SetMatrix4f(this->GetModelviewSlot(),mm);
 }
 
-void OpenGLShader::SetMatrices(float* view,float* mdl)
+void ShaderOpenGL::SetMatrices(float* view,float* mdl)
 {
 	if(view)
 		this->SetProjectionMatrix(view);
@@ -1505,15 +1505,15 @@ void OpenGLShader::SetMatrices(float* view,float* mdl)
 }
 
 
-void OpenGLShader::Use()
+void ShaderOpenGL::Use()
 {
 	glUseProgram(program);glCheckError();
 }
 
-const char* OpenGLShader::GetPixelShader(){return 0;}
-const char* OpenGLShader::GetFragmentShader(){return 0;}
+const char* ShaderOpenGL::GetPixelShader(){return 0;}
+const char* ShaderOpenGL::GetFragmentShader(){return 0;}
 
-int OpenGLShader::init()
+int ShaderOpenGL::init()
 {
 	mat4 m;
 
@@ -1525,68 +1525,68 @@ int OpenGLShader::init()
 	return bOk;
 }
 
-int OpenGLShader::GetAttribute(const char* attrib)
+int ShaderOpenGL::GetAttribute(const char* attrib)
 {
 	int location=glGetAttribLocation(program,attrib);glCheckError();
 	return location;
 }
 
-int OpenGLShader::GetUniform(const char* uniform)
+int ShaderOpenGL::GetUniform(const char* uniform)
 {
 	int location=glGetUniformLocation(program,uniform);glCheckError();
 	return location;
 }
 
-int OpenGLShader::GetPositionSlot()
+int ShaderOpenGL::GetPositionSlot()
 {
 	return GetAttribute("position");
 }
-int OpenGLShader::GetColorSlot()
+int ShaderOpenGL::GetColorSlot()
 {
 	return GetAttribute("color");
 }
-int OpenGLShader::GetProjectionSlot()
+int ShaderOpenGL::GetProjectionSlot()
 {
 	return GetUniform("projection");
 }
-int OpenGLShader::GetModelviewSlot()
+int ShaderOpenGL::GetModelviewSlot()
 {
 	return GetUniform("modelview");
 }
-int OpenGLShader::GetTexcoordSlot()
+int ShaderOpenGL::GetTexcoordSlot()
 {
 	return GetAttribute("texcoord");
 }
-int OpenGLShader::GetTextureSlot()
+int ShaderOpenGL::GetTextureSlot()
 {
 	return GetUniform("texture");
 }
-int OpenGLShader::GetMouseSlot()
+int ShaderOpenGL::GetMouseSlot()
 {
 	return GetUniform("mpos");
 }
-int OpenGLShader::GetLightposSlot()
+int ShaderOpenGL::GetLightposSlot()
 {
 	return GetUniform("lightpos");
 }
-int OpenGLShader::GetLightdiffSlot()
+int ShaderOpenGL::GetLightdiffSlot()
 {
 	return GetUniform("lightdiff");
 }
-int OpenGLShader::GetLightambSlot()
+int ShaderOpenGL::GetLightambSlot()
 {
 	return GetUniform("lightamb");
 }
-int OpenGLShader::GetNormalSlot()
+int ShaderOpenGL::GetNormalSlot()
 {
 	return GetAttribute("normal");
 }
-int OpenGLShader::GetHoveringSlot()
+int ShaderOpenGL::GetHoveringSlot()
 {
 	return GetAttribute("hovered");
 }
 
-void OpenGLShader::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
+void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
 {
 	int _mousepos=this->GetMouseSlot();
 	int _ptrclr=this->GetUniform("ptrclr");
@@ -1611,7 +1611,7 @@ void OpenGLShader::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
 	}
 }
 
-bool OpenGLShader::SetMatrix4f(int slot,float* mtx)
+bool ShaderOpenGL::SetMatrix4f(int slot,float* mtx)
 {
 	if(slot<0)
 		return false;
@@ -1620,11 +1620,11 @@ bool OpenGLShader::SetMatrix4f(int slot,float* mtx)
 	return true;
 }
 
-void OpenGLShader::SetName(const char* n)
+void ShaderOpenGL::SetName(const char* n)
 {
 	name=n;
 }
-const char* OpenGLShader::GetName()
+const char* ShaderOpenGL::GetName()
 {
 	return name;
 }
@@ -1803,23 +1803,23 @@ vec3 rayStart;
 vec3 rayEnd;
 
 
-OpenGLRenderer::OpenGLRenderer(TabContainerWin32* iTabContainer):
-	Renderer3DInterface(iTabContainer),
+Renderer3DOpenGL::Renderer3DOpenGL(TabContainerWin32* iTabContainer):
+	Renderer3D(iTabContainer),
 	hglrc(0),
 	tabContainerWin32((TabContainerWin32*&)iTabContainer)
 {
 }
 
-OpenGLRenderer::~OpenGLRenderer()
+Renderer3DOpenGL::~Renderer3DOpenGL()
 {
 }
 
-char* OpenGLRenderer::Name()
+char* Renderer3DOpenGL::Name()
 {
 	return 0;
 }
 
-void OpenGLRenderer::Create(HWND hwnd)
+void Renderer3DOpenGL::Create(HWND hwnd)
 {
 	hdc=GetDC(hwnd);
 
@@ -2006,11 +2006,11 @@ void OpenGLRenderer::Create(HWND hwnd)
 	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
 	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-	this->unlit=OpenGLShader::Create("unlit",unlit_vert,unlit_frag);
-	this->unlit_color=OpenGLShader::Create("unlit_color",unlit_color_vert,unlit_color_frag);
-	this->unlit_texture=OpenGLShader::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
-	this->font=OpenGLShader::Create("font",font_pixsh,font_frgsh);
-	this->shaded_texture=OpenGLShader::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+	this->unlit=ShaderOpenGL::Create("unlit",unlit_vert,unlit_frag);
+	this->unlit_color=ShaderOpenGL::Create("unlit_color",unlit_color_vert,unlit_color_frag);
+	this->unlit_texture=ShaderOpenGL::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	this->font=ShaderOpenGL::Create("font",font_pixsh,font_frgsh);
+	this->shaded_texture=ShaderOpenGL::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
 
 	this->shaders.push_back(this->unlit);
 	this->shaders.push_back(this->unlit_color);
@@ -2020,7 +2020,7 @@ void OpenGLRenderer::Create(HWND hwnd)
 }
 
 
-void OpenGLRenderer::ChangeContext()
+void Renderer3DOpenGL::ChangeContext()
 {
 	if(!hglrc || !hdc)
 	{
@@ -2038,27 +2038,27 @@ void OpenGLRenderer::ChangeContext()
 
 
 
-void OpenGLRenderer::draw(Light*)
+void Renderer3DOpenGL::draw(Light*)
 {
 
 }
 
-void OpenGLRenderer::draw(vec2)
+void Renderer3DOpenGL::draw(vec2)
 {
 
 }
 
-void OpenGLRenderer::draw(Script*)
+void Renderer3DOpenGL::draw(Script*)
 {
 
 }
 
-void OpenGLRenderer::draw(EntityComponent*)
+void Renderer3DOpenGL::draw(EntityComponent*)
 {
 
 }
 
-void OpenGLRenderer::draw(Gizmo* gizmo)
+void Renderer3DOpenGL::draw(Gizmo* gizmo)
 {
 	this->draw(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
 	this->draw(vec3(0,0,0),vec3(0,10,0),vec3(0,1,0));
@@ -2067,9 +2067,9 @@ void OpenGLRenderer::draw(Gizmo* gizmo)
 
 
 
-void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
+void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 {
-	ShaderInterface* shader=this->unlit_color;
+	Shader* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -2106,9 +2106,9 @@ void OpenGLRenderer::draw(vec3 point,float psize,vec3 col)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void OpenGLRenderer::draw(vec4 rect)
+void Renderer3DOpenGL::draw(vec4 rect)
 {
-	ShaderInterface* shader=this->unlit_color;
+	Shader* shader=this->unlit_color;
 
 	int position_slot=-1;
 	int modelview_slot=-1;
@@ -2150,9 +2150,9 @@ void OpenGLRenderer::draw(vec4 rect)
 }
 
 
-void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
+void Renderer3DOpenGL::draw(mat4 mtx,float size,vec3 color)
 {
-	ShaderInterface* shader=this->unlit_color;
+	Shader* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -2206,9 +2206,9 @@ void OpenGLRenderer::draw(mat4 mtx,float size,vec3 color)
 	//MatrixStack::Pop();
 }
 
-void OpenGLRenderer::draw(AABB aabb,vec3 color)
+void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 {
-	ShaderInterface* shader=this->unlit_color;
+	Shader* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -2275,9 +2275,9 @@ void OpenGLRenderer::draw(AABB aabb,vec3 color)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
+void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 {
-	ShaderInterface* shader=this->unlit_color;
+	Shader* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -2319,9 +2319,9 @@ void OpenGLRenderer::draw(vec3 a,vec3 b,vec3 color)
 
 }
 
-void OpenGLRenderer::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
+void Renderer3DOpenGL::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
 {
-	ShaderInterface* shader=0;//line_color_shader
+	Shader* shader=0;//line_color_shader
 
 	if(!shader || !text)
 		return;
@@ -2483,10 +2483,10 @@ void OpenGLFixedRenderer::draw(Font* font,char* phrase,float x,float y,float wid
 }*/
 
 
-void OpenGLRenderer::draw(Texture* _t)
+void Renderer3DOpenGL::draw(Texture* _t)
 {
 	return;
-	ShaderInterface* shader=0;//unlit_texture
+	Shader* shader=0;//unlit_texture
 
 	Texture* texture=(Texture*)_t;
 	//TextureFile* texture=(TextureFile*)_t;
@@ -2560,7 +2560,7 @@ void OpenGLRenderer::draw(Texture* _t)
 	glDeleteTextures(1,&tid);glCheckError();
 }
 
-void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int texture_slot,int texcoord_slot)
+void Renderer3DOpenGL::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int texture_slot,int texcoord_slot)
 {
 	for(int i=0;i<(int)mesh->materials.size();i++)
 	{
@@ -2601,14 +2601,14 @@ void OpenGLRenderer::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int tex
 	}
 }
 
-void OpenGLRenderer::draw(Mesh* mesh)
+void Renderer3DOpenGL::draw(Mesh* mesh)
 {
 	drawUnlitTextured(mesh);
 }
 
-void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
+void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 {
-	ShaderInterface* shader = mesh->materials.size() ? this->unlit_texture : this->unlit_color;
+	Shader* shader = mesh->materials.size() ? this->unlit_texture : this->unlit_color;
 
 	if(!shader || !mesh)
 		return;
@@ -2675,9 +2675,9 @@ void OpenGLRenderer::drawUnlitTextured(Mesh* mesh)
 }
 
 
-void OpenGLRenderer::draw(Skin* skin)
+void Renderer3DOpenGL::draw(Skin* skin)
 {
-	ShaderInterface* shader = skin->materials.size() ? this->unlit_texture : this->unlit_color;
+	Shader* shader = skin->materials.size() ? this->unlit_texture : this->unlit_color;
 
 	if(!skin || !skin->vertexcache || !shader)
 	{
@@ -2761,14 +2761,14 @@ void OpenGLRenderer::draw(Skin* skin)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void OpenGLRenderer::draw(Camera*)
+void Renderer3DOpenGL::draw(Camera*)
 {
 
 }
 
-void OpenGLRenderer::draw(Bone* bone)
+void Renderer3DOpenGL::draw(Bone* bone)
 {
-	ShaderInterface* shader=this->unlit_color;
+	Shader* shader=this->unlit_color;
 
 	if(!shader)
 		return;
@@ -2813,13 +2813,13 @@ void OpenGLRenderer::draw(Bone* bone)
 
 float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
-void OpenGLRenderer::draw(Entity* iEntity)
+void Renderer3DOpenGL::draw(Entity* iEntity)
 {
 	iEntity->draw(this);
 }
 
 
-void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
+void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 {
 	vec4 canvas=viewport->rect;
 	vec2 mouse(tabContainerWin32->mousex,tabContainerWin32->mousey);
@@ -2941,7 +2941,7 @@ void OpenGLRenderer::Render(GuiViewport* viewport,bool force)
 }
 
 
-void OpenGLRenderer::Render()
+void Renderer3DOpenGL::Render()
 {
 	for(std::list<GuiViewport*>::iterator vport=this->viewports.begin();vport!=this->viewports.end();vport++)
 	{
@@ -3045,9 +3045,9 @@ void GuiImageWin32::Release()
 	SAFERELEASE(this->handle);
 }
 
-bool GuiImageWin32::Fill(Renderer2DInterface* renderer,unsigned char* iData,float iWidth,float iHeight)
+bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,float iHeight)
 {
-	Renderer2DInterfaceWin32* renderer2DInterfaceWin32=(Renderer2DInterfaceWin32*)renderer;
+	Renderer2DWin32* renderer2DInterfaceWin32=(Renderer2DWin32*)renderer;
 
 	HRESULT result=S_OK;
 
@@ -3118,7 +3118,7 @@ TabContainerWin32::TabContainerWin32(float iX,float iY,float iW,float iH,HWND iP
 	this->iconFolder=new GuiImageWin32;
 	this->iconFile=new GuiImageWin32;
 
-	this->renderer2D=this->renderer2DWin32=new Renderer2DInterfaceWin32(this->windowDataWin32->hwnd);
+	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this->windowDataWin32->hwnd);
 
 	this->editorWindowContainer=(EditorWindowContainer*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
 	this->editorWindowContainer->tabContainers.push_back(this);
@@ -3128,19 +3128,19 @@ TabContainerWin32::TabContainerWin32(float iX,float iY,float iW,float iH,HWND iP
 	if(!splitterContainer)
 		__debugbreak();
 
-	OpenGLRenderer* _oglRenderer=new OpenGLRenderer(this);
+	Renderer3DOpenGL* _oglRenderer=new Renderer3DOpenGL(this);
 
 	if(!_oglRenderer)
 		__debugbreak();
 
 	this->renderer3D=_oglRenderer;
 
-	this->thread=new ThreadWin32;
+	this->threadRender=new ThreadInterfaceWin32;
 
-	Task* openGLContextTask=this->thread->NewTask(std::function<void()>(std::bind(&OpenGLRenderer::Create,_oglRenderer,this->windowDataWin32->hwnd)));//_oglRenderer->Create(this->hwnd);
+	Task* openGLContextTask=this->threadRender->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Create,_oglRenderer,this->windowDataWin32->hwnd)));//_oglRenderer->Create(this->hwnd);
 	while(openGLContextTask->func);
 
-	this->drawTask=this->thread->NewTask(std::function<void()>(std::bind(&TabContainer::Draw,this)),false);
+	this->taskDraw=this->threadRender->NewTask(std::function<void()>(std::bind(&TabContainer::Draw,this)),false);
 }
 
 
@@ -3222,17 +3222,27 @@ int TabContainerWin32::TrackGuiSceneViewerPopup(bool iSelected)
 	return result;
 }
 
-int TabContainerWin32::TrackProjectFileViewerPopup(bool iSelected)
+namespace FileViewerActions
+{
+	const unsigned char Delete=1;
+	const unsigned char Create=2;
+	const unsigned char Load=3;
+}
+
+int TabContainerWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 {
 	HMENU menu=CreatePopupMenu();
 
-	if(iSelected)
+	if(iResourceNode)
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"Delete");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,"Delete");
+
+		if(iResourceNode->fileName.Extension() == &App::instance->GetSceneExtension()[1])
+			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,"Load");
 	}
 	else
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"Create");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Create,"Create");
 	}
 
 	RECT rc;
@@ -3408,12 +3418,12 @@ void TabContainerWin32::DrawFrame()
 {
 	this->renderer2D->Identity();
 
-	this->renderer2D->DrawRectangle(0,0,(float)this->windowDataWin32->width,(float)CONTAINER_HEIGHT,Renderer2DInterface::COLOR_TAB_BACKGROUND);
+	this->renderer2D->DrawRectangle(0,0,(float)this->windowDataWin32->width,(float)CONTAINER_HEIGHT,Renderer2D::COLOR_TAB_BACKGROUND);
 	this->renderer2D->DrawRectangle((float)(selected*TAB_WIDTH),
 									(float)(CONTAINER_HEIGHT-TAB_HEIGHT),
 									(float)(selected*TAB_WIDTH+TAB_WIDTH),
 									(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),
-									Renderer2DInterface::COLOR_GUI_BACKGROUND);
+									Renderer2D::COLOR_GUI_BACKGROUND);
 
 	for(int i=0;i<(int)tabs.childs.size();i++)
 		this->renderer2D->DrawText(tabs.childs[i]->name,
@@ -3421,7 +3431,7 @@ void TabContainerWin32::DrawFrame()
 									(float)CONTAINER_HEIGHT-TAB_HEIGHT,
 									(float)i*TAB_WIDTH + (float)TAB_WIDTH,
 									(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,
-									Renderer2DInterface::COLOR_TEXT,
+									Renderer2D::COLOR_TEXT,
 									0.5f,0.5f);
 }
 
@@ -3429,7 +3439,7 @@ void TabContainerWin32::DrawFrame()
 
 void TabContainerWin32::OnGuiPaint(void* data)
 {
-	this->renderer2D->DrawRectangle(0,TabContainer::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height-TabContainer::CONTAINER_HEIGHT,Renderer2DInterface::COLOR_GUI_BACKGROUND);
+	this->renderer2D->DrawRectangle(0,TabContainer::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height-TabContainer::CONTAINER_HEIGHT,Renderer2D::COLOR_GUI_BACKGROUND);
 
 	this->BroadcastToSelected(&GuiRect::OnPaint,data);
 }
@@ -3524,6 +3534,9 @@ void TabContainerWin32::SetCursor(int iCursorCode)
 	if(cursor)
 		::SetCursor(cursor);
 }
+
+
+
 
 
 ///////////////////////////////////////////////
@@ -3966,7 +3979,7 @@ bool InitSplitter()
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=EditorMainAppWindowWin32::MainWindowProcedure;
-		wc.hbrBackground=CreateSolidBrush(Renderer2DInterface::COLOR_MAIN_BACKGROUND);
+		wc.hbrBackground=CreateSolidBrush(Renderer2D::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
 			__debugbreak();
@@ -4017,9 +4030,12 @@ CompilerInterfaceWin32::CompilerInterfaceWin32()
 
 bool CompilerInterfaceWin32::Compile(Script* iScript)
 {
+	if(iScript->runtime)
+		return false;
+
 	bool retVal;
 
-	File errorOutputFile(AppInterface::instance->applicationDataFolder + "\\error.output");
+	File errorOutputFile(App::instance->applicationDataFolder + "\\error.output");
 
 	if(errorOutputFile.Exist())
 	{
@@ -4030,22 +4046,28 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 	
 	if(!iScript->modulePath.Count())
 	{
-		String tRandomWorkingDirectory=AppInterface::instance->applicationDataFolder + "\\" + String::Random(8);
+		String tRandomWorkingDirectoryName;
+		String tRandomWorkingDirectory;
 
 		DWORD res;
 
 		while(true)
 		{
-			DWORD res=::GetFileAttributes(tRandomWorkingDirectory);
+			tRandomWorkingDirectoryName=String::Random(8);
+
+			DWORD res=::GetFileAttributes(App::instance->applicationDataFolder + "\\" + tRandomWorkingDirectoryName);
 
 			if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
 				break;
-
-			tRandomWorkingDirectory=AppInterface::instance->applicationDataFolder + "\\" + String::Random(8);
 		}
 
+		tRandomWorkingDirectory=App::instance->applicationDataFolder + "\\" + tRandomWorkingDirectoryName;
+
 		if(!::CreateDirectory(tRandomWorkingDirectory,0))
+		{
+			DWORD lastError=GetLastError();
 			__debugbreak();
+		}
 
 		if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
 			__debugbreak();
@@ -4056,20 +4078,22 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 	String tSourceFileContent=iScript->file.All();
 
 	String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
+	String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
 
-	String sourceFullPathFileName=AppInterface::instance->projectFolder + "\\" + iScript->file.path.File();
+	String sourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
 
 	if(iScript->file.Open("ab"))
 	{
 		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
+		iScript->file.Write(tExporterDeleterDeclaration,tExporterDeleterDeclaration.Count(),1);
 		iScript->file.Close();
 	}
 
 	String compilerOptions="/nologo /MDd /ZI /EHsc";
 	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	String includesPath=AppInterface::instance->exeFolder.PathUp(5) + "\\src";
+	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
 	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=AppInterface::instance->exeFolder.Path() + "\\engine.lib";
+	String engineLibraryFullPathFileName=App::instance->exeFolder.Path() + "\\engine.lib";
 	String kernelLib="kernel32.lib";
 
 	SECURITY_ATTRIBUTES sa;
@@ -4128,11 +4152,11 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 	{
 		GuiRootRect* guiCompilerViewer_rootRect=GuiScriptViewer::pool[0]->GetRootRect();
 
-		for(size_t i=0;i<AppInterface::instance->mainAppWindow->containers[0]->tabContainers.size();i++)
+		for(size_t i=0;i<App::instance->mainAppWindow->containers[0]->tabContainers.size();i++)
 		{
-			if(guiCompilerViewer_rootRect->tabContainer != AppInterface::instance->mainAppWindow->containers[0]->tabContainers[i])
+			if(guiCompilerViewer_rootRect->tabContainer != App::instance->mainAppWindow->containers[0]->tabContainers[i])
 			{
-				guiCompilerViewer=AppInterface::instance->mainAppWindow->containers[0]->tabContainers[i]->tabs.CompilerViewer();
+				guiCompilerViewer=App::instance->mainAppWindow->containers[0]->tabContainers[i]->tabs.CompilerViewer();
 
 				break;
 			}
@@ -4187,7 +4211,7 @@ bool CompilerInterfaceWin32::Compile(Script* iScript)
 bool CompilerInterfaceWin32::Execute(String iPath,String iCmdLine)
 {
 	if(iPath=="none")
-		iPath=AppInterface::instance->projectFolder;
+		iPath=App::instance->projectFolder;
 
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -4257,6 +4281,9 @@ bool CompilerInterfaceWin32::Load(Script* iScript)
 
 bool CompilerInterfaceWin32::Unload(Script* iScript)
 {
+	const bool tDestroyInTheDLL=false;
+
+
 	if(iScript->runtime)
 	{
 		HMODULE* tModule=this->modules.find(iScript)!=this->modules.end() ? this->modules[iScript] : 0;
@@ -4274,7 +4301,25 @@ bool CompilerInterfaceWin32::Unload(Script* iScript)
 			this->modules.erase(iScript);
 		}
 
-		SAFEDELETE(iScript->runtime);
+		if(tDestroyInTheDLL)
+		{
+			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))GetProcAddress(*tModule,"Destroy");
+
+			TabContainer* tabContainerRunninUpdater=GuiViewport::pool[0]->GetRootRect()->tabContainer;
+
+			tabContainerRunninUpdater->taskDraw->pause=true;
+
+			while(tabContainerRunninUpdater->taskDraw->executing);
+
+			DestroyScript(iScript->runtime);
+			iScript->runtime=0;
+
+			tabContainerRunninUpdater->taskDraw->pause=false;
+		}
+		else
+			SAFEDELETE(iScript->runtime);
+
+		
 
 		return true;
 	}
@@ -4305,7 +4350,7 @@ bool CompilerInterfaceWin32::Unload(Script* iScript)
 //int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 int main()
 {
-	AppInterface *app = new AppWin32;
+	App *app = new AppWin32;
 
 	app->Initialize();
 

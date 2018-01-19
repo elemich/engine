@@ -3,17 +3,21 @@
 
 #include "primitives.h"
 
-struct Renderer3DInterfaceBase;
-struct ShaderInterface;
+struct Entity;
+struct Cluster;
+struct Bone;
 struct EntityScript;
+
+struct Renderer3DBase;
+struct Shader;
 
 
 #define PROCESS_ENTITIES_RECURSIVELY 1
 
 
-struct ShaderInterface : TPoolVector<ShaderInterface>
+struct Shader : TPoolVector<Shader>
 {
-	static ShaderInterface* Find(const char*,bool exact=true);
+	static Shader* Find(const char*,bool exact=true);
 
 	virtual int GetProgram()=0;
 	virtual void SetProgram(int)=0;
@@ -57,7 +61,7 @@ struct ShaderInterface : TPoolVector<ShaderInterface>
 	virtual void SetModelviewMatrix(float*)=0;
 	virtual void SetMatrices(float* view,float* mdl)=0;
 
-	ShaderInterface();
+	Shader();
 };
 
 
@@ -166,7 +170,7 @@ static const char *EEntityNames[ENTITY_MAX]=
 };
 
 
-struct Resource : THierarchyList<Entity>
+struct Resource : THierarchyList<Resource>
 {
 	Resource* GetResource(){return this;}
 	Resource* GetTexture(){return 0;}
@@ -319,7 +323,7 @@ struct AnimClip
 struct EntityBase
 {
 	virtual void update(){}
-	virtual void draw(Renderer3DInterfaceBase*){}
+	virtual void draw(Renderer3DBase*){}
 };
 
 struct EntityComponent : EntityBase
@@ -331,7 +335,7 @@ struct EntityComponent : EntityBase
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
 	virtual void update(){}
-	virtual void draw(Renderer3DInterfaceBase*){}
+	virtual void draw(Renderer3DBase*){}
 };
 
 struct Entity : EntityBase
@@ -353,7 +357,7 @@ struct Entity : EntityBase
 
 	virtual void SetParent(Entity* iParent);
 	virtual void update();
-	virtual void draw(Renderer3DInterfaceBase*);
+	virtual void draw(Renderer3DBase*);
 	
 	template<class C> C* CreateComponent()
 	{
@@ -520,7 +524,7 @@ struct Mesh : EntityComponent
 
 	std::vector<Material*> materials;
 
-	void draw(Renderer3DInterfaceBase*);
+	void draw(Renderer3DBase*);
 };
 
 struct Script : EntityComponent
@@ -528,8 +532,6 @@ struct Script : EntityComponent
 	File file;
 	EntityScript* runtime;
 	FilePath modulePath;
-
-	Script* handle;
 
 	Script();
 
@@ -563,7 +565,7 @@ struct Skin : Mesh
 
 	float*	    vertexcache;
 
-	void draw(Renderer3DInterfaceBase*);
+	void draw(Renderer3DBase*);
 };
 
 struct Camera : EntityComponent
@@ -628,7 +630,7 @@ struct TextureProcedural : Texture
 	int GetBpp(){return 0;}
 };
 
-struct Renderer3DInterfaceBase
+struct Renderer3DBase
 {
 	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;
