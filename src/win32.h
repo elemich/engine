@@ -1,8 +1,8 @@
 #ifndef WIN32_H
 #define WIN32_H
 
-struct TabContainerWin32;
-struct EditorWindowContainerWin32;
+struct TabWin32;
+struct ContainerWin32;
 struct Renderer2DWin32;
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -88,12 +88,12 @@ struct Direct2DBase
 
 
 
-struct ThreadInterfaceWin32 : ThreadInterface
+struct ThreadWin32 : Thread
 {
 	HANDLE handle;
 
-	ThreadInterfaceWin32();
-	~ThreadInterfaceWin32();
+	ThreadWin32();
+	~ThreadWin32();
 };
 
 
@@ -156,9 +156,9 @@ struct Renderer3DOpenGL : Renderer3D
 	GLEWContext* glewContext;
 #endif
 
-	TabContainerWin32* tabContainerWin32;
+	TabWin32* tabContainerWin32;
 
-	Renderer3DOpenGL(TabContainerWin32*);
+	Renderer3DOpenGL(TabWin32*);
 	~Renderer3DOpenGL();
 
 	virtual void Create(HWND container);
@@ -205,7 +205,7 @@ struct DirectXRenderer : WindowData ,  Renderer3D
 	IDXGISwapChain*         pSwapChain;
 	ID3D11RenderTargetView* pRenderTargetView;
 
-	DirectXRenderer(TabContainer*);
+	DirectXRenderer(Tab*);
 	~DirectXRenderer();
 
 	virtual char* Name();
@@ -252,18 +252,18 @@ struct WindowDataWin32 : WindowData
 
 
 
-struct TabContainerWin32 : TabContainer
+struct TabWin32 : Tab
 {
 	WindowDataWin32*& windowDataWin32;
-	EditorWindowContainerWin32*& editorWindowContainerWin32;
+	ContainerWin32*& editorWindowContainerWin32;
 	Renderer2DWin32* renderer2DWin32;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
-	TabContainerWin32(float x,float y,float w,float h,HWND parent);
-	~TabContainerWin32();
+	TabWin32(float x,float y,float w,float h,HWND parent);
+	~TabWin32();
 
-	operator TabContainerWin32& (){return *this;}
+	operator TabWin32& (){return *this;}
 
 	bool BeginDraw();
 	void EndDraw();
@@ -285,13 +285,13 @@ struct TabContainerWin32 : TabContainer
 	
 };
 
-struct SplitterContainerWin32 : SplitterContainer 
+struct SplitterWin32 : Splitter 
 {
-	TabContainerWin32*& currentTabContainerWin32;
+	TabWin32*& currentTabContainerWin32;
 
-	TabContainerWin32*& floatingTabRefWin32;
-	TabContainerWin32*& floatingTabWin32;
-	TabContainerWin32*& floatingTabTargetWin32;
+	TabWin32*& floatingTabRefWin32;
+	TabWin32*& floatingTabWin32;
+	TabWin32*& floatingTabTargetWin32;
 
 	static HMENU popupMenuRoot;
 	static HMENU popupMenuCreate;
@@ -306,8 +306,8 @@ struct SplitterContainerWin32 : SplitterContainer
 	HWND hittedWindow1;
 	HWND hittedWindow2;
 
-	SplitterContainerWin32();
-	~SplitterContainerWin32();
+	SplitterWin32();
+	~SplitterWin32();
 
 	void OnLButtonDown(HWND,LPARAM);
 	void OnLButtonUp(HWND);
@@ -319,24 +319,24 @@ struct SplitterContainerWin32 : SplitterContainer
 	void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
 	void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
 
-	void CreateFloatingTab(TabContainer*);
+	void CreateFloatingTab(Tab*);
 	void DestroyFloatingTab();
 };
 
-struct EditorWindowContainerWin32 : EditorWindowContainer
+struct ContainerWin32 : Container
 {
-	EditorWindowContainerWin32();
+	ContainerWin32();
 
 	void OnSizing();
 	void OnSize();
 
 	WindowDataWin32*& windowDataWin32;
-	SplitterContainerWin32*& splitterContainerWin32;
+	SplitterWin32*& splitterContainerWin32;
 
-	TabContainerWin32* CreateTabContainer(float x,float y,float w,float h);
+	TabWin32* CreateTabContainer(float x,float y,float w,float h);
 };
 
-struct EditorMainAppWindowWin32 : EditorMainAppWindow
+struct MainContainerWin32 : MainContainer
 {
 	static LRESULT CALLBACK MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
@@ -345,7 +345,7 @@ struct EditorMainAppWindowWin32 : EditorMainAppWindow
 
 	void Init();
 
-	EditorWindowContainerWin32* CreateContainer();
+	ContainerWin32* CreateContainer();
 };
 
 struct TimerWin32 : Timer
@@ -365,11 +365,12 @@ struct AppWin32 : App
 
 	void CreateNodes(String,ResourceNodeDir*);
 	void ScanDir(String);
+	void Sleep(int iMilliseconds=1);
 };
 
-struct CompilerInterfaceWin32 : CompilerInterface
+struct CompilerWin32 : Compiler
 {
-	CompilerInterfaceWin32();
+	CompilerWin32();
 
 	std::map<Script*,HMODULE*> modules;
 

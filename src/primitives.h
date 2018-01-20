@@ -497,7 +497,7 @@ struct Timer : TStaticInstance<Timer>
 
 
 struct ThreadPool;
-struct ThreadInterface;
+struct Thread;
 
 struct Task
 {
@@ -505,10 +505,12 @@ struct Task
 	bool remove;
 	bool executing;
 	bool pause;
-	ThreadInterface* owner;
+	Thread* owner;
+
+	void Block(bool);
 };
 
-struct ThreadInterface  : TPoolVector<ThreadInterface>
+struct Thread  : TPoolVector<Thread>
 {
 	
 	int id;
@@ -517,10 +519,12 @@ struct ThreadInterface  : TPoolVector<ThreadInterface>
 	Task* executing;
 	unsigned int sleep;
 
-	ThreadInterface();
-	virtual ~ThreadInterface();
+	Thread();
+	virtual ~Thread();
 
 	Task* NewTask(std::function<void()>,bool remove=true,bool iBlock=false);
+
+	void Block(bool);
 };
 
 

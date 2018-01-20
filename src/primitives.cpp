@@ -1310,10 +1310,10 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 }
 
 
-ThreadInterface::ThreadInterface(){}
-ThreadInterface::~ThreadInterface(){}
+Thread::Thread(){}
+Thread::~Thread(){}
 
-Task* ThreadInterface::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
+Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 {
 	Task* task=new Task;
 
@@ -1327,3 +1327,26 @@ Task* ThreadInterface::NewTask(std::function<void()> iFunction,bool iRemove,bool
 
 	return task;
 }
+
+void Thread::Block(bool iBlock)
+{
+	this->pause=iBlock;
+
+	if(iBlock)
+	{
+		while(this->executing)
+			this->pause=iBlock;
+	}
+}
+
+void Task::Block(bool iBlock)
+{
+	this->pause=iBlock;
+
+	if(iBlock)
+	{
+		while(this->executing)
+			this->pause=iBlock;
+	}
+}
+

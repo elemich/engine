@@ -29,12 +29,12 @@ struct GuiPropertyFloat;
 struct GuiPropertyBool;
 struct GuiPropertyAnimationController;
 
-struct TabContainer;
-struct EditorWindowContainer;
-struct SplitterContainer;
-struct EditorMainAppWindow;
+struct Tab;
+struct Container;
+struct Splitter;
+struct MainContainer;
 struct ResourceNodeDir;
-struct CompilerInterface;
+struct Compiler;
 
 //entity forward declaration 
 
@@ -92,6 +92,10 @@ struct MouseInput : InputInterface
 	bool right;
 	bool middle;
 
+	unsigned int lastLeft;
+	unsigned int lastRight;
+	unsigned int lastMiddle;
+
 	MouseInput();
 
 	bool Left();
@@ -113,14 +117,15 @@ struct InputManager
 
 struct App : TStaticInstance<App>
 {
-	Timer					*timerMain;
-	EditorMainAppWindow		*mainAppWindow;
+	Timer*					timerMain;
+	MainContainer*			mainAppWindow;
 	String					projectFolder;
 	FilePath				exeFolder;
 	String					applicationDataFolder;
-	CompilerInterface*		compiler; 
+	Compiler*				compiler; 
 	InputManager            inputManager;
 	unsigned int            caretLastTime;
+	//Thread*					threadUpdate;
 
 	App();
 
@@ -133,6 +138,8 @@ struct App : TStaticInstance<App>
 
 	const char* GetSceneExtension();
 	const char* GetEntityExtension();
+
+	virtual void Sleep(int iMilliseconds=1)=0;
 };
 
 struct Renderer2D
@@ -167,10 +174,9 @@ struct Renderer2D
 struct Renderer3D : Renderer3DBase
 {
 	std::list<GuiViewport*> viewports;
-	Task* rendererTask;
 	bool picking;
 	std::vector<Shader*> shaders;
-	TabContainer* tabContainer;
+	Tab* tabContainer;
 
 	Shader* FindShader(const char* name,bool exact);
 	void SetMatrices(const float* view,const float* mdl);
@@ -209,7 +215,10 @@ struct Renderer3D : Renderer3DBase
 	virtual void Render(GuiViewport*,bool)=0;
 	virtual void Render()=0;
 
-	Renderer3D(TabContainer*);
+	bool Block();
+	bool Release();
+
+	Renderer3D(Tab*);
 	virtual ~Renderer3D(){};
 
 	Shader* unlit;
@@ -378,36 +387,37 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	void SetParent(GuiRect*);
 
-	virtual void OnRecreateTarget(TabContainer*,void* data=0){}
-	virtual void OnPaint(TabContainer*,void* data=0);
-	virtual void OnEntitiesChange(TabContainer*,void* data=0);
-	virtual void OnSize(TabContainer*,void* data=0);
-	virtual void OnLMouseDown(TabContainer*,void* data=0);
-	virtual void OnLMouseUp(TabContainer*,void* data=0);
-	virtual void OnRMouseUp(TabContainer*,void* data=0);
-	virtual void OnMouseMove(TabContainer*,void* data=0);
-	virtual void OnUpdate(TabContainer*,void* data=0);
-	virtual void OnReparent(TabContainer*,void* data=0);
-	virtual void OnSelected(TabContainer*,void* data=0);
-	virtual void OnRender(TabContainer*,void* data=0);
-	virtual void OnMouseWheel(TabContainer*,void* data=0);
-	virtual void OnActivate(TabContainer*,void* data=0);
-	virtual void OnDeactivate(TabContainer*,void* data=0);
-	virtual void OnEntitySelected(TabContainer*,void* data=0);
-	virtual void OnExpandos(TabContainer*,void* data=0);
-	virtual void OnKeyDown(TabContainer*,void* data=0);
-	virtual void OnKeyUp(TabContainer*,void* data=0);
-	virtual void OnMouseEnter(TabContainer*,void* data=0);
-	virtual void OnMouseExit(TabContainer*,void* data=0);
+	virtual void OnRecreateTarget(Tab*,void* data=0){}
+	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnEntitiesChange(Tab*,void* data=0);
+	virtual void OnSize(Tab*,void* data=0);
+	virtual void OnLMouseDown(Tab*,void* data=0);
+	virtual void OnDLMouseDown(Tab*,void* data=0);
+	virtual void OnLMouseUp(Tab*,void* data=0);
+	virtual void OnRMouseUp(Tab*,void* data=0);
+	virtual void OnMouseMove(Tab*,void* data=0);
+	virtual void OnUpdate(Tab*,void* data=0);
+	virtual void OnReparent(Tab*,void* data=0);
+	virtual void OnSelected(Tab*,void* data=0);
+	virtual void OnRender(Tab*,void* data=0);
+	virtual void OnMouseWheel(Tab*,void* data=0);
+	virtual void OnActivate(Tab*,void* data=0);
+	virtual void OnDeactivate(Tab*,void* data=0);
+	virtual void OnEntitySelected(Tab*,void* data=0);
+	virtual void OnExpandos(Tab*,void* data=0);
+	virtual void OnKeyDown(Tab*,void* data=0);
+	virtual void OnKeyUp(Tab*,void* data=0);
+	virtual void OnMouseEnter(Tab*,void* data=0);
+	virtual void OnMouseExit(Tab*,void* data=0);
 
-	virtual void OnButtonPressed(TabContainer*,GuiButton*){}
+	virtual void OnButtonPressed(Tab*,GuiButton*){}
 
-	virtual void DrawBackground(TabContainer*);
+	virtual void DrawBackground(Tab*);
 
-	virtual void SelfRenderEnd(TabContainer*,bool&);
+	virtual void SelfRenderEnd(Tab*,bool&);
 
-	virtual bool BeginSelfClip(TabContainer*);
-	virtual void EndSelfClip(TabContainer*,bool&);
+	virtual bool BeginSelfClip(Tab*);
+	virtual void EndSelfClip(Tab*,bool&);
 
 	virtual void SetClip(GuiScrollRect*);
 
@@ -416,9 +426,9 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	bool _contains(vec4& quad,vec2);
 
-	void BroadcastToChilds(void (GuiRect::*func)(TabContainer*,void*),TabContainer*,void* data=0);
-	void BroadcastToRoot(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
-	template<class C> void BroadcastTo(void (GuiRect::*func)(TabContainer* iTabContainer))
+	void BroadcastToChilds(void (GuiRect::*func)(Tab*,void*),Tab*,void* data=0);
+	void BroadcastToRoot(void (GuiRect::*func)(Tab*,void*),void* data=0);
+	template<class C> void BroadcastTo(void (GuiRect::*func)(Tab* iTabContainer))
 	{
 		C* isaC=dynamic_cast<C*>(this);
 
@@ -460,11 +470,11 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 {
-	TabContainer* tabContainer;
+	Tab* tabContainer;
 
-	void OnSize(TabContainer*);
+	void OnSize(Tab*);
 
-	GuiRootRect(TabContainer* t):tabContainer(t){this->name="RootRect";this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
+	GuiRootRect(Tab* t):tabContainer(t){this->name="RootRect";this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
 };
 
 struct GuiString : GuiRect
@@ -476,15 +486,15 @@ struct GuiString : GuiRect
 
 	GuiString():alignText(-1,-1),clipText(true){this->name="String";}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiButton : GuiString
 {
 	GuiButton();
 
-	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
-	virtual void OnPaint(TabContainer* tab,void* data=0);
+	virtual void OnLMouseUp(Tab* tab,void* data=0);
+	virtual void OnPaint(Tab* tab,void* data=0);
 };
 
 struct GuiButtonFunc : GuiButton
@@ -494,7 +504,7 @@ struct GuiButtonFunc : GuiButton
 	void (*func)(void*);
 	void* param;
 
-	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
+	virtual void OnLMouseUp(Tab* tab,void* data=0);
 };
 
 struct GuiButtonBool : GuiButton
@@ -504,7 +514,7 @@ struct GuiButtonBool : GuiButton
 
 	GuiButtonBool(bool& iBool):referenceValue(iBool),updateMode(-1){this->name="Button";}
 
-	virtual void OnLMouseUp(TabContainer* tab,void* data=0);
+	virtual void OnLMouseUp(Tab* tab,void* data=0);
 };
 
 struct GuiScrollBar : GuiRect
@@ -525,10 +535,10 @@ struct GuiScrollBar : GuiRect
 	bool Scroll(float upOrDown);
 	bool IsVisible();
 
-	void OnLMouseDown(TabContainer* tab,void* data=0);
-	void OnLMouseUp(TabContainer* tab,void* data=0);
-	void OnMouseMove(TabContainer* tab,void* data=0);
-	void OnPaint(TabContainer* tab,void* data=0);
+	void OnLMouseDown(Tab* tab,void* data=0);
+	void OnLMouseUp(Tab* tab,void* data=0);
+	void OnMouseMove(Tab* tab,void* data=0);
+	void OnPaint(Tab* tab,void* data=0);
 
 	float GetContainerHeight();
 	float GetContainerTop();
@@ -552,8 +562,8 @@ struct GuiScrollRect : GuiRect
 
 	bool isClipped;
 
-	virtual void OnMouseWheel(TabContainer*,void* data=0);
-	virtual void OnSize(TabContainer*,void* data=0);
+	virtual void OnMouseWheel(Tab*,void* data=0);
+	virtual void OnSize(Tab*,void* data=0);
 };	
 
 struct GuiSlider : GuiRect
@@ -565,10 +575,10 @@ struct GuiSlider : GuiRect
 
 	GuiSlider(float& iRef,float& iMin,float& iMax):referenceValue(iRef),minimum(iMin),maximum(iMax){this->name="GuiSlider";}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
-	virtual void OnMouseMove(TabContainer*,void* data=0);
-	virtual void OnSize(TabContainer*,void* data=0);
-	void DrawSliderTip(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnMouseMove(Tab*,void* data=0);
+	virtual void OnSize(Tab*,void* data=0);
+	void DrawSliderTip(Tab*,void* data=0);
 };
 
 struct GuiProperty : GuiRect
@@ -582,7 +592,7 @@ struct GuiPropertyString : GuiProperty
 
 	GuiPropertyString(String& iVal):val(iVal){this->name="PropertyString";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiPropertyFloat : GuiProperty
@@ -591,7 +601,7 @@ struct GuiPropertyFloat : GuiProperty
 
 	GuiPropertyFloat(float& iVal):val(iVal){this->name="GuiPropertyFloat";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiPropertyVec3 : GuiProperty
@@ -600,7 +610,7 @@ struct GuiPropertyVec3 : GuiProperty
 
 	GuiPropertyVec3(vec3& iVal):val(iVal){this->name="GuiPropertyVec3";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiPropertyPtr : GuiProperty
@@ -609,7 +619,7 @@ struct GuiPropertyPtr : GuiProperty
 
 	GuiPropertyPtr(void* iVal):val(iVal){this->name="GuiPropertyPtr";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiPropertyBool : GuiProperty
@@ -618,7 +628,7 @@ struct GuiPropertyBool : GuiProperty
 
 	GuiPropertyBool(bool& iVal):val(iVal){this->name="GuiPropertyBool";}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiPropertySlider : GuiProperty
@@ -627,7 +637,7 @@ struct GuiPropertySlider : GuiProperty
 
 	GuiPropertySlider(float& iRefVal,float& iMin,float& iMax):slider(iRefVal,iMin,iMax){this->name="PropertySlider";this->Set(0,0,0,-1,0,0,0,25,0,0,1,-1);this->slider.Set(this,0,0,-1,0,0,0,0,0.5f,0,0.5f,1);}
 
-	virtual void OnPaint(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
 };
 
 struct GuiAnimationController : GuiRect
@@ -641,9 +651,9 @@ struct GuiAnimationController : GuiRect
 
 	GuiSlider slider;
 
-	virtual void OnMouseMove(TabContainer*,void* data=0);
+	virtual void OnMouseMove(Tab*,void* data=0);
 
-	void OnButtonPressed(TabContainer* tabContainer,GuiButtonBool*);
+	void OnButtonPressed(Tab* tabContainer,GuiButtonBool*);
 };
 
 struct GuiPropertyAnimationController : GuiProperty
@@ -676,14 +686,14 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	GuiViewport();
 	~GuiViewport();
 
-	virtual void OnPaint(TabContainer*,void* data=0);
-	virtual void OnSize(TabContainer*,void* data=0);
-	virtual void OnMouseWheel(TabContainer*,void* data=0);
-	virtual void OnMouseMove(TabContainer*,void* data=0);
-	virtual void OnActivate(TabContainer*,void* data=0);
-	virtual void OnDeactivate(TabContainer*,void* data=0);
-	virtual void OnReparent(TabContainer*,void* data=0);
-	virtual void OnLMouseUp(TabContainer*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnSize(Tab*,void* data=0);
+	virtual void OnMouseWheel(Tab*,void* data=0);
+	virtual void OnMouseMove(Tab*,void* data=0);
+	virtual void OnActivate(Tab*,void* data=0);
+	virtual void OnDeactivate(Tab*,void* data=0);
+	virtual void OnReparent(Tab*,void* data=0);
+	virtual void OnLMouseUp(Tab*,void* data=0);
 };
 
 ///////////////////////////////////////////////
@@ -705,18 +715,18 @@ struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	bool Save();
 	bool Compile();
 
-	void OnKeyDown(TabContainer*,void* data=0);
-	void OnKeyUp(TabContainer*,void* data=0);
-	void OnLMouseDown(TabContainer*,void* data=0);
-	void OnSize(TabContainer*,void* data=0);
+	void OnKeyDown(Tab*,void* data=0);
+	void OnKeyUp(Tab*,void* data=0);
+	void OnLMouseDown(Tab*,void* data=0);
+	void OnSize(Tab*,void* data=0);
 };
 
 struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
 {
 	GuiCompilerViewer();
 
-	bool ParseCompilerOutputFile(TabContainer*,wchar_t*);
-	void OnSize(TabContainer*,void* data=0);
+	bool ParseCompilerOutputFile(wchar_t*);
+	void OnSize(Tab*,void* data=0);
 };
 
 struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
@@ -730,17 +740,17 @@ struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 
 	std::vector<EditorEntity*> selection;
 
-	void OnPaint(TabContainer*,void* data=0);
-	void OnLMouseDown(TabContainer*,void* data=0);
-	void OnEntitiesChange(TabContainer*,void* data=0);
-	void OnEntitySelected(TabContainer*,void* data=0);
-	void OnRecreateTarget(TabContainer*,void* data=0);
-	void OnRMouseUp(TabContainer*,void* data=0);
-	void OnMouseWheel(TabContainer*,void* data=0);
-	void OnKeyDown(TabContainer*,void* data=0);
+	void OnPaint(Tab*,void* data=0);
+	void OnLMouseDown(Tab*,void* data=0);
+	void OnEntitiesChange(Tab*,void* data=0);
+	void OnEntitySelected(Tab*,void* data=0);
+	void OnRecreateTarget(Tab*,void* data=0);
+	void OnRMouseUp(Tab*,void* data=0);
+	void OnMouseWheel(Tab*,void* data=0);
+	void OnKeyDown(Tab*,void* data=0);
 
 	EditorEntity* GetHoveredRow(EditorEntity* node,vec2& mpos,vec2& pos,bool& oExpandos);
-	void DrawNodes(TabContainer*,EditorEntity*,vec2&);
+	void DrawNodes(Tab*,EditorEntity*,vec2&);
 	int UpdateNodes(EditorEntity*);
 	void UnselectNodes(EditorEntity*);
 	void ExpandUntil(EditorEntity* iTarget);
@@ -758,17 +768,17 @@ struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 
 	EditorEntity* entity;
 
-	TabContainer* tabContainer;
+	Tab* tabContainer;
 
-	void OnActivate(TabContainer*,void* data=0);
+	void OnActivate(Tab*,void* data=0);
 
-	virtual void OnEntitySelected(TabContainer*,void* data=0);
-	virtual void OnPaint(TabContainer*,void* data=0);
-	virtual void OnExpandos(TabContainer*,void* data=0);
-	virtual void OnMouseWheel(TabContainer*,void* data=0);
+	virtual void OnEntitySelected(Tab*,void* data=0);
+	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnExpandos(Tab*,void* data=0);
+	virtual void OnMouseWheel(Tab*,void* data=0);
 
 	bool ProcessMouseInput(vec2&,vec2&,GuiRect* node);
-	void DrawNodes(TabContainer*,GuiRect*,vec2&);
+	void DrawNodes(Tab*,GuiRect*,vec2&);
 	int CalcNodesHeight(GuiRect*);
 };
 
@@ -776,10 +786,6 @@ struct GuiConsoleViewer : GuiScrollRect
 {
 	GuiConsoleViewer();
 	~GuiConsoleViewer();
-
-
-
-	
 };
 
 struct ResourceNode
@@ -814,14 +820,14 @@ struct GuiProjectViewer : GuiRect
 	{
 		ResourceNodeDir* rootResource;
 
-		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&,bool& terminated);
+		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&,bool& terminated);
 		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		std::vector<ResourceNodeDir*> selectedDirs;
 
-		void OnLMouseDown(TabContainer*,void* data=0);
-		void OnPaint(TabContainer*,void* data=0);
+		void OnLMouseDown(Tab*,void* data=0);
+		void OnPaint(Tab*,void* data=0);
 
 	}left;
 
@@ -831,14 +837,15 @@ struct GuiProjectViewer : GuiRect
 		std::vector<ResourceNodeDir*> selectedDirs;
 		std::vector<ResourceNode*> selectedFiles;
 
-		void DrawNodes(TabContainer*,ResourceNodeDir* node,vec2&);
+		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&);
 		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		
-		void OnLMouseDown(TabContainer*,void* data=0);
-		void OnPaint(TabContainer*,void* data=0);
-		void OnRMouseUp(TabContainer*,void* data=0);
+		void OnLMouseDown(Tab*,void* data=0);
+		void OnPaint(Tab*,void* data=0);
+		void OnRMouseUp(Tab*,void* data=0);
+		void OnDLMouseDown(Tab*,void* data=0);
 	}right;
 
 	struct GuiProjectDataViewer : GuiScrollRect
@@ -857,13 +864,13 @@ struct GuiProjectViewer : GuiRect
 	~GuiProjectViewer();
 
 
-	void OnPaint(TabContainer*,void* data=0);
-	void OnLMouseDown(TabContainer*,void* data=0);
-	void OnLMouseUp(TabContainer*,void* data=0);
-	void OnMouseMove(TabContainer*,void* data=0);
-	void OnReparent(TabContainer*,void* data=0);
-	void OnActivate(TabContainer*,void* data=0);
-	void OnSize(TabContainer*,void* data=0);
+	void OnPaint(Tab*,void* data=0);
+	void OnLMouseDown(Tab*,void* data=0);
+	void OnLMouseUp(Tab*,void* data=0);
+	void OnMouseMove(Tab*,void* data=0);
+	void OnReparent(Tab*,void* data=0);
+	void OnActivate(Tab*,void* data=0);
+	void OnSize(Tab*,void* data=0);
 
 	void DestroyNode(ResourceNode*);
 };
@@ -908,11 +915,11 @@ struct DrawInstance
 	DrawInstance(int a,bool b,GuiRect* c,bool iRemove):code(a),frame(b),rect(c),remove(true){}
 };
 
-struct TabContainer : TPoolVector<TabContainer>
+struct Tab : TPoolVector<Tab>
 {
 	WindowData* windowData;
 
-	EditorWindowContainer* editorWindowContainer;
+	Container* parentWindowContainer;
 
 	static const int CONTAINER_HEIGHT=30;
 	static const int TAB_WIDTH=80;
@@ -931,7 +938,7 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	GuiRect* focused;
 
-	SplitterContainer* splitterContainer;
+	Splitter* splitterContainer;
 
 	Renderer2D *renderer2D;
 	Renderer3D *renderer3D;
@@ -956,17 +963,18 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	unsigned int lastFrameTime;
 
-	ThreadInterface* threadRender;
+	Thread* threadRender;
 
-	TabContainer(float x,float y,float w,float h);
-	virtual ~TabContainer();
+	Tab(float x,float y,float w,float h);
+	virtual ~Tab();
 
-	operator TabContainer& (){return *this;}
+	operator Tab& (){return *this;}
 
 	virtual void OnGuiPaint(void* data=0);
 	virtual void OnGuiSize(void* data=0);
 	virtual void OnWindowPosChanging(void* data=0);
 	virtual void OnGuiLMouseDown(void* data=0);
+	virtual void OnGuiDLMouseDown(void* data=0);
 	virtual void OnGuiLMouseUp(void* data=0);
 	virtual void OnGuiMouseMove(void* data=0);
 	virtual void OnGuiRMouseUp(void* data=0);
@@ -989,13 +997,13 @@ struct TabContainer : TPoolVector<TabContainer>
 
 	GuiRect* GetSelected();
 
-	void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
-	void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void* data=0);
-	template<class C> void BroadcastToSelected(void (GuiRect::*func)(TabContainer*,void*),void*);
-	template<class C> void BroadcastToAll(void (GuiRect::*func)(TabContainer*,void*),void*);
-	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(TabContainer*,void*),void* data=0)
+	void BroadcastToSelected(void (GuiRect::*func)(Tab*,void*),void* data=0);
+	void BroadcastToAll(void (GuiRect::*func)(Tab*,void*),void* data=0);
+	template<class C> void BroadcastToSelected(void (GuiRect::*func)(Tab*,void*),void*);
+	template<class C> void BroadcastToAll(void (GuiRect::*func)(Tab*,void*),void*);
+	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(Tab*,void*),void* data=0)
 	{
-		for(std::vector<TabContainer*>::iterator tabContainer=TPoolVector<TabContainer>::pool.begin();tabContainer!=TPoolVector<TabContainer>::pool.end();tabContainer++)
+		for(std::vector<Tab*>::iterator tabContainer=TPoolVector<Tab>::pool.begin();tabContainer!=TPoolVector<Tab>::pool.end();tabContainer++)
 			(*tabContainer)->BroadcastToSelected(func,data);
 	}
 
@@ -1018,13 +1026,13 @@ struct TabContainer : TPoolVector<TabContainer>
 	GuiRect* GetFocus();
 };
 
-struct SplitterContainer 
+struct Splitter 
 {
-	TabContainer* currentTabContainer;
+	Tab* currentTabContainer;
 
-	TabContainer* floatingTabRef;
-	TabContainer* floatingTab;
-	TabContainer* floatingTabTarget;
+	Tab* floatingTabRef;
+	Tab* floatingTab;
+	Tab* floatingTabTarget;
 	int  floatingTabRefTabIdx;
 	int  floatingTabRefTabCount;
 	int  floatingTabTargetAnchorPos;
@@ -1033,20 +1041,20 @@ struct SplitterContainer
 	const int   splitterSize;
 	char*		splitterCursor;
 
-	SplitterContainer();
-	~SplitterContainer();
+	Splitter();
+	~Splitter();
 
-	virtual void CreateFloatingTab(TabContainer*)=0;
+	virtual void CreateFloatingTab(Tab*)=0;
 	virtual void DestroyFloatingTab()=0;
 };
 
 
-struct EditorWindowContainer
+struct Container
 {
-	std::vector<TabContainer*> tabContainers;
+	std::vector<Tab*> tabContainers;
 
 	WindowData* window;
-	SplitterContainer* splitter;
+	Splitter* splitter;
 
 	int resizeDiffHeight;
 	int resizeDiffWidth;
@@ -1054,24 +1062,36 @@ struct EditorWindowContainer
 	int resizeCheckWidth;
 	int resizeCheckHeight;
 
-	EditorWindowContainer();
+	Container();
 
 	virtual void OnSizing()=0;
 	virtual void OnSize()=0;
 
-	virtual TabContainer* CreateTabContainer(float x,float y,float w,float h)=0;
+	virtual Tab* CreateTabContainer(float x,float y,float w,float h)=0;
+
+	template<class GuiViewerDerived> GuiViewerDerived* SpawnViewer(Tab* iTabContainer=false,bool skipExist=true)
+	{
+		Tab* tTabContainer=iTabContainer ? iTabContainer : tabContainers[0];
+
+		if(GuiViewerDerived::pool.empty())
+			return tabContainers[0]->tabs.Create<GuiViewerDerived>();
+		else if(skipExist)
+			return GuiViewerDerived::pool.front();
+		else
+			return tabContainers[0]->tabs.Create<GuiViewerDerived>();
+	}
 };
 
 
-struct EditorMainAppWindow
+struct MainContainer
 {
-	std::vector<EditorWindowContainer*> containers;
+	std::vector<Container*> containers;
 
-	virtual EditorWindowContainer* CreateContainer()=0;
+	virtual Container* CreateContainer()=0;
 };
 
 
-struct CompilerInterface
+struct Compiler
 {
 	String compilerPath;
 	String linkerPath;
@@ -1094,7 +1114,7 @@ struct EditorProperties
 
 	virtual void OnPropertiesCreate(){};
 	virtual void OnResourcesCreate(){};
-	virtual void OnPropertiesUpdate(TabContainer*){};
+	virtual void OnPropertiesUpdate(Tab*){};
 };
 
 
@@ -1121,7 +1141,7 @@ struct EditorEntity : EditorObject<Entity>
 		return component;
 	}
 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 				
 
@@ -1131,62 +1151,62 @@ struct EditorAnimationController : EditorObject<AnimationController>
 	GuiPropertyAnimationController*  guiPropertyAnimationController;
 
 	void OnPropertiesCreate();
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 
 };
 
 struct EditorMesh : EditorObject<Mesh>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorRoot : EditorObject<Root>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorSkeleton : EditorObject<Skeleton>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorGizmo : EditorObject<Gizmo>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorAnimation : EditorObject<Animation>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorBone : EditorObject<Bone>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorLight : EditorObject<Light>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorScript : EditorObject<Script>
 {
 	GuiButtonFunc* buttonLaunch;
 
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 	void OnResourcesCreate();
 };
 struct EditorCamera : EditorObject<Camera>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 struct EditorSkin : EditorObject<Skin>
 {
 	void OnPropertiesCreate(); 
-	void OnPropertiesUpdate(TabContainer*);
+	void OnPropertiesUpdate(Tab*);
 };
 
 

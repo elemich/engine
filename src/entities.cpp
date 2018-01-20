@@ -985,18 +985,17 @@ TextureProcedural::TextureProcedural()
 
 EntityScript::EntityScript():entity(0){}
 
-
-
 Entity::Entity():parent(0){}
 Entity::~Entity()
 {
+	this->SetParent(0);
+
 	for(std::vector<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();tCom++)
 		SAFEDELETE(*tCom);
 
 	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
 		SAFEDELETE(*tEn);
 }
-
 
 void Entity::SetParent(Entity* iParent)
 {
