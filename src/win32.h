@@ -375,9 +375,10 @@ struct CompilerWin32 : Compiler
 	std::map<Script*,HMODULE*> modules;
 
 	bool Compile(Script*);
-	bool Execute(String iPath,String iCmdLine);
+	bool Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput);
 	bool Load(Script*);
 	bool Unload(Script*);
+	bool CreateAndroidTarget();
 };
 
 

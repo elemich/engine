@@ -461,11 +461,13 @@ void Tab::OnGuiLMouseDown(void* data)
 
 	if(y<=CONTAINER_HEIGHT)
 	{
-		int prevSel=selected;
+		int tPreviousTabSelected=selected;
 
 		for(int i=0;i<(int)tabs.childs.size();i++)
 		{
-			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
+			bool tMouseContained=x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT;
+
+			if(tMouseContained)// && tPreviousTabSelected!=i)
 			{
 				
 				mouseDown=true;
@@ -941,15 +943,12 @@ void GuiRect::OnMouseWheel(Tab* tabContainer,void* data)
 }
 void GuiRect::OnActivate(Tab* tabContainer,void* data)
 {
-	/*if(this->active)
-		__debugbreak();*/
 	this->active=true;
 	this->BroadcastToChilds(&GuiRect::OnActivate,tabContainer);
 }
 void GuiRect::OnDeactivate(Tab* tabContainer,void* data)
 {
-	this->active=this->hovering=this->pressing=false;
-
+	this->active=false;
 	this->BroadcastToChilds(&GuiRect::OnDeactivate,tabContainer,data);
 }
 void GuiRect::OnEntitySelected(Tab* tabContainer,void* data)
@@ -1729,14 +1728,39 @@ GuiPropertyAnimationController::GuiPropertyAnimationController(AnimationControll
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+void launchStopGuiViewportCallback(void* iData)
+{
+	GuiViewport* guiViewport=(GuiViewport*)iData;
+
+	bool executedWithSuccess=App::instance->compiler->CreateAndroidTarget();
+
+	if(!executedWithSuccess)
+		__debugbreak();
+
+}
+
 GuiViewport::GuiViewport():
 	renderBuffer(0),
 	renderBitmap(0),
 	rootEntity(0),
 	needsPicking(0),
-	pickedEntity(0)
+	pickedEntity(0),
+	playStopButton(0)
 {
 	this->name="Viewport";
+
+	this->playStopButton=new GuiButtonFunc;
+
+	this->AppendChild(this->playStopButton);
+
+	this->playStopButton->func=launchStopGuiViewportCallback;
+	this->playStopButton->param=this;
+	this->playStopButton->colorHovering=Renderer2D::COLOR_GUI_BACKGROUND+30;
+	this->playStopButton->colorPressing=Renderer2D::COLOR_GUI_BACKGROUND+90;
+	this->playStopButton->text="Run";
+	this->playStopButton->rect.w=20;
+	this->playStopButton->alignRect.make(1,-1);
+
 }
 GuiViewport::~GuiViewport()
 {
@@ -1772,10 +1796,10 @@ void GuiViewport::OnMouseWheel(Tab* tabContainer,void* data)
 
 void GuiViewport::OnLMouseUp(Tab* tabContainer,void* data)
 {
-	GuiRect::OnLMouseUp(tabContainer,data);
-
-	if(this->hovering)
+	if(this->hovering/* && this->pickedEntity*/)
 		Tab::BroadcastToPool(&Tab::OnGuiEntitySelected,(void*)this->pickedEntity);
+
+	GuiRect::OnLMouseUp(tabContainer,data);
 }
 
 void GuiViewport::OnMouseMove(Tab* tabContainer,void* data)
@@ -2329,20 +2353,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 
 
 
-namespace Serialization
-{
-	const unsigned char Root=0;
-	const unsigned char Skeleton=1;
-	const unsigned char Animation=2;
-	const unsigned char Gizmo=3;
-	const unsigned char AnimationController=4;
-	const unsigned char Bone=5;
-	const unsigned char Light=6;
-	const unsigned char Mesh=7;
-	const unsigned char Script=8;
-	const unsigned char Camera=9;
-	const unsigned char Unknown=10;
-};
+
 
 void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 {
@@ -2549,6 +2560,13 @@ void GuiEntityViewer::OnEntitySelected(Tab* tabContainer,void* data)
 
 		tabContainer->SetDraw(2,0,this);
 	}
+	else
+	{
+		this->CalcNodesHeight(&iEntity->properties);
+		this->OnSize(tabContainer);
+
+		tabContainer->SetDraw(2,0,this);
+	}
 
 	GuiRect::OnEntitySelected(tabContainer);
 }
@@ -2623,12 +2641,21 @@ int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
 ///////////////////////////////////////////////
 
 ResourceNode::ResourceNode():
-level(0),
+	parent(0),
+	level(0),
 	isDir(0),
 	selectedLeft(0),
 	selectedRight(0)
+
 {}
-ResourceNode::~ResourceNode(){}
+ResourceNode::~ResourceNode()
+{
+	this->fileName="";
+	this->selectedLeft=false;
+	this->selectedRight=false;
+	this->level=0;
+	this->isDir=false;
+}
 
 ResourceNodeDir::ResourceNodeDir():expanded(0){}
 ResourceNodeDir::~ResourceNodeDir()
@@ -2638,6 +2665,16 @@ ResourceNodeDir::~ResourceNodeDir()
 
 	for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
 		SAFEDELETE(*nCh);
+
+	if(this->parent)
+	{
+		ResourceNodeDir* tParent=(ResourceNodeDir*)this->parent;
+
+		if(this->isDir)
+			tParent->dirs.erase(std::find(tParent->dirs.begin(),tParent->dirs.end(),this));
+		else
+			tParent->files.erase(std::find(tParent->files.begin(),tParent->files.end(),this));
+	}
 }
 
 ///////////////////////////////////////////////
@@ -2653,18 +2690,18 @@ GuiProjectViewer::GuiProjectViewer():
 {
 	this->name="Project";
 
-	left.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
-	right.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
-	viewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
+	dirViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
+	fileViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
+	resourceViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
 
 	this->rootResource.fileName=App::instance->projectFolder;
 	this->rootResource.expanded=true;
 	this->rootResource.isDir=true;
 
-	left.rootResource=&this->rootResource;
-	right.rootResource=&this->rootResource;
+	dirViewer.rootResource=&this->rootResource;
+	fileViewer.rootResource=&this->rootResource;
 
-	left.selectedDirs.push_back(&this->rootResource);
+	dirViewer.selectedDirs.push_back(&this->rootResource);
 }
 
 GuiProjectViewer::~GuiProjectViewer()
@@ -2676,25 +2713,40 @@ GuiProjectViewer::~GuiProjectViewer()
 
 void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 {
+	if(!this->active)
+	{
+		App::instance->ScanDir(this->rootResource.fileName);
+		App::instance->CreateNodes(this->rootResource.fileName,&this->rootResource);
+
+		this->dirViewer.CalcNodesHeight(&this->rootResource);
+		this->fileViewer.CalcNodesHeight(&this->rootResource);
+
+		float tWidth=tabContainer->windowData->width/3.0f;
+
+		dirViewer.rect.x=0;
+		dirViewer.rect.z=tWidth-2;
+		fileViewer.rect.x=tWidth+2;
+		fileViewer.rect.z=tWidth-4;
+		resourceViewer.rect.x=tWidth*2+2;
+		resourceViewer.rect.z=tWidth;
+
+		this->OnSize(tabContainer,data);
+	}
+
 	GuiRect::OnActivate(tabContainer);
-
-	App::instance->ScanDir(this->rootResource.fileName);
-	App::instance->CreateNodes(this->rootResource.fileName,&this->rootResource);
-
-	this->left.CalcNodesHeight(&this->rootResource);
-	this->right.CalcNodesHeight(&this->rootResource);
-
-	float tWidth=tabContainer->windowData->width/3.0f;
-
-	left.rect.x=0;
-	left.rect.z=tWidth-2;
-	right.rect.x=tWidth+2;
-	right.rect.z=tWidth-4;
-	viewer.rect.x=tWidth*2+2;
-	viewer.rect.z=tWidth;
-
-	this->OnSize(tabContainer,data);
 }
+
+void GuiProjectViewer::OnDeactivate(Tab* tabContainer,void* data)
+{
+	if(this->active)
+	{
+		this->rootResource.files.erase(this->rootResource.files.begin(),this->rootResource.files.end());
+		this->rootResource.dirs.erase(this->rootResource.dirs.begin(),this->rootResource.dirs.end());
+	}
+
+	GuiRect::OnDeactivate(tabContainer);
+}
+
 
 void GuiProjectViewer::OnLMouseDown(Tab* tabContainer,void* data)
 {
@@ -2704,15 +2756,15 @@ void GuiProjectViewer::OnLMouseDown(Tab* tabContainer,void* data)
 	{
 		vec2& mpos=*(vec2*)data;
 
-		if(mpos.x<=this->right.rect.x)
+		if(mpos.x<=this->fileViewer.rect.x)
 		{
 			this->splitterLeft=true;
-			this->hotspotDist=this->right.rect.x-mpos.x;
+			this->hotspotDist=this->fileViewer.rect.x-mpos.x;
 		}
-		else if(mpos.x<=this->viewer.rect.x)
+		else if(mpos.x<=this->resourceViewer.rect.x)
 		{
 			this->splitterRight=true;
-			this->hotspotDist=this->viewer.rect.x-mpos.x;
+			this->hotspotDist=this->resourceViewer.rect.x-mpos.x;
 		}
 	}
 }
@@ -2741,22 +2793,22 @@ void GuiProjectViewer::OnMouseMove(Tab* tabContainer,void* data)
 
 			if(this->splitterLeft)
 			{
-				float tRightWidthAbs=this->right.rect.x+this->right.rect.z;
-				this->left.rect.z=mpos.x-2;
-				this->right.rect.x=mpos.x+2;
-				this->right.rect.z=this->viewer.rect.x-this->right.rect.x-4;
+				float tRightWidthAbs=this->fileViewer.rect.x+this->fileViewer.rect.z;
+				this->dirViewer.rect.z=mpos.x-2;
+				this->fileViewer.rect.x=mpos.x+2;
+				this->fileViewer.rect.z=this->resourceViewer.rect.x-this->fileViewer.rect.x-4;
 
-				this->left.OnSize(tabContainer);
-				this->right.OnSize(tabContainer);
+				this->dirViewer.OnSize(tabContainer);
+				this->fileViewer.OnSize(tabContainer);
 			}
 			if(this->splitterRight)
 			{
-				this->right.rect.z=mpos.x-this->right.rect.x-2;
-				this->viewer.rect.x=mpos.x+2;
-				this->viewer.rect.z=this->rect.x+this->rect.z-this->viewer.rect.x;
+				this->fileViewer.rect.z=mpos.x-this->fileViewer.rect.x-2;
+				this->resourceViewer.rect.x=mpos.x+2;
+				this->resourceViewer.rect.z=this->rect.x+this->rect.z-this->resourceViewer.rect.x;
 
-				this->right.OnSize(tabContainer);
-				this->viewer.OnSize(tabContainer);
+				this->fileViewer.OnSize(tabContainer);
+				this->resourceViewer.OnSize(tabContainer);
 			}
 
 			
@@ -2794,8 +2846,9 @@ void GuiProjectViewer::OnSize(Tab* tabContainer,void* data)
 {
 	GuiRect::OnSize(tabContainer);
 
-	this->viewer.rect.z=this->rect.x+this->rect.z-this->viewer.rect.x;
+	this->resourceViewer.rect.z=this->rect.x+this->rect.z-this->resourceViewer.rect.x;
 }
+
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -3561,9 +3614,9 @@ void GuiCompilerViewer::OnSize(Tab* tabContainer,void* data)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-#define __APPENDCOMPONENTTOENTITY()	EditorEntity* eEntity=(EditorEntity*)this->entity; \
-										eEntity->properties.AppendChild(&this->properties); \
-										Tab::BroadcastToPool(&Tab::OnGuiEntitySelected,0);
+#define __APPENDPROPERTYTOENTITY()	EditorEntity* eEntity=(EditorEntity*)this->entity; \
+										eEntity->properties.AppendChild(&this->properties); /*\
+										Tab::BroadcastToPool(&Tab::OnGuiEntitySelected,this->entity);*/
 
 
 
@@ -3618,7 +3671,7 @@ void EditorMesh::OnPropertiesCreate()
 	this->properties.Property("Texcoord",String(this->ntexcoord));
 	this->properties.Property("Vertexindices",String(this->nvertexindices));
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 
 void EditorMesh::OnPropertiesUpdate(Tab* tab)
@@ -3631,7 +3684,7 @@ void EditorSkin::OnPropertiesCreate()
 	this->properties.Property("Clusters",String(this->nclusters));
 	this->properties.Property("Textures",String(this->ntextures));
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorSkin::OnPropertiesUpdate(Tab* tab)
 {
@@ -3640,7 +3693,7 @@ void EditorRoot::OnPropertiesCreate()
 {
 	this->properties.text="Root";
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorRoot::OnPropertiesUpdate(Tab* tab)
 {
@@ -3649,7 +3702,7 @@ void EditorSkeleton::OnPropertiesCreate()
 {
 	this->properties.text="Skeleton";
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorSkeleton::OnPropertiesUpdate(Tab* tab)
 {
@@ -3658,7 +3711,7 @@ void EditorGizmo::OnPropertiesCreate()
 {
 	this->properties.text="Gizmo";
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorGizmo::OnPropertiesUpdate(Tab* tab)
 {
@@ -3671,7 +3724,7 @@ void EditorAnimation::OnPropertiesCreate()
 	this->properties.Property("Begin",this->start);
 	this->properties.Property("End",this->end);
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorAnimation::OnPropertiesUpdate(Tab* tab)
 {
@@ -3686,7 +3739,7 @@ void EditorAnimationController::OnPropertiesCreate()
 	this->properties.Property("End",this->end);
 	guiPropertyAnimationController=this->properties.Property(*this);
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 
 void EditorAnimationController::OnPropertiesUpdate(Tab* tab)
@@ -3703,7 +3756,7 @@ void EditorBone::OnPropertiesCreate()
 {
 	this->properties.text="Bone";
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorBone::OnPropertiesUpdate(Tab* tab)
 {
@@ -3712,7 +3765,7 @@ void EditorLight::OnPropertiesCreate()
 {
 	this->properties.text="Light";
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorLight::OnPropertiesUpdate(Tab* tab)
 {
@@ -3804,7 +3857,7 @@ void EditorScript::OnPropertiesCreate()
 	this->buttonLaunch->rect.w=20;
 	this->buttonLaunch->alignRect.make(1,-1);
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorScript::OnPropertiesUpdate(Tab* tab)
 {
@@ -3835,7 +3888,7 @@ void EditorCamera::OnPropertiesCreate()
 {
 	this->properties.text="Camera";
 
-	__APPENDCOMPONENTTOENTITY();
+	__APPENDPROPERTYTOENTITY();
 }
 void EditorCamera::OnPropertiesUpdate(Tab* tab)
 {

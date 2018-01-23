@@ -385,7 +385,7 @@ struct Entity : EntityBase
 		for(int i=0;i<(int)this->components.size();i++)
 		{
 			if(dynamic_cast<C*>(this->components[i]))
-				vecC.push_back(this->components[i]);
+				vecC.push_back((C*)this->components[i]);
 		}
 
 		return vecC;
@@ -650,6 +650,11 @@ struct Renderer3DBase
 	virtual void draw(Camera*)=0;
 	virtual void draw(Gizmo*)=0;
 	virtual void draw(Script*)=0;
+};
+
+struct Scene
+{
+	Entity* rootEntity;
 };
 
 #endif //__ENTITY_HEADER__

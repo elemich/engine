@@ -256,6 +256,14 @@ String FilePath::Extension()
 	return "";
 }
 
+String FilePath::PointedExtension()
+{
+	char* last=strrchr(this->data,'.');
+	if(last)
+		return String(last);
+	return "";
+}
+
 String FilePath::PathUp(int iLevels)
 {
 	if(data)

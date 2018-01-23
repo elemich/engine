@@ -765,7 +765,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 				if(tc->windowDataWin32->hwnd!=::GetFocus())
 					::SetFocus(tc->windowDataWin32->hwnd);
 
-				if(InputManager::mouseInput.lastLeft-tOldTime<1000/3)
+				if(InputManager::mouseInput.lastLeft-tOldTime<1000/6.0f)
 					tc->OnGuiDLMouseDown();
 				else
 					tc->OnGuiLMouseDown();
@@ -1051,26 +1051,11 @@ int AppWin32::Initialize()
 		}
 
 		printf("Application data folder: %s\n",this->applicationDataFolder);
-
-
 	}
-
-	
 
 	Direct2DBase::Init(L"Verdana",10);
 
 	int error=ERROR_SUCCESS;
-
-	/*INITCOMMONCONTROLSEX iccex={0};
-	iccex.dwSize=sizeof(INITCOMMONCONTROLSEX);
-	iccex.dwICC=ICC_STANDARD_CLASSES|ICC_TREEVIEW_CLASSES|ICC_LISTVIEW_CLASSES|ICC_TAB_CLASSES;
-
-	if(!InitCommonControlsEx(&iccex))
-	{
-		DWORD d=GetLastError();
-		printf("cannot initialize common controls, error %d!\n",GetLastError());
-		error=-1;
-	}*/
 
 	InitSplitter();
 
@@ -3191,7 +3176,7 @@ int TabWin32::TrackTabMenuPopup()
 	#define TAB_MENU_COMMAND_SHAREDOPENGLWINDOW 7
 	#define TAB_MENU_COMMAND_ENTITYPROPERTIES 8*/
 
-	InsertMenu(root,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)create,"New");
+	InsertMenu(root,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)create,"Viewers");
 	{
 		InsertMenu(create,0,MF_BYPOSITION|MF_STRING,2,"Viewport");
 		InsertMenu(create,1,MF_BYPOSITION|MF_STRING,3,"Scene");
@@ -4067,6 +4052,11 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	bool retVal;
 
+	String tSourceFileContent=iScript->file.All();
+	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	//delete error.output
+
 	File errorOutputFile(App::instance->applicationDataFolder + "\\error.output");
 
 	if(errorOutputFile.Exist())
@@ -4075,7 +4065,8 @@ bool CompilerWin32::Compile(Script* iScript)
 			__debugbreak();
 	}
 
-	
+	//create random directory
+
 	if(!iScript->modulePath.Count())
 	{
 		String tRandomWorkingDirectoryName;
@@ -4107,12 +4098,10 @@ bool CompilerWin32::Compile(Script* iScript)
 		iScript->modulePath=tRandomWorkingDirectory;
 	}
 
-	String tSourceFileContent=iScript->file.All();
+	//append engine stuff to source
 
 	String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
 	String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
-
-	String sourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
 
 	if(iScript->file.Open("ab"))
 	{
@@ -4121,6 +4110,8 @@ bool CompilerWin32::Compile(Script* iScript)
 		iScript->file.Close();
 	}
 
+	//compose the command line
+
 	String compilerOptions="/nologo /MDd /ZI /EHsc";
 	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
 	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
@@ -4128,52 +4119,24 @@ bool CompilerWin32::Compile(Script* iScript)
 	String engineLibraryFullPathFileName=App::instance->exeFolder.Path() + "\\engine.lib";
 	String kernelLib="kernel32.lib";
 
-	SECURITY_ATTRIBUTES sa;
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
+	String tCommandLine="vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
+	
+	//execute
+	
+	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLine,errorOutputFile.path,false,false,true);
 
-	ZeroMemory( &sa, sizeof(SECURITY_ATTRIBUTES) );
-	ZeroMemory( &si, sizeof(STARTUPINFO) );
-	ZeroMemory( &pi, sizeof(PROCESS_INFORMATION) );
-
-	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sa.lpSecurityDescriptor = 0;
-	sa.bInheritHandle = true;  
-
-	HANDLE errorOutput = CreateFile(errorOutputFile.path,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
-
-	si.cb = sizeof(STARTUPINFO);
-	si.wShowWindow = true;
-	si.dwFlags |= STARTF_USESTDHANDLES;
-	si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-	si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-	si.hStdOutput = errorOutput;//GetStdHandle(STD_OUTPUT_HANDLE);
-
-	{
-		String tCommandLine="vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  sourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
-
-		SetCurrentDirectory(iScript->modulePath);
-
-		if(!CreateProcess(0,tCommandLine,0,0,true,0,0,0,&si,&pi))
-			retVal=false;
-
-		WaitForSingleObject( pi.hProcess, INFINITE );
-
-		if(!CloseHandle( pi.hProcess ))
-			__debugbreak();
-		if(!CloseHandle( pi.hThread ))
-			__debugbreak();
-		if(!CloseHandle( errorOutput ))
-			__debugbreak();
-
-		errorOutput=0;
-	}
+	if(!executeWithSuccess)
+		__debugbreak();
+	
+	//restore the original source
 
 	if(iScript->file.Open("wb"))
 	{
 		iScript->file.Write(tSourceFileContent,tSourceFileContent.Count(),1);
 		iScript->file.Close();
 	}
+
+	//convert compiler output to readable locale
 
 	wchar_t* tWideCharCompilationOutput=0;
 
@@ -4193,7 +4156,7 @@ bool CompilerWin32::Compile(Script* iScript)
 			__debugbreak();
 	}
 
-	
+	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
 
 	GuiCompilerViewer* guiCompilerViewer=!GuiCompilerViewer::pool.empty() ? GuiCompilerViewer::pool.front() : 0;
 
@@ -4226,23 +4189,41 @@ bool CompilerWin32::Compile(Script* iScript)
 	return retVal;
 }
 
-bool CompilerWin32::Execute(String iPath,String iCmdLine)
+bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput)
 {
 	if(iPath=="none")
 		iPath=App::instance->projectFolder;
 
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
+	STARTUPINFO si={0};
+	PROCESS_INFORMATION pi={0};
 
-	ZeroMemory( &si, sizeof(STARTUPINFO) );
-	ZeroMemory( &pi, sizeof(PROCESS_INFORMATION) );
+	HANDLE tFileOutput=0;
 
 	si.cb = sizeof(STARTUPINFO);
 	si.wShowWindow = true;
 
-	SetCurrentDirectory(iPath);
+	if(iOutputFile.Count() ^ (iInput || iError || iOutput))
+		__debugbreak();
+	else
+	{
+		SECURITY_ATTRIBUTES sa={0};
 
-	printf("executing command: %s\n",iCmdLine);
+		sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+		sa.lpSecurityDescriptor = 0;
+		sa.bInheritHandle = true;  
+
+		tFileOutput = CreateFile(iOutputFile,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
+
+		if(!tFileOutput)
+			__debugbreak;
+
+		si.dwFlags |= STARTF_USESTDHANDLES;
+		si.hStdInput = iInput ? tFileOutput : GetStdHandle(STD_INPUT_HANDLE);
+		si.hStdError = iError ? tFileOutput : GetStdHandle(STD_ERROR_HANDLE);
+		si.hStdOutput = iOutput ? tFileOutput : GetStdHandle(STD_OUTPUT_HANDLE);
+	}
+
+	SetCurrentDirectory(iPath);
 
 	if(!CreateProcess(0,String("cmd.exe /C ") + iCmdLine,0,0,true,0,0,0,&si,&pi))
 		return false;
@@ -4252,6 +4233,8 @@ bool CompilerWin32::Execute(String iPath,String iCmdLine)
 	if(!CloseHandle( pi.hProcess ))
 		__debugbreak();
 	if(!CloseHandle( pi.hThread ))
+		__debugbreak();
+	if(tFileOutput && !CloseHandle( tFileOutput ))
 		__debugbreak();
 
 	return true;
@@ -4344,6 +4327,89 @@ bool CompilerWin32::Unload(Script* iScript)
 
 	return true;
 }
+
+void getScriptPaths(Entity* iEntity,std::vector<std::string>& iStringVector)
+{
+	std::vector<Script*> tEntityScripts=iEntity->findComponents<Script>();
+
+	for(std::vector<Script*>::iterator i=tEntityScripts.begin();i!=tEntityScripts.end();i++)
+		iStringVector.push_back((*i)->file.path.Buf());
+
+	for(std::list<Entity*>::iterator i=iEntity->childs.begin();i!=iEntity->childs.end();i++)
+		getScriptPaths(*i,iStringVector);
+}
+
+bool CompilerWin32::CreateAndroidTarget()
+{
+	//get all project scenes 
+
+	std::vector<ResourceNode*> projectSceneResourceNodes=GuiProjectViewer::pool[0]->findResources(App::instance->GetSceneExtension());
+
+	std::vector<std::string> iScriptFilenameVector;
+
+	//get all script filenames from saved project scenes
+
+	for(std::vector<ResourceNode*>::iterator i=projectSceneResourceNodes.begin();i!=projectSceneResourceNodes.end();i++)
+	{
+		ResourceNodeDir* parentPath=(ResourceNodeDir*)(*i)->parent;
+
+		FILE* tSceneFile=fopen(parentPath->fileName + "\\" + (*i)->fileName,"rb");
+
+		if(tSceneFile)
+		{
+			int nameCount;
+			int componentsSize;
+			int childsSize;
+			unsigned char componentCode;
+
+			fread(&childsSize,sizeof(sizeof(int)),1,tSceneFile);
+
+			while(true)
+			{
+				//4
+				fseek(tSceneFile,64+64,SEEK_CUR);//skip local and world matrices
+				fread(&nameCount,sizeof(int),1,tSceneFile);//4
+				fseek(tSceneFile,nameCount,SEEK_CUR);//skip entity name
+				fseek(tSceneFile,12+12,SEEK_CUR);//skip AABB
+				fread(&componentsSize,sizeof(int),1,tSceneFile);//4
+
+				for(int i=0;i<componentsSize;i++)
+				{
+					fread(&componentCode,sizeof(unsigned char),1,tSceneFile);//1
+
+					if(componentCode==Serialization::Script)
+					{
+						char *tNameBuf=0;
+
+						fread(&nameCount,sizeof(int),1,tSceneFile);//4
+						tNameBuf=new char[nameCount+1];
+
+						fread(tNameBuf,nameCount,1,tSceneFile);//variadic
+						tNameBuf[nameCount]='\0';
+
+						iScriptFilenameVector.push_back(tNameBuf);
+
+						SAFEDELETEARRAY(tNameBuf);
+					}
+				}
+
+				fread(&childsSize,sizeof(sizeof(int)),1,tSceneFile);
+
+				if(!childsSize)
+					break;
+			}
+
+			fclose(tSceneFile);
+		}
+		else
+			__debugbreak();
+	}
+
+	//call the compiler
+
+	return true;
+}
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

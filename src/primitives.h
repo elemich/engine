@@ -176,6 +176,7 @@ struct FilePath : String
 	String Fullpath();
 	String Path();
 	String Extension();
+	String PointedExtension();
 
 	String PathUp(int iLevels);
 };

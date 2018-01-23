@@ -667,6 +667,8 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 {
 	EditorEntity* rootEntity;
 
+	GuiButtonFunc* playStopButton;
+
 	mat4 projection;
 	mat4 view;
 	mat4 model;
@@ -800,7 +802,7 @@ struct ResourceNode
 	bool isDir;
 
 	ResourceNode();
-	virtual ~ResourceNode();
+	~ResourceNode();
 };
 
 struct ResourceNodeDir : ResourceNode
@@ -814,7 +816,7 @@ struct ResourceNodeDir : ResourceNode
 	~ResourceNodeDir();
 };
 
-struct GuiProjectViewer : GuiRect
+struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 {
 	struct GuiProjectDirViewer : GuiScrollRect
 	{
@@ -829,7 +831,7 @@ struct GuiProjectViewer : GuiRect
 		void OnLMouseDown(Tab*,void* data=0);
 		void OnPaint(Tab*,void* data=0);
 
-	}left;
+	}dirViewer;
 
 	struct GuiProjectFileViewer : GuiScrollRect
 	{
@@ -846,12 +848,12 @@ struct GuiProjectViewer : GuiRect
 		void OnPaint(Tab*,void* data=0);
 		void OnRMouseUp(Tab*,void* data=0);
 		void OnDLMouseDown(Tab*,void* data=0);
-	}right;
+	}fileViewer;
 
 	struct GuiProjectDataViewer : GuiScrollRect
 	{
 		
-	}viewer;
+	}resourceViewer;
 
 
 	ResourceNodeDir rootResource;
@@ -870,9 +872,33 @@ struct GuiProjectViewer : GuiRect
 	void OnMouseMove(Tab*,void* data=0);
 	void OnReparent(Tab*,void* data=0);
 	void OnActivate(Tab*,void* data=0);
+	void OnDeactivate(Tab*,void* data=0);
 	void OnSize(Tab*,void* data=0);
 
-	void DestroyNode(ResourceNode*);
+	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,const char* iExtension)
+	{
+		if(iResourceNode->isDir)
+		{
+			ResourceNodeDir* tResourceNodeDir=(ResourceNodeDir*)iResourceNode;
+
+			for(std::list<ResourceNode*>::iterator nCh=tResourceNodeDir->files.begin();nCh!=tResourceNodeDir->files.end();nCh++)
+				this->findResources(oResultArray,*nCh,iExtension);
+
+			for(std::list<ResourceNodeDir*>::iterator nCh=tResourceNodeDir->dirs.begin();nCh!=tResourceNodeDir->dirs.end();nCh++)
+				this->findResources(oResultArray,*nCh,iExtension);
+		}
+		else if(iResourceNode->fileName.PointedExtension()==iExtension)
+				oResultArray.push_back(iResourceNode);
+	}
+
+	std::vector<ResourceNode*> findResources(const char* iExtension)
+	{
+		std::vector<ResourceNode*> oResultArray;
+
+		this->findResources(oResultArray,&this->rootResource,iExtension);
+
+		return oResultArray;
+	}
 };
 
 struct WindowData
@@ -1101,9 +1127,10 @@ struct Compiler
 	String runAfter;
 
 	virtual bool Compile(Script*)=0;
-	virtual bool Execute(String iPath,String iCmdLine)=0;
+	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false)=0;
 	virtual bool Load(Script*)=0;
 	virtual bool Unload(Script*)=0;
+	virtual bool CreateAndroidTarget()=0;
 };
 
 struct EditorProperties
@@ -1116,7 +1143,6 @@ struct EditorProperties
 	virtual void OnResourcesCreate(){};
 	virtual void OnPropertiesUpdate(Tab*){};
 };
-
 
 template<class T> struct EditorObject : T , EditorProperties{};
 
@@ -1210,7 +1236,20 @@ struct EditorSkin : EditorObject<Skin>
 };
 
 
-
+namespace Serialization
+{
+	const unsigned char Root=0;
+	const unsigned char Skeleton=1;
+	const unsigned char Animation=2;
+	const unsigned char Gizmo=3;
+	const unsigned char AnimationController=4;
+	const unsigned char Bone=5;
+	const unsigned char Light=6;
+	const unsigned char Mesh=7;
+	const unsigned char Script=8;
+	const unsigned char Camera=9;
+	const unsigned char Unknown=10;
+};
 
 
 #endif //INTERFACES_H
