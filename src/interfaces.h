@@ -174,8 +174,7 @@ struct Renderer2D
 struct Renderer3D : Renderer3DBase
 {
 	std::list<GuiViewport*> viewports;
-	bool picking;
-	std::vector<Shader*> shaders;
+	
 	Tab* tabContainer;
 
 	Shader* FindShader(const char* name,bool exact);
@@ -221,11 +220,7 @@ struct Renderer3D : Renderer3DBase
 	Renderer3D(Tab*);
 	virtual ~Renderer3D(){};
 
-	Shader* unlit;
-	Shader* unlit_color;
-	Shader* unlit_texture;
-	Shader* font;
-	Shader* shaded_texture;
+	
 };
 
 
@@ -236,53 +231,6 @@ struct Game
 };
 
 
-struct MatrixStack
-{
-	enum matrixmode
-	{
-		PROJECTION=0,
-		MODEL,
-		VIEW,
-		MATRIXMODE_MAX
-	};
-
-	static void Reset();
-
-
-	static void Push();
-	static void Pop();
-	static void Identity();
-	static float* Get();
-	static void Load(float* m);
-	static void Multiply(float* m);
-
-	static void Pop(MatrixStack::matrixmode);
-	static void Push(MatrixStack::matrixmode);
-	static void Push(MatrixStack::matrixmode,float*);
-	static void Identity(MatrixStack::matrixmode);
-	static float* Get(MatrixStack::matrixmode,int lev=-1);
-	static void Load(MatrixStack::matrixmode,float*);
-	static void Multiply(MatrixStack::matrixmode,float*);
-
-	static void Rotate(float a,float x,float y,float z);
-	static void Translate(float x,float y,float z);
-	static void Scale(float x,float y,float z);
-
-	static mat4 GetProjectionMatrix();
-	static mat4 GetModelMatrix();
-	static mat4 GetViewMatrix();
-
-	static void SetProjectionMatrix(float*);
-	static void SetModelMatrix(float*);
-	static void SetViewMatrix(float*);
-
-	static  MatrixStack::matrixmode GetMode();
-	static  void SetMode(MatrixStack::matrixmode m);
-
-	static mat4 model;
-	static mat4 projection;
-	static mat4 view;
-};
 
 int simple_shader(const char* name,int shader_type, const char* shader_src);
 int create_program(const char* name,const char* vertexsh,const char* fragmentsh);

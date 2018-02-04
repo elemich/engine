@@ -22,6 +22,7 @@
     <ClCompile Include="src\entities.cpp" />
     <ClCompile Include="src\interfaces.cpp" />
     <ClCompile Include="src\primitives.cpp" />
+    <ClCompile Include="src\shaders.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\win32.h">

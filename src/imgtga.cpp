@@ -60,7 +60,7 @@ bool LoadTGA(const char* filename,void*& buf,int &bufsize,int &width,int &height
 			fclose(fTGA);													// If it is, close it
 		}
 		
-		__debugbreak();
+		//__debugbreak();
 		
 		
 		return false;														// Exit function
@@ -79,7 +79,7 @@ bool LoadTGA(const char* filename,void*& buf,int &bufsize,int &width,int &height
 		printf("%s\n", "TGA file be type 2 or type 10 ");	// Display an error
 		fclose(fTGA);
 		
-		__debugbreak();
+		//__debugbreak();
 		
 		
 		return false;																// Exit function
@@ -97,7 +97,7 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 			fclose(fTGA);													// Close it
 		}
 		
-		__debugbreak();
+		//__debugbreak();
 		
 		
 		return false;														// Return failular
@@ -118,7 +118,7 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 			fclose(fTGA);													// If so, close it
 		}
 
-		__debugbreak();
+		//__debugbreak();
 
 		return false;														// Return failed
 	}
@@ -137,7 +137,7 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 		printf("%s\n", "Could not allocate memory for image");	// Display Error
 		fclose(fTGA);														// Close the file
 		
-		__debugbreak();
+		//__debugbreak();
 		
 		return false;														// Return failed
 	}
@@ -151,7 +151,7 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 		}
 		fclose(fTGA);		
 		
-		__debugbreak();
+		//__debugbreak();
 		
 		// Close file
 		return false;														// Return failed
@@ -178,7 +178,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 			fclose(fTGA);													// Close it
 		}
 
-		__debugbreak();
+		//__debugbreak();
 
 		return false;														// Return failed
 	}
@@ -198,7 +198,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 			fclose(fTGA);													// Ifit is, close it
 		}
 
-		__debugbreak();
+		//__debugbreak();
 
 		return false;														// Return failed
 	}
@@ -218,7 +218,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 		fclose(fTGA);
 		
 
-		__debugbreak();
+		//__debugbreak();
 
 		return false;														// Return failed
 	}
@@ -244,7 +244,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 				free(buf);									// Delete image data
 			}
 
-			__debugbreak();
+			//__debugbreak();
 
 			return false;													// Return failed
 		}
@@ -273,7 +273,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 						free(buf);										// If so, delete it too
 					}
 
-					__debugbreak();
+					//__debugbreak();
 
 					return false;														// Return failed
 				}
@@ -309,7 +309,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 						free(buf);										// delete it
 					}
 
-					__debugbreak();
+					//__debugbreak();
 
 					return false;														// Return failed
 				}
@@ -337,7 +337,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 					free(buf);											// delete it
 				}
 
-				__debugbreak();
+				//__debugbreak();
 
 				return false;															// return failed
 			}
@@ -375,7 +375,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 						free(buf);										// delete it
 					}
 
-					__debugbreak();
+					//__debugbreak();
 
 					return false;														// Return failed
 				}

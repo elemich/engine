@@ -180,7 +180,7 @@ struct Resource : THierarchyList<Resource>
 struct File : Resource
 {
 	FilePath path;
-	FILE* cData;
+	void* data;
 
 	File(String iString=0);
 
@@ -192,9 +192,9 @@ struct File : Resource
 	int Size();
 	bool Create();
 	int CountOccurrences(char);
-	void* Read(int iSize);
-	void* ReadW(int iSize);
-	bool Write(void* iData,int iSize,int iNum);
+	int Read(void* outData,int iSize);
+	bool ReadW(wchar_t* outData,int iSize);
+	int Write(void* iData,int iSize,int iNum);
 	bool Delete();
 	String All();
 
@@ -632,6 +632,8 @@ struct TextureProcedural : Texture
 
 struct Renderer3DBase
 {
+	Renderer3DBase();
+
 	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;
 	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
@@ -650,6 +652,16 @@ struct Renderer3DBase
 	virtual void draw(Camera*)=0;
 	virtual void draw(Gizmo*)=0;
 	virtual void draw(Script*)=0;
+
+	bool picking;
+
+	Shader* unlit;
+	Shader* unlit_color;
+	Shader* unlit_texture;
+	Shader* font;
+	Shader* shaded_texture;
+
+	std::vector<Shader*> shaders;
 };
 
 struct Scene

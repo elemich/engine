@@ -299,6 +299,7 @@ copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProj
     <ClCompile Include="src\imgpng.cpp" />
     <ClCompile Include="src\imgtga.cpp" />
     <ClCompile Include="src\primitives.cpp" />
+    <ClCompile Include="src\shaders.cpp" />
     <ClCompile Include="src\win32.cpp" />
   </ItemGroup>
   <ItemGroup>

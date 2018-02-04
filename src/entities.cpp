@@ -6,29 +6,53 @@
 
 #include <algorithm>
 
+Renderer3DBase::Renderer3DBase():
+	unlit(0),
+	unlit_color(0),
+	unlit_texture(0),
+	font(0),
+	shaded_texture(0),
+	picking(false)
+{
 
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////////////////////////////////
+//////////////////////File/////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
 File::File(String iString):path(iString),
-cData(0){}
+	data(0){}
 
-void File::SetFilename(String iFilename){this->path=iFilename;}
+void File::SetFilename(String iFilename)
+{
+	this->path=iFilename;
+}
+
+bool File::IsOpen()
+{
+	return this->data ? true : false;
+}
+
+
+//////////////////////File/////////////////////
+
+#ifndef ANDROID
+
+
 bool File::Open(char* mode)
 {
 	if(!this->path.Count() || this->IsOpen())
 		return false;
 
-	this->cData=fopen(path,mode);
+	this->data=fopen(path,mode);
 
-	if(!cData)
+	if(!data)
 		return false;
 
-	int tell=ftell(this->cData);
+	int tell=ftell((FILE*)this->data);
 
 	if(tell!=0)
 		__debugbreak();
@@ -36,14 +60,9 @@ bool File::Open(char* mode)
 	return true;
 }
 
-bool File::IsOpen()
-{
-	return this->cData ? true : false;
-}
-
 void File::Close()
 {
-	this->cData ? fclose(this->cData),this->cData=0 : 0;
+	this->data ? fclose((FILE*)this->data),this->data=0 : 0;
 }
 
 bool File::Exist()
@@ -60,10 +79,10 @@ int File::Size()
 
 	if(this->Open())
 	{
-		int curPos=ftell(this->cData);
-		fseek(this->cData,0,SEEK_END);
-		result=ftell(this->cData);
-		fseek(this->cData,0,curPos);
+		int curPos=ftell((FILE*)this->data);
+		fseek((FILE*)this->data,0,SEEK_END);
+		result=ftell((FILE*)this->data);
+		fseek((FILE*)this->data,0,curPos);
 	}
 	else
 	{
@@ -99,18 +118,18 @@ int File::CountOccurrences(char iChar)
 
 	if(this->IsOpen())
 	{
-		int oldPos=ftell(this->cData);
+		int oldPos=ftell((FILE*)this->data);
 
-		fseek(this->cData,0,SEEK_END);
+		fseek((FILE*)this->data,0,SEEK_END);
 
-		int ___size=ftell(this->cData);
+		int ___size=ftell((FILE*)this->data);
 
 		int ___i=0;
 		while(___i < ___size)
 		{
-			fseek(this->cData,___i,SEEK_SET);
+			fseek((FILE*)this->data,___i,SEEK_SET);
 
-			char c=fgetc(this->cData);
+			char c=fgetc((FILE*)this->data);
 
 			if(iChar==c)
 				occurrences++;
@@ -118,7 +137,7 @@ int File::CountOccurrences(char iChar)
 			___i++;
 		}
 
-		fseek(this->cData,oldPos,SEEK_SET);
+		fseek((FILE*)this->data,oldPos,SEEK_SET);
 	}
 
 	if(!wasOpen)
@@ -143,7 +162,7 @@ String File::All()
 		if(tSize>0)
 		{
 			char* tT=new char[tSize+1];
-			fread(tT,tSize,1,this->cData);
+			fread(tT,tSize,1,(FILE*)this->data);
 			tT[tSize]='\0';
 			tS=tT;
 			SAFEDELETEARRAY(tT);
@@ -158,6 +177,36 @@ String File::All()
 		tS="";
 
 	return tS;
+}
+
+int File::Read(void* outData,int iSize)
+{
+	if(this->data)
+	{
+		return fread(outData,iSize,1,(FILE*)this->data);
+	}
+
+	return 0;
+}
+
+bool File::ReadW(wchar_t* outData,int iSize)
+{
+	if(this->data)
+	{
+		wchar_t* outValue=fgetws(outData,iSize*2,(FILE*)this->data);
+		outData[iSize]=L'\0';
+		return outValue ? true : false;
+	}
+
+	return 0;
+}
+
+int File::Write(void* iData,int iSize,int iNum)
+{
+	if(this->data)
+		return fwrite(iData,iSize,iNum,(FILE*)this->data);
+
+	return 0;
 }
 
 //statics function
@@ -210,41 +259,206 @@ int File::Size(const char* iFilename)
 	return RetVal;
 }
 
-void* File::Read(int iSize)
+#else  //////////////////////File/////////////////////
+
+#include <jni.h>
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+
+extern AAssetManager *globalAssetManager;
+
+namespace AndroidFileFunc
 {
-	if(this->cData)
+	AAsset* fopen(const char* iFilename,const char* iMode)
 	{
-		void* ____data=new char[iSize];
-		fread(____data,iSize,1,this->cData);
-		return ____data;
+		return AAssetManager_open(globalAssetManager,iFilename,AASSET_MODE_BUFFER);
 	}
 
+	void fclose(AAsset* iAssetManager)
+	{
+		return AAsset_close(iAssetManager);
+	}
+
+	int fread(void* iData,size_t iSize,size_t iCount,AAsset* iAsset)
+	{
+		return AAsset_read(iAsset,iData,iSize);//iCount unused
+	}
+
+	void fwrite(void* iData,size_t iSize,size_t iCount,AAsset* iAsset)
+	{
+		//return AAsset_read(iAsset,iData,iSize);//iCount unused
+	}
+
+	int ftell(AAsset* iAsset)
+	{
+		return AAsset_getLength(iAsset)-AAsset_getRemainingLength(iAsset);
+	}
+
+	int fseek(AAsset* iAsset,long int iOffset, int iOrigin )
+	{
+		return AAsset_seek(iAsset,iOffset,iOrigin);
+	}
+}
+
+bool File::Open(char* iMode)
+{
+	if(!this->path.Count() || this->IsOpen())
+		return false;
+
+	this->data=AndroidFileFunc::fopen(this->path,iMode);
+
+	return true;
+}
+void File::Close()
+{
+	this->data ? AndroidFileFunc::fclose((AAsset*)this->data),this->data=0 : 0;
+}
+
+bool File::Exist()
+{
+	if(!this->path.Count())
+		return false;
+
+	return File::Exist(this->path);
+}
+
+int File::Size()
+{
+	int result;
+
+	if(this->Open())
+	{
+		int curPos=AndroidFileFunc::ftell((AAsset*)this->data);
+		AndroidFileFunc::fseek((AAsset*)this->data,0,SEEK_END);
+		result=AndroidFileFunc::ftell((AAsset*)this->data);
+		AndroidFileFunc::fseek((AAsset*)this->data,0,curPos);
+	}
+	else
+	{
+		if(!this->path.Count())
+			return -1;
+
+		result=File::Size(this->path);
+	}
+
+	return result;
+}
+
+bool File::Create()
+{
+	return File::Create(this->path);
+}
+
+bool File::Delete()
+{
+	if(this->path.Count())
+		return !::remove(this->path);
+	return false;
+}
+
+int File::CountOccurrences(char iChar)
+{
 	return 0;
 }
 
-void* File::ReadW(int iSize)
+String File::All()
 {
-	if(this->cData)
+	String tS;
+
+	bool wasOpen=this->IsOpen();
+
+	if(!wasOpen)
+		this->Open();
+
+	if(this->IsOpen())
 	{
-		wchar_t* ____data=new wchar_t[iSize+1];
-		fgetws(____data,iSize*2,this->cData);
-		____data[iSize]=L'\0';
-		return ____data;
+		int tSize=this->Size();
+
+		if(tSize>0)
+		{
+			char* tT=new char[tSize+1];
+			AndroidFileFunc::fread(tT,tSize,1,(AAsset*)this->data);
+			tT[tSize]='\0';
+			tS=tT;
+			SAFEDELETEARRAY(tT);
+		}
 	}
 
-	return 0;
+
+	if(!wasOpen)
+		this->Close();
+
+	if(tS.Count()==0)
+		tS="";
+
+	return tS;
 }
 
-bool File::Write(void* iData,int iSize,int iNum)
+//statics function
+
+
+bool File::Create(const char* iFilename)
 {
-	if(this->cData)
+	return false;
+}
+bool File::Exist(const char* iFilename)
+{
+	AAsset* tFile=AndroidFileFunc::fopen(iFilename,"r");
+
+	if(tFile)
 	{
-		size_t writed=fwrite(iData,iSize,iNum,this->cData);
+		AndroidFileFunc::fclose(tFile);
 		return true;
 	}
 
 	return false;
 }
+bool File::Delete(const char* iFilename)
+{
+	return false;
+}
+
+int File::Size(const char* iFilename)
+{
+	if(!iFilename)
+		return -1;
+
+	int RetVal;
+
+	AAsset* tFile=AndroidFileFunc::fopen(iFilename,"r");
+
+	if(tFile)
+	{
+		AndroidFileFunc::fseek(tFile,0,SEEK_END);
+		RetVal=AndroidFileFunc::ftell(tFile);
+		AndroidFileFunc::fclose(tFile);
+	}
+	else
+		RetVal=-2;
+
+	return RetVal;
+}
+
+int File::Read(void* iData,int iSize)
+{
+	if(this->data)
+		return AndroidFileFunc::fread(iData,iSize,1,(AAsset*)this->data);
+
+	return 0;
+}
+
+bool File::ReadW(wchar_t* iData,int iSize)
+{
+	return false;
+}
+
+int File::Write(void* iData,int iSize,int iNum)
+{
+	return -1;
+}
+
+
+#endif
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -739,7 +953,7 @@ Script::Script():runtime(0){}
 
 void Script::update()
 {
-	this->runtime ? this->runtime->update() : 0;
+	this->runtime ? this->runtime->update(),true : false;
 }
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -749,11 +963,12 @@ void Script::update()
 
 
 
+/*
 extern "C"
 {
     //#pragma message (LOCATION " remove hidden __dso_handle")
 	void *__dso_handle=NULL;
-};
+};*/
 
 struct IMAGE
 {
@@ -841,8 +1056,11 @@ int TextureFile::load(char* fn)
 			fclose(f);
 			return loadTGA(fn);
 		}
-		else
+
+		#ifndef ANDROID
 			__debugbreak();
+		#endif
+
 
 		fclose(f);
 	}

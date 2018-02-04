@@ -84,7 +84,7 @@ template <typename T> struct TPoolVector : TStaticInstance< TPoolVector<T> >
 
 	static void BroadcastToPool(void (T::*func)(void*),void* data=0)
 	{
-		for(std::vector< T*>::iterator tPoolElement=TPoolVector<T>::pool.begin();tPoolElement!=TPoolVector<T>::pool.end();tPoolElement++)
+		for(typename std::vector< T*>::iterator tPoolElement=TPoolVector<T>::pool.begin();tPoolElement!=TPoolVector<T>::pool.end();tPoolElement++)
 			((*tPoolElement)->*func)(data);
 	}
 };
@@ -155,7 +155,6 @@ public:
 	const int& Count()const;
 	const char* Buf()const;
 	bool Contains(const char*);
-	wchar_t* Wstring();
 	bool Alloc(int iBytes);
 	bool Copy(const char* iChar);
 	//operator bool();
@@ -479,6 +478,56 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	mat4& ortho(float left, float right,float bottom, float top,float near, float far);
 	void zero();
 };
+
+
+struct MatrixStack
+{
+	enum matrixmode
+	{
+		PROJECTION=0,
+		MODEL,
+		VIEW,
+		MATRIXMODE_MAX
+	};
+
+	static void Reset();
+
+
+	static void Push();
+	static void Pop();
+	static void Identity();
+	static float* Get();
+	static void Load(float* m);
+	static void Multiply(float* m);
+
+	static void Pop(MatrixStack::matrixmode);
+	static void Push(MatrixStack::matrixmode);
+	static void Push(MatrixStack::matrixmode,float*);
+	static void Identity(MatrixStack::matrixmode);
+	static float* Get(MatrixStack::matrixmode,int lev=-1);
+	static void Load(MatrixStack::matrixmode,float*);
+	static void Multiply(MatrixStack::matrixmode,float*);
+
+	static void Rotate(float a,float x,float y,float z);
+	static void Translate(float x,float y,float z);
+	static void Scale(float x,float y,float z);
+
+	static mat4 GetProjectionMatrix();
+	static mat4 GetModelMatrix();
+	static mat4 GetViewMatrix();
+
+	static void SetProjectionMatrix(float*);
+	static void SetModelMatrix(float*);
+	static void SetViewMatrix(float*);
+
+	static  MatrixStack::matrixmode GetMode();
+	static  void SetMode(MatrixStack::matrixmode m);
+
+	static mat4 model;
+	static mat4 projection;
+	static mat4 view;
+};
+
 
 struct Timer : TStaticInstance<Timer>
 {
