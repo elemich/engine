@@ -26,12 +26,23 @@
 	_ptr=0;\
 	}\
 
+#ifdef DEBUG
+	#ifdef _MSC_VER
+		#define DEBUG_BREAK __debugbreak();
+	#else
+		#define DEBUG_BREAK __builtin_trap();
+	#endif
+#else
+	#define DEBUG_BREAK
+#endif
+
 
 #include <vector>
 #include <list>
 #include <functional>
 #include <algorithm>
 #include <cctype>
+#include <cstring> //for g++ str* functions
 
 struct THierarchy
 {

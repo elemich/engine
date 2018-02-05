@@ -251,7 +251,7 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
 
 			if(!material)
-				__debugbreak();
+				DEBUG_BREAK;
 
 			mesh ? mesh->materials.push_back(material) : skin->materials.push_back(material);
 		}
@@ -307,7 +307,7 @@ void ParseAnimationCurve(Animation* a)
 		{
 				KeyCurve* c=g->curves[j];
 				if(c->start!=start )
-					__debugbreak();
+					DEBUG_BREAK;
 				if(c->end!=end)
 				{
 					Keyframe* key=new Keyframe;
@@ -362,7 +362,7 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 				animController=rootNode->CreateComponent<EditorAnimationController>();
 
 			if(!animController)
-				__debugbreak();
+				DEBUG_BREAK;
 
 			if(animController)
 				animController->add(animation);
@@ -404,7 +404,7 @@ EditorEntity* ImportFbxScene(char* fname)
 		{
 			printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
 			printf("Error returned: %s\n", fbxImporter->GetStatus().GetErrorString());
-			__debugbreak();//delete all
+			DEBUG_BREAK;//delete all
 			return 0;
 		}
 
@@ -576,7 +576,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 	mesh->ntexcoord=fbxMesh->GetTextureUVCount();
 
 	if(!mesh->nvertexindices)
-		__debugbreak();
+		DEBUG_BREAK;
 
 #if GENERATE_INDEXED_GEOMETRY
 	mesh->ntexcoord=mesh->npolygons*3;
@@ -682,7 +682,7 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 	FillMesh(fbxNode,skin);
 
 	if(fbxNode->GetMesh()->GetDeformerCount()>1)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	skin->nclusters=fbxSkin->GetClusterCount();
 	skin->clusters=new Cluster[skin->nclusters];
@@ -740,7 +740,7 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 			influence.nCpIdx=(int)finalIndices[influenceIdx].size();
 
 			if(!influence.nCpIdx)
-				__debugbreak();
+				DEBUG_BREAK;
 
 			influence.cpIdx=new int[influence.nCpIdx];
 

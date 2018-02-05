@@ -156,24 +156,24 @@ void Direct2DBase::Init(wchar_t* fontName,float fontSize)
 
 		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
 		if(S_OK!=res)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		res=D2D1CreateFactory(/*D2D1_FACTORY_TYPE_SINGLE_THREADED*/D2D1_FACTORY_TYPE_MULTI_THREADED, &factory);
 		if(S_OK!=res)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&writer));
 		if(S_OK!=res)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		res=writer->CreateTextFormat(fontName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,fontSize,L"",&texter);
 		if(S_OK!=res)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		
 		res=texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 		if(S_OK!=res)
-			__debugbreak();
+			DEBUG_BREAK;
 
 
 		// Center the text horizontally and vertically.
@@ -214,7 +214,7 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	hr = imager->CreateDecoderFromFilename(fname,NULL,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&pDecoder);
 
 	if (!SUCCEEDED(hr))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	unsigned int frameCount;
 	pDecoder->GetFrameCount(&frameCount);
@@ -222,12 +222,12 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	hr = pDecoder->GetFrame(0, &pSource);
 
 	if (!SUCCEEDED(hr))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	hr = imager->CreateFormatConverter(&pConverter);
 
 	if (!SUCCEEDED(hr))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	hr = pConverter->Initialize(pSource,GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,NULL,0.f,WICBitmapPaletteTypeMedianCut);
 
@@ -245,7 +245,7 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	height=(float)_height;
 
 	if (!SUCCEEDED(hr))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	dump(buffer);
 
@@ -342,7 +342,7 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		int tCharsWrited=mbstowcs(tWcharTextOutput,iText,tFinalTextLength);
 
 		if(tCharsWrited!=tFinalTextLength)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
 	}
@@ -421,12 +421,12 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	}
 	
 	if(S_OK!=result || !this->renderer)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2D::COLOR_TAB_BACKGROUND),&brush);
 
 	if(S_OK!=result || !this->brush)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	return true;
 }
@@ -537,7 +537,7 @@ void ContainerWin32::OnSizing()
 	case WMSZ_RIGHT:this->resizeEnumType=2;break;
 	case WMSZ_BOTTOM:this->resizeEnumType=3;break;
 	default:
-		__debugbreak();
+		DEBUG_BREAK;
 	}
 }
 
@@ -964,7 +964,7 @@ bool WindowDataWin32::FindAndGrowSibling()
 			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,thisRc.right-thisRc.left,growingTabRc.bottom-thisRc.top,SWP_SHOWWINDOW);
 			break;
 		default:
-			__debugbreak();
+			DEBUG_BREAK;
 			break;
 		}
 
@@ -995,7 +995,7 @@ int AppWin32::Initialize()
 	result=CoInitialize(0);
 
 	if(S_OK!=result)
-		__debugbreak();
+		DEBUG_BREAK;
 	
 	{//projectFolder
 		char _pszDisplayName[MAX_PATH]="";
@@ -1023,7 +1023,7 @@ int AppWin32::Initialize()
 	{//exeFolder
 		char ch[5000];
 		if(!GetModuleFileName(0,ch,5000))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		this->exeFolder.String::operator=(ch);
 
@@ -1035,7 +1035,7 @@ int AppWin32::Initialize()
 	{//applicationDataFolder
 		char ch[5000];
 		if(S_OK!=SHGetFolderPath(0,CSIDL_APPDATA,0,SHGFP_TYPE_CURRENT,ch))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		this->applicationDataFolder=String(ch) + "\\EngineAppData";
 
@@ -1093,7 +1093,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 
 	if(!handle || INVALID_HANDLE_VALUE == handle)
 	{
-		__debugbreak();
+		DEBUG_BREAK;
 		return;
 	}
 	else
@@ -1179,7 +1179,7 @@ void AppWin32::ScanDir(String dir)
 
 	if(!handle || INVALID_HANDLE_VALUE == handle)
 	{
-		__debugbreak();
+		DEBUG_BREAK;
 		return;
 	}
 	else
@@ -1372,7 +1372,7 @@ void glCheckError()
 
 		printf("OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC);
 
-		__debugbreak();
+		DEBUG_BREAK;
 	}
 }
 
@@ -1390,7 +1390,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 	if(!shader_id)
 	{
 		printf("glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
-		__debugbreak();
+		DEBUG_BREAK;
 		return 0;
 	}
 
@@ -1403,7 +1403,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 		sprintf(message,"glCompileShader[%s] error:\n",name);
 		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
 		MessageBox(0,message,"Engine",MB_OK|MB_ICONEXCLAMATION);
-		__debugbreak();
+		DEBUG_BREAK;
 	}
 
 	return shader_id;
@@ -1424,7 +1424,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 	if(!program)
 	{
 		printf("glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
-		__debugbreak();
+		DEBUG_BREAK;
 		return 0;
 	}
 
@@ -1439,7 +1439,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 	if (GL_FALSE==link_success)
 	{
 		printf("glLinkProgram error for %s\n",message);
-		__debugbreak();
+		DEBUG_BREAK;
 	}
 
 	glGetProgramInfoLog(program,sizeof(message),&len,message);glCheckError();
@@ -1746,19 +1746,19 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		error=GetLastError();
 
 		if(error!=NO_ERROR && error!=ERROR_OLD_WIN_VERSION)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(pixelFormat==0)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(!SetPixelFormat(hdc,pixelFormat,&pfd))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(!(hglrc = wglCreateContext(hdc)))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(!wglMakeCurrent(hdc,hglrc))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
 		if(!wglCreateContextAttribsARB)wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
@@ -1865,7 +1865,7 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		printf("TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
 	
 	if(!wglMakeCurrent(hdc,hglrc))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	//if(!vertexArrayObject)
 	{
@@ -1917,14 +1917,14 @@ void Renderer3DOpenGL::ChangeContext()
 {
 	if(!hglrc || !hdc)
 	{
-		__debugbreak();
+		DEBUG_BREAK;
 		return;
 	}
 
 	if(hglrc != wglGetCurrentContext() || hdc!=wglGetCurrentDC())
 	{
 		if(!wglMakeCurrent(hdc,hglrc))
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 }
 
@@ -2953,7 +2953,7 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 		result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
 
 		if(S_OK!=result || !this->handle)
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 	else
 	{
@@ -2970,14 +2970,14 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 			result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
 
 			if(S_OK!=result || !this->handle)
-				__debugbreak();
+				DEBUG_BREAK;
 		}
 		else
 		{
 			result=this->handle->CopyFromMemory(&D2D1::RectU(0,0,iWidth,iHeight),iData,iWidth*4);
 
 			if(S_OK!=result)
-				__debugbreak();
+				DEBUG_BREAK;
 		}
 	}
 
@@ -3003,7 +3003,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
 
 	if(!this->windowDataWin32->hwnd)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
@@ -3019,12 +3019,12 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	splitterContainer=this->parentWindowContainer->splitter;
 
 	if(!splitterContainer)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	Renderer3DOpenGL* _oglRenderer=new Renderer3DOpenGL(this);
 
 	if(!_oglRenderer)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	this->renderer3D=_oglRenderer;
 
@@ -3177,7 +3177,7 @@ bool TabWin32::BeginDraw()
 			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU((int)this->windowDataWin32->width,(int)this->windowDataWin32->height));
 
 			if(S_OK!=result)
-				__debugbreak();
+				DEBUG_BREAK;
 
 			this->resizeTarget=0;
 		}
@@ -3188,7 +3188,7 @@ bool TabWin32::BeginDraw()
 		return true;
 	}
 	else
-		__debugbreak();
+		DEBUG_BREAK;
 	
 	return false;
 	
@@ -3216,7 +3216,7 @@ void TabWin32::EndDraw()
 		this->isRender=false;
 	}
 	else
-		__debugbreak();
+		DEBUG_BREAK;
 }
 
 
@@ -3382,14 +3382,14 @@ void TabWin32::OnResizeContainer(void* data)
 			this->parentWindowContainer->resizeCheckHeight+=size;
 		break;
 		default:
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 }
 
 void TabWin32::OnGuiRecreateTarget(void* iData)
 {
 	if(!this->renderer2DWin32->RecreateTarget(this->windowDataWin32->hwnd))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	this->iconUp->Release();
 	this->iconRight->Release();
@@ -3398,15 +3398,15 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	this->iconFile->Release();
 	
 	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		__debugbreak();
+		DEBUG_BREAK;
 	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		__debugbreak();
+		DEBUG_BREAK;
 	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		__debugbreak();
+		DEBUG_BREAK;
 	if(!this->iconFolder->Fill(this->renderer2D,this->rawFolder,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		__debugbreak();
+		DEBUG_BREAK;
 	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		__debugbreak();
+		DEBUG_BREAK;
 
 
 	this->Tab::OnGuiRecreateTarget(iData);
@@ -3506,7 +3506,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 						newTabContainer=floatingTabRefWin32;
 
 						if(!newTabContainer->windowData->FindAndGrowSibling())
-							__debugbreak();
+							DEBUG_BREAK;
 
 						
 
@@ -3537,7 +3537,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 							SetWindowPos(floatingTabRefHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top+floatingTabTargetRcHeight/2,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-(floatingTabTargetRc.top+(floatingTabTargetRcHeight/2)),SWP_SHOWWINDOW);
 						break;
 						default:
-							__debugbreak();
+							DEBUG_BREAK;
 						break;
 						}
 					}
@@ -3876,7 +3876,7 @@ bool InitSplitter()
 		wc.hbrBackground=CreateSolidBrush(Renderer2D::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 
 
@@ -3890,7 +3890,7 @@ bool InitSplitter()
 		wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
 
 		if(!RegisterClass(&wc))
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 
 	
@@ -3939,7 +3939,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	if(errorOutputFile.Exist())
 	{
 		if(!errorOutputFile.Delete())
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 
 	//create random directory
@@ -3966,11 +3966,11 @@ bool CompilerWin32::Compile(Script* iScript)
 		if(!::CreateDirectory(tRandomWorkingDirectory,0))
 		{
 			DWORD lastError=GetLastError();
-			__debugbreak();
+			DEBUG_BREAK;
 		}
 
 		if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		iScript->modulePath=tRandomWorkingDirectory;
 	}
@@ -4003,7 +4003,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLine,errorOutputFile.path,false,false,true);
 
 	if(!executeWithSuccess)
-		__debugbreak();
+		DEBUG_BREAK;
 	
 	//restore the original source
 
@@ -4030,7 +4030,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		errorOutputFile.Close();
 
 		if(!errorOutputFile.Delete())
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 
 	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
@@ -4042,7 +4042,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		Tab* tabContainer=!Tab::pool.empty() ? Tab::pool.front() : 0;
 
 		if(!tabContainer)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		guiCompilerViewer=tabContainer->tabs.CompilerViewer();
 
@@ -4092,7 +4092,7 @@ bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool
 		tFileOutput = CreateFile(iOutputFile,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
 		if(!tFileOutput)
-			__debugbreak;
+			DEBUG_BREAK;
 
 		si.dwFlags |= STARTF_USESTDHANDLES;
 		si.hStdInput = iInput ? tFileOutput : GetStdHandle(STD_INPUT_HANDLE);
@@ -4108,11 +4108,11 @@ bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool
 	WaitForSingleObject( pi.hProcess, INFINITE );
 
 	if(!CloseHandle( pi.hProcess ))
-		__debugbreak();
+		DEBUG_BREAK;
 	if(!CloseHandle( pi.hThread ))
-		__debugbreak();
+		DEBUG_BREAK;
 	if(tFileOutput && !CloseHandle( tFileOutput ))
-		__debugbreak();
+		DEBUG_BREAK;
 
 	return true;
 }
@@ -4277,7 +4277,7 @@ bool CompilerWin32::CreateAndroidTarget()
 			fclose(tSceneFile);
 		}
 		else
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 
 	//call the compiler in c:\sdk\android-ndk-r16b

@@ -125,14 +125,14 @@ GuiRect* Tab::GetSelected()
 void Tab::Draw()
 {
 	if(this->taskDraw->pause)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	if(!this->drawInstances.empty())
 	{
 		DrawInstance*& tDrawInstance=this->drawInstances.front();
 
 		if(!tDrawInstance)
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(tDrawInstance->code || tDrawInstance->frame)
 		{
@@ -862,7 +862,7 @@ GuiString* GuiRect::Text(String str,float ix, float iy, float iw,float ih,vec2 _
 	label->parent=this;
 	label->rect.make(ix,iy,iw,ih);
 	label->alignText=_alignText;
-	label->text=str;
+	label->text=str.Buf();
 	this->childs.push_back(label);
 	return label;
 }
@@ -874,7 +874,7 @@ GuiString* GuiRect::Text(String str,vec2 _alignPos,vec2 _alignRect,vec2 _alignTe
 	label->alignPos=_alignPos;
 	label->alignRect=_alignRect;
 	label->alignText=_alignText;
-	label->text=str;
+	label->text=str.Buf();
 	this->childs.push_back(label);
 	return label;
 }
@@ -1017,7 +1017,7 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 	GuiRectDerived* guirectderived=new GuiRectDerived;
 
 	if(!guirectderived)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	guirectderived->Set(this,sibIdx>=0 ? this : 0,sibIdx<0 ? 0 : sibIdx,container,ix,iy,iw,ih,iAlignPosX,iAlignPosY,iAlignRectX,iAlignRectY);
 
@@ -1550,7 +1550,7 @@ void launchStopGuiViewportCallback(void* iData)
 	bool executedWithSuccess=App::instance->compiler->CreateAndroidTarget();
 
 	if(!executedWithSuccess)
-		__debugbreak();
+		DEBUG_BREAK;
 
 }
 
@@ -2001,7 +2001,7 @@ void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 		this->UnselectNodes((EditorEntity*)*nCh);
 }
 
-EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
+EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2 iMousePos,vec2 iFramePos,bool& oExpandos)
 {
 	float tDrawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2094,21 +2094,21 @@ int GuiSceneViewer::UpdateNodes(EditorEntity* node)
 	return this->contentHeight;
 }
 
-void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2& pos)
+void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2 iFromPosition)
 {
 	if(!node)
 		return;
 
-	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
+	float drawFromY=this->scrollBar->scrollerPosition*this->contentHeight;
 
-	if(pos.y+TREEVIEW_ROW_HEIGHT>=drawFromHeight && pos.y<=drawFromHeight+this->rect.w)
+	if(iFromPosition.y+TREEVIEW_ROW_HEIGHT>=drawFromY && iFromPosition.y<=drawFromY+this->rect.w)
 	{
-		float relativeY=this->rect.y+pos.y-drawFromHeight;
+		float relativeY=this->rect.y+iFromPosition.y-drawFromY;
 
 		if(node->selected)
 			tabContainer->renderer2D->DrawRectangle(0,(float)relativeY,(float)this->width,(float)relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT,Renderer2D::COLOR_TAB_SELECTED);
 
-		float xCursor=this->rect.x+pos.x+TREEVIEW_ROW_ADVANCE*node->level;
+		float xCursor=this->rect.x+iFromPosition.x+TREEVIEW_ROW_ADVANCE*node->level;
 
 		if(node->childs.size())
 		{
@@ -2118,15 +2118,15 @@ void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2& pos)
 
 		tabContainer->renderer2D->DrawText(node->name,xCursor,relativeY,xCursor+this->width,relativeY+GuiSceneViewer::TREEVIEW_ROW_HEIGHT,Renderer2D::COLOR_TEXT,-1,0.5);
 	}
-	else if(pos.y>drawFromHeight)
+	else if(iFromPosition.y>drawFromY)
 		return;
 
-	pos.y+=TREEVIEW_ROW_HEIGHT;
+	iFromPosition.y+=TREEVIEW_ROW_HEIGHT;
 
 	if(node->expanded)
 	{
 		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-			this->DrawNodes(tabContainer,(EditorEntity*)*nCh,pos);
+			this->DrawNodes(tabContainer,(EditorEntity*)*nCh,iFromPosition);
 	}
 
 }
@@ -2672,7 +2672,7 @@ void GuiProjectViewer::OnSize(Tab* tabContainer,void* data)
 /////////////////////////////////////////////////////////////////////
 
 
-void GuiProjectViewer::GuiProjectDirViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* node,vec2& pos,bool& terminated)
+void GuiProjectViewer::GuiProjectDirViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* node,vec2 pos,bool& terminated)
 {
 	if(terminated)
 		return;
@@ -2753,7 +2753,7 @@ void GuiProjectViewer::GuiProjectDirViewer::UnselectNodes(ResourceNodeDir* node)
 		this->UnselectNodes(*nCh);
 }
 
-ResourceNodeDir* GuiProjectViewer::GuiProjectDirViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
+ResourceNodeDir* GuiProjectViewer::GuiProjectDirViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2 iMousePos,vec2 iFramePos,bool& oExpandos)
 {
 	float tDrawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2849,7 +2849,7 @@ void GuiProjectViewer::GuiProjectDirViewer::OnPaint(Tab* tabContainer,void* data
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-void GuiProjectViewer::GuiProjectFileViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* _node,vec2& pos)
+void GuiProjectViewer::GuiProjectFileViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* _node,vec2 pos)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2935,7 +2935,7 @@ void GuiProjectViewer::GuiProjectFileViewer::UnselectNodes(ResourceNodeDir* node
 
 
 
-ResourceNode* GuiProjectViewer::GuiProjectFileViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
+ResourceNode* GuiProjectViewer::GuiProjectFileViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2 iMousePos,vec2 iFramePos,bool& oExpandos)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -3200,7 +3200,7 @@ bool GuiScriptViewer::Save()
 			return true;
 		}
 		else
-			__debugbreak();
+			DEBUG_BREAK;
 	}
 
 	return false;
@@ -3594,7 +3594,7 @@ void editScriptEditorCallback(void* iData)
 	Tab* tabContainer=App::instance->mainAppWindow->containers[0]->tabContainers[0];
 
 	if(!tabContainer)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	if(GuiScriptViewer::pool.empty())
 		tabContainer->tabs.ScriptViewer();
@@ -3639,7 +3639,7 @@ void EditorScript::OnPropertiesCreate()
 {
 	this->properties.text="Script";
 	GuiRect* fileProp=this->properties.Property("File",this->Script::file.path);
-	this->properties.Property("Running",this->Script::runtime ? "true" : "false");
+	this->properties.Property("Running",this->Script::runtime ? String("true") : String("false"));
 
 	GuiButtonFunc* buttonEdit=new GuiButtonFunc;
 	buttonEdit->name="EditorScript Edit Button";
@@ -3687,7 +3687,7 @@ void EditorScript::OnResourcesCreate()
 	if(!File::Exist(this->file.path))
 	{
 		if(!File::Create(this->file.path))
-			__debugbreak();
+			DEBUG_BREAK;
 
 		if(this->file.Open("wb"))
 		{

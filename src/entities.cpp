@@ -55,7 +55,7 @@ bool File::Open(char* mode)
 	int tell=ftell((FILE*)this->data);
 
 	if(tell!=0)
-		__debugbreak();
+		DEBUG_BREAK;
 
 	return true;
 }
@@ -1058,7 +1058,7 @@ int TextureFile::load(char* fn)
 		}
 
 		#ifndef ANDROID
-			__debugbreak();
+			DEBUG_BREAK;
 		#endif
 
 

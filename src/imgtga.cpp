@@ -8,6 +8,8 @@
 /*******************************************************************************/
 #include "imgtga.h"
 
+//#include <fstream>
+#include <cstring>
 
 /********************************************************************************
 /name :		LoadTGA(Texture * texture, char * filename)							*
@@ -130,7 +132,7 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 
 	tga.bytesPerPixel	= (tga.Bpp / 8);									// Compute the number of BYTES per pixel
 	tga.imageSize		= (tga.bytesPerPixel * tga.Width * tga.Height);		// Compute the total amout ofmemory needed to store data
-	buf = (unsigned char *)malloc(tga.imageSize);					// Allocate that much memory
+	buf = new unsigned char[tga.imageSize];					// Allocate that much memory
 
 	if(buf == NULL)											// If no space was allocated
 	{
@@ -147,7 +149,8 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 		printf("%s\n", "Could not read image data");		// Display Error
 		if(buf != NULL)										// If imagedata has data in it
 		{
-			free(buf);										// Delete data from memory
+			delete [] buf;
+			buf=0;
 		}
 		fclose(fTGA);		
 		
@@ -210,7 +213,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 	tga.bytesPerPixel	= (tga.Bpp / 8);									// Compute BYTES per pixel
 	tga.imageSize		= (tga.bytesPerPixel * tga.Width * tga.Height);		// Compute amout of memory needed to store image
-	buf	= (unsigned char *)malloc(tga.imageSize);					// Allocate that much memory
+	buf	= new unsigned char[tga.imageSize];					// Allocate that much memory
 
 	if(buf == NULL)											// If it wasnt allocated correctly..
 	{
@@ -226,7 +229,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 	unsigned int pixelcount	= tga.Height * tga.Width;							// Nuber of pixels in the image
 	unsigned int currentpixel	= 0;												// Current pixel being read
 	unsigned int currentbyte	= 0;												// Current byte 
-	unsigned char * colorbuffer = (unsigned char *)malloc(tga.bytesPerPixel);			// Storage for 1 pixel
+	unsigned char * colorbuffer = new unsigned char[tga.bytesPerPixel];			// Storage for 1 pixel
 
 	do
 	{
@@ -241,7 +244,8 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 			}
 			if(buf != NULL)									// If there is stored image data
 			{
-				free(buf);									// Delete image data
+				delete [] buf;
+				buf=0;									// Delete image data
 			}
 
 			//__debugbreak();
@@ -265,12 +269,14 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 					if(colorbuffer != NULL)												// See if colorbuffer has data in it
 					{
-						free(colorbuffer);												// If so, delete it
+						delete [] colorbuffer;
+						colorbuffer=0;										// If so, delete it
 					}
 
 					if(buf != NULL)										// See if there is stored Image data
 					{
-						free(buf);										// If so, delete it too
+						delete [] buf;
+						buf=0;											// If so, delete it too
 					}
 
 					//__debugbreak();
@@ -301,12 +307,14 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 					if(colorbuffer != NULL)												// If there is data in colorbuffer
 					{
-						free(colorbuffer);												// Delete it
+						delete [] colorbuffer;
+						colorbuffer=0;													// Delete it
 					}
 
 					if(buf != NULL)										// If there is Image data
 					{
-						free(buf);										// delete it
+						delete [] buf;
+						buf=0;										// delete it
 					}
 
 					//__debugbreak();
@@ -329,12 +337,14 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 				if(colorbuffer != NULL)													// If there is data in the colorbuffer
 				{
-					free(colorbuffer);													// delete it
+					delete [] colorbuffer;
+					colorbuffer=0;													// delete it
 				}
 
 				if(buf != NULL)											// If thereis image data
 				{
-					free(buf);											// delete it
+					delete [] buf;
+					buf=0;												// delete it
 				}
 
 				//__debugbreak();
@@ -367,12 +377,14 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 					if(colorbuffer != NULL)												// If there is data in colorbuffer
 					{
-						free(colorbuffer);												// Delete it
+						delete [] colorbuffer;
+						colorbuffer=0;												// Delete it
 					}
 
 					if(buf != NULL)										// If there is Image data
 					{
-						free(buf);										// delete it
+						delete [] buf;
+						buf=0;										// delete it
 					}
 
 					//__debugbreak();

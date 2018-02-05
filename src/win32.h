@@ -22,8 +22,7 @@ struct Renderer2DWin32;
 #include <array>
 #include <map>
 
-#include "gl/gl.h"
-//#define GL_GLEXT_PROTOTYPES
+#include <gl/gl.h> //platform dependent
 #include <glext.h>
 #include <wgl.h>
 #include <wglext.h>

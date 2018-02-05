@@ -376,15 +376,16 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	void BroadcastToChilds(void (GuiRect::*func)(Tab*,void*),Tab*,void* data=0);
 	void BroadcastToRoot(void (GuiRect::*func)(Tab*,void*),void* data=0);
-	template<class C> void BroadcastTo(void (GuiRect::*func)(Tab* iTabContainer))
+
+	template<class C> void BroadcastTo(void (GuiRect::*func)(Tab*,void*),Tab* iTabContainer,void* iData=0)
 	{
 		C* isaC=dynamic_cast<C*>(this);
 
 		if(isaC)
-			(this->*func)(iTabContainer);
+			(this->*func)(iTabContainer,iData);
 
 		for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
-			((*tRect)->*func)(iTabContainer);
+			((*tRect)->*func)(iTabContainer,iData);
 	}
 
 	GuiString* Container(const char* iText);
@@ -699,8 +700,8 @@ struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 	void OnMouseWheel(Tab*,void* data=0);
 	void OnKeyDown(Tab*,void* data=0);
 
-	EditorEntity* GetHoveredRow(EditorEntity* node,vec2& mpos,vec2& pos,bool& oExpandos);
-	void DrawNodes(Tab*,EditorEntity*,vec2&);
+	EditorEntity* GetHoveredRow(EditorEntity* node,vec2 mpos,vec2 pos,bool& oExpandos);
+	void DrawNodes(Tab*,EditorEntity*,vec2 iFromPosition);
 	int UpdateNodes(EditorEntity*);
 	void UnselectNodes(EditorEntity*);
 	void ExpandUntil(EditorEntity* iTarget);
@@ -770,8 +771,8 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	{
 		ResourceNodeDir* rootResource;
 
-		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&,bool& terminated);
-		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
+		void DrawNodes(Tab*,ResourceNodeDir* node,vec2,bool& terminated);
+		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2 mpos,vec2 pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		std::vector<ResourceNodeDir*> selectedDirs;
@@ -787,8 +788,8 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		std::vector<ResourceNodeDir*> selectedDirs;
 		std::vector<ResourceNode*> selectedFiles;
 
-		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&);
-		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
+		void DrawNodes(Tab*,ResourceNodeDir* node,vec2);
+		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2 mpos,vec2 pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		
@@ -1043,7 +1044,7 @@ struct Container
 
 	virtual Tab* CreateTabContainer(float x,float y,float w,float h)=0;
 
-	template<class GuiViewerDerived> GuiViewerDerived* SpawnViewer(Tab* iTabContainer=false,bool skipExist=true)
+	template<class GuiViewerDerived> GuiViewerDerived* SpawnViewer(Tab* iTabContainer=0,bool skipExist=true)
 	{
 		Tab* tTabContainer=iTabContainer ? iTabContainer : tabContainers[0];
 

@@ -1,0 +1,11 @@
+DIRPROJ=$(CURDIR)
+DIRSRC=$(DIRPROJ)\src
+DIRDST=$(DIRPROJ)\build\win32\x86\debug
+
+x86d:
+	$(warning curdir: $(CURDIR))
+	$(warning dirproj: $(DIRPROJ))
+	$(warning dirsrc: $(DIRSRC))
+	$(warning dirdst: $(DIRDST))
+	$(MAKE) -C $(CURDIR)\build\win32\x86\debug -f makefile-mingw DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST) all
+ 
