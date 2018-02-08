@@ -1897,8 +1897,10 @@ void GuiSceneViewer::OnRMouseUp(Tab* tabContainer,void* data)
 
 	vec2& mpos=*(vec2*)data;
 
+	vec2 tDrawCanvas(-GuiRect::TREEVIEW_ROW_ADVANCE,-GuiRect::TREEVIEW_ROW_HEIGHT);
+
 	bool eEntityExpanded=false;
-	EditorEntity* eEntity = this->GetHoveredRow(this->entityRoot,mpos,vec2(-GuiRect::TREEVIEW_ROW_ADVANCE,-GuiRect::TREEVIEW_ROW_HEIGHT),eEntityExpanded);
+	EditorEntity* eEntity = this->GetHoveredRow(this->entityRoot,mpos,tDrawCanvas,eEntityExpanded);
 		
 	int menuResult=tabContainer->TrackGuiSceneViewerPopup(eEntity ? true : false);
 	
@@ -2001,7 +2003,7 @@ void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 		this->UnselectNodes((EditorEntity*)*nCh);
 }
 
-EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2 iMousePos,vec2 iFramePos,bool& oExpandos)
+EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
 {
 	float tDrawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2041,8 +2043,10 @@ void GuiSceneViewer::OnLMouseDown(Tab* tabContainer,void* iData)
 		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
 			this->selection.clear();
 
+		vec2 tDrawCanvas(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT);
+
 		bool eEntityExpandosPressed=false;
-		EditorEntity* eEntity=this->GetHoveredRow(this->entityRoot,tMousePos,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT),eEntityExpandosPressed);
+		EditorEntity* eEntity=this->GetHoveredRow(this->entityRoot,tMousePos,tDrawCanvas,eEntityExpandosPressed);
 
 		if(eEntity)
 		{
@@ -2094,7 +2098,7 @@ int GuiSceneViewer::UpdateNodes(EditorEntity* node)
 	return this->contentHeight;
 }
 
-void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2 iFromPosition)
+void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2& iFromPosition)
 {
 	if(!node)
 		return;
@@ -2140,7 +2144,9 @@ void GuiSceneViewer::OnPaint(Tab* tabContainer,void* data)
 
 	tabContainer->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w);
 
-	this->DrawNodes(tabContainer,this->entityRoot,vec2(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT));
+	vec2 tDrawCanvas(-TREEVIEW_ROW_ADVANCE,-TREEVIEW_ROW_HEIGHT);
+
+	this->DrawNodes(tabContainer,this->entityRoot,tDrawCanvas);
 
 	tabContainer->renderer2D->PopScissor();
 
@@ -2672,7 +2678,7 @@ void GuiProjectViewer::OnSize(Tab* tabContainer,void* data)
 /////////////////////////////////////////////////////////////////////
 
 
-void GuiProjectViewer::GuiProjectDirViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* node,vec2 pos,bool& terminated)
+void GuiProjectViewer::GuiProjectDirViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* node,vec2& pos,bool& terminated)
 {
 	if(terminated)
 		return;
@@ -2753,7 +2759,7 @@ void GuiProjectViewer::GuiProjectDirViewer::UnselectNodes(ResourceNodeDir* node)
 		this->UnselectNodes(*nCh);
 }
 
-ResourceNodeDir* GuiProjectViewer::GuiProjectDirViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2 iMousePos,vec2 iFramePos,bool& oExpandos)
+ResourceNodeDir* GuiProjectViewer::GuiProjectDirViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
 {
 	float tDrawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2793,10 +2799,11 @@ void GuiProjectViewer::GuiProjectDirViewer::OnLMouseDown(Tab* iTabContainer,void
 
 	vec2& tMousePos=*(vec2*)iData;
 
+	vec2 tDrawCanvas(0,0);
 
 	bool resourceNodeDirExpanded=false;
 
-	ResourceNodeDir* resourceNodeDir=this->GetHoveredRow(this->rootResource,tMousePos,vec2(),resourceNodeDirExpanded);
+	ResourceNodeDir* resourceNodeDir=this->GetHoveredRow(this->rootResource,tMousePos,tDrawCanvas,resourceNodeDirExpanded);
 
 	if(resourceNodeDir)
 	{
@@ -2830,8 +2837,10 @@ void GuiProjectViewer::GuiProjectDirViewer::OnPaint(Tab* tabContainer,void* data
 
 	tabContainer->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w);
 
+	vec2 tDrawCanvas(0,0);
+
 	bool terminated=false;
-	this->DrawNodes(tabContainer,this->rootResource,vec2(),terminated);
+	this->DrawNodes(tabContainer,this->rootResource,tDrawCanvas,terminated);
 
 	tabContainer->renderer2D->PopScissor();
 
@@ -2849,7 +2858,7 @@ void GuiProjectViewer::GuiProjectDirViewer::OnPaint(Tab* tabContainer,void* data
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-void GuiProjectViewer::GuiProjectFileViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* _node,vec2 pos)
+void GuiProjectViewer::GuiProjectFileViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* _node,vec2& pos)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2935,7 +2944,7 @@ void GuiProjectViewer::GuiProjectFileViewer::UnselectNodes(ResourceNodeDir* node
 
 
 
-ResourceNode* GuiProjectViewer::GuiProjectFileViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2 iMousePos,vec2 iFramePos,bool& oExpandos)
+ResourceNode* GuiProjectViewer::GuiProjectFileViewer::GetHoveredRow(ResourceNodeDir* iResourceNodeDirNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
 {
 	float drawFromHeight=this->scrollBar->scrollerPosition*this->contentHeight;
 
@@ -2985,8 +2994,10 @@ void GuiProjectViewer::GuiProjectFileViewer::OnLMouseDown(Tab* tabContainer,void
 		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
 			this->selectedFiles.clear();
 
+		vec2 tDrawCanvas(0,0);
+
 		bool exp=false;
-		ResourceNode* node=this->GetHoveredRow(this->rootResource,mpos,vec2(),exp);
+		ResourceNode* node=this->GetHoveredRow(this->rootResource,mpos,tDrawCanvas,exp);
 
 		if(node)
 		{
@@ -3021,8 +3032,10 @@ void GuiProjectViewer::GuiProjectFileViewer::OnRMouseUp(Tab* tabContainer,void* 
 
 	vec2& mpos=*(vec2*)data;
 
+	vec2 tDrawCanvas(0,0);
+
 	bool tHoveredResourceNodeExpandedPressed=false;
-	ResourceNode* tHoveredResourceNode=this->GetHoveredRow(this->rootResource,mpos,vec2(),tHoveredResourceNodeExpandedPressed);
+	ResourceNode* tHoveredResourceNode=this->GetHoveredRow(this->rootResource,mpos,tDrawCanvas,tHoveredResourceNodeExpandedPressed);
 
 	int menuResult=tabContainer->TrackProjectFileViewerPopup(tHoveredResourceNode);
 
@@ -3074,7 +3087,9 @@ void GuiProjectViewer::GuiProjectFileViewer::OnPaint(Tab* tabContainer,void* dat
 
 	tabContainer->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->width,this->rect.y+this->rect.w);
 
-	this->DrawNodes(tabContainer,this->rootResource,vec2());
+	vec2 tDrawCanvas(0,0);
+
+	this->DrawNodes(tabContainer,this->rootResource,tDrawCanvas);
 
 	tabContainer->renderer2D->PopScissor();
 
@@ -3090,8 +3105,10 @@ void GuiProjectViewer::GuiProjectFileViewer::OnDLMouseDown(Tab* tabContainer,voi
 	{
 		vec2& mpos=*(vec2*)data;
 
+		vec2 tDrawCanvas(0,0);
+
 		bool tHoveredResourceNodeExpandedPressed=false;
-		ResourceNode* tHoveredResourceNode=this->GetHoveredRow(this->rootResource,mpos,vec2(),tHoveredResourceNodeExpandedPressed);
+		ResourceNode* tHoveredResourceNode=this->GetHoveredRow(this->rootResource,mpos,tDrawCanvas,tHoveredResourceNodeExpandedPressed);
 
 		if(tHoveredResourceNode)
 		{

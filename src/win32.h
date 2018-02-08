@@ -17,15 +17,15 @@ struct Renderer2DWin32;
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <objbase.h>
-#include <CommCtrl.h>};
+#include <CommCtrl.h>
 
 #include <array>
 #include <map>
 
 #include <gl/gl.h> //platform dependent
-#include <glext.h>
-#include <wgl.h>
-#include <wglext.h>
+#include <gl/glext.h>
+#include <gl/wgl.h>
+#include <gl/wglext.h>
 
 #include <d2d1.h>
 #include <d2d1helper.h>
@@ -35,7 +35,7 @@ struct Renderer2DWin32;
 #include <d3d11.h>
 
 #include "interfaces.h"
-#include "fbxutil.h"
+
 
 #define SPLITTER_DEBUG true
 #define BROWSER_DEBUG true

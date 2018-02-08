@@ -1,5 +1,6 @@
 ﻿#include "win32.h"
 
+#include "fbxutil.h"
 
 bool KeyboardInput::IsPressed(unsigned int iCharCode)
 {
@@ -2666,8 +2667,8 @@ void Renderer3DOpenGL::draw(Bone* bone)
 	if(!shader)
 		return;
 
-	vec3 &a=bone->entity->parent->world.position();
-	vec3 &b=bone->entity->world.position();
+	vec3 a=bone->entity->parent->world.position();
+	vec3 b=bone->entity->world.position();
 
 	float line[]=
 	{
@@ -2731,7 +2732,9 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 
 		tabContainerWin32->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)canvas.z,(unsigned int)canvas.w),bp,&rBitmap);
 
-		rBuffer=new unsigned char[(int)canvas.z*canvas.w*4];
+		int rBufferSize=canvas.z*canvas.w*4;
+
+		rBuffer=new unsigned char[rBufferSize];
 	}
 
 	if(viewport->rootEntity)
@@ -2775,9 +2778,12 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 		MatrixStack::Pop(MatrixStack::PROJECTION);
 
 		glReadBuffer(GL_BACK);glCheckError();
+
 		glReadPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
 
-		rBitmap->CopyFromMemory(&D2D1::RectU(0,0,(int)canvas.z,(int)canvas.w),rBuffer,(int)(canvas.z*4));
+		D2D1_RECT_U rBitmapRect={0,0,canvas.z,canvas.w};
+
+		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(canvas.z*4));
 
 		tabContainerWin32->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
 	}
@@ -2974,7 +2980,9 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 		}
 		else
 		{
-			result=this->handle->CopyFromMemory(&D2D1::RectU(0,0,iWidth,iHeight),iData,iWidth*4);
+			D2D_RECT_U rBitmapRect={0,0,iWidth,iHeight};
+
+			result=this->handle->CopyFromMemory(&rBitmapRect,iData,iWidth*4);
 
 			if(S_OK!=result)
 				DEBUG_BREAK;

@@ -92,12 +92,12 @@ cmat GetCmat(FbxAMatrix fbxAMatrix)
 	return m;
 }
 
-void GetVec3(float* b,FbxDouble3 &a)
+void GetVec3(float* b,FbxDouble3 a)
 {
 	b[0]=(float)a[0],b[1]=(float)a[1],b[2]=(float)a[2];
 }
 
-void GetVec4(float* b,FbxDouble4 &a)
+void GetVec4(float* b,FbxDouble4 a)
 {
 	b[0]=(float)a[0],b[1]=(float)a[1],b[2]=(float)a[2],b[3]=(float)a[3];
 }

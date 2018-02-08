@@ -700,8 +700,8 @@ struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 	void OnMouseWheel(Tab*,void* data=0);
 	void OnKeyDown(Tab*,void* data=0);
 
-	EditorEntity* GetHoveredRow(EditorEntity* node,vec2 mpos,vec2 pos,bool& oExpandos);
-	void DrawNodes(Tab*,EditorEntity*,vec2 iFromPosition);
+	EditorEntity* GetHoveredRow(EditorEntity* node,vec2& mpos,vec2& pos,bool& oExpandos);
+	void DrawNodes(Tab*,EditorEntity*,vec2&);
 	int UpdateNodes(EditorEntity*);
 	void UnselectNodes(EditorEntity*);
 	void ExpandUntil(EditorEntity* iTarget);
@@ -771,8 +771,8 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	{
 		ResourceNodeDir* rootResource;
 
-		void DrawNodes(Tab*,ResourceNodeDir* node,vec2,bool& terminated);
-		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2 mpos,vec2 pos,bool& oExpandos);
+		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&,bool& terminated);
+		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		std::vector<ResourceNodeDir*> selectedDirs;
@@ -788,8 +788,8 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		std::vector<ResourceNodeDir*> selectedDirs;
 		std::vector<ResourceNode*> selectedFiles;
 
-		void DrawNodes(Tab*,ResourceNodeDir* node,vec2);
-		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2 mpos,vec2 pos,bool& oExpandos);
+		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&);
+		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
 		

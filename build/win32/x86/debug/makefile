@@ -1,4 +1,4 @@
-INCPATH=/Ic:\sdk\Opengl "/Ic:\sdk\Autodesk\FBX\FBX SDK\2014.1\include"
+INCPATH=/Ic:\sdk\OpenGL "/Ic:\sdk\Autodesk\FBX\FBX SDK\2014.1\include"
 LIBPATH="/LIBPATH:c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\release" "/LIBPATH:C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\lib" 
 
 CLOPT=/MD /ZI /W0 /nologo /EHsc $(INCPATH) -c
