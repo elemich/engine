@@ -1076,6 +1076,8 @@ struct Compiler
 	String runAfter;
 
 	virtual bool Compile(Script*)=0;
+	virtual String ComposeMS(Script*)=0;
+	virtual String ComposeMingW(Script*)=0;
 	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false)=0;
 	virtual bool Load(Script*)=0;
 	virtual bool Unload(Script*)=0;

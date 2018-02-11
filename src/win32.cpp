@@ -3930,6 +3930,33 @@ CompilerWin32::CompilerWin32()
 	this->compilerPath="";
 }
 
+String CompilerWin32::ComposeMS(Script* iScript)
+{
+	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	String compilerOptions="/nologo /MDd /ZI /EHsc";
+	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
+	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
+	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
+	String engineLibraryFullPathFileName=App::instance->exeFolder.Path() + "\\engineWin32.lib";
+	String kernelLib="kernel32.lib";
+
+	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
+}
+
+String CompilerWin32::ComposeMingW(Script* iScript)
+{
+	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	String mingWCompiler="c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ";
+
+	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
+	String libraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + App::instance->exeFolder.Path();
+	String tCommandLine="-w -I " + includesPath + " -static-libgcc -static-libstdc++ -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + libraryPath;
+
+	return mingWCompiler + tCommandLine + " -lengineMingW -lkernel32";
+}
+
 bool CompilerWin32::Compile(Script* iScript)
 {
 	if(iScript->runtime)
@@ -3938,7 +3965,6 @@ bool CompilerWin32::Compile(Script* iScript)
 	bool retVal;
 
 	String tSourceFileContent=iScript->file.All();
-	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
 
 	//delete error.output
 
@@ -3985,11 +4011,13 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//append engine stuff to source
 
+	//String tAsmSection="asm(\".section .drectve\");asm(\".ascii \"-export:Create\"\");";
 	String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
 	String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
 
 	if(iScript->file.Open("ab"))
 	{
+		//iScript->file.Write(tAsmSection,tAsmSection.Count(),1);
 		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
 		iScript->file.Write(tExporterDeleterDeclaration,tExporterDeleterDeclaration.Count(),1);
 		iScript->file.Close();
@@ -3997,22 +4025,37 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//compose the command line
 
-	String compilerOptions="/nologo /MDd /ZI /EHsc";
-	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
-	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=App::instance->exeFolder.Path() + "\\engine.lib";
-	String kernelLib="kernel32.lib";
+	printf("------\n");
 
-	String tCommandLine="vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
-	
+	String tCommandLineMingW=this->ComposeMingW(iScript);
+	String tCommandLineWin32=this->ComposeMS(iScript);
+
+	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	String tExportCommandLine;//" && c:\\sdk\\mingw32\\bin\\ld.exe " + tSourceFullPathFileName + " -export-all-symbols";
+
+	 
+
 	//execute
 	
-	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLine,errorOutputFile.path,false,false,true);
+	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLineMingW + tExportCommandLine,0,0,0,0);//,errorOutputFile.path,false,false,true);
 
 	if(!executeWithSuccess)
 		DEBUG_BREAK;
-	
+
+	/*String tStrippindDll=iScript->modulePath + "\\" + iScript->file.path.Name() + ".dll";
+	String tStrippedPdb=iScript->modulePath + "\\" + iScript->file.path.Name() + ".pdb";
+	String tMingWCompiler="c:\\sdk\\mingw32\\i686-w64-mingw32\\bin\\";
+
+	String tObjCopy(tMingWCompiler + "objcopy --only-keep-debug " + tStrippindDll + " " + tStrippedPdb);// && ");
+	String tStripObj(tMingWCompiler + "strip --strip-debug --strip-unneeded \"" + tStrippindDll + "\" $$ ");
+	String tAddDebug(tMingWCompiler + "objcopy --add-gnu-debuglink=\"" + tStrippindDll + "\" \"" + tStrippedPdb + "\"");
+
+	executeWithSuccess=this->Execute(iScript->modulePath,tObjCopy/ * + tStripObj + tAddDebug* /,0,0,0,0);//,errorOutputFile.path,false,false,true);*/
+
+	if(!executeWithSuccess)
+		DEBUG_BREAK;
+
 	//restore the original source
 
 	if(iScript->file.Open("wb"))
@@ -4158,6 +4201,11 @@ bool CompilerWin32::Load(Script* iScript)
 	else
 	{
 		SAFEDELETEARRAY(iScript->runtime);
+
+		if(*tModule && FreeLibrary(*tModule))
+			DEBUG_BREAK;
+			
+
 		SAFEDELETE(tModule);
 		this->modules.erase(iScript);
 	}
@@ -4203,7 +4251,7 @@ bool CompilerWin32::Unload(Script* iScript)
 			tabContainerRunninUpdater->taskDraw->pause=false;
 		}
 		else
-			SAFEDELETE(iScript->runtime);
+			iScript->runtime=0;
 
 		return true;
 	}

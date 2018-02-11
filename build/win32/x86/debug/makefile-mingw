@@ -1,4 +1,5 @@
 SDKDIR=c:\sdk
+
 MINGWDIR=$(SDKDIR)\mingw
 MINGW32DIR=$(SDKDIR)\mingw32
 MINGW64DIR=$(SDKDIR)\mingw64
@@ -19,60 +20,57 @@ MINGWINCLUDES=$(SDKDIR)\mingw64\x86_64-w64-mingw32\include
 INCPATH=-I $(OPENGLSDK) -I $(FBXSDK) -I $(MINGWINCLUDES)
 LIBPATH=-L$(MINGWDIR)\x86_64-w64-mingw32\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
 
-#CLOPT=/MD /ZI /W0 /nologo /EHsc $(INCPATH) -c
-CLOPT= -w $(INCPATH) -g -c
-LKOPT=/nologo /DEBUG /MANIFEST:NO /MACHINE:x86 /SUBSYSTEM:CONSOLE $(LIBPATH) 
+CLOPT=-w $(INCPATH) -c 
 LKOPT=-static -static-libgcc -static-libstdc++ 
 
 WIN32LIBD=-luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32
 FBXLIB=-llibfbxsdk-md -ladvapi32
 
-LKDLL=/DLL /NOENTRY $(LKOPT)  
+#all: primitivesobj entitiesobj interfacesobj imgjpgobj imgpngobj imgtgaobj win32obj fbxutilobj engine.lib engine.dll engine.exe
+all: primitivesobj entitiesobj imgjpgobj imgpngobj imgtgaobj enginelib 
 
-all: primitives.obj entities.obj interfaces.obj imgjpg.obj imgpng.obj imgtga.obj win32.obj fbxutil.obj engine.lib engine.dll engine.exe
-
-primitives.obj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
+primitivesobj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
  
-entities.obj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
+entitiesobj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
 	$(COMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
  
-interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h entities.o primitives.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
- 
-win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h primitives.o entities.o interfaces.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
- 
-fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h interfaces.o
+#interfacesobj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h entities.o primitives.o
+#	$(COMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
+# 
+#win32obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h primitives.o entities.o interfaces.o
+#	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
+# 
+#fbxutilobj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h interfaces.o
 #	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
- 
-imgjpg.obj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
+# 
+imgjpgobj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
  
-imgpng.obj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
+imgpngobj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
  
-imgtga.obj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
+imgtgaobj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
  
-engine.lib: primitives.o entities.o interfaces.o imgpng.o imgtga.o imgjpg.o win32.o
-	$(warning engine.lib)
-	$(ARCHIVER) rvs engine.lib primitives.o entities.o interfaces.o imgpng.o imgtga.o imgjpg.o win32.o
- 
-engine.dll: engine.lib
-	$(warning engine.dll)
-	$(LINKER) $(LKOPT) $(LIBPATH) -o engine.dll engine.lib $(WIN32LIBD)
- 
-engine.exe: engine.dll engine.lib
-	$(warning engine.exe)
-	$(LINKER) $(LKOPT) -o engine.exe engine.lib $(WIN32LIBD)
- 
-clean:
-	@echo cleaning $(DIRDST)...
-	@attrib +r makefile
-	@del /Q *.* 0>NUL 1>NUL 2>NUL
-	@attrib -r makefile
-	@pause
+enginelib: primitives.o entities.o imgjpg.o imgtga.o imgpng.o
+	$(warning engineMingW.lib)
+	$(ARCHIVER) -mc engineMingW.lib primitives.o entities.o imgjpg.o imgtga.o imgpng.o
+	
+#engine.dll: engine.lib
+#	$(warning engine.dll)
+#	$(LINKER) $(LKOPT) $(LIBPATH) -o engine.dll engine.lib $(WIN32LIBD)
+# 
+#engine.exe: engine.dll engine.lib
+#	$(warning engine.exe)
+#	$(LINKER) $(LKOPT) -o engine.exe engine.lib $(WIN32LIBD)
+# 
+#clean:
+#	@echo cleaning $(DIRDST)...
+#	@attrib +r makefile
+#	@del /Q *.* 0>NUL 1>NUL 2>NUL
+#	@attrib -r makefile
+#	@pause
  
 
  
