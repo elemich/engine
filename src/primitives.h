@@ -28,12 +28,12 @@
 
 #ifdef DEBUG
 	#ifdef _MSC_VER
-		#define DEBUG_BREAK __debugbreak();
+		#define DEBUG_BREAK __debugbreak
 	#else
-		#define DEBUG_BREAK __builtin_trap();
+		#define DEBUG_BREAK __builtin_trap
 	#endif
 #else
-	#define DEBUG_BREAK
+	#define DEBUG_BREAK __debugbreak
 #endif
 
 

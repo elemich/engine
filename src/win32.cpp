@@ -133,11 +133,15 @@ ThreadWin32::~ThreadWin32()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-ID2D1Factory*		Direct2DBase::factory=0;
-IWICImagingFactory*	Direct2DBase::imager=0;
-IDWriteFactory*		Direct2DBase::writer=0;
-IDWriteTextFormat*	Direct2DBase::texter=0;
+ID2D1Factory*			Direct2DBase::factory=0;
+IWICImagingFactory*		Direct2DBase::imager=0;
+IDWriteFactory*			Direct2DBase::writer=0;
+IDWriteTextFormat*		Direct2DBase::texter=0;
 
+char	Direct2DBase::charsWidth[255]={0};
+
+const int Direct2DBase::fontLogicSize=10;
+const wchar_t* Direct2DBase::fontFaceName=L"Verdana";
 
 void Direct2DBase::Release()
 {
@@ -147,7 +151,7 @@ void Direct2DBase::Release()
 	SAFERELEASE(texter);
 };
 
-void Direct2DBase::Init(wchar_t* fontName,float fontSize)
+void Direct2DBase::Init()
 {
 	if(!factory)
 	{
@@ -155,27 +159,78 @@ void Direct2DBase::Init(wchar_t* fontName,float fontSize)
 
 		HRESULT res=S_OK;
 
-		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&imager);
+		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&Direct2DBase::imager);
 		if(S_OK!=res)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
-		res=D2D1CreateFactory(/*D2D1_FACTORY_TYPE_SINGLE_THREADED*/D2D1_FACTORY_TYPE_MULTI_THREADED, &factory);
-		if(S_OK!=res)
-			DEBUG_BREAK;
+		res=D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &Direct2DBase::factory);
+		if(S_OK!=res || !Direct2DBase::factory)
+			DEBUG_BREAK();
 
-		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&writer));
-		if(S_OK!=res)
-			DEBUG_BREAK;
+		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&Direct2DBase::writer));
+		if(S_OK!=res || !Direct2DBase::writer)
+			DEBUG_BREAK();
 
-		res=writer->CreateTextFormat(fontName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,fontSize,L"",&texter);
-		if(S_OK!=res)
-			DEBUG_BREAK;
-
+		res=Direct2DBase::writer->CreateTextFormat(Direct2DBase::fontFaceName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,Direct2DBase::fontLogicSize,L"",&Direct2DBase::texter);
+		if(S_OK!=res || !Direct2DBase::texter)
+			DEBUG_BREAK();
 		
-		res=texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+		res=Direct2DBase::texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 		if(S_OK!=res)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
+		{
+			const void*	tTableData=0;
+			UINT32		tTableSize=0;
+			void*		tTableContext=0;
+
+			IDWriteFontFace* tFontFace = NULL;
+			IDWriteFontFile* tFontFile = NULL;
+
+			res = Direct2DBase::writer->CreateFontFileReference(L"c:\\windows\\fonts\\verdana.ttf",NULL,&tFontFile);
+
+			if(S_OK!=res || !tFontFile)
+				DEBUG_BREAK();
+
+			res = Direct2DBase::writer->CreateFontFace(DWRITE_FONT_FACE_TYPE_TRUETYPE,1,&tFontFile,0,DWRITE_FONT_SIMULATIONS_NONE,&tFontFace);
+
+			if(S_OK!=res || !tFontFace)
+				DEBUG_BREAK();
+
+			BOOL exists=false;	
+		
+			res=tFontFace->TryGetFontTable(DWRITE_MAKE_OPENTYPE_TAG('h','d','m','x'),&tTableData,&tTableSize,&tTableContext,&exists);
+
+			if(S_OK!=res || !exists)
+				DEBUG_BREAK();
+
+			UINT8 *tablePointer=(((UINT8*)tTableData) + 13);
+
+			for(int i=0;i<255;i++)
+				Direct2DBase::charsWidth[i]=*(tablePointer+i);
+
+			SAFERELEASE(tFontFace);
+			SAFERELEASE(tFontFile);
+
+			if(0)
+			{
+				printf("----------\n");
+
+
+				char *prova="!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
+				char* t=prova;
+
+
+				while(*t)
+				{
+					int width=charsWidth[(*t)-32];
+					printf("%c: %d\n",*t,width);
+					t++;
+				}
+
+				printf("\n");
+			}
+		}
 
 		// Center the text horizontally and vertically.
 		//textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -185,7 +240,6 @@ void Direct2DBase::Init(wchar_t* fontName,float fontSize)
 			__debugbreak();*/
 	}
 }
-
 
 void dump(unsigned char* t)
 {
@@ -215,7 +269,7 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	hr = imager->CreateDecoderFromFilename(fname,NULL,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&pDecoder);
 
 	if (!SUCCEEDED(hr))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	unsigned int frameCount;
 	pDecoder->GetFrameCount(&frameCount);
@@ -223,12 +277,12 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	hr = pDecoder->GetFrame(0, &pSource);
 
 	if (!SUCCEEDED(hr))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	hr = imager->CreateFormatConverter(&pConverter);
 
 	if (!SUCCEEDED(hr))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	hr = pConverter->Initialize(pSource,GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,NULL,0.f,WICBitmapPaletteTypeMedianCut);
 
@@ -246,7 +300,7 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	height=(float)_height;
 
 	if (!SUCCEEDED(hr))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	dump(buffer);
 
@@ -262,28 +316,79 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 
 vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
 {
-	ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
-	HDC hdc=GetDC(hwndRenderer->GetHwnd());
+	float fontHeight=Direct2DBase::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
 
-	SIZE tSize;
-	GetTextExtentPoint32(hdc,iText,iSlen>0 ? iSlen : strlen(iText),&tSize);
+	float width=0;
+	float height=0;
 
-	ReleaseDC(hwndRenderer->GetHwnd(),hdc);
+	char* t=(char*)iText;
 
-	return vec2(tSize.cx,tSize.cy);
+	while(*t)
+	{
+		if(*t=='\n' || *t=='\r')
+			height+=fontHeight;
+		else
+			width+=Direct2DBase::charsWidth[*t];
+
+		t++;
+	}
+
+	return vec2(width,height);
 }
 
 vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
 {
-	ID2D1HwndRenderTarget* hwndRenderer=(ID2D1HwndRenderTarget*)(renderer);
-	HDC hdc=GetDC(hwndRenderer->GetHwnd());
+	float fontHeight=Direct2DBase::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
 
-	SIZE tSize;
-	GetTextExtentPoint32W(hdc,iText,iSlen>0 ? iSlen : wcslen(iText),&tSize);
+	float width=0;
+	float height=0;
 
-	ReleaseDC(hwndRenderer->GetHwnd(),hdc);
+	wchar_t* t=(wchar_t*)iText;
 
-	return vec2(tSize.cx,tSize.cy);
+	while(*t)
+	{
+		if(*t=='\n' || *t=='\r')
+			height+=fontHeight;
+		else
+			width+=Direct2DBase::charsWidth[*t];
+
+		t++;
+	}
+
+	return vec2(width,height);
+}
+
+float Direct2DBase::GetFontHeight(ID2D1HwndRenderTarget* renderer)
+{
+
+	/*HDC hdc=GetDC(renderer->GetHwnd());
+	float tReturnValue=0;
+
+	if(hdc)
+	{
+		int interlinea=GetTextCharacterExtra(hdc);
+		float tFontLogicalSize=Direct2DBase::texter->GetFontSize();
+		int tLogPixelsY=GetDeviceCaps(hdc,LOGPIXELSY);
+		tReturnValue=MulDiv(tFontLogicalSize,tLogPixelsY, 72)-1;
+		ReleaseDC(renderer->GetHwnd(),hdc);
+	}
+	return tReturnValue;
+	*/
+
+	float dpX,dpY;
+	renderer->GetDpi(&dpX,&dpY);
+
+	return Direct2DBase::texter->GetFontSize()*(dpY/72.0f)-1;
+}
+
+float Direct2DBase::GetFontSize(ID2D1RenderTarget* renderer)
+{
+	return Direct2DBase::texter->GetFontSize();
+}
+
+float Direct2DBase::GetCharWidth(char iCharacter)
+{
+	return Direct2DBase::charsWidth[iCharacter-32];
 }
 
 
@@ -343,7 +448,7 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		int tCharsWrited=mbstowcs(tWcharTextOutput,iText,tFinalTextLength);
 
 		if(tCharsWrited!=tFinalTextLength)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
 	}
@@ -390,20 +495,109 @@ void Direct2DBase::Identity(ID2D1RenderTarget* renderer)
 ///////////////////////////////////////////////
 
 
+Renderer2DWin32::CaretWin32::CaretWin32(Renderer2D* iRendererWin32):
+	Caret(iRendererWin32),
+	background(0)
+{}
 
-Renderer2DWin32::Renderer2DWin32(HWND handle):brush(0),renderer(0)
+Renderer2DWin32::CaretWin32::~CaretWin32()
+{
+	SAFERELEASE(this->background);
+}
+
+void Renderer2DWin32::CaretWin32::set(vec2 iPosition,vec2 iRect)
+{
+	this->newPosition=iPosition;
+	this->newRect=iRect;
+}
+
+void Renderer2DWin32::CaretWin32::enable(bool iEnable)
+{
+	this->enabled=iEnable;
+}
+	
+void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
+{
+	if(!this->enabled)
+		return;
+
+	if(this->position!=this->newPosition || this->rect!=this->newRect)
+	{
+		Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)iRenderer;
+
+		this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
+		this->blinking=false;
+		
+		SAFERELEASE(this->background);
+
+		D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
+
+		tBitmapProperties.pixelFormat=tRenderer2DWin32->renderer->GetPixelFormat();
+
+		HRESULT result=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
+
+		if(S_OK!=result || !this->background)
+			DEBUG_BREAK();
+
+		result=this->background->CopyFromRenderTarget(&D2D1::Point2U(0,0),tRenderer2DWin32->renderer,&D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y));
+
+		if(S_OK!=result || !this->background)
+			DEBUG_BREAK();
+
+		this->position=this->newPosition;
+		this->rect=this->newRect;
+	}
+
+	if(this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
+	{
+		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iRenderer;
+
+		this->lastBlinkTime=Timer::instance->GetTime();
+		this->blinking=!this->blinking;
+
+		if(iRenderer->tabContainer->BeginDraw())
+		{
+			if(this->blinking)
+				renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+2,this->position.y),D2D1::Point2F(this->position.x+2,this->position.y+iRenderer->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000));
+			else
+				renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(this->position.x,this->position.y,this->position.x+this->rect.x,this->position.y+this->rect.y));
+
+			iRenderer->tabContainer->EndDraw();
+		}
+	}
+}
+
+
+Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretWin32((CaretWin32*)caret)
 {
 	Direct2DBase::Init();
 }
 Renderer2DWin32::~Renderer2DWin32()
 {
+	SAFEDELETE(this->caret);
+}
 
+void Renderer2DWin32::DrawCaret()
+{
+	this->caret->draw(this);
+}
+
+void Renderer2DWin32::SetCaret(vec2 iPosition, vec2 iRect)
+{
+	this->caret->set(iPosition,iRect);
+}
+
+void Renderer2DWin32::EnableCaret(bool iEnable)
+{
+	this->caret->enable(iEnable);
 }
 
 bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
 	SAFERELEASE(this->renderer);
 	SAFERELEASE(this->brush);
+	SAFEDELETE(this->caret);
+	
 
 	HRESULT result=S_OK;
 
@@ -422,13 +616,15 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	}
 	
 	if(S_OK!=result || !this->renderer)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2D::COLOR_TAB_BACKGROUND),&brush);
 
 	if(S_OK!=result || !this->brush)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
+	this->caret=new CaretWin32(this);
+	
 	return true;
 }
 void Renderer2DWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
@@ -477,15 +673,17 @@ vec2 Renderer2DWin32::MeasureText(const char* iText,int iSlen)
 
 float Renderer2DWin32::GetFontSize()
 {
-	float dpX,dpY;
-	this->renderer->GetDpi(&dpX,&dpY);
+	return Direct2DBase::GetFontSize(this->renderer);
+}
 
-	DWRITE_LINE_SPACING_METHOD tLineSpaceMethod;
-	float tLineSpaceValue;
-	float tLineSpaceBaseline;
+float Renderer2DWin32::GetFontHeight()
+{
+	return Direct2DBase::GetFontHeight(this->renderer);
+}
 
-	Direct2DBase::texter->GetLineSpacing(&tLineSpaceMethod,&tLineSpaceValue,&tLineSpaceBaseline);
-	return Direct2DBase::texter->GetFontSize()*(dpY/72.0f);
+float Renderer2DWin32::GetCharWidth(char iCharacter)
+{
+	return Direct2DBase::GetCharWidth(iCharacter);
 }
 
 ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color)
@@ -538,7 +736,7 @@ void ContainerWin32::OnSizing()
 	case WMSZ_RIGHT:this->resizeEnumType=2;break;
 	case WMSZ_BOTTOM:this->resizeEnumType=3;break;
 	default:
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	}
 }
 
@@ -965,7 +1163,7 @@ bool WindowDataWin32::FindAndGrowSibling()
 			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,thisRc.right-thisRc.left,growingTabRc.bottom-thisRc.top,SWP_SHOWWINDOW);
 			break;
 		default:
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 			break;
 		}
 
@@ -983,20 +1181,20 @@ bool WindowDataWin32::FindAndGrowSibling()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-AppWin32::AppWin32()
+EngineIDEWin32::EngineIDEWin32()
 {
 	this->timerMain=new TimerWin32;
 	this->mainAppWindow=new MainContainerWin32;
 }
 
-int AppWin32::Initialize()
+int EngineIDEWin32::Initialize()
 {
 	HRESULT result;
 	
 	result=CoInitialize(0);
 
 	if(S_OK!=result)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	
 	{//projectFolder
 		char _pszDisplayName[MAX_PATH]="";
@@ -1024,7 +1222,7 @@ int AppWin32::Initialize()
 	{//exeFolder
 		char ch[5000];
 		if(!GetModuleFileName(0,ch,5000))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		this->exeFolder.String::operator=(ch);
 
@@ -1036,7 +1234,7 @@ int AppWin32::Initialize()
 	{//applicationDataFolder
 		char ch[5000];
 		if(S_OK!=SHGetFolderPath(0,CSIDL_APPDATA,0,SHGFP_TYPE_CURRENT,ch))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		this->applicationDataFolder=String(ch) + "\\EngineAppData";
 
@@ -1054,7 +1252,7 @@ int AppWin32::Initialize()
 		printf("Application data folder: %s\n",this->applicationDataFolder);
 	}
 
-	Direct2DBase::Init(L"Verdana",10);
+	Direct2DBase::Init();
 
 	int error=ERROR_SUCCESS;
 
@@ -1074,13 +1272,13 @@ int AppWin32::Initialize()
 	return error;
 }
 
-void AppWin32::Deinitialize()
+void EngineIDEWin32::Deinitialize()
 {
 	Direct2DBase::Release();
 	CoUninitialize();
 }
 
-void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
+void EngineIDEWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 {
 	HANDLE handle;
 	WIN32_FIND_DATA data;
@@ -1094,20 +1292,20 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 
 	if(!handle || INVALID_HANDLE_VALUE == handle)
 	{
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 		return;
 	}
 	else
 		FindNextFile(handle,&data);
 
-	int tEngineExtensionCharSize=strlen(App::instance->GetEntityExtension());
+	int tEngineExtensionCharSize=strlen(EngineIDE::instance->GetEntityExtension());
 
 	while(FindNextFile(handle,&data))
 	{
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		if(strstr(data.cFileName,App::instance->GetEntityExtension()))
+		if(strstr(data.cFileName,EngineIDE::instance->GetEntityExtension()))
 		{
 			String tEngineFile=dir + "\\" + String(data.cFileName);
 
@@ -1166,7 +1364,7 @@ void AppWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 	handle=0;
 }
 
-void AppWin32::ScanDir(String dir)
+void EngineIDEWin32::ScanDir(String dir)
 {
 	HANDLE handle;
 	WIN32_FIND_DATA data;
@@ -1180,7 +1378,7 @@ void AppWin32::ScanDir(String dir)
 
 	if(!handle || INVALID_HANDLE_VALUE == handle)
 	{
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 		return;
 	}
 	else
@@ -1191,7 +1389,7 @@ void AppWin32::ScanDir(String dir)
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
-		if(strstr(data.cFileName,App::instance->GetEntityExtension()))
+		if(strstr(data.cFileName,EngineIDE::instance->GetEntityExtension()))
 		{
 			String s = dir + "\\" + String(data.cFileName);
 
@@ -1203,7 +1401,7 @@ void AppWin32::ScanDir(String dir)
 		}
 		else
 		{
-			String engineFile = dir + "\\" + String(data.cFileName) + App::instance->GetEntityExtension();
+			String engineFile = dir + "\\" + String(data.cFileName) + EngineIDE::instance->GetEntityExtension();
 
 			if(!PathFileExists(engineFile.Buf()))
 			{
@@ -1237,7 +1435,7 @@ void AppWin32::ScanDir(String dir)
 }
 
 
-void AppWin32::Run()
+void EngineIDEWin32::Run()
 {
 //#pragma message (LOCATION " PeekMessage has 0 as hwnd to let other windows work")
 
@@ -1258,7 +1456,7 @@ void AppWin32::Run()
 	this->Deinitialize();
 }
 
-void AppWin32::Sleep(int iMilliseconds)
+void EngineIDEWin32::Sleep(int iMilliseconds)
 {
 	::Sleep(iMilliseconds);
 }
@@ -1373,7 +1571,7 @@ void glCheckError()
 
 		printf("OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC);
 
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	}
 }
 
@@ -1391,7 +1589,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 	if(!shader_id)
 	{
 		printf("glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 		return 0;
 	}
 
@@ -1404,7 +1602,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 		sprintf(message,"glCompileShader[%s] error:\n",name);
 		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
 		MessageBox(0,message,"Engine",MB_OK|MB_ICONEXCLAMATION);
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	}
 
 	return shader_id;
@@ -1425,7 +1623,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 	if(!program)
 	{
 		printf("glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 		return 0;
 	}
 
@@ -1440,7 +1638,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 	if (GL_FALSE==link_success)
 	{
 		printf("glLinkProgram error for %s\n",message);
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	}
 
 	glGetProgramInfoLog(program,sizeof(message),&len,message);glCheckError();
@@ -1747,19 +1945,19 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		error=GetLastError();
 
 		if(error!=NO_ERROR && error!=ERROR_OLD_WIN_VERSION)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(pixelFormat==0)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(!SetPixelFormat(hdc,pixelFormat,&pfd))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(!(hglrc = wglCreateContext(hdc)))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(!wglMakeCurrent(hdc,hglrc))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
 		if(!wglCreateContextAttribsARB)wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
@@ -1866,7 +2064,7 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		printf("TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
 	
 	if(!wglMakeCurrent(hdc,hglrc))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	//if(!vertexArrayObject)
 	{
@@ -1918,14 +2116,14 @@ void Renderer3DOpenGL::ChangeContext()
 {
 	if(!hglrc || !hdc)
 	{
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 		return;
 	}
 
 	if(hglrc != wglGetCurrentContext() || hdc!=wglGetCurrentDC())
 	{
 		if(!wglMakeCurrent(hdc,hglrc))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 }
 
@@ -2959,7 +3157,7 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 		result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
 
 		if(S_OK!=result || !this->handle)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 	else
 	{
@@ -2976,7 +3174,7 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 			result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
 
 			if(S_OK!=result || !this->handle)
-				DEBUG_BREAK;
+				DEBUG_BREAK();
 		}
 		else
 		{
@@ -2985,7 +3183,7 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 			result=this->handle->CopyFromMemory(&rBitmapRect,iData,iWidth*4);
 
 			if(S_OK!=result)
-				DEBUG_BREAK;
+				DEBUG_BREAK();
 		}
 	}
 
@@ -3011,7 +3209,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
 
 	if(!this->windowDataWin32->hwnd)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
@@ -3019,7 +3217,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	this->iconFolder=new GuiImageWin32;
 	this->iconFile=new GuiImageWin32;
 
-	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this->windowDataWin32->hwnd);
+	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
 
 	this->parentWindowContainer=(Container*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
 	this->parentWindowContainer->tabContainers.push_back(this);
@@ -3027,12 +3225,12 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	splitterContainer=this->parentWindowContainer->splitter;
 
 	if(!splitterContainer)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	Renderer3DOpenGL* _oglRenderer=new Renderer3DOpenGL(this);
 
 	if(!_oglRenderer)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	this->renderer3D=_oglRenderer;
 
@@ -3139,7 +3337,7 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	{
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,"Delete");
 
-		if(iResourceNode->fileName.Extension() == &App::instance->GetSceneExtension()[1])
+		if(iResourceNode->fileName.Extension() == &EngineIDE::instance->GetSceneExtension()[1])
 			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,"Load");
 	}
 	else
@@ -3185,7 +3383,7 @@ bool TabWin32::BeginDraw()
 			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU((int)this->windowDataWin32->width,(int)this->windowDataWin32->height));
 
 			if(S_OK!=result)
-				DEBUG_BREAK;
+				DEBUG_BREAK();
 
 			this->resizeTarget=0;
 		}
@@ -3196,7 +3394,7 @@ bool TabWin32::BeginDraw()
 		return true;
 	}
 	else
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	
 	return false;
 	
@@ -3224,7 +3422,7 @@ void TabWin32::EndDraw()
 		this->isRender=false;
 	}
 	else
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 }
 
 
@@ -3390,14 +3588,14 @@ void TabWin32::OnResizeContainer(void* data)
 			this->parentWindowContainer->resizeCheckHeight+=size;
 		break;
 		default:
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 }
 
 void TabWin32::OnGuiRecreateTarget(void* iData)
 {
 	if(!this->renderer2DWin32->RecreateTarget(this->windowDataWin32->hwnd))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	this->iconUp->Release();
 	this->iconRight->Release();
@@ -3406,15 +3604,15 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	this->iconFile->Release();
 	
 	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	if(!this->iconFolder->Fill(this->renderer2D,this->rawFolder,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 
 	this->Tab::OnGuiRecreateTarget(iData);
@@ -3514,7 +3712,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 						newTabContainer=floatingTabRefWin32;
 
 						if(!newTabContainer->windowData->FindAndGrowSibling())
-							DEBUG_BREAK;
+							DEBUG_BREAK();
 
 						
 
@@ -3545,7 +3743,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 							SetWindowPos(floatingTabRefHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top+floatingTabTargetRcHeight/2,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-(floatingTabTargetRc.top+(floatingTabTargetRcHeight/2)),SWP_SHOWWINDOW);
 						break;
 						default:
-							DEBUG_BREAK;
+							DEBUG_BREAK();
 						break;
 						}
 					}
@@ -3884,7 +4082,7 @@ bool InitSplitter()
 		wc.hbrBackground=CreateSolidBrush(Renderer2D::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 
 
@@ -3898,7 +4096,7 @@ bool InitSplitter()
 		wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
 
 		if(!RegisterClass(&wc))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 
 	
@@ -3932,13 +4130,13 @@ CompilerWin32::CompilerWin32()
 
 String CompilerWin32::ComposeMS(Script* iScript)
 {
-	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
+	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->file.path.File();
 
 	String compilerOptions="/nologo /MDd /ZI /EHsc";
 	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
+	String includesPath=EngineIDE::instance->exeFolder.PathUp(5) + "\\src";
 	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=App::instance->exeFolder.Path() + "\\engineWin32.lib";
+	String engineLibraryFullPathFileName=EngineIDE::instance->exeFolder.Path() + "\\engineWin32.lib";
 	String kernelLib="kernel32.lib";
 
 	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
@@ -3946,15 +4144,46 @@ String CompilerWin32::ComposeMS(Script* iScript)
 
 String CompilerWin32::ComposeMingW(Script* iScript)
 {
-	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
+	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->file.path.File();
 
 	String mingWCompiler="c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ";
 
-	String includesPath=App::instance->exeFolder.PathUp(5) + "\\src";
-	String libraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + App::instance->exeFolder.Path();
+	String includesPath=EngineIDE::instance->exeFolder.PathUp(5) + "\\src";
+	String libraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->exeFolder.Path();
 	String tCommandLine="-w -I " + includesPath + " -static-libgcc -static-libstdc++ -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + libraryPath;
 
 	return mingWCompiler + tCommandLine + " -lengineMingW -lkernel32";
+}
+
+String CompilerWin32::CreateRandomDir(String iDirWhere)
+{
+	String tRandomWorkingDirectoryName;
+	String tRandomWorkingDirectory;
+
+	DWORD res;
+
+	while(true)
+	{
+		tRandomWorkingDirectoryName=String::Random(8);
+
+		DWORD res=::GetFileAttributes(iDirWhere + "\\" + tRandomWorkingDirectoryName);
+
+		if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
+			break;
+	}
+
+	tRandomWorkingDirectory=iDirWhere + "\\" + tRandomWorkingDirectoryName;
+
+	if(!::CreateDirectory(tRandomWorkingDirectory,0))
+	{
+		DWORD lastError=GetLastError();
+		DEBUG_BREAK();
+	}
+
+	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
+		DEBUG_BREAK();
+
+	return tRandomWorkingDirectory;
 }
 
 bool CompilerWin32::Compile(Script* iScript)
@@ -3968,56 +4197,26 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//delete error.output
 
-	File errorOutputFile(App::instance->applicationDataFolder + "\\error.output");
+	File errorOutputFile(EngineIDE::instance->applicationDataFolder + "\\error.output");
 
 	if(errorOutputFile.Exist())
 	{
 		if(!errorOutputFile.Delete())
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 
 	//create random directory
 
 	if(!iScript->modulePath.Count())
-	{
-		String tRandomWorkingDirectoryName;
-		String tRandomWorkingDirectory;
+		iScript->modulePath=this->CreateRandomDir(EngineIDE::instance->applicationDataFolder);
 
-		DWORD res;
-
-		while(true)
-		{
-			tRandomWorkingDirectoryName=String::Random(8);
-
-			DWORD res=::GetFileAttributes(App::instance->applicationDataFolder + "\\" + tRandomWorkingDirectoryName);
-
-			if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
-				break;
-		}
-
-		tRandomWorkingDirectory=App::instance->applicationDataFolder + "\\" + tRandomWorkingDirectoryName;
-
-		if(!::CreateDirectory(tRandomWorkingDirectory,0))
-		{
-			DWORD lastError=GetLastError();
-			DEBUG_BREAK;
-		}
-
-		if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
-			DEBUG_BREAK;
-
-		iScript->modulePath=tRandomWorkingDirectory;
-	}
-
-	//append engine stuff to source
-
-	//String tAsmSection="asm(\".section .drectve\");asm(\".ascii \"-export:Create\"\");";
-	String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
-	String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+	//append exports to source
 
 	if(iScript->file.Open("ab"))
 	{
-		//iScript->file.Write(tAsmSection,tAsmSection.Count(),1);
+		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
+		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+
 		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
 		iScript->file.Write(tExporterDeleterDeclaration,tExporterDeleterDeclaration.Count(),1);
 		iScript->file.Close();
@@ -4025,38 +4224,17 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//compose the command line
 
-	printf("------\n");
-
 	String tCommandLineMingW=this->ComposeMingW(iScript);
 	String tCommandLineWin32=this->ComposeMS(iScript);
 
-	String tSourceFullPathFileName=App::instance->projectFolder + "\\" + iScript->file.path.File();
-
-	String tExportCommandLine;//" && c:\\sdk\\mingw32\\bin\\ld.exe " + tSourceFullPathFileName + " -export-all-symbols";
-
-	 
-
 	//execute
 	
-	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLineMingW + tExportCommandLine,0,0,0,0);//,errorOutputFile.path,false,false,true);
+	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLineMingW,errorOutputFile.path,true,true,true);
 
 	if(!executeWithSuccess)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
-	/*String tStrippindDll=iScript->modulePath + "\\" + iScript->file.path.Name() + ".dll";
-	String tStrippedPdb=iScript->modulePath + "\\" + iScript->file.path.Name() + ".pdb";
-	String tMingWCompiler="c:\\sdk\\mingw32\\i686-w64-mingw32\\bin\\";
-
-	String tObjCopy(tMingWCompiler + "objcopy --only-keep-debug " + tStrippindDll + " " + tStrippedPdb);// && ");
-	String tStripObj(tMingWCompiler + "strip --strip-debug --strip-unneeded \"" + tStrippindDll + "\" $$ ");
-	String tAddDebug(tMingWCompiler + "objcopy --add-gnu-debuglink=\"" + tStrippindDll + "\" \"" + tStrippedPdb + "\"");
-
-	executeWithSuccess=this->Execute(iScript->modulePath,tObjCopy/ * + tStripObj + tAddDebug* /,0,0,0,0);//,errorOutputFile.path,false,false,true);*/
-
-	if(!executeWithSuccess)
-		DEBUG_BREAK;
-
-	//restore the original source
+	//unroll exports
 
 	if(iScript->file.Open("wb"))
 	{
@@ -4081,7 +4259,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		errorOutputFile.Close();
 
 		if(!errorOutputFile.Delete())
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 
 	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
@@ -4093,7 +4271,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		Tab* tabContainer=!Tab::pool.empty() ? Tab::pool.front() : 0;
 
 		if(!tabContainer)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		guiCompilerViewer=tabContainer->tabs.CompilerViewer();
 
@@ -4120,7 +4298,7 @@ bool CompilerWin32::Compile(Script* iScript)
 bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput)
 {
 	if(iPath=="none")
-		iPath=App::instance->projectFolder;
+		iPath=EngineIDE::instance->projectFolder;
 
 	STARTUPINFO si={0};
 	PROCESS_INFORMATION pi={0};
@@ -4143,7 +4321,7 @@ bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool
 		tFileOutput = CreateFile(iOutputFile,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
 		if(!tFileOutput)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		si.dwFlags |= STARTF_USESTDHANDLES;
 		si.hStdInput = iInput ? tFileOutput : GetStdHandle(STD_INPUT_HANDLE);
@@ -4159,11 +4337,11 @@ bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool
 	WaitForSingleObject( pi.hProcess, INFINITE );
 
 	if(!CloseHandle( pi.hProcess ))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	if(!CloseHandle( pi.hThread ))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 	if(tFileOutput && !CloseHandle( tFileOutput ))
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	return true;
 }
@@ -4203,7 +4381,7 @@ bool CompilerWin32::Load(Script* iScript)
 		SAFEDELETEARRAY(iScript->runtime);
 
 		if(*tModule && FreeLibrary(*tModule))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 			
 
 		SAFEDELETE(tModule);
@@ -4216,7 +4394,6 @@ bool CompilerWin32::Load(Script* iScript)
 bool CompilerWin32::Unload(Script* iScript)
 {
 	const bool tDestroyInTheDLL=false;
-
 
 	if(iScript->runtime)
 	{
@@ -4274,7 +4451,7 @@ bool CompilerWin32::CreateAndroidTarget()
 {
 	//get all project scenes 
 
-	std::vector<ResourceNode*> projectSceneResourceNodes=GuiProjectViewer::pool[0]->findResources(App::instance->GetSceneExtension());
+	std::vector<ResourceNode*> projectSceneResourceNodes=GuiProjectViewer::pool[0]->findResources(EngineIDE::instance->GetSceneExtension());
 
 	std::vector<std::string> iScriptFilenameVector;
 
@@ -4333,7 +4510,7 @@ bool CompilerWin32::CreateAndroidTarget()
 			fclose(tSceneFile);
 		}
 		else
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 
 	//call the compiler in c:\sdk\android-ndk-r16b
@@ -4362,7 +4539,7 @@ bool CompilerWin32::CreateAndroidTarget()
 //int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 int main()
 {
-	App *app = new AppWin32;
+	EngineIDE *app = new EngineIDEWin32;
 
 	app->Initialize();
 

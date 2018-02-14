@@ -7,13 +7,13 @@
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-App::App():timerMain(0),mainAppWindow(0),compiler(0){}
+EngineIDE::EngineIDE():timerMain(0),mainAppWindow(0),compiler(0){}
 
-const char* App::GetSceneExtension()
+const char* EngineIDE::GetSceneExtension()
 {
 	return ".esn";	
 }
-const char* App::GetEntityExtension()
+const char* EngineIDE::GetEntityExtension()
 {
 	return ".eae";
 }
@@ -125,14 +125,14 @@ GuiRect* Tab::GetSelected()
 void Tab::Draw()
 {
 	if(this->taskDraw->pause)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	if(!this->drawInstances.empty())
 	{
 		DrawInstance*& tDrawInstance=this->drawInstances.front();
 
 		if(!tDrawInstance)
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(tDrawInstance->code || tDrawInstance->frame)
 		{
@@ -163,6 +163,12 @@ void Tab::Draw()
 		{
 			this->lastFrameTime=Timer::instance->GetTime();
 			this->renderer3D->Render();
+		}
+		else if(this->focused && this->focused==dynamic_cast<GuiScriptViewer*>(this->focused))
+		{
+			GuiScriptViewer* tScriptViewer=(GuiScriptViewer*)this->focused;
+
+			this->renderer2D->DrawCaret();
 		}
 	}
 }
@@ -378,7 +384,13 @@ void Tab::OnGuiRecreateTarget(void* data)
 
 void Tab::SetFocus(GuiRect* iFocusedRect)
 {
+	if(this->focused)
+		this->focused->OnExitFocus(this,this->focused);
+
 	this->focused=iFocusedRect;
+
+	if(this->focused)
+		this->focused->OnEnterFocus(this,this->focused);
 }
 
 GuiRect* Tab::GetFocus()
@@ -408,6 +420,24 @@ splitterSize(4)
 Splitter::~Splitter()
 {
 }
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////Renderer2D///////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+Renderer2D::Renderer2D(Tab* iTabContainer):
+	tabContainer(iTabContainer),
+	caret(0)
+{}
+
+Renderer2D::Caret::Caret(Renderer2D* iRenderer2D):
+	lastBlinkTime(0),
+	blinking(false),
+	enabled(false),
+	blinkingRate(BLINKRATE)
+{}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -660,9 +690,6 @@ void GuiRect::OnLMouseDown(Tab* tabContainer,void* data)
 	{
 		this->checked=!this->checked;
 
-		tabContainer->SetFocus(this);
-
-
 		if(this->container>=0)
 		{
 			bContainerButtonPressed=(mpos.x > this->rect.x && mpos.x < this->rect.x+Tab::CONTAINER_ICON_WH && mpos.y > this->rect.y && mpos.y <this->rect.y+Tab::CONTAINER_ICON_WH);
@@ -794,6 +821,16 @@ void GuiRect::OnMouseEnter(Tab* tabContainer,void* data)
 void GuiRect::OnMouseExit(Tab* tabContainer,void* data)
 {
 	this->BroadcastToChilds(&GuiRect::OnMouseExit,tabContainer,data);
+}
+
+void GuiRect::OnEnterFocus(Tab* tabContainer,void* data)
+{
+	this->BroadcastToChilds(&GuiRect::OnEnterFocus,tabContainer,data);
+}
+
+void GuiRect::OnExitFocus(Tab* tabContainer,void* data)
+{
+	this->BroadcastToChilds(&GuiRect::OnExitFocus,tabContainer,data);
 }
 
 void GuiRect::SetClip(GuiScrollRect* scrollRect)
@@ -1017,7 +1054,7 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 	GuiRectDerived* guirectderived=new GuiRectDerived;
 
 	if(!guirectderived)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	guirectderived->Set(this,sibIdx>=0 ? this : 0,sibIdx<0 ? 0 : sibIdx,container,ix,iy,iw,ih,iAlignPosX,iAlignPosY,iAlignRectX,iAlignRectY);
 
@@ -1547,10 +1584,10 @@ void launchStopGuiViewportCallback(void* iData)
 {
 	GuiViewport* guiViewport=(GuiViewport*)iData;
 
-	bool executedWithSuccess=App::instance->compiler->CreateAndroidTarget();
+	bool executedWithSuccess=EngineIDE::instance->compiler->CreateAndroidTarget();
 
 	if(!executedWithSuccess)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 }
 
@@ -2164,7 +2201,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		{
 			if(InputManager::keyboardInput.IsPressed('S'))
 			{
-				this->Save(App::instance->projectFolder + "\\" + this->sceneName.c_str() + ".esn");
+				this->Save(EngineIDE::instance->projectFolder + "\\" + this->sceneName.c_str() + ".esn");
 			}
 		}
 	}
@@ -2202,7 +2239,7 @@ void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 			Script* tScript=(Script*)(*cIter);
 
 			fwrite(&Serialization::Script,sizeof(unsigned char),1,iFile);//1
-
+			
 			nameCount=tScript->file.path.Count();
 
 			fwrite(&nameCount,sizeof(int),1,iFile);//4
@@ -2515,7 +2552,7 @@ GuiProjectViewer::GuiProjectViewer():
 	fileViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
 	resourceViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
 
-	this->rootResource.fileName=App::instance->projectFolder;
+	this->rootResource.fileName=EngineIDE::instance->projectFolder;
 	this->rootResource.expanded=true;
 	this->rootResource.isDir=true;
 
@@ -2536,8 +2573,8 @@ void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 {
 	if(!this->active)
 	{
-		App::instance->ScanDir(this->rootResource.fileName);
-		App::instance->CreateNodes(this->rootResource.fileName,&this->rootResource);
+		EngineIDE::instance->ScanDir(this->rootResource.fileName);
+		EngineIDE::instance->CreateNodes(this->rootResource.fileName,&this->rootResource);
 
 		this->dirViewer.CalcNodesHeight(&this->rootResource);
 		this->fileViewer.CalcNodesHeight(&this->rootResource);
@@ -3054,13 +3091,13 @@ void GuiProjectViewer::GuiProjectFileViewer::OnRMouseUp(Tab* tabContainer,void* 
 				String tFileNameBase=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
 
 				File::Delete(tFileNameBase);
-				File::Delete(tFileNameBase + App::instance->GetEntityExtension());
+				File::Delete(tFileNameBase + EngineIDE::instance->GetEntityExtension());
 				
 				SAFEDELETE(tHoveredResourceNode);
 			}
 		break;
 		case 3://load 
-			if(tHoveredResourceNode->fileName.Extension() == &App::instance->GetSceneExtension()[1])
+			if(tHoveredResourceNode->fileName.Extension() == &EngineIDE::instance->GetSceneExtension()[1])
 			{
 				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::pool.front();
 
@@ -3115,7 +3152,7 @@ void GuiProjectViewer::GuiProjectFileViewer::OnDLMouseDown(Tab* tabContainer,voi
 			String tExtension=tHoveredResourceNode->fileName.Extension();
 			String tFilename=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
 
-			if(tExtension == &App::instance->GetSceneExtension()[1])
+			if(tExtension == &EngineIDE::instance->GetSceneExtension()[1])
 			{
 				Thread* renderThread=GuiViewport::pool[0]->GetRootRect()->tabContainer->threadRender;
 				Task* drawTask=GuiViewport::pool[0]->GetRootRect()->tabContainer->taskDraw;
@@ -3165,7 +3202,9 @@ GuiImage::~GuiImage()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiScriptViewer::GuiScriptViewer():script(0),cursor(0)
+GuiScriptViewer::GuiScriptViewer():
+	script(0),
+	cursor(0)
 {
 	this->name="Script";
 	this->paper=this->Create<GuiString>();
@@ -3217,7 +3256,7 @@ bool GuiScriptViewer::Save()
 			return true;
 		}
 		else
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 	}
 
 	return false;
@@ -3232,14 +3271,61 @@ bool GuiScriptViewer::Compile()
 
 	if(this->script)
 	{
-		exited=App::instance->compiler->Unload(this->script);
+		exited=EngineIDE::instance->compiler->Unload(this->script);
 
-		compiled=App::instance->compiler->Compile(this->script);
+		compiled=EngineIDE::instance->compiler->Compile(this->script);
 
-		runned=App::instance->compiler->Load(this->script);
+		runned=EngineIDE::instance->compiler->Load(this->script);
 	}
 
 	return exited && compiled && runned;
+}
+
+vec4 GetCaretPosition(Tab* tabContainer,char* iText,int iCursor)
+{
+	char*	txt=iText;
+	vec4	pos;
+	int		idx=0;
+
+	float tFontHeight=tabContainer->renderer2D->GetFontHeight();
+
+	pos.w=tFontHeight;
+
+	bool tCarriageReturn=false;
+
+	int tCWidth=0;
+
+	while(*txt)
+	{
+		tCarriageReturn=false;
+
+		tCWidth=tabContainer->renderer2D->GetCharWidth(*txt);
+
+		if(idx)
+		{
+			if(iText[idx]=='\n' ||  iText[idx]=='\r')
+			{
+				pos.y+=tFontHeight;
+				pos.x=0;
+				tCarriageReturn=true;
+			}
+		}
+
+		pos.z=tCWidth;
+			
+		if(idx==iCursor)
+			break;
+
+		if(!tCarriageReturn)
+			pos.x+=tCWidth;
+
+		txt++;
+		idx++;
+	}
+
+	printf("%c: %d pos: %d\n",*txt,tCWidth,(int)pos.x);
+
+	return pos;
 }
 
 void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
@@ -3292,6 +3378,13 @@ void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 
 			tabContainer->SetDraw(2,0,this);
 		}
+
+		vec4 tCaretPosition=GetCaretPosition(tabContainer,(char*)this->paper->text.c_str(),this->cursor);
+
+		tCaretPosition.x+=this->rect.x;
+		tCaretPosition.y+=this->rect.y;
+
+		tabContainer->renderer2D->SetCaret(vec2(tCaretPosition.x,tCaretPosition.y),vec2(tCaretPosition.z,tCaretPosition.w));
 	}
 
 	GuiRect::OnKeyDown(tabContainer,iData);
@@ -3305,19 +3398,40 @@ void GuiScriptViewer::OnKeyUp(Tab* tabContainer,void* data)
 void GuiScriptViewer::OnLMouseDown(Tab* tabContainer,void* data)
 {
 	GuiRect::OnLMouseDown(tabContainer,data);
+
+	tabContainer->SetFocus(this);
+	tabContainer->renderer2D->EnableCaret(true);
 }
 
 void GuiScriptViewer::OnSize(Tab* tabContainer,void* data)
 {
 	if(!this->paper->text.empty())
 	{
-		float	currentFontSize=tabContainer->renderer2D->GetFontSize();
-		int		bufferLinesCount=std::count(this->paper->text.begin(),this->paper->text.end(),'\n');
+		int tLinesCount=this->CountScriptLines()-1;
+		float tFontHeight=tabContainer->renderer2D->GetFontHeight();
 
-		this->contentHeight=currentFontSize * (bufferLinesCount - 1);
+		this->contentHeight=tLinesCount * tFontHeight;
+
 	}
 
 	GuiScrollRect::OnSize(tabContainer,data);
+}
+
+int GuiScriptViewer::CountScriptLines()
+{
+	char* t=(char*)this->paper->text.c_str();
+
+	int tLinesCount=!(*t) ? 0 : 1;
+
+	while(*t)
+	{
+		if(*t=='\n' || *t=='\r')
+			tLinesCount++;
+
+		t++;
+	}
+
+	return tLinesCount;
 }
 
 ///////////////////////////////////////////////
@@ -3608,10 +3722,10 @@ void editScriptEditorCallback(void* iData)
 {
 	EditorScript* editorScript=(EditorScript*)iData;
 
-	Tab* tabContainer=App::instance->mainAppWindow->containers[0]->tabContainers[0];
+	Tab* tabContainer=EngineIDE::instance->mainAppWindow->containers[0]->tabContainers[0];
 
 	if(!tabContainer)
-		DEBUG_BREAK;
+		DEBUG_BREAK();
 
 	if(GuiScriptViewer::pool.empty())
 		tabContainer->tabs.ScriptViewer();
@@ -3629,7 +3743,7 @@ void compileScriptEditorCallback(void* iData)
 {
 	EditorScript* editorScript=(EditorScript*)iData;
 
-    App::instance->compiler->Compile(editorScript);
+    EngineIDE::instance->compiler->Compile(editorScript);
 }
 
 void launchStopScriptEditorCallback(void* iData)
@@ -3638,12 +3752,12 @@ void launchStopScriptEditorCallback(void* iData)
 
 	if(editorScript->runtime)
 	{
-		if(App::instance->compiler->Unload(editorScript))
+		if(EngineIDE::instance->compiler->Unload(editorScript))
 			editorScript->buttonLaunch->text="Launch";
 	}
 	else
 	{
-		if(App::instance->compiler->Load(editorScript))
+		if(EngineIDE::instance->compiler->Load(editorScript))
 			editorScript->buttonLaunch->text="Stop";
 	}
 
@@ -3698,13 +3812,13 @@ void EditorScript::OnPropertiesUpdate(Tab* tab)
 
 void EditorScript::OnResourcesCreate()
 {
-	String tFileNamePath=App::instance->projectFolder + "\\" + this->entity->name;
+	String tFileNamePath=EngineIDE::instance->projectFolder + "\\" + this->entity->name;
 	this->file.SetFilename(tFileNamePath + ".cpp");
 
 	if(!File::Exist(this->file.path))
 	{
 		if(!File::Create(this->file.path))
-			DEBUG_BREAK;
+			DEBUG_BREAK();
 
 		if(this->file.Open("wb"))
 		{

@@ -115,7 +115,7 @@ struct InputManager
 
 
 
-struct App : TStaticInstance<App>
+struct EngineIDE : TStaticInstance<EngineIDE>
 {
 	Timer*					timerMain;
 	MainContainer*			mainAppWindow;
@@ -127,7 +127,7 @@ struct App : TStaticInstance<App>
 	unsigned int            caretLastTime;
 	//Thread*					threadUpdate;
 
-	App();
+	EngineIDE();
 
 	virtual int Initialize()=0;	
 	virtual void Deinitialize()=0;
@@ -152,8 +152,37 @@ struct Renderer2D
 	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
 	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 
-	unsigned int colorBackgroud;
-	unsigned int colorText;
+	struct Caret
+	{
+		static const unsigned int BLINKRATE=300;
+
+		unsigned int	blinkingRate;
+
+		unsigned int	lastBlinkTime;
+		bool			blinking;
+		vec2			rect;
+		vec2            position;
+
+		vec2			newPosition;
+		vec2            newRect;
+
+		bool			enabled;
+
+		Caret(Renderer2D*);
+
+		virtual void set(vec2 iPosition,vec2 iRect)=0;
+		virtual void draw(Renderer2D*)=0;
+		virtual void enable(bool)=0;
+	};
+
+	unsigned int	colorBackgroud;
+	unsigned int	colorText;
+
+	Tab*			tabContainer;
+
+	Caret*			caret;     
+
+	Renderer2D(Tab*);
 
 	virtual void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true)=0;
 	virtual void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true)=0;
@@ -169,6 +198,13 @@ struct Renderer2D
 	 
 	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
 	virtual float GetFontSize()=0;
+	virtual float GetFontHeight()=0;
+
+	virtual void DrawCaret()=0;
+	virtual void SetCaret(vec2 iPosition,vec2 iRect)=0;
+	virtual void EnableCaret(bool)=0;
+
+	virtual float GetCharWidth(char iCharacter)=0;
 };
 
 struct Renderer3D : Renderer3DBase
@@ -357,6 +393,8 @@ struct GuiRect : THierarchyVector<GuiRect>
 	virtual void OnKeyUp(Tab*,void* data=0);
 	virtual void OnMouseEnter(Tab*,void* data=0);
 	virtual void OnMouseExit(Tab*,void* data=0);
+	virtual void OnEnterFocus(Tab*,void* data=0);
+	virtual void OnExitFocus(Tab*,void* data=0);
 
 	virtual void OnButtonPressed(Tab*,GuiButton*){}
 
@@ -670,6 +708,9 @@ struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnKeyUp(Tab*,void* data=0);
 	void OnLMouseDown(Tab*,void* data=0);
 	void OnSize(Tab*,void* data=0);
+
+
+	int CountScriptLines();
 };
 
 struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
@@ -1082,6 +1123,7 @@ struct Compiler
 	virtual bool Load(Script*)=0;
 	virtual bool Unload(Script*)=0;
 	virtual bool CreateAndroidTarget()=0;
+	virtual String CreateRandomDir(String iDirWhere)=0;
 };
 
 struct EditorProperties

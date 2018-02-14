@@ -59,12 +59,17 @@ void glCheckError();
 
 struct Direct2DBase
 {
-	static ID2D1Factory *factory;
-	static IWICImagingFactory *imager;
-	static IDWriteFactory *writer;
-	static IDWriteTextFormat *texter;
+	static ID2D1Factory			*factory;
+	static IWICImagingFactory	*imager;
+	static IDWriteFactory		*writer;
+	static IDWriteTextFormat	*texter;
 
-	static void Init(wchar_t* fontName=L"Verdana",float fontSize=10);
+	static const int fontLogicSize;
+	static const wchar_t* fontFaceName;
+
+	static char charsWidth[255];
+
+	static void Init();
 	static void Release();
 
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
@@ -82,6 +87,11 @@ struct Direct2DBase
 
 	static vec2 MeasureText(ID2D1RenderTarget*,const char*,int iSlen=-1);
 	static vec2 MeasureText(ID2D1RenderTarget*,const wchar_t*,int iSlen=-1);
+
+	static float GetFontHeight(ID2D1HwndRenderTarget*);
+	static float GetFontSize(ID2D1RenderTarget*);
+
+	static float GetCharWidth(char iCharacter);
 };
 
 
@@ -109,14 +119,28 @@ struct GuiImageWin32 : GuiImage
 
 struct Renderer2DWin32 : Renderer2D
 {
-	ID2D1HwndRenderTarget* renderer;
-	ID2D1SolidColorBrush*  brush;
+	ID2D1HwndRenderTarget*		renderer;
+	ID2D1SolidColorBrush*		brush;
 
-	Renderer2DWin32(HWND);
+	struct CaretWin32 : Caret
+	{
+		ID2D1Bitmap* background;
+
+		CaretWin32(Renderer2D*);
+		~CaretWin32();
+
+		void set(vec2 iPosition,vec2 iRect);
+		void draw(Renderer2D*);
+		void enable(bool);
+	};
+
+	CaretWin32* caretWin32;
+
+	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
 
-	void DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip);
-	void DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip);
+	void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
@@ -128,11 +152,18 @@ struct Renderer2DWin32 : Renderer2D
 	void Identity();
 
 	vec2 MeasureText(const char*,int iSlen=-1);
+
 	float GetFontSize();
+	float GetFontHeight();
+	float GetCharWidth(char iCharacter);
 
 	ID2D1Brush* SetColorWin32(unsigned int color);
 
 	bool RecreateTarget(HWND);
+
+	void DrawCaret();
+	void SetCaret(vec2 iPosition,vec2 iRect);
+	void EnableCaret(bool);
 };
 
 struct Renderer3DOpenGL : Renderer3D
@@ -233,6 +264,7 @@ struct WindowDataWin32 : WindowData
 	UINT msg;
 	WPARAM wparam;
 	LPARAM lparam;
+	HDC    hdc;
 
 	operator HWND(){return this->hwnd;};
 	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
@@ -353,9 +385,9 @@ struct TimerWin32 : Timer
 	virtual unsigned int GetTime();
 };
 
-struct AppWin32 : App
+struct EngineIDEWin32 : EngineIDE
 {
-	AppWin32();
+	EngineIDEWin32();
 
 	int Initialize();	
 	void Deinitialize();
@@ -380,6 +412,7 @@ struct CompilerWin32 : Compiler
 	bool Load(Script*);
 	bool Unload(Script*);
 	bool CreateAndroidTarget();
+	String CreateRandomDir(String iDirWhere);
 };
 
 
