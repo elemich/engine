@@ -152,12 +152,13 @@ struct EngineIDE : TStaticInstance<EngineIDE>
 struct Debugger
 {
 	struct Breakpoint
-	{
+	{	
 		void* address;
 		int   line;
 		Script* script;
+		bool breaked;
 
-		Breakpoint():address(0),line(0),script(0){}
+		Breakpoint():address(0),line(0),script(0),breaked(0){}
 
 		bool operator==(const Breakpoint& iLineAddress){return address==iLineAddress.address && line==iLineAddress.line;}
 	};
@@ -166,7 +167,7 @@ struct Debugger
 	std::vector<Breakpoint> breakpointSet; 
 
 	bool   breaked;
-	Breakpoint* currentBreak;
+	Breakpoint* currentBreakpoint;
 
 	void* lastBreakedAddress;
 

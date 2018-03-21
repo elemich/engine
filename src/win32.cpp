@@ -4815,8 +4815,6 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 			exceptionInfo->ContextRecord->Dr2=0;
 			exceptionInfo->ContextRecord->Dr3=0;
 			exceptionInfo->ContextRecord->Dr7=0;
-
-			this->lastBreakedAddress=0;
 		}
 	}
 
@@ -4898,8 +4896,10 @@ void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
 void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 {
 	this->breaked=true;
-	this->currentBreak=&iBreakpoint;
+	this->currentBreakpoint=&iBreakpoint;
 	this->lastBreakedAddress=iBreakpoint.address;
+
+	iBreakpoint.breaked=true;
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
@@ -4910,7 +4910,8 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 void DebuggerWin32::ContinueDebuggee()
 {
 	this->breaked=false;
-	this->currentBreak=0;
+	this->currentBreakpoint->breaked=false;
+	this->currentBreakpoint=0;
 
 	printf("resuming\n");
 }

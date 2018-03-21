@@ -3244,7 +3244,7 @@ void GuiScriptViewer::GuiPaper::DrawBreakpoints(Tab* tabContainer)
 		{
 			unsigned int tLineInsertion=this->rect.y + (breakpoints[i].line - 1) * tFontHeight;
 
-			unsigned int tBreakColor = EngineIDE::instance->debugger->currentBreak == &breakpoints[i] ? 0xff0000 : 0xffff00 ;
+			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
 
 			tabContainer->renderer2D->DrawRectangle(this->rect.x + 1,tLineInsertion + 1,this->rect.x+this->textOffset.x -1,tLineInsertion + tFontHeight - 1,tBreakColor,true);
 		}
