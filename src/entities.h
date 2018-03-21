@@ -532,6 +532,7 @@ struct Script : EntityComponent
 	File file;
 	EntityScript* runtime;
 	FilePath modulePath;
+	unsigned int moduleBase;
 
 	Script();
 

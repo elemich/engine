@@ -133,17 +133,17 @@ ThreadWin32::~ThreadWin32()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-ID2D1Factory*			Direct2DBase::factory=0;
-IWICImagingFactory*		Direct2DBase::imager=0;
-IDWriteFactory*			Direct2DBase::writer=0;
-IDWriteTextFormat*		Direct2DBase::texter=0;
+ID2D1Factory*			Direct2D::factory=0;
+IWICImagingFactory*		Direct2D::imager=0;
+IDWriteFactory*			Direct2D::writer=0;
+IDWriteTextFormat*		Direct2D::texter=0;
 
-char	Direct2DBase::charsWidth[255]={0};
+char	Direct2D::charsWidth[255]={0};
 
-const int Direct2DBase::fontLogicSize=10;
-const wchar_t* Direct2DBase::fontFaceName=L"Verdana";
+const int Direct2D::fontLogicSize=10;
+const wchar_t* Direct2D::fontFaceName=L"Verdana";
 
-void Direct2DBase::Release()
+void Direct2D::Release()
 {
 	SAFERELEASE(factory);
 	SAFERELEASE(imager);
@@ -151,7 +151,7 @@ void Direct2DBase::Release()
 	SAFERELEASE(texter);
 };
 
-void Direct2DBase::Init()
+void Direct2D::Init()
 {
 	if(!factory)
 	{
@@ -159,40 +159,45 @@ void Direct2DBase::Init()
 
 		HRESULT res=S_OK;
 
-		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&Direct2DBase::imager);
+		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&Direct2D::imager);
 		if(S_OK!=res)
 			DEBUG_BREAK();
 
-		res=D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &Direct2DBase::factory);
-		if(S_OK!=res || !Direct2DBase::factory)
+		res=D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, &Direct2D::factory);
+		if(S_OK!=res || !Direct2D::factory)
 			DEBUG_BREAK();
 
-		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&Direct2DBase::writer));
-		if(S_OK!=res || !Direct2DBase::writer)
+		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&Direct2D::writer));
+		if(S_OK!=res || !Direct2D::writer)
 			DEBUG_BREAK();
 
-		res=Direct2DBase::writer->CreateTextFormat(Direct2DBase::fontFaceName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,Direct2DBase::fontLogicSize,L"",&Direct2DBase::texter);
-		if(S_OK!=res || !Direct2DBase::texter)
+		res=Direct2D::writer->CreateTextFormat(Direct2D::fontFaceName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,Direct2D::fontLogicSize,L"",&Direct2D::texter);
+		if(S_OK!=res || !Direct2D::texter)
 			DEBUG_BREAK();
 		
-		res=Direct2DBase::texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+		res=Direct2D::texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+		if(S_OK!=res)
+			DEBUG_BREAK();
+
+		res=Direct2D::texter->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM,13.333334f,Direct2D::fontLogicSize);
+
 		if(S_OK!=res)
 			DEBUG_BREAK();
 
 		{
-			const void*	tTableData=0;
+ 			const void*	tTableData=0;
 			UINT32		tTableSize=0;
 			void*		tTableContext=0;
 
 			IDWriteFontFace* tFontFace = NULL;
 			IDWriteFontFile* tFontFile = NULL;
 
-			res = Direct2DBase::writer->CreateFontFileReference(L"c:\\windows\\fonts\\verdana.ttf",NULL,&tFontFile);
+			res = Direct2D::writer->CreateFontFileReference(L"c:\\windows\\fonts\\verdana.ttf",NULL,&tFontFile);
 
 			if(S_OK!=res || !tFontFile)
 				DEBUG_BREAK();
 
-			res = Direct2DBase::writer->CreateFontFace(DWRITE_FONT_FACE_TYPE_TRUETYPE,1,&tFontFile,0,DWRITE_FONT_SIMULATIONS_NONE,&tFontFace);
+			res = Direct2D::writer->CreateFontFace(DWRITE_FONT_FACE_TYPE_TRUETYPE,1,&tFontFile,0,DWRITE_FONT_SIMULATIONS_NONE,&tFontFace);
 
 			if(S_OK!=res || !tFontFace)
 				DEBUG_BREAK();
@@ -204,10 +209,46 @@ void Direct2DBase::Init()
 			if(S_OK!=res || !exists)
 				DEBUG_BREAK();
 
-			UINT8 *tablePointer=(((UINT8*)tTableData) + 13);
+			UINT16 numRecords=0;
+			UINT32 recordSize=0;
+
+			UINT8 *tablePointer=(UINT8*)tTableData;
+
+			//getting record infos
+			{
+				UINT8 __word[4];
+
+				__word[0]=*(tablePointer + 3);
+				__word[1]=*(tablePointer + 2);
+
+				numRecords=*((UINT16*)__word);
+
+				UINT8 __long[4];
+
+				__long[0]=*(tablePointer + 7);
+				__long[1]=*(tablePointer + 6);
+				__long[2]=*(tablePointer + 5);
+				__long[3]=*(tablePointer + 4);
+
+				recordSize=*((UINT32*)__long);
+			}
+
+			//records begin here
+			tablePointer+=8;
+
+			//matching infos
+			for(int iRecord=0;iRecord<numRecords;iRecord++)
+			{
+				UINT8 ppem=*tablePointer;
+
+				if(ppem!=Direct2D::GetFontSize())
+					tablePointer+=recordSize*(iRecord+1);
+				else
+					break;
+			}
 
 			for(int i=0;i<255;i++)
-				Direct2DBase::charsWidth[i]=*(tablePointer+i);
+				Direct2D::charsWidth[i]=*(tablePointer+i);
 
 			SAFERELEASE(tFontFace);
 			SAFERELEASE(tFontFile);
@@ -217,7 +258,7 @@ void Direct2DBase::Init()
 				printf("----------\n");
 
 
-				char *prova="!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
+				char *prova=" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
 				char* t=prova;
 
 
@@ -252,7 +293,7 @@ void dump(unsigned char* t)
 	system("pause");
 }
 
-void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float &width,float &height)
+void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float &width,float &height)
 {
 	wprintf(L"loading %s from disk...\n",fname);
 
@@ -314,9 +355,9 @@ void Direct2DBase::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,f
 	}
 }
 
-vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
+vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
 {
-	float fontHeight=Direct2DBase::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
+	float fontHeight=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
 
 	float width=0;
 	float height=0;
@@ -328,7 +369,7 @@ vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int 
 		if(*t=='\n' || *t=='\r')
 			height+=fontHeight;
 		else
-			width+=Direct2DBase::charsWidth[*t];
+			width+=Direct2D::charsWidth[*t];
 
 		t++;
 	}
@@ -336,9 +377,9 @@ vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int 
 	return vec2(width,height);
 }
 
-vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
+vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
 {
-	float fontHeight=Direct2DBase::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
+	float fontHeight=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
 
 	float width=0;
 	float height=0;
@@ -350,7 +391,7 @@ vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,i
 		if(*t=='\n' || *t=='\r')
 			height+=fontHeight;
 		else
-			width+=Direct2DBase::charsWidth[*t];
+			width+=Direct2D::charsWidth[*t];
 
 		t++;
 	}
@@ -358,41 +399,33 @@ vec2 Direct2DBase::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,i
 	return vec2(width,height);
 }
 
-float Direct2DBase::GetFontHeight(ID2D1HwndRenderTarget* renderer)
+float Direct2D::GetFontHeight(ID2D1HwndRenderTarget* renderer)
 {
+	const float tTypographicPoint=1.0f/72.0f;
+	const float tDeviceIndependentPixelFontHeightValue=Direct2D::texter->GetFontSize();
 
-	/*HDC hdc=GetDC(renderer->GetHwnd());
-	float tReturnValue=0;
+	float tDotPerInchX,tDotPerInchY;
 
-	if(hdc)
-	{
-		int interlinea=GetTextCharacterExtra(hdc);
-		float tFontLogicalSize=Direct2DBase::texter->GetFontSize();
-		int tLogPixelsY=GetDeviceCaps(hdc,LOGPIXELSY);
-		tReturnValue=MulDiv(tFontLogicalSize,tLogPixelsY, 72)-1;
-		ReleaseDC(renderer->GetHwnd(),hdc);
-	}
-	return tReturnValue;
-	*/
+	renderer->GetDpi(&tDotPerInchX,&tDotPerInchY);
 
-	float dpX,dpY;
-	renderer->GetDpi(&dpX,&dpY);
+	float tDeviceIndependentPixelScalar=tDotPerInchY * tTypographicPoint;
+	float tPixelValue=tDeviceIndependentPixelScalar * tDeviceIndependentPixelFontHeightValue;
 
-	return Direct2DBase::texter->GetFontSize()*(dpY/72.0f)-1;
+	return tPixelValue;
 }
 
-float Direct2DBase::GetFontSize(ID2D1RenderTarget* renderer)
+float Direct2D::GetFontSize()
 {
-	return Direct2DBase::texter->GetFontSize();
+	return Direct2D::texter->GetFontSize();
 }
 
-float Direct2DBase::GetCharWidth(char iCharacter)
+float Direct2D::GetCharWidth(char iCharacter)
 {
-	return Direct2DBase::charsWidth[iCharacter-32];
+	return Direct2D::charsWidth[iCharacter-27];
 }
 
 
-void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
+void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	if(!iText)
 		return;
@@ -403,7 +436,10 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
 
 	if(iAlignPosX<0 && iAlignPosY<0)
-		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	{
+		//Direct2D::DrawRectangle(iRenderer,iBrush,x1,y1,x2,y2,false);
+		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2+500,y2+500),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	}
 	else
 	{
 		vec2 tSize=MeasureText(iRenderer,iText);
@@ -425,14 +461,16 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
 		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
 
+		//Direct2D::DrawRectangle(iRenderer,iBrush,rect.x,rect.y,rect.x+rect.z,rect.y+rect.w,false);
 		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+		
 	}
 
 	if(iClip)
 		iRenderer->PopAxisAlignedClip();
 }
 
-void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
+void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	if(!iText)
 		return;
@@ -453,36 +491,36 @@ void Direct2DBase::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const
 		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
 	}
 
-	Direct2DBase::DrawText(iRenderer,iBrush,tWcharTextOutput,x1,y1,x2,y2,iAlignPosX,iAlignPosY,iClip);
+	Direct2D::DrawText(iRenderer,iBrush,tWcharTextOutput,x1,y1,x2,y2,iAlignPosX,iAlignPosY,iClip);
 
 	SAFEDELETEARRAY(tWcharTextOutput);
 }
 
-void Direct2DBase::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill)
+void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill)
 {
 	fill ? renderer->FillRectangle(D2D1::RectF(x,y,w,h),brush) : renderer->DrawRectangle(D2D1::RectF(x,y,w,h),brush);
 }
 
-void Direct2DBase::DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h)
+void Direct2D::DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h)
 {
 	renderer->DrawBitmap(bitmap,D2D1::RectF(x,y,w,h));
 }
 
-void Direct2DBase::PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h)
+void Direct2D::PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h)
 {
 	renderer->PushAxisAlignedClip(D2D1::RectF(x,y,w,h),D2D1_ANTIALIAS_MODE_ALIASED);
 }
-void Direct2DBase::PopScissor(ID2D1RenderTarget*renderer)
+void Direct2D::PopScissor(ID2D1RenderTarget*renderer)
 {
 	renderer->PopAxisAlignedClip();
 }
 
-void Direct2DBase::Translate(ID2D1RenderTarget* renderer,float x,float y)
+void Direct2D::Translate(ID2D1RenderTarget* renderer,float x,float y)
 {
 	renderer->SetTransform(D2D1::Matrix3x2F::Translation(x,y));
 }
 
-void Direct2DBase::Identity(ID2D1RenderTarget* renderer)
+void Direct2D::Identity(ID2D1RenderTarget* renderer)
 {
 	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 }
@@ -507,6 +545,9 @@ Renderer2DWin32::CaretWin32::~CaretWin32()
 
 void Renderer2DWin32::CaretWin32::set(vec2 iPosition,vec2 iRect)
 {
+	if(iPosition.x<0 || iPosition.y<0 || iRect.x<0 || iRect.y<0)
+		DEBUG_BREAK();
+
 	this->newPosition=iPosition;
 	this->newRect=iRect;
 }
@@ -521,12 +562,12 @@ void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 	if(!this->enabled)
 		return;
 
-	if(this->position!=this->newPosition || this->rect!=this->newRect)
+	if(!this->background || this->position!=this->newPosition || this->rect!=this->newRect)
 	{
 		Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)iRenderer;
 
 		this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
-		this->blinking=false;
+		this->blinking=true;
 		
 		SAFERELEASE(this->background);
 
@@ -534,14 +575,14 @@ void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 
 		tBitmapProperties.pixelFormat=tRenderer2DWin32->renderer->GetPixelFormat();
 
-		HRESULT result=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
+		HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
 
-		if(S_OK!=result || !this->background)
+		if(S_OK!=tResult || !this->background)
 			DEBUG_BREAK();
 
-		result=this->background->CopyFromRenderTarget(&D2D1::Point2U(0,0),tRenderer2DWin32->renderer,&D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y));
+		tResult=this->background->CopyFromRenderTarget(&D2D1::Point2U(0,0),tRenderer2DWin32->renderer,&D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y));
 
-		if(S_OK!=result || !this->background)
+		if(S_OK!=tResult || !this->background)
 			DEBUG_BREAK();
 
 		this->position=this->newPosition;
@@ -552,25 +593,25 @@ void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 	{
 		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iRenderer;
 
-		this->lastBlinkTime=Timer::instance->GetTime();
-		this->blinking=!this->blinking;
-
 		if(iRenderer->tabContainer->BeginDraw())
 		{
 			if(this->blinking)
-				renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+2,this->position.y),D2D1::Point2F(this->position.x+2,this->position.y+iRenderer->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000));
+				renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+1,this->position.y),D2D1::Point2F(this->position.x+1,this->position.y+iRenderer->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
 			else
 				renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(this->position.x,this->position.y,this->position.x+this->rect.x,this->position.y+this->rect.y));
 
 			iRenderer->tabContainer->EndDraw();
 		}
+
+		this->lastBlinkTime=Timer::instance->GetTime();
+		this->blinking=!this->blinking;
 	}
 }
 
 
 Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretWin32((CaretWin32*)caret)
 {
-	Direct2DBase::Init();
+	Direct2D::Init();
 }
 Renderer2DWin32::~Renderer2DWin32()
 {
@@ -612,7 +653,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 		rRenderTargetProperties.type=D2D1_RENDER_TARGET_TYPE_HARDWARE;
 		rRenderTargetProperties.usage=D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE;//we wants resource sharing
 
-		result=Direct2DBase::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
+		result=Direct2D::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
 	}
 	
 	if(S_OK!=result || !this->renderer)
@@ -629,61 +670,61 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 }
 void Renderer2DWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
+	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
 }
 void Renderer2DWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	Direct2DBase::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
+	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
 }
 void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
 {
-	Direct2DBase::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill);
+	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill);
 }
 void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
 {
-	Direct2DBase::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
+	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
 }
 void Renderer2DWin32::DrawBitmap(GuiImage* iBitmap,float iX,float iY, float iW,float iH)
 {
-	Direct2DBase::DrawBitmap(this->renderer,((GuiImageWin32*)iBitmap)->handle,iX,iY,iW,iH);
+	Direct2D::DrawBitmap(this->renderer,((GuiImageWin32*)iBitmap)->handle,iX,iY,iW,iH);
 }
 
 void Renderer2DWin32::PushScissor(float iX,float iY, float iW,float iH)
 {
-	Direct2DBase::PushScissor(this->renderer,iX,iY,iW,iH);
+	Direct2D::PushScissor(this->renderer,iX,iY,iW,iH);
 }
 void Renderer2DWin32::PopScissor()
 {
-	Direct2DBase::PopScissor(this->renderer);
+	Direct2D::PopScissor(this->renderer);
 }
 
 void Renderer2DWin32::Translate(float iX,float iY)
 {
-	Direct2DBase::Translate(this->renderer,iX,iY);
+	Direct2D::Translate(this->renderer,iX,iY);
 }
 void Renderer2DWin32::Identity()
 {
-	Direct2DBase::Identity(this->renderer);
+	Direct2D::Identity(this->renderer);
 }
 
 vec2 Renderer2DWin32::MeasureText(const char* iText,int iSlen)
 {
-	return Direct2DBase::MeasureText(this->renderer,iText,iSlen);
+	return Direct2D::MeasureText(this->renderer,iText,iSlen);
 }
 
 float Renderer2DWin32::GetFontSize()
 {
-	return Direct2DBase::GetFontSize(this->renderer);
+	return Direct2D::GetFontSize();
 }
 
 float Renderer2DWin32::GetFontHeight()
 {
-	return Direct2DBase::GetFontHeight(this->renderer);
+	return Direct2D::GetFontHeight(this->renderer);
 }
 
 float Renderer2DWin32::GetCharWidth(char iCharacter)
 {
-	return Direct2DBase::GetCharWidth(iCharacter);
+	return Direct2D::GetCharWidth(iCharacter);
 }
 
 ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color)
@@ -1181,7 +1222,9 @@ bool WindowDataWin32::FindAndGrowSibling()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-EngineIDEWin32::EngineIDEWin32()
+EngineIDEWin32::EngineIDEWin32():
+processThreadHandle(0),
+processHandle(0)
 {
 	this->timerMain=new TimerWin32;
 	this->mainAppWindow=new MainContainerWin32;
@@ -1190,7 +1233,17 @@ EngineIDEWin32::EngineIDEWin32()
 int EngineIDEWin32::Initialize()
 {
 	HRESULT result;
-	
+
+	{
+		this->processHandle=::GetCurrentProcess();
+		this->processId=(unsigned int)::GetProcessId(this->processHandle);
+		this->processThreadHandle=::GetCurrentThread();
+		this->processThreadId=(unsigned int)::GetCurrentThreadId();
+
+		printf("Engine: process id is %d\n",this->processId);
+		printf("Engine: process main thread id is %d\n",this->processThreadId);
+	}
+
 	result=CoInitialize(0);
 
 	if(S_OK!=result)
@@ -1224,12 +1277,14 @@ int EngineIDEWin32::Initialize()
 		if(!GetModuleFileName(0,ch,5000))
 			DEBUG_BREAK();
 
-		this->exeFolder.String::operator=(ch);
+		this->ideExecutable.String::operator=(ch);
 
-		printf("Application folder: %s\n",this->exeFolder.Path());
+		printf("Application folder: %s\n",this->ideExecutable.Path());
 	}
 
+	this->subsystem=new SubsystemWin32;
 	this->compiler=new CompilerWin32;
+	this->debugger=new DebuggerWin32;
 
 	{//applicationDataFolder
 		char ch[5000];
@@ -1245,14 +1300,14 @@ int EngineIDEWin32::Initialize()
 		}
 		else
 		{
-			this->compiler->Execute(this->applicationDataFolder,"del /F /Q *.*");
-			this->compiler->Execute(this->applicationDataFolder,"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
+			this->subsystem->Execute(this->applicationDataFolder,"del /F /Q *.*");
+			this->subsystem->Execute(this->applicationDataFolder,"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
 		}
 
 		printf("Application data folder: %s\n",this->applicationDataFolder);
 	}
 
-	Direct2DBase::Init();
+	Direct2D::Init();
 
 	int error=ERROR_SUCCESS;
 
@@ -1274,7 +1329,7 @@ int EngineIDEWin32::Initialize()
 
 void EngineIDEWin32::Deinitialize()
 {
-	Direct2DBase::Release();
+	Direct2D::Release();
 	CoUninitialize();
 }
 
@@ -1843,7 +1898,6 @@ const char* ShaderOpenGL::GetName()
 {
 	return name;
 }
-
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4114,188 +4168,11 @@ bool InitSplitter()
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+///////////////SubsystemWin32//////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////CompilerWin32///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-CompilerWin32::CompilerWin32()
-{
-	this->compilerPath="";
-}
-
-String CompilerWin32::ComposeMS(Script* iScript)
-{
-	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->file.path.File();
-
-	String compilerOptions="/nologo /MDd /ZI /EHsc";
-	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	String includesPath=EngineIDE::instance->exeFolder.PathUp(5) + "\\src";
-	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=EngineIDE::instance->exeFolder.Path() + "\\engineWin32.lib";
-	String kernelLib="kernel32.lib";
-
-	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
-}
-
-String CompilerWin32::ComposeMingW(Script* iScript)
-{
-	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->file.path.File();
-
-	String mingWCompiler="c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ";
-
-	String includesPath=EngineIDE::instance->exeFolder.PathUp(5) + "\\src";
-	String libraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->exeFolder.Path();
-	String tCommandLine="-w -I " + includesPath + " -static-libgcc -static-libstdc++ -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + libraryPath;
-
-	return mingWCompiler + tCommandLine + " -lengineMingW -lkernel32";
-}
-
-String CompilerWin32::CreateRandomDir(String iDirWhere)
-{
-	String tRandomWorkingDirectoryName;
-	String tRandomWorkingDirectory;
-
-	DWORD res;
-
-	while(true)
-	{
-		tRandomWorkingDirectoryName=String::Random(8);
-
-		DWORD res=::GetFileAttributes(iDirWhere + "\\" + tRandomWorkingDirectoryName);
-
-		if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
-			break;
-	}
-
-	tRandomWorkingDirectory=iDirWhere + "\\" + tRandomWorkingDirectoryName;
-
-	if(!::CreateDirectory(tRandomWorkingDirectory,0))
-	{
-		DWORD lastError=GetLastError();
-		DEBUG_BREAK();
-	}
-
-	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
-		DEBUG_BREAK();
-
-	return tRandomWorkingDirectory;
-}
-
-bool CompilerWin32::Compile(Script* iScript)
-{
-	if(iScript->runtime)
-		return false;
-
-	bool retVal;
-
-	String tSourceFileContent=iScript->file.All();
-
-	//delete error.output
-
-	File errorOutputFile(EngineIDE::instance->applicationDataFolder + "\\error.output");
-
-	if(errorOutputFile.Exist())
-	{
-		if(!errorOutputFile.Delete())
-			DEBUG_BREAK();
-	}
-
-	//create random directory
-
-	if(!iScript->modulePath.Count())
-		iScript->modulePath=this->CreateRandomDir(EngineIDE::instance->applicationDataFolder);
-
-	//append exports to source
-
-	if(iScript->file.Open("ab"))
-	{
-		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
-		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
-
-		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
-		iScript->file.Write(tExporterDeleterDeclaration,tExporterDeleterDeclaration.Count(),1);
-		iScript->file.Close();
-	}
-
-	//compose the command line
-
-	String tCommandLineMingW=this->ComposeMingW(iScript);
-	String tCommandLineWin32=this->ComposeMS(iScript);
-
-	//execute
-	
-	bool executeWithSuccess=this->Execute(iScript->modulePath,tCommandLineMingW,errorOutputFile.path,true,true,true);
-
-	if(!executeWithSuccess)
-		DEBUG_BREAK();
-
-	//unroll exports
-
-	if(iScript->file.Open("wb"))
-	{
-		iScript->file.Write(tSourceFileContent,tSourceFileContent.Count(),1);
-		iScript->file.Close();
-	}
-
-	//convert compiler output to readable locale
-
-	wchar_t* tWideCharCompilationOutput=0;
-
-	if(errorOutputFile.Open("rb"))
-	{
-		int size=errorOutputFile.Size();
-
-		String tString=errorOutputFile.All();
-
-		tWideCharCompilationOutput=new wchar_t[tString.Count()+1];
-		int nCharsWritten=MultiByteToWideChar(CP_OEMCP,MB_ERR_INVALID_CHARS,tString,tString.Count(),tWideCharCompilationOutput,tString.Count());
-		tWideCharCompilationOutput[nCharsWritten]=L'\0';
-
-		errorOutputFile.Close();
-
-		if(!errorOutputFile.Delete())
-			DEBUG_BREAK();
-	}
-
-	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
-
-	GuiCompilerViewer* guiCompilerViewer=!GuiCompilerViewer::pool.empty() ? GuiCompilerViewer::pool.front() : 0;
-
-	if(!guiCompilerViewer)
-	{
-		Tab* tabContainer=!Tab::pool.empty() ? Tab::pool.front() : 0;
-
-		if(!tabContainer)
-			DEBUG_BREAK();
-
-		guiCompilerViewer=tabContainer->tabs.CompilerViewer();
-
-		tabContainer->SetDraw(0,true,0);
-	}
-
-	Tab* tabContainer=guiCompilerViewer->GetRootRect()->tabContainer;
-
-	bool noErrors=guiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
-
-	guiCompilerViewer->OnSize(tabContainer);
-	guiCompilerViewer->OnActivate(tabContainer);
-
-	if(false==noErrors)
-		tabContainer->SetSelection(guiCompilerViewer);
-
-	printf("%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.path);
-
-	SAFEDELETEARRAY(tWideCharCompilationOutput);
-
-	return retVal;
-}
-
-bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput)
+bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput)
 {
 	if(iPath=="none")
 		iPath=EngineIDE::instance->projectFolder;
@@ -4347,7 +4224,259 @@ bool CompilerWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool
 }
 
 
-bool CompilerWin32::Load(Script* iScript)
+unsigned int SubsystemWin32::FindProcessId(String iProcessName)
+{
+	PROCESSENTRY32 tProcess;
+	tProcess.dwSize = sizeof(PROCESSENTRY32);
+
+	HANDLE tSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+
+	if(Process32First(tSnapshot, &tProcess)==TRUE)
+	{
+		while(Process32Next(tSnapshot, &tProcess) == TRUE)
+		{
+			if(0==stricmp(tProcess.szExeFile,iProcessName))
+				return tProcess.th32ProcessID;
+		}
+	}
+
+	return 0;
+}
+
+unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThreadName)
+{
+	return 0;
+}
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////CompilerWin32///////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+CompilerWin32::CompilerWin32()
+{
+	this->compilerPath="";
+}
+
+String CompilerWin32::ComposeMS(Script* iScript)
+{
+	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	String compilerOptions="/nologo /MDd /ZI /EHsc";
+	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
+	String includesPath=EngineIDE::instance->ideExecutable.PathUp(5) + "\\src";
+	FilePath outputDLL="/OUT:" + iScript->file.path.Name() + ".dll";
+	String engineLibraryFullPathFileName=EngineIDE::instance->ideExecutable.Path() + "\\engineWin32.lib";
+	String kernelLib="kernel32.lib";
+
+	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  includesPath + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
+}
+
+String CompilerWin32::ComposeMingW(Script* iScript)
+{
+	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->file.path.File();
+
+	String tMingwCompilerExecutable="c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ";
+
+	String tEngineIncludeSourcePath=EngineIDE::instance->ideExecutable.PathUp(5) + "\\src";
+	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->ideExecutable.Path();
+	String tMingwCommandLine="-g -w -I " + tEngineIncludeSourcePath + " -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + tEngineLibraryPath;
+
+	return tMingwCompilerExecutable + tMingwCommandLine + " -lengineMingW -lkernel32";
+}
+
+String CompilerWin32::CreateRandomDir(String iDirWhere)
+{
+	String tRandomWorkingDirectoryName;
+	String tRandomWorkingDirectory;
+
+	DWORD res;
+
+	while(true)
+	{
+		tRandomWorkingDirectoryName=String::Random(8);
+
+		DWORD res=::GetFileAttributes(iDirWhere + "\\" + tRandomWorkingDirectoryName);
+
+		if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
+			break;
+	}
+
+	tRandomWorkingDirectory=iDirWhere + "\\" + tRandomWorkingDirectoryName;
+
+	if(!::CreateDirectory(tRandomWorkingDirectory,0))
+	{
+		DWORD lastError=GetLastError();
+		DEBUG_BREAK();
+	}
+
+	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
+		DEBUG_BREAK();
+
+	return tRandomWorkingDirectory;
+}
+
+bool CompilerWin32::Compile(Script* iScript)
+{
+	if(iScript->runtime)
+		return false;
+
+	bool retVal;
+
+	String tSourceFileContent=iScript->file.All();;
+	File tCompilerTextOutput=EngineIDE::instance->applicationDataFolder + "\\error.output";
+	
+	//delete error.output
+
+	if(tCompilerTextOutput.Exist())
+	{
+		if(!tCompilerTextOutput.Delete())
+			DEBUG_BREAK();
+	}
+
+	//create random directory for the module if not exist yet
+
+	if(!iScript->modulePath.Count())
+		iScript->modulePath=this->CreateRandomDir(EngineIDE::instance->applicationDataFolder);
+
+	//append exports to source
+
+	if(iScript->file.Open("ab"))
+	{
+		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
+		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+
+		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
+		iScript->file.Write(tExporterDeleterDeclaration,tExporterDeleterDeclaration.Count(),1);
+		iScript->file.Close();
+	}
+
+	//compose the compiler command line
+
+	String tCommandLineMingW=this->ComposeMingW(iScript);
+	String tCommandLineWin32=this->ComposeMS(iScript);
+
+	//execute compilation
+
+	bool tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->modulePath,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
+
+	if(!tExecuteWithSuccess)
+		DEBUG_BREAK();
+
+	//unroll exports
+
+	if(iScript->file.Open("wb"))
+	{
+		iScript->file.Write(tSourceFileContent,tSourceFileContent.Count(),1);
+		iScript->file.Close();
+	}
+
+	//convert compiler output to readable locale
+
+	wchar_t* tWideCharCompilationOutput=0;
+
+	if(tCompilerTextOutput.Open("rb"))
+	{
+		int size=tCompilerTextOutput.Size();
+
+		String tString=tCompilerTextOutput.All();
+
+		tWideCharCompilationOutput=new wchar_t[tString.Count()+1];
+		int nCharsWritten=MultiByteToWideChar(CP_OEMCP,MB_ERR_INVALID_CHARS,tString,tString.Count(),tWideCharCompilationOutput,tString.Count());
+		tWideCharCompilationOutput[nCharsWritten]=L'\0';
+
+		tCompilerTextOutput.Close();
+
+		if(!tCompilerTextOutput.Delete())
+			DEBUG_BREAK();
+	}
+
+	//extract and parse breakpoint line addresses
+
+	File tLineAddressesOutput=iScript->modulePath + "\\laddrss.output";
+
+	String tSharedObjectFileName=iScript->file.path.Name() + ".dll";
+	String tSharedObjectSourceName=iScript->file.path.Name() + ".cpp";
+
+	String tParseLineAddressesCommandLine="objdump --dwarf=decodedline " + tSharedObjectFileName + " | find \""+ tSharedObjectSourceName + "\" | find /V \":\"";
+
+	tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->modulePath,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+
+	if(!tExecuteWithSuccess)
+		DEBUG_BREAK();
+
+	if(tLineAddressesOutput.Open("rb"))
+	{
+		EditorScript* tEditorScript=(EditorScript*)iScript;
+
+		int tNumberOfLines=tLineAddressesOutput.CountOccurrences('\n');
+
+		char c[500];
+		unsigned int line;
+
+		for(int i=0;i<tNumberOfLines;i++)
+		{
+			fscanf((FILE*)tLineAddressesOutput.data,"%s",c);
+			fscanf((FILE*)tLineAddressesOutput.data,"%u",&line);
+			fscanf((FILE*)tLineAddressesOutput.data,"%s",&c);
+
+			if(i>7)//skip source exports
+			{
+				Debugger::Breakpoint tLineAddress;
+
+				sscanf(c,"%lx", &tLineAddress.address);
+				tLineAddress.line=line;
+				tLineAddress.script=iScript;
+
+
+				EngineIDE::instance->debugger->allAvailableBreakpoints.push_back(tLineAddress);
+			}			
+		}
+
+		tLineAddressesOutput.Close();
+
+		if(!tLineAddressesOutput.Delete())
+			DEBUG_BREAK();
+	}
+
+	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
+
+	GuiCompilerViewer* guiCompilerViewer=!GuiCompilerViewer::pool.empty() ? GuiCompilerViewer::pool.front() : 0;
+
+	if(!guiCompilerViewer)
+	{
+		Tab* tabContainer=!Tab::pool.empty() ? Tab::pool.front() : 0;
+
+		if(!tabContainer)
+			DEBUG_BREAK();
+
+		guiCompilerViewer=tabContainer->tabs.CompilerViewer();
+
+		tabContainer->SetDraw(0,true,0);
+	}
+
+	Tab* tabContainer=guiCompilerViewer->GetRootRect()->tabContainer;
+
+	bool noErrors=guiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
+
+	guiCompilerViewer->OnSize(tabContainer);
+	guiCompilerViewer->OnActivate(tabContainer);
+
+	if(false==noErrors)
+		tabContainer->SetSelection(guiCompilerViewer);
+
+	printf("%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.path);
+
+	SAFEDELETEARRAY(tWideCharCompilationOutput);
+
+	return retVal;
+}
+
+
+
+
+bool CompilerWin32::LoadScript(Script* iScript)
 {
 	if(!iScript->modulePath.Count())
 		return false;
@@ -4367,12 +4496,17 @@ bool CompilerWin32::Load(Script* iScript)
 
 	EntityScript* (*CreateScript)()=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
 
+
+
 	if(CreateScript)
 	{
+		iScript->moduleBase=(unsigned int)*tModule;
+
 		iScript->runtime=CreateScript();
 		iScript->runtime->entity=iScript->entity;
 
-		iScript->runtime->init();
+		//iScript->runtime->init();
+		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
 
 		return true;
 	}
@@ -4391,7 +4525,7 @@ bool CompilerWin32::Load(Script* iScript)
 	return false;
 }
 
-bool CompilerWin32::Unload(Script* iScript)
+bool CompilerWin32::UnloadScript(Script* iScript)
 {
 	const bool tDestroyInTheDLL=false;
 
@@ -4402,12 +4536,15 @@ bool CompilerWin32::Unload(Script* iScript)
 		if(!tModule)
 			return false;
 
-		iScript->runtime->deinit();
+		//iScript->runtime->deinit();
+		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,2);
 
 		if(!FreeLibrary(*tModule))
 			return false;
 		else
 		{
+			iScript->moduleBase=0;
+
 			SAFEDELETE(tModule);
 			this->modules.erase(iScript);
 		}
@@ -4521,11 +4658,292 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	printf("-------\n");
 
-	this->Execute("",cl,"c:\\users\\michele\\desktop\\androidCompileOutput.txt",true,true,true);
+	EngineIDE::instance->subsystem->Execute("",cl,"c:\\users\\michele\\desktop\\androidCompileOutput.txt",true,true,true);
 
 	//File::Delete("c:\\users\\michele\\desktop\\androidCompileOutput.txt");
 
 	return true;
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////DebuggerWin32/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+const char* ExceptionString(unsigned int iCode)
+{
+	switch(iCode)
+	{
+		case EXCEPTION_ACCESS_VIOLATION        : return "EXCEPTION_ACCESS_VIOLATION"		; break;
+		case EXCEPTION_DATATYPE_MISALIGNMENT   : return "EXCEPTION_DATATYPE_MISALIGNMENT";	; break;
+		case EXCEPTION_BREAKPOINT              : return "EXCEPTION_BREAKPOINT"  			; break;
+		case EXCEPTION_SINGLE_STEP             : return "EXCEPTION_SINGLE_STEP"  			; break;
+		case EXCEPTION_ARRAY_BOUNDS_EXCEEDED   : return "EXCEPTION_ARRAY_BOUNDS_EXCEEDED"  	; break;
+		case EXCEPTION_FLT_DENORMAL_OPERAND    : return "EXCEPTION_FLT_DENORMAL_OPERAND"  	; break;
+		case EXCEPTION_FLT_DIVIDE_BY_ZERO      : return "EXCEPTION_FLT_DIVIDE_BY_ZERO"  	; break;
+		case EXCEPTION_FLT_INEXACT_RESULT      : return "EXCEPTION_FLT_INEXACT_RESULT"  	; break;
+		case EXCEPTION_FLT_INVALID_OPERATION   : return "EXCEPTION_FLT_INVALID_OPERATION"  	; break;
+		case EXCEPTION_FLT_OVERFLOW            : return "EXCEPTION_FLT_OVERFLOW"  			; break;
+		case EXCEPTION_FLT_STACK_CHECK         : return "EXCEPTION_FLT_STACK_CHECK"  		; break;
+		case EXCEPTION_FLT_UNDERFLOW           : return "EXCEPTION_FLT_UNDERFLOW"  			; break;
+		case EXCEPTION_INT_DIVIDE_BY_ZERO      : return "EXCEPTION_INT_DIVIDE_BY_ZERO"  	; break;
+		case EXCEPTION_INT_OVERFLOW            : return "EXCEPTION_INT_OVERFLOW"  			; break;
+		case EXCEPTION_PRIV_INSTRUCTION        : return "EXCEPTION_PRIV_INSTRUCTION"  		; break;
+		case EXCEPTION_IN_PAGE_ERROR           : return "EXCEPTION_IN_PAGE_ERROR"  			; break;
+		case EXCEPTION_ILLEGAL_INSTRUCTION     : return "EXCEPTION_ILLEGAL_INSTRUCTION"  	; break;
+		case EXCEPTION_NONCONTINUABLE_EXCEPTION: return "EXCEPTION_NONCONTINUABLE_EXCEPTION"; break;  
+		case EXCEPTION_STACK_OVERFLOW          : return "EXCEPTION_STACK_OVERFLOW"  		; break;
+		case EXCEPTION_INVALID_DISPOSITION     : return "EXCEPTION_INVALID_DISPOSITION"  	; break;
+		case EXCEPTION_GUARD_PAGE              : return "EXCEPTION_GUARD_PAGE"  			; break;
+		case EXCEPTION_INVALID_HANDLE          : return "EXCEPTION_INVALID_HANDLE"  		; break;
+
+		default:
+			return "NONE";
+	}
+}
+
+void DebuggerWin32::PrintThreadContext(void* iThreadContext)
+{
+	CONTEXT tc=*(CONTEXT*)iThreadContext;
+
+	printf("{\ncflags 0x%p\neflags 0x%p\ndr0 0x%p\ndr1 0x%p\ndr2 0x%p\ndr3 0x%p\ndr7 0x%p\n}\n",
+		tc.ContextFlags,
+		tc.EFlags,
+		tc.Dr0,
+		tc.Dr1,
+		tc.Dr2,
+		tc.Dr3,
+		tc.Dr7
+		);
+}
+
+void DebuggerWin32::SuspendDebuggee()
+{
+	if(!this->threadSuspendend)
+	{
+		DWORD tSuspended=0;
+
+		while(!tSuspended)
+			tSuspended=SuspendThread(this->debuggeeThread);
+
+		if(tSuspended==(DWORD)0xffffffff)
+			printf("error suspending debuggee\n");
+		else
+			this->threadSuspendend=true;
+	}
+}
+
+void DebuggerWin32::ResumeDebuggee()
+{
+	if(this->threadSuspendend)
+	{
+		DWORD tSuspended=0x00000002;
+
+		while(tSuspended>0x00000001)
+			tSuspended=ResumeThread(this->debuggeeThread);
+
+		if(tSuspended==(DWORD)0xffffffff)
+			printf("error resuming debuggee\n");
+		else
+			this->threadSuspendend=false;
+	}
+}
+
+DWORD WINAPI debuggeeThreadFunc(LPVOID iDebuggerWin32)
+{
+	printf("debuggeeThreadFunc started\n");
+
+	DebuggerWin32* tDebuggerWin32=(DebuggerWin32*)iDebuggerWin32;
+
+	while(true)
+	{
+		if(tDebuggerWin32->runningScript)
+		{
+			switch(tDebuggerWin32->runningScriptFunction)
+			{
+			case 0: tDebuggerWin32->runningScript->runtime->init();break;
+			case 1: tDebuggerWin32->runningScript->runtime->update();break;
+			case 2: tDebuggerWin32->runningScript->runtime->deinit();break;
+			};
+
+			tDebuggerWin32->runningScriptFunction=0;
+			tDebuggerWin32->runningScript=0;
+		}
+	}
+
+	return 0;
+}
+
+int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
+{
+	LPEXCEPTION_POINTERS exceptionInfo=(LPEXCEPTION_POINTERS)iException;
+
+	this->threadContext=exceptionInfo->ContextRecord;
+
+	this->PrintThreadContext(exceptionInfo->ContextRecord);
+
+	if(this->lastBreakedAddress==exceptionInfo->ExceptionRecord->ExceptionAddress)
+	{
+		exceptionInfo->ContextRecord->EFlags|=0x10000;
+		this->lastBreakedAddress=0;
+		printf("skipping breakpoint %p\n",exceptionInfo->ExceptionRecord->ExceptionAddress);
+	}
+	else
+	{
+		std::vector<Debugger::Breakpoint>& tBreakpoints=this->breakpointSet;
+
+		Debugger::Breakpoint* tbBreakpoint=0;
+
+		for(size_t i=0;i<tBreakpoints.size();i++)
+		{
+			if(exceptionInfo->ExceptionRecord->ExceptionAddress==tBreakpoints[i].address)
+			{
+				this->BreakDebuggee(tBreakpoints[i]);
+				break;
+			}
+		}
+
+		if(this->breaked)
+			while(this->breaked);
+		else
+		{
+			printf("%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+
+			exceptionInfo->ContextRecord->Dr0=0;
+			exceptionInfo->ContextRecord->Dr1=0;
+			exceptionInfo->ContextRecord->Dr2=0;
+			exceptionInfo->ContextRecord->Dr3=0;
+			exceptionInfo->ContextRecord->Dr7=0;
+
+			this->lastBreakedAddress=0;
+		}
+	}
+
+	
+
+	return EXCEPTION_CONTINUE_EXECUTION;
+}
+
+LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)  
+{  
+	DebuggerWin32* debuggerWin32=(DebuggerWin32*)EngineIDEWin32::instance->debugger;
+
+	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
+}
+
+
+void DebuggerWin32::SetHardwareBreakpoint(Breakpoint& iLineAddress,bool iSet)
+{
+	const unsigned int NUMBER_OF_BREAKPOINT_REGISTERS=4;
+
+	DWORD* rBreakpointRegisters[NUMBER_OF_BREAKPOINT_REGISTERS]=
+	{
+		&this->threadContext->Dr0,
+		&this->threadContext->Dr1,
+		&this->threadContext->Dr2,
+		&this->threadContext->Dr3
+	};
+
+	for(size_t i=0;i<NUMBER_OF_BREAKPOINT_REGISTERS;i++)
+	{
+		if(iSet)
+		{
+			if(!*rBreakpointRegisters[i])
+			{
+				*rBreakpointRegisters[i]=(DWORD)iLineAddress.address;
+				this->threadContext->Dr7|=1UL << i*2;
+				break;
+			}
+		}
+		else
+		{
+			if(*rBreakpointRegisters[i]==(DWORD)iLineAddress.address)
+			{
+				*rBreakpointRegisters[i]=0;
+				this->threadContext->Dr7 &= ~ (1UL << i*2);
+				break;
+			}
+		}
+	}
+}
+
+void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
+{
+	if(!this->breaked)
+	{
+		this->SuspendDebuggee();
+
+		this->threadContext->ContextFlags=CONTEXT_ALL|CONTEXT_DEBUG_REGISTERS;
+
+		if(!GetThreadContext(this->debuggeeThread,this->threadContext))
+			DEBUG_BREAK();
+	}
+
+	this->SetHardwareBreakpoint(iLineAddress,iSet);
+
+	if(!this->breaked)
+	{
+		if(!SetThreadContext(this->debuggeeThread,this->threadContext))
+			DEBUG_BREAK();
+		else
+			printf("%s breakpoint on source 0x%p at line %d address 0x%p\n",iSet ? "adding" : "removing",iLineAddress.script,iLineAddress.line,iLineAddress.address);
+
+		this->ResumeDebuggee();
+	}
+
+	this->PrintThreadContext(this->threadContext);
+}
+
+void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
+{
+	this->breaked=true;
+	this->currentBreak=&iBreakpoint;
+	this->lastBreakedAddress=iBreakpoint.address;
+
+	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
+
+	tEditorScript->scriptViewer->GetRootRect()->tabContainer->SetDraw(2,0,tEditorScript->scriptViewer);
+
+	printf("breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
+}
+void DebuggerWin32::ContinueDebuggee()
+{
+	this->breaked=false;
+	this->currentBreak=0;
+
+	printf("resuming\n");
+}
+
+DebuggerWin32::DebuggerWin32()
+{
+	this->threadContext=new CONTEXT;
+
+	SetUnhandledExceptionFilter(UnhandledException);
+
+	this->debuggeeThread=CreateThread(0,0,debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
+	
+	printf("Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
+
+	
+}
+
+void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex)
+{
+	if(!this->breaked)
+	{
+		/*if(!iDebuggee)
+			DEBUG_BREAK();
+
+		if(this->script)
+			DEBUG_BREAK();*/
+
+		this->runningScriptFunction=iFunctionIndex;
+		this->runningScript=iDebuggee;
+
+		while(this->runningScript && !this->breaked);
+	}
+	
 }
 
 
@@ -4536,9 +4954,15 @@ bool CompilerWin32::CreateAndroidTarget()
 ///////////////////////////////////////////////
 
 
+
+
+
+
 //int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 int main()
 {
+	
+
 	EngineIDE *app = new EngineIDEWin32;
 
 	app->Initialize();

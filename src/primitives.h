@@ -28,7 +28,9 @@
 
 #ifdef DEBUG
 	#ifdef _MSC_VER
-		#define DEBUG_BREAK __debugbreak
+		#define DEBUG_BREAK \
+		#pragma message "BREAK ON __FILE__ " : " PRINTF(__LINE__) " \
+		__debugbreak
 	#else
 		#define DEBUG_BREAK __builtin_trap
 	#endif

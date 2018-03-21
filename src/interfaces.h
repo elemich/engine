@@ -35,6 +35,9 @@ struct Splitter;
 struct MainContainer;
 struct ResourceNodeDir;
 struct Compiler;
+struct Subsystem;
+struct Debugger;
+struct EditorScript;
 
 //entity forward declaration 
 
@@ -120,11 +123,15 @@ struct EngineIDE : TStaticInstance<EngineIDE>
 	Timer*					timerMain;
 	MainContainer*			mainAppWindow;
 	String					projectFolder;
-	FilePath				exeFolder;
+	FilePath				ideExecutable;
 	String					applicationDataFolder;
 	Compiler*				compiler; 
 	InputManager            inputManager;
 	unsigned int            caretLastTime;
+	Subsystem*				subsystem;
+	Debugger*				debugger;
+	unsigned int			processId;
+	unsigned int			processThreadId;
 	//Thread*					threadUpdate;
 
 	EngineIDE();
@@ -140,6 +147,51 @@ struct EngineIDE : TStaticInstance<EngineIDE>
 	const char* GetEntityExtension();
 
 	virtual void Sleep(int iMilliseconds=1)=0;
+};
+
+struct Debugger
+{
+	struct Breakpoint
+	{
+		void* address;
+		int   line;
+		Script* script;
+
+		Breakpoint():address(0),line(0),script(0){}
+
+		bool operator==(const Breakpoint& iLineAddress){return address==iLineAddress.address && line==iLineAddress.line;}
+	};
+
+	std::vector<Breakpoint> allAvailableBreakpoints;
+	std::vector<Breakpoint> breakpointSet; 
+
+	bool   breaked;
+	Breakpoint* currentBreak;
+
+	void* lastBreakedAddress;
+
+	bool threadSuspendend;
+
+	int debuggerCode;
+
+	Script*			runningScript;
+	unsigned char	runningScriptFunction;
+
+	Debugger();
+
+	virtual void RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex)=0;
+	virtual void SuspendDebuggee()=0;
+	virtual void ResumeDebuggee()=0;
+
+	virtual void SetBreakpoint(Breakpoint&,bool)=0;
+
+	virtual void BreakDebuggee(Breakpoint&)=0;
+	virtual void ContinueDebuggee()=0;
+
+	virtual int HandleHardwareBreakpoint(void*)=0;
+	virtual void SetHardwareBreakpoint(Breakpoint&,bool)=0;
+
+	virtual void PrintThreadContext(void*)=0;
 };
 
 struct Renderer2D
@@ -325,8 +377,6 @@ struct ShaderOpenGL : Shader
 	unsigned int	  ibo;
 };
 
-
-
 struct GuiRect : THierarchyVector<GuiRect>
 {
 	static const int TREEVIEW_ROW_HEIGHT=20;
@@ -337,6 +387,7 @@ struct GuiRect : THierarchyVector<GuiRect>
 
 	String name;
 
+	vec4 fixed;
 	vec4 rect;
 	vec4 offset;
 	vec2 alignPos;
@@ -470,8 +521,10 @@ struct GuiString : GuiRect
 	std::string text;
 	std::wstring wText;
 	bool clipText;
+	
+	GuiString();
 
-	GuiString():alignText(-1,-1),clipText(true){this->name="String";}
+	void DrawTheText(Tab*,vec2 iOffset=vec2(0,0));
 
 	virtual void OnPaint(Tab*,void* data=0);
 };
@@ -515,7 +568,6 @@ struct GuiScrollBar : GuiRect
 
 	GuiScrollBar();
 	~GuiScrollBar();
-
 
 	bool SetScrollerRatio(float contentHeight,float containerHeight);
 	bool SetScrollerPosition(float contentHeight);
@@ -693,10 +745,29 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 
 struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 {
-	Script* script;
+	struct GuiPaper : GuiString
+	{
+		GuiScriptViewer* scriptViewer;
+
+		vec2 textOffset;
+		unsigned int lineCount;
+		bool lineNumbers;
+
+		GuiPaper();
+
+		void DrawLineNumbers(Tab*);
+		void DrawBreakpoints(Tab*);
+
+		virtual void OnPaint(Tab*,void* data=0);
+		virtual void OnLMouseDown(Tab*,void* data=0);
+	};
+
+	EditorScript* script;
 
 	int			cursor;
-	GuiString*	paper;
+	GuiPaper*	paper;
+
+	bool		lineNumbers;
 
 	GuiScriptViewer();
 
@@ -707,8 +778,8 @@ struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnKeyDown(Tab*,void* data=0);
 	void OnKeyUp(Tab*,void* data=0);
 	void OnLMouseDown(Tab*,void* data=0);
+	void OnMouseMove(Tab*,void* data=0);
 	void OnSize(Tab*,void* data=0);
-
 
 	int CountScriptLines();
 };
@@ -1028,7 +1099,7 @@ struct Tab : TPoolVector<Tab>
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
 
-	DrawInstance* SetDraw(int iCode=1,bool iFrame=true,GuiRect* iRect=0,bool iRemove=true);
+	DrawInstance* SetDraw(int iCode=1/*1:allTab,2:rect*/,bool iFrame=true,GuiRect* iRect=0,bool iRemove=true);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
@@ -1106,6 +1177,16 @@ struct MainContainer
 	virtual Container* CreateContainer()=0;
 };
 
+struct Subsystem
+{
+	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false)=0;
+	virtual unsigned int FindProcessId(String iProcessName)=0;
+	virtual unsigned int FindThreadId(unsigned int iProcessId,String iThreadName)=0;
+};
+
+
+
+
 
 struct Compiler
 {
@@ -1119,11 +1200,11 @@ struct Compiler
 	virtual bool Compile(Script*)=0;
 	virtual String ComposeMS(Script*)=0;
 	virtual String ComposeMingW(Script*)=0;
-	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false)=0;
-	virtual bool Load(Script*)=0;
-	virtual bool Unload(Script*)=0;
+	virtual bool LoadScript(Script*)=0;
+	virtual bool UnloadScript(Script*)=0;
 	virtual bool CreateAndroidTarget()=0;
 	virtual String CreateRandomDir(String iDirWhere)=0;
+	
 };
 
 struct EditorProperties
@@ -1213,9 +1294,19 @@ struct EditorScript : EditorObject<Script>
 {
 	GuiButtonFunc* buttonLaunch;
 
+	GuiScriptViewer* scriptViewer;
+
+	EditorScript();
+
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 	void OnResourcesCreate();
+
+	//for the debugger
+	void update()
+	{
+		this->runtime ? EngineIDE::instance->debugger->RunDebuggeeFunction(this,1),true : false;
+	}
 };
 struct EditorCamera : EditorObject<Camera>
 {

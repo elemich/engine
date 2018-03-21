@@ -10,6 +10,7 @@
 
 //#include <fstream>
 #include <cstring>
+#include <cstdio>
 
 /********************************************************************************
 /name :		LoadTGA(Texture * texture, char * filename)							*
@@ -42,6 +43,9 @@ TGA tga;												// TGA image data
 
 unsigned char uTGAcompare[12] = {0,0,2, 0,0,0,0,0,0,0,0,0};	// Uncompressed TGA Header
 unsigned char cTGAcompare[12] = {0,0,10,0,0,0,0,0,0,0,0,0};	// Compressed TGA Header
+
+bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,int &width,int &height,int &bpp);	// Load an Uncompressed file
+bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,int &width,int &height,int &bpp);		// Load a Compressed file
 
 bool LoadTGA(const char* filename,void*& buf,int &bufsize,int &width,int &height,int &bpp)				// Load a TGA file
 {

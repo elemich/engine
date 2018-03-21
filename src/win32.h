@@ -18,6 +18,7 @@ struct Renderer2DWin32;
 #include <shlwapi.h>
 #include <objbase.h>
 #include <CommCtrl.h>
+#include <TlHelp32.h>
 
 #include <array>
 #include <map>
@@ -57,7 +58,7 @@ struct Renderer2DWin32;
 
 void glCheckError();
 
-struct Direct2DBase
+struct Direct2D
 {
 	static ID2D1Factory			*factory;
 	static IWICImagingFactory	*imager;
@@ -89,7 +90,7 @@ struct Direct2DBase
 	static vec2 MeasureText(ID2D1RenderTarget*,const wchar_t*,int iSlen=-1);
 
 	static float GetFontHeight(ID2D1HwndRenderTarget*);
-	static float GetFontSize(ID2D1RenderTarget*);
+	static float GetFontSize();
 
 	static float GetCharWidth(char iCharacter);
 };
@@ -389,6 +390,9 @@ struct EngineIDEWin32 : EngineIDE
 {
 	EngineIDEWin32();
 
+	HANDLE processThreadHandle;
+	HANDLE processHandle;
+
 	int Initialize();	
 	void Deinitialize();
 
@@ -399,6 +403,14 @@ struct EngineIDEWin32 : EngineIDE
 	void Sleep(int iMilliseconds=1);
 };
 
+struct SubsystemWin32 : Subsystem
+{
+	bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false);
+	unsigned int FindProcessId(String iProcessName);
+	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
+};
+
+
 struct CompilerWin32 : Compiler
 {
 	CompilerWin32();
@@ -408,11 +420,35 @@ struct CompilerWin32 : Compiler
 	bool Compile(Script*);
 	String ComposeMS(Script*);
 	String ComposeMingW(Script*);
-	bool Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput);
-	bool Load(Script*);
-	bool Unload(Script*);
+	bool LoadScript(Script*);
+	bool UnloadScript(Script*);
 	bool CreateAndroidTarget();
 	String CreateRandomDir(String iDirWhere);
+};
+
+struct DebuggerWin32 : Debugger
+{
+	HANDLE debuggeeThread;
+	DWORD  debuggeeThreadId;
+
+	CONTEXT*	threadContext;
+
+	DebuggerWin32();
+
+	void RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex);
+	void SuspendDebuggee();
+	void ResumeDebuggee();
+
+	void SetBreakpoint(Breakpoint&,bool);
+
+	void BreakDebuggee(Breakpoint&);
+	void ContinueDebuggee();
+
+
+	int HandleHardwareBreakpoint(void*);
+	void SetHardwareBreakpoint(Breakpoint&,bool);
+
+	void PrintThreadContext(void*);
 };
 
 

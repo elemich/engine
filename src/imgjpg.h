@@ -3,7 +3,6 @@
 
 namespace jpgd
 {
-	static int pippo;
 	// Loads a JPEG image from a memory buffer or a file.
 	// req_comps can be 1 (grayscale), 3 (RGB), or 4 (RGBA).
 	// On return, width/height will be set to the image's dimensions, and actual_comps will be set to the either 1 (grayscale) or 3 (RGB).
