@@ -153,7 +153,7 @@ bool LoadUncompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsiz
 		printf("%s\n", "Could not read image data");		// Display Error
 		if(buf != NULL)										// If imagedata has data in it
 		{
-			delete [] buf;
+			delete [] (unsigned char*)buf;
 			buf=0;
 		}
 		fclose(fTGA);		
@@ -248,7 +248,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 			}
 			if(buf != NULL)									// If there is stored image data
 			{
-				delete [] buf;
+				delete [] (unsigned char*)buf;
 				buf=0;									// Delete image data
 			}
 
@@ -279,7 +279,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 					if(buf != NULL)										// See if there is stored Image data
 					{
-						delete [] buf;
+						delete [] (unsigned char*)buf;
 						buf=0;											// If so, delete it too
 					}
 
@@ -317,7 +317,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 					if(buf != NULL)										// If there is Image data
 					{
-						delete [] buf;
+						delete [] (unsigned char*)buf;
 						buf=0;										// delete it
 					}
 
@@ -347,7 +347,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 				if(buf != NULL)											// If thereis image data
 				{
-					delete [] buf;
+					delete [] (unsigned char*)buf;
 					buf=0;												// delete it
 				}
 
@@ -387,7 +387,7 @@ bool LoadCompressedTGA(FILE * fTGA,const char* filename,void*& buf,int &bufsize,
 
 					if(buf != NULL)										// If there is Image data
 					{
-						delete [] buf;
+						delete [] (unsigned char*)buf;
 						buf=0;										// delete it
 					}
 

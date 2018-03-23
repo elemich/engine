@@ -185,7 +185,7 @@ struct File : Resource
 	File(String iString=0);
 
 	void SetFilename(String);
-	bool Open(char* mode="r");
+	bool Open(const char* mode="r");
 	void Close();
 	bool IsOpen();
 	bool Exist();

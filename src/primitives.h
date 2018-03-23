@@ -165,7 +165,7 @@ public:
 	static String Random(int iCount);
 	operator char*()const;
 	operator float()const;
-	const int& Count()const;
+	const int Count()const;
 	const char* Buf()const;
 	bool Contains(const char*);
 	bool Alloc(int iBytes);
@@ -434,7 +434,7 @@ struct mat3 : TNumberedVectorInterface<float,9>
 
 struct mat4 : TNumberedVectorInterface<float,16>
 {
-	float &m11,&m12,&m13,&m14,&m21,&m22,&m23,&m24,&m31,&m32,&m33,&m34,&m41,&m42,&m43,&m44;
+	//float &m11,&m12,&m13,&m14,&m21,&m22,&m23,&m24,&m31,&m32,&m33,&m34,&m41,&m42,&m43,&m44;
 
 	mat4();
 	mat4(const mat4&);

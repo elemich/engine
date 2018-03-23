@@ -209,6 +209,8 @@ struct Renderer2D
 	{
 		static const unsigned int BLINKRATE=300;
 
+		GuiRect*		guiRect;
+
 		unsigned int	blinkingRate;
 
 		unsigned int	lastBlinkTime;
@@ -223,7 +225,7 @@ struct Renderer2D
 
 		Caret(Renderer2D*);
 
-		virtual void set(vec2 iPosition,vec2 iRect)=0;
+		virtual void set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)=0;
 		virtual void draw(Renderer2D*)=0;
 		virtual void enable(bool)=0;
 	};
@@ -254,7 +256,7 @@ struct Renderer2D
 	virtual float GetFontHeight()=0;
 
 	virtual void DrawCaret()=0;
-	virtual void SetCaret(vec2 iPosition,vec2 iRect)=0;
+	virtual void SetCaret(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)=0;
 	virtual void EnableCaret(bool)=0;
 
 	virtual float GetCharWidth(char iCharacter)=0;
@@ -783,6 +785,8 @@ struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnSize(Tab*,void* data=0);
 
 	int CountScriptLines();
+	void SetCaretPosition(Tab*);
+	vec4 GetCaretPosition(Tab*);
 };
 
 struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
@@ -1306,7 +1310,7 @@ struct EditorScript : EditorObject<Script>
 	//for the debugger
 	void update()
 	{
-		this->runtime ? EngineIDE::instance->debugger->RunDebuggeeFunction(this,1),true : false;
+		this->runtime ? this->runtime->update()/*EngineIDE::instance->debugger->RunDebuggeeFunction(this,1)*/,true : false;
 	}
 };
 struct EditorCamera : EditorObject<Camera>

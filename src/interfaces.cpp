@@ -437,6 +437,7 @@ Renderer2D::Renderer2D(Tab* iTabContainer):
 {}
 
 Renderer2D::Caret::Caret(Renderer2D* iRenderer2D):
+	guiRect(0),
 	lastBlinkTime(0),
 	blinking(false),
 	enabled(false),
@@ -3394,51 +3395,48 @@ bool GuiScriptViewer::Compile()
 	return exited && compiled && runned;
 }
 
-vec4 GetCaretPosition(Tab* tabContainer,char* iText,int iCursor)
+vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer)
 {
-	char*	txt=iText;
-	vec4	pos;
-	int		idx=0;
+	const char*	pText=this->paper->text.c_str();
+	vec4	tCaretPos;
+	int		tTextIdx=0;
 
 	float tFontHeight=tabContainer->renderer2D->GetFontHeight();
 
-	pos.w=tFontHeight;
+	tCaretPos.w=tFontHeight;
 
 	bool tCarriageReturn=false;
 
-	int tCWidth=0;
+	int tCharWidth=0;
 
-	while(*txt)
+	while(*pText)
 	{
-		tCarriageReturn=false;
-
-		tCWidth=tabContainer->renderer2D->GetCharWidth(*txt);
-
-		if(idx)
+		if(tCarriageReturn)
 		{
-			if(iText[idx]=='\n' ||  iText[idx]=='\r')
-			{
-				pos.y+=tFontHeight;
-				pos.x=0;
-				tCarriageReturn=true;
-			}
+			tCaretPos.y+=tFontHeight;
+			tCaretPos.x=0;
+			tCarriageReturn=false;
 		}
 
-		pos.z=tCWidth;
+		tCharWidth=tabContainer->renderer2D->GetCharWidth(*pText);
+
+		if(tTextIdx && (this->paper->text[tTextIdx]=='\n' ||  this->paper->text[tTextIdx]=='\r'))
+			tCarriageReturn=true;
+
+		tCaretPos.z=tCharWidth;
 			
-		if(idx==iCursor)
+		if(tTextIdx==this->cursor)
 			break;
 
-		if(!tCarriageReturn)
-			pos.x+=tCWidth;
+		tCaretPos.x+=tCharWidth;
 
-		txt++;
-		idx++;
+		pText++;
+		tTextIdx++;
 	}
 
 	//printf("%c: %d pos: %d\n",*txt,tCWidth,(int)pos.x);
 
-	return pos;
+	return tCaretPos;
 }
 
 void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
@@ -3495,12 +3493,7 @@ void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 			tabContainer->SetDraw(2,0,this);
 		}
 
-		vec4 tCaretPosition=GetCaretPosition(tabContainer,(char*)this->paper->text.c_str(),this->cursor);
-
-		tCaretPosition.x+=this->paper->rect.x+this->paper->textOffset.x;
-		tCaretPosition.y+=this->paper->rect.y+this->paper->textOffset.y;
-
-		tabContainer->renderer2D->SetCaret(vec2(tCaretPosition.x,tCaretPosition.y),vec2(tCaretPosition.z,tCaretPosition.w));
+		this->SetCaretPosition(tabContainer);
 	}
 
 	GuiRect::OnKeyDown(tabContainer,iData);
@@ -3517,6 +3510,7 @@ void GuiScriptViewer::OnLMouseDown(Tab* tabContainer,void* iData)
 
 	vec2 tMpos=*(vec2*)iData;
 
+	this->SetCaretPosition(tabContainer);
 	tabContainer->SetFocus(this);
 	tabContainer->renderer2D->EnableCaret(true);
 }
@@ -3570,6 +3564,16 @@ int GuiScriptViewer::CountScriptLines()
 	}
 
 	return tLinesCount;
+}
+
+void GuiScriptViewer::SetCaretPosition(Tab* tabContainer)
+{
+	vec4 tCaretPosition=GetCaretPosition(tabContainer);
+
+	tCaretPosition.x+=this->paper->rect.x+this->paper->textOffset.x;
+	tCaretPosition.y+=this->paper->rect.y+this->paper->textOffset.y;
+
+	tabContainer->renderer2D->SetCaret(this->paper,vec2(tCaretPosition.x,tCaretPosition.y),vec2(tCaretPosition.z,tCaretPosition.w));
 }
 
 ///////////////////////////////////////////////

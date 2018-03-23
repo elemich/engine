@@ -20,7 +20,8 @@ MINGWINCLUDES=$(SDKDIR)\mingw64\x86_64-w64-mingw32\include
 INCPATH=-I $(OPENGLSDK) -I $(FBXSDK) -I $(MINGWINCLUDES)
 LIBPATH=-L$(MINGWDIR)\x86_64-w64-mingw32\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
 
-CLOPT=-w $(INCPATH) -c 
+#CLOPT=-w $(INCPATH) -c 
+CLOPT=-O0 $(INCPATH) -c 
 LKOPT=-static
 
 WIN32LIBD=-luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32

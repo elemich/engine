@@ -42,7 +42,7 @@ bool File::IsOpen()
 #ifndef ANDROID
 
 
-bool File::Open(char* mode)
+bool File::Open(const char* mode)
 {
 	if(!this->path.Count() || this->IsOpen())
 		return false;

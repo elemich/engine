@@ -130,7 +130,7 @@ struct Renderer2DWin32 : Renderer2D
 		CaretWin32(Renderer2D*);
 		~CaretWin32();
 
-		void set(vec2 iPosition,vec2 iRect);
+		void set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect);
 		void draw(Renderer2D*);
 		void enable(bool);
 	};
@@ -163,7 +163,7 @@ struct Renderer2DWin32 : Renderer2D
 	bool RecreateTarget(HWND);
 
 	void DrawCaret();
-	void SetCaret(vec2 iPosition,vec2 iRect);
+	void SetCaret(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect);
 	void EnableCaret(bool);
 };
 

@@ -146,7 +146,7 @@ String::operator char*()const
 {
 	return this->data;
 }
-const int& String::Count()const
+const int String::Count()const
 {
 	return this->size;
 }
@@ -541,22 +541,22 @@ vec4::operator vec2 (){return vec2(x,y);}
 
 float* Matrix::identity(float* m)
 {
-    m[0]=1;
-    m[1]=0;
-    m[2]=0;
-    m[3]=0;
-    m[4]=0;
-    m[5]=1;
-    m[6]=0;
-    m[7]=0;
-    m[8]=0;
-    m[9]=0;
-    m[10]=1;
-    m[11]=0;
-    m[12]=0;
-    m[13]=0;
-    m[14]=0;
-    m[15]=1;
+    m[0]=1.0f;
+    m[1]=0.0f;
+    m[2]=0.0f;
+    m[3]=0.0f;
+    m[4]=0.0f;
+    m[5]=1.0f;
+    m[6]=0.0f;
+    m[7]=0.0f;
+    m[8]=0.0f;
+    m[9]=0.0f;
+    m[10]=1.0f;
+    m[11]=0.0f;
+    m[12]=0.0f;
+    m[13]=0.0f;
+    m[14]=0.0f;
+    m[15]=1.0f;
     return m;
 }
 
@@ -1088,11 +1088,11 @@ float* mat3::operator[](int i){return &v[i*3];}
 
 
 
-mat4::mat4():init_mat4_references{Matrix::identity(v);};
-mat4::mat4(const mat4& mm):init_mat4_references{Matrix::copy(v,mm.v);}
-mat4::mat4(const float* mm):init_mat4_references{Matrix::copy(v,mm);}
-mat4::mat4(const double* mm):init_mat4_references{for(int i=0;i<16;i++)v[i]=(float)mm[i];}
-mat4::mat4(mat3 a):init_mat4_references{v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;}
+mat4::mat4()/*:init_mat4_references*/{Matrix::identity(v);};
+mat4::mat4(const mat4& mm)/*:init_mat4_references*/{Matrix::copy(v,mm.v);}
+mat4::mat4(const float* mm)/*:init_mat4_references*/{Matrix::copy(v,mm);}
+mat4::mat4(const double* mm)/*:init_mat4_references*/{for(int i=0;i<16;i++)v[i]=(float)mm[i];}
+mat4::mat4(mat3 a)/*:init_mat4_references*/{v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;}
 mat4& mat4::operator=(mat3 a){v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;return *this;}
 mat4& mat4::operator=(const mat4& mm){Matrix::copy(v,mm.v);return *this;}
 bool mat4::operator==(mat4& mm){for(int i=0;i<16;i++){if(v[i]!=mm.v[i])return false;}return true;}

@@ -421,7 +421,7 @@ float Direct2D::GetFontSize()
 
 float Direct2D::GetCharWidth(char iCharacter)
 {
-	return Direct2D::charsWidth[iCharacter-27];
+	return iCharacter!='\t' ? Direct2D::charsWidth[iCharacter-27] : Direct2D::texter->GetIncrementalTabStop();
 }
 
 
@@ -543,11 +543,12 @@ Renderer2DWin32::CaretWin32::~CaretWin32()
 	SAFERELEASE(this->background);
 }
 
-void Renderer2DWin32::CaretWin32::set(vec2 iPosition,vec2 iRect)
+void Renderer2DWin32::CaretWin32::set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)
 {
 	if(iPosition.x<0 || iPosition.y<0 || iRect.x<0 || iRect.y<0)
 		DEBUG_BREAK();
 
+	this->guiRect=iGuiRect;
 	this->newPosition=iPosition;
 	this->newRect=iRect;
 }
@@ -589,16 +590,20 @@ void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 		this->rect=this->newRect;
 	}
 
-	if(this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
+	if(this->guiRect && this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
 	{
 		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iRenderer;
 
 		if(iRenderer->tabContainer->BeginDraw())
 		{
+			bool tSelfClip=this->guiRect->BeginSelfClip(iRenderer->tabContainer);
+
 			if(this->blinking)
 				renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+1,this->position.y),D2D1::Point2F(this->position.x+1,this->position.y+iRenderer->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
 			else
 				renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(this->position.x,this->position.y,this->position.x+this->rect.x,this->position.y+this->rect.y));
+
+			this->guiRect->EndSelfClip(iRenderer->tabContainer,tSelfClip);
 
 			iRenderer->tabContainer->EndDraw();
 		}
@@ -623,9 +628,9 @@ void Renderer2DWin32::DrawCaret()
 	this->caret->draw(this);
 }
 
-void Renderer2DWin32::SetCaret(vec2 iPosition, vec2 iRect)
+void Renderer2DWin32::SetCaret(GuiRect* iGuiRect,vec2 iPosition, vec2 iRect)
 {
-	this->caret->set(iPosition,iRect);
+	this->caret->set(iGuiRect,iPosition,iRect);
 }
 
 void Renderer2DWin32::EnableCaret(bool iEnable)
@@ -4281,7 +4286,7 @@ String CompilerWin32::ComposeMingW(Script* iScript)
 
 	String tEngineIncludeSourcePath=EngineIDE::instance->ideExecutable.PathUp(5) + "\\src";
 	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->ideExecutable.Path();
-	String tMingwCommandLine="-g -w -I " + tEngineIncludeSourcePath + " -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + tEngineLibraryPath;
+	String tMingwCommandLine="-O0 -g -I " + tEngineIncludeSourcePath + " -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + tEngineLibraryPath;
 
 	return tMingwCompilerExecutable + tMingwCommandLine + " -lengineMingW -lkernel32";
 }
@@ -4505,8 +4510,8 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		iScript->runtime=CreateScript();
 		iScript->runtime->entity=iScript->entity;
 
-		//iScript->runtime->init();
-		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
+		iScript->runtime->init();
+		//EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
 
 		return true;
 	}
@@ -4536,8 +4541,8 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 		if(!tModule)
 			return false;
 
-		//iScript->runtime->deinit();
-		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,2);
+		iScript->runtime->deinit();
+		//EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,2);
 
 		if(!FreeLibrary(*tModule))
 			return false;
@@ -4762,9 +4767,9 @@ DWORD WINAPI debuggeeThreadFunc(LPVOID iDebuggerWin32)
 		{
 			switch(tDebuggerWin32->runningScriptFunction)
 			{
-			case 0: tDebuggerWin32->runningScript->runtime->init();break;
-			case 1: tDebuggerWin32->runningScript->runtime->update();break;
-			case 2: tDebuggerWin32->runningScript->runtime->deinit();break;
+				case 0: tDebuggerWin32->runningScript->runtime->init();break;
+				case 1: tDebuggerWin32->runningScript->runtime->update();break;
+				case 2: tDebuggerWin32->runningScript->runtime->deinit();break;
 			};
 
 			tDebuggerWin32->runningScriptFunction=0;
