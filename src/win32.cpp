@@ -1,6 +1,10 @@
 ﻿#include "win32.h"
 
-#include "fbxutil.h"
+#define USEFBX 0
+
+#if USEFBX
+	#include "fbxutil.h"
+#endif
 
 bool KeyboardInput::IsPressed(unsigned int iCharCode)
 {
@@ -944,8 +948,10 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 							 
 							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
 							{
+#if USEFBX
 								EditorEntity* importedEntities=ImportFbxScene(openfilename.lpstrFile);
 								Tab::BroadcastToPool(&Tab::OnEntitiesChange,importedEntities);
+#endif							
 							}
 						}
 						break;
