@@ -1278,7 +1278,7 @@ int EngineIDEWin32::Initialize()
 			if(SHGetPathFromIDList(tmpProjectFolder,path))
 			{
 				this->projectFolder=path;
-				printf("User project folder: %s\n",this->projectFolder);
+				printf("User project folder: %s\n",this->projectFolder.Buffer());
 			}
 		}
 	}
@@ -1290,7 +1290,7 @@ int EngineIDEWin32::Initialize()
 
 		this->ideExecutable.String::operator=(ch);
 
-		printf("Application folder: %s\n",this->ideExecutable.Path());
+		printf("Application folder: %s\n",this->ideExecutable.Path().Buffer());
 	}
 
 	this->subsystem=new SubsystemWin32;
@@ -1304,18 +1304,18 @@ int EngineIDEWin32::Initialize()
 
 		this->applicationDataFolder=String(ch) + "\\EngineAppData";
 
-		if(!PathFileExists(this->applicationDataFolder))
+		if(!PathFileExists(this->applicationDataFolder.Buffer()))
 		{
 			SECURITY_ATTRIBUTES sa;
-			CreateDirectory(this->applicationDataFolder,&sa);
+			CreateDirectory(this->applicationDataFolder.Buffer(),&sa);
 		}
 		else
 		{
-			this->subsystem->Execute(this->applicationDataFolder,"del /F /Q *.*");
-			this->subsystem->Execute(this->applicationDataFolder,"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
+			this->subsystem->Execute(this->applicationDataFolder.Buffer(),"del /F /Q *.*");
+			this->subsystem->Execute(this->applicationDataFolder.Buffer(),"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
 		}
 
-		printf("Application data folder: %s\n",this->applicationDataFolder);
+		printf("Application data folder: %s\n",this->applicationDataFolder.Buffer());
 	}
 
 	Direct2D::Init();
@@ -1352,7 +1352,7 @@ void EngineIDEWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 	String scanDir=dir;
 	scanDir+="\\*";
 
-	handle=FindFirstFile(scanDir,&data); //. dir
+	handle=FindFirstFile(scanDir.Buffer(),&data); //. dir
 
 	//printf("GuiProjectViewer::CreateNodes(%s)\n",scanDir);
 
@@ -1381,7 +1381,7 @@ void EngineIDEWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 			bool expanded;
 
 			{
-				FILE* f=fopen(tEngineFile.Buf(),"r");
+				FILE* f=fopen(tEngineFile.Buffer(),"r");
 
 				if(f)
 				{
@@ -1438,7 +1438,7 @@ void EngineIDEWin32::ScanDir(String dir)
 	String scanDir=dir;
 	scanDir+="\\*";
 
-	handle=FindFirstFile(scanDir,&data); //. dir
+	handle=FindFirstFile(scanDir.Buffer(),&data); //. dir
 
 	//printf("GuiProjectViewer::ScanDir(%s)\n",scanDir);
 
@@ -1459,7 +1459,7 @@ void EngineIDEWin32::ScanDir(String dir)
 		{
 			String s = dir + "\\" + String(data.cFileName);
 
-			if(!PathFileExists(s.Buf()))
+			if(!PathFileExists(s.Buffer()))
 			{
 				//delete .engine file
 				continue;
@@ -1469,9 +1469,9 @@ void EngineIDEWin32::ScanDir(String dir)
 		{
 			String engineFile = dir + "\\" + String(data.cFileName) + EngineIDE::instance->GetEntityExtension();
 
-			if(!PathFileExists(engineFile.Buf()))
+			if(!PathFileExists(engineFile.Buffer()))
 			{
-				FILE* f=fopen(engineFile.Buf(),"w");
+				FILE* f=fopen(engineFile.Buffer(),"w");
 
 				if(f)
 				{
@@ -1484,8 +1484,8 @@ void EngineIDEWin32::ScanDir(String dir)
 					fwrite(&_false,1,1,f);//expanded
 					fclose(f);
 
-					DWORD fileAttribute=GetFileAttributes(engineFile);
-					SetFileAttributes(engineFile,FILE_ATTRIBUTE_HIDDEN|fileAttribute);
+					DWORD fileAttribute=GetFileAttributes(engineFile.Buffer());
+					SetFileAttributes(engineFile.Buffer(),FILE_ATTRIBUTE_HIDDEN|fileAttribute);
 
 
 					if(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -1907,7 +1907,7 @@ void ShaderOpenGL::SetName(const char* n)
 }
 const char* ShaderOpenGL::GetName()
 {
-	return name;
+	return name.Buffer();
 }
 
 ///////////////////////////////////////////////
@@ -2249,7 +2249,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 
-	glBufferData(GL_ARRAY_BUFFER,3*sizeof(float),point.v,GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER,3*sizeof(float),point.vec3data->v,GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(ps);glCheckError();
 	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,0);glCheckError();
@@ -3591,7 +3591,7 @@ void TabWin32::DrawFrame()
 									Renderer2D::COLOR_GUI_BACKGROUND);
 
 	for(int i=0;i<(int)tabs.childs.size();i++)
-		this->renderer2D->DrawText(tabs.childs[i]->name,
+		this->renderer2D->DrawText(tabs.childs[i]->name.Buffer(),
 									(float)i*TAB_WIDTH,
 									(float)CONTAINER_HEIGHT-TAB_HEIGHT,
 									(float)i*TAB_WIDTH + (float)TAB_WIDTH,
@@ -4206,7 +4206,7 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		sa.lpSecurityDescriptor = 0;
 		sa.bInheritHandle = true;  
 
-		tFileOutput = CreateFile(iOutputFile,FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
+		tFileOutput = CreateFile(iOutputFile.Buffer(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
 		if(!tFileOutput)
 			DEBUG_BREAK();
@@ -4217,9 +4217,11 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		si.hStdOutput = iOutput ? tFileOutput : GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
-	SetCurrentDirectory(iPath);
+	SetCurrentDirectory(iPath.Buffer());
 
-	if(!CreateProcess(0,String("cmd.exe /V /C ") + iCmdLine,0,0,true,0,0,0,&si,&pi))
+	String tCommandLine="cmd.exe /V /C " + iCmdLine;
+
+	if(!CreateProcess(0,(char*)tCommandLine.Buffer(),0,0,true,0,0,0,&si,&pi))
 		return false;
 
 	WaitForSingleObject( pi.hProcess, INFINITE );
@@ -4246,7 +4248,7 @@ unsigned int SubsystemWin32::FindProcessId(String iProcessName)
 	{
 		while(Process32Next(tSnapshot, &tProcess) == TRUE)
 		{
-			if(0==stricmp(tProcess.szExeFile,iProcessName))
+			if(0==stricmp(tProcess.szExeFile,iProcessName.Buffer()))
 				return tProcess.th32ProcessID;
 		}
 	}
@@ -4294,8 +4296,37 @@ String CompilerWin32::ComposeMingW(Script* iScript)
 	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->ideExecutable.Path();
 	String tMingwCommandLine="-O0 -g -I " + tEngineIncludeSourcePath + " -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + tEngineLibraryPath;
 
-	return tMingwCompilerExecutable + tMingwCommandLine + " -lengineMingW -lkernel32";
+	String objects=EngineIDE::instance->ideExecutable.Path() + "\\engineMingW.dll";
+
+	return tMingwCompilerExecutable + tMingwCommandLine + " " + objects + " -lkernel32";
 }
+
+
+String gfCreateRandomString(int iCount)
+{
+	const char __an[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+
+	String ret;
+
+	char*& __ret=ret.data;
+
+	__ret=new char[iCount+1];
+
+	unsigned int feed=*(unsigned int*)&__ret;
+	unsigned int anCount=sizeof(__an);
+	srand(feed);
+
+	for(int i=0;i<iCount;i++)
+	{
+		__ret[i]=__an[rand() % anCount];
+	}
+
+	__ret[iCount]='\0';
+	ret.size=iCount;
+
+	return ret;
+}
+
 
 String CompilerWin32::CreateRandomDir(String iDirWhere)
 {
@@ -4306,9 +4337,11 @@ String CompilerWin32::CreateRandomDir(String iDirWhere)
 
 	while(true)
 	{
-		tRandomWorkingDirectoryName=String::Random(8);
+		tRandomWorkingDirectoryName=gfCreateRandomString(8);
 
-		DWORD res=::GetFileAttributes(iDirWhere + "\\" + tRandomWorkingDirectoryName);
+		String tFullRandomDirName=iDirWhere + "\\" + tRandomWorkingDirectoryName;
+
+		DWORD res=::GetFileAttributes(tFullRandomDirName.Buffer());
 
 		if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
 			break;
@@ -4316,13 +4349,13 @@ String CompilerWin32::CreateRandomDir(String iDirWhere)
 
 	tRandomWorkingDirectory=iDirWhere + "\\" + tRandomWorkingDirectoryName;
 
-	if(!::CreateDirectory(tRandomWorkingDirectory,0))
+	if(!::CreateDirectory(tRandomWorkingDirectory.Buffer(),0))
 	{
 		DWORD lastError=GetLastError();
 		DEBUG_BREAK();
 	}
 
-	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory)))
+	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory.Buffer())))
 		DEBUG_BREAK();
 
 	return tRandomWorkingDirectory;
@@ -4358,8 +4391,8 @@ bool CompilerWin32::Compile(Script* iScript)
 		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
 		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
 
-		iScript->file.Write(tExporterClassDeclaration,tExporterClassDeclaration.Count(),1);
-		iScript->file.Write(tExporterDeleterDeclaration,tExporterDeleterDeclaration.Count(),1);
+		iScript->file.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
+		iScript->file.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
 		iScript->file.Close();
 	}
 
@@ -4379,7 +4412,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	if(iScript->file.Open("wb"))
 	{
-		iScript->file.Write(tSourceFileContent,tSourceFileContent.Count(),1);
+		iScript->file.Write((void*)tSourceFileContent.Buffer(),tSourceFileContent.Count(),1);
 		iScript->file.Close();
 	}
 
@@ -4394,7 +4427,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		String tString=tCompilerTextOutput.All();
 
 		tWideCharCompilationOutput=new wchar_t[tString.Count()+1];
-		int nCharsWritten=MultiByteToWideChar(CP_OEMCP,MB_ERR_INVALID_CHARS,tString,tString.Count(),tWideCharCompilationOutput,tString.Count());
+		int nCharsWritten=MultiByteToWideChar(CP_OEMCP,MB_ERR_INVALID_CHARS,tString.Buffer(),tString.Count(),tWideCharCompilationOutput,tString.Count());
 		tWideCharCompilationOutput[nCharsWritten]=L'\0';
 
 		tCompilerTextOutput.Close();
@@ -4477,7 +4510,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	if(false==noErrors)
 		tabContainer->SetSelection(guiCompilerViewer);
 
-	printf("%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.path);
+	printf("%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.path.Buffer());
 
 	SAFEDELETEARRAY(tWideCharCompilationOutput);
 
@@ -4492,7 +4525,11 @@ bool CompilerWin32::LoadScript(Script* iScript)
 	if(!iScript->modulePath.Count())
 		return false;
 
-	HMODULE* tModule=this->modules.find(iScript)!=this->modules.end() ? this->modules[iScript] : 0;
+	HMODULE*		tModule=0;
+	String			tFullModuleName;
+	EntityScript*	(*tCreateMoculeClassFunction)()=0;
+
+	tModule=this->modules.find(iScript)!=this->modules.end() ? this->modules[iScript] : 0;
 
 	if(!tModule)
 	{
@@ -4500,24 +4537,26 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		this->modules.insert(std::pair<Script*,HMODULE*>(iScript,tModule));
 	}
 
-	*tModule=(HMODULE)LoadLibrary(iScript->modulePath + "\\" + iScript->entity->name + ".dll");
+	tFullModuleName=iScript->modulePath + "\\" + iScript->entity->name + ".dll";
+
+	*tModule=(HMODULE)LoadLibrary(tFullModuleName.Buffer());
 
 	if(!*tModule)
 		return false;
 
-	EntityScript* (*CreateScript)()=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
+	tCreateMoculeClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
 
-
-
-	if(CreateScript)
+	if(tCreateMoculeClassFunction)
 	{
 		iScript->moduleBase=(unsigned int)*tModule;
 
-		iScript->runtime=CreateScript();
+		iScript->runtime=tCreateMoculeClassFunction();
 		iScript->runtime->entity=iScript->entity;
 
-		iScript->runtime->init();
-		//EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
+		printf("outer inited 0x%p %s\n",&iScript->entity->local,iScript->entity->name.Buffer());
+
+		//iScript->runtime->init();
+		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
 
 		return true;
 	}
@@ -4547,8 +4586,8 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 		if(!tModule)
 			return false;
 
-		iScript->runtime->deinit();
-		//EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,2);
+		//iScript->runtime->deinit();
+		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,2);
 
 		if(!FreeLibrary(*tModule))
 			return false;
@@ -4589,7 +4628,7 @@ void getScriptPaths(Entity* iEntity,std::vector<std::string>& iStringVector)
 	std::vector<Script*> tEntityScripts=iEntity->findComponents<Script>();
 
 	for(std::vector<Script*>::iterator i=tEntityScripts.begin();i!=tEntityScripts.end();i++)
-		iStringVector.push_back((*i)->file.path.Buf());
+		iStringVector.push_back((*i)->file.path.Buffer());
 
 	for(std::list<Entity*>::iterator i=iEntity->childs.begin();i!=iEntity->childs.end();i++)
 		getScriptPaths(*i,iStringVector);
@@ -4609,7 +4648,9 @@ bool CompilerWin32::CreateAndroidTarget()
 	{
 		ResourceNodeDir* parentPath=(ResourceNodeDir*)(*i)->parent;
 
-		FILE* tSceneFile=fopen(parentPath->fileName + "\\" + (*i)->fileName,"rb");
+		String tScriptFullFilename=parentPath->fileName + "\\" + (*i)->fileName;
+
+		FILE* tSceneFile=fopen(tScriptFullFilename.Buffer(),"rb");
 
 		if(tSceneFile)
 		{

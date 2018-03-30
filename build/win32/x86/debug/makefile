@@ -9,21 +9,22 @@ OPENGLLIB=libfbxsdk-md.lib advapi32.lib
 
 LKDLL=/DLL /NOENTRY $(LKOPT)  
 
+all: engine.obj engine.dll primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj engine.exe
+
+engine.obj: $(DIRSRC)\engine.cpp $(DIRSRC)\engine.h
+ @cl.exe $(CLOPT) $(DIRSRC)\engine.cpp
+ 
+engine.dll: engine.obj
+ @echo engine.dll
+ @link.exe /DLL /OUT:engine.dll engine.obj
+# @lib.exe  /NAME:engine.dll /OUT:enginedll.lib primitivesdll.obj entitiesdll.obj
+
 primitives.obj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
  @cl.exe $(CLOPT) $(DIRSRC)\primitives.cpp
  
 entities.obj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.obj
  @cl.exe $(CLOPT) $(DIRSRC)\entities.cpp
- 
-interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h entities.obj primitives.obj
- @cl.exe $(CLOPT) $(DIRSRC)\interfaces.cpp
- 
-win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h primitives.obj entities.obj interfaces.obj
- @cl.exe $(CLOPT) $(DIRSRC)\win32.cpp
- 
-fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h interfaces.obj
- @cl.exe $(CLOPT) $(DIRSRC)\fbxutil.cpp
- 
+
 imgjpg.obj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
  @cl.exe $(CLOPT) $(DIRSRC)\imgjpg.cpp
  
@@ -33,20 +34,27 @@ imgpng.obj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
 imgtga.obj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
  @cl.exe $(CLOPT) $(DIRSRC)\imgtga.cpp
  
-engine.lib: primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj
- @echo engine.lib
- @lib.exe /nologo /OUT:engineWin32.lib /NAME:engine.dll primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj
-
-#engine.dll: engine.lib
+fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h interfaces.obj
+ @cl.exe $(CLOPT) $(DIRSRC)\fbxutil.cpp
+ 
+#engine.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj
 # @echo engine.dll
-# @link.exe $(LKOPT) /DLL /OUT:engine.dll *.obj engine.lib libfbxsdk-md.lib $(WIN32LIBD) $(OPENGLLIB)
+# @link.exe $(LKOPT) /DLL /OUT:engine.dll primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj kernel32.lib
 
-engine.exe: *.obj
+interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h entities.obj primitives.obj
+ @cl.exe $(CLOPT) $(DIRSRC)\interfaces.cpp
+ 
+win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h primitives.obj entities.obj interfaces.obj
+ @cl.exe $(CLOPT) $(DIRSRC)\win32.cpp
+ 
+#engine.lib: primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj
+# @echo engine.lib
+# @lib.exe /nologo /OUT:engineWin32.lib /NAME:engine.dll primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj
+
+engine.exe: primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj interfaces.obj win32.obj 
  @echo engine.exe
- @link.exe $(LKOPT) /OUT:engine.exe primitives.obj entities.obj interfaces.obj imgpng.obj imgtga.obj imgjpg.obj win32.obj fbxutil.obj $(WIN32LIBD) $(OPENGLLIB)
+ @link.exe $(LKOPT) /OUT:engine.exe engine.lib primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj interfaces.obj win32.obj $(WIN32LIBD)
 
-#all: primitives.obj entities.obj interfaces.obj imgjpg.obj imgpng.obj imgtga.obj win32.obj fbxutil.obj engine.lib engine.dll engine.exe
-all: primitives.obj entities.obj interfaces.obj imgjpg.obj imgpng.obj imgtga.obj win32.obj fbxutil.obj engine.lib engine.exe
 
 clean:
  @echo cleaning $(DIRDST)...

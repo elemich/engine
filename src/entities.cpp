@@ -47,7 +47,7 @@ bool File::Open(const char* mode)
 	if(!this->path.Count() || this->IsOpen())
 		return false;
 
-	this->data=fopen(path,mode);
+	this->data=fopen(path.Buffer(),mode);
 
 	if(!data)
 		return false;
@@ -70,7 +70,7 @@ bool File::Exist()
 	if(!this->path.Count())
 		return false;
 
-	return File::Exist(this->path);
+	return File::Exist(this->path.Buffer());
 }
 
 int File::Size()
@@ -89,7 +89,7 @@ int File::Size()
 		if(!this->path.Count())
 			return -1;
 
-		result=File::Size(this->path);
+		result=File::Size(this->path.Buffer());
 	}
 
 	return result;
@@ -97,13 +97,13 @@ int File::Size()
 
 bool File::Create()
 {
-	return File::Create(this->path);
+	return File::Create(this->path.Buffer());
 }
 
 bool File::Delete()
 {
 	if(this->path.Count())
-		return !::remove(this->path);
+		return !::remove(this->path.Buffer());
 	return false;
 }
 
@@ -1203,7 +1203,13 @@ TextureProcedural::TextureProcedural()
 
 EntityScript::EntityScript():entity(0){}
 
-Entity::Entity():parent(0){}
+Entity::Entity():
+	entitydata(CreateEntityData()),
+	parent((Entity*&)entitydata->parent),
+	childs((std::list<Entity*>&)entitydata->childs),
+	components((std::vector<EntityComponent*>&)entitydata->components)
+{}
+
 Entity::~Entity()
 {
 	this->SetParent(0);
@@ -1247,6 +1253,17 @@ void Entity::draw(Renderer3DBase* renderer)
 
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->draw(renderer);
+}
+
+
+
+bool DllMain(void*,unsigned int iReason,void*)
+{
+	if(iReason==1)//DLL_PROCESS_ATTACH
+	{
+		printf("engine dll loaded\n");
+		return true;
+	}
 }
 
 

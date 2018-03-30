@@ -340,8 +340,11 @@ struct EntityComponent : EntityBase
 
 struct Entity : EntityBase
 {
-	Entity*					parent;
-	std::list<Entity*>		childs;
+	EntityData* entitydata;
+
+	Entity*&					parent;
+	std::list<Entity*>&			childs;
+	std::vector<EntityComponent*>& components;
 
 	mat4					local;
 	mat4					world;
@@ -353,7 +356,7 @@ struct Entity : EntityBase
 	Entity();
 	~Entity();
 
-	std::vector<EntityComponent*> components;
+	
 
 	virtual void SetParent(Entity* iParent);
 	virtual void update();

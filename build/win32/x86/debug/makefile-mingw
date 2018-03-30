@@ -20,58 +20,57 @@ MINGWINCLUDES=$(SDKDIR)\mingw64\x86_64-w64-mingw32\include
 INCPATH=-I $(OPENGLSDK) -I $(FBXSDK) -I $(MINGWINCLUDES)
 LIBPATH=-L$(MINGWDIR)\x86_64-w64-mingw32\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
 
-#CLOPT=-w $(INCPATH) -c 
-CLOPT=-O0 $(INCPATH) -c 
+#CLOPT=-w $(INCPATH) -c
+CLOPT=-O0 $(INCPATH) -c
 LKOPT=-static
 
 WIN32LIBD=-luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32
 FBXLIB=-llibfbxsdk-md -ladvapi32
 
 #all: primitivesobj entitiesobj interfacesobj imgjpgobj imgpngobj imgtgaobj win32obj fbxutilobj engine.lib engine.dll engine.exe
-all: primitivesobj entitiesobj imgjpgobj imgpngobj imgtgaobj enginelib 
+all: primitivesobj entitiesobj imgjpgobj imgpngobj imgtgaobj enginelib
 
 primitivesobj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
- 
+
 entitiesobj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
 	$(COMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
- 
+
 #interfacesobj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h entities.o primitives.o
 #	$(COMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
-# 
+#
 #win32obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h primitives.o entities.o interfaces.o
 #	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
-# 
+#
 #fbxutilobj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h interfaces.o
 #	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
-# 
+#
 imgjpgobj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
- 
+
 imgpngobj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
- 
+
 imgtgaobj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
- 
+
 enginelib: primitives.o entities.o imgjpg.o imgtga.o imgpng.o
 	$(warning engineMingW.lib)
-	$(ARCHIVER) -mc engineMingW.lib primitives.o entities.o imgjpg.o imgtga.o imgpng.o
-	
+	$(COMPILER) -shared -o engineMingW.dll engine.dll primitives.o entities.o imgjpg.o imgtga.o imgpng.o
+
 #engine.dll: engine.lib
 #	$(warning engine.dll)
 #	$(LINKER) $(LKOPT) $(LIBPATH) -o engine.dll engine.lib $(WIN32LIBD)
-# 
+#
 #engine.exe: engine.dll engine.lib
 #	$(warning engine.exe)
 #	$(LINKER) $(LKOPT) -o engine.exe engine.lib $(WIN32LIBD)
-# 
+#
 #clean:
 #	@echo cleaning $(DIRDST)...
 #	@attrib +r makefile
 #	@del /Q *.* 0>NUL 1>NUL 2>NUL
 #	@attrib -r makefile
 #	@pause
- 
 
- 
+

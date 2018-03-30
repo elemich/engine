@@ -38,13 +38,9 @@
 	#define DEBUG_BREAK __debugbreak
 #endif
 
+struct Thread;
 
-#include <vector>
-#include <list>
-#include <functional>
-#include <algorithm>
-#include <cctype>
-#include <cstring> //for g++ str* functions
+#include "engine.h"
 
 struct THierarchy
 {
@@ -106,41 +102,12 @@ template <class T> std::vector<T*> TPoolVector<T>::pool;
 
 template<typename T> std::vector<T*>& GetPool(){return TPoolVector<T>::pool;}
 
-
-template<class T> struct SmartPointer
-{
-private:
-	T* _pointer;
-public:
-
-	SmartPointer(){_pointer=new T();}
-	~SmartPointer(){SAFEDELETE(_pointer);}
-
-	T& operator*(){return *_pointer;}
-	T* operator->(){return _pointer;}
-
-	void operator=(T* tp){_pointer=tp;}
-	void operator=(T& tp){_pointer=&tp;}
-};
-
-
-
-struct StringWide
-{
-	wchar_t *data;
-
-	StringWide():data(0){};
-	~StringWide(){SAFEDELETEARRAY(data);}
-
-	operator const wchar_t*(){return data;}
-};
-
 struct String
 {
-protected:
-	char* data;
-	size_t size;
-public:
+	StringData* stringdata;
+
+	char*& data;
+	size_t& size;
 
 	String();
 	String(const char* s);
@@ -156,21 +123,13 @@ public:
 
 	String& operator=(const char* s);
 	String& operator=(const String& s);
+	String& operator+=(const String&);
+
 	bool operator==(const char* s);
 	char operator[](int i);
-	String& operator+=(const String&);
 	
-	
-	
-	static String Random(int iCount);
-	operator char*()const;
-	operator float()const;
 	const int Count()const;
-	const char* Buf()const;
-	bool Contains(const char*);
-	bool Alloc(int iBytes);
-	bool Copy(const char* iChar);
-	//operator bool();
+	const char* Buffer()const;
 };
 
 struct FilePath : String
@@ -220,14 +179,19 @@ namespace Vector
 	void print(float* v);
 };
 
-struct vec2 : TNumberedVectorInterface<float,2>
+struct vec2
 {
-	float &x,&y;
+	vec2Data* vec2data;
+
+	float& x;
+	float& y;
 
 	vec2();
 	vec2(const vec2& a);
 	vec2(float fv[2]);
 	vec2(float x,float y);
+	~vec2();
+
 	vec2 operator=(vec2& a);
 	vec2 operator+(vec2& a);
 	vec2 operator-(vec2& a);
@@ -252,14 +216,19 @@ struct vec2 : TNumberedVectorInterface<float,2>
 };
 
 
-struct vec3 : TNumberedVectorInterface<float,3>
+struct vec3
 {
-	float &x,&y,&z;
+	vec3Data* vec3data;
+
+	float& x;
+	float& y;
+	float& z;
 
 	vec3();
 	vec3(const vec3& a);
 	vec3(float fv[3]);
 	vec3(float x,float y,float z);
+	~vec3();
 
 	float& operator[](int i);
 
@@ -299,9 +268,14 @@ struct vec3 : TNumberedVectorInterface<float,3>
 	bool iszero();
 };
 
-struct vec4 : TNumberedVectorInterface<float,4>
+struct vec4
 {
-	float &x,&y,&z,&w;
+	vec4Data* vec4data;
+
+	float& x;
+	float& y;
+	float& z;
+	float& w;
 
 	vec4();
 	vec4(const vec3& a);
@@ -309,6 +283,8 @@ struct vec4 : TNumberedVectorInterface<float,4>
 	vec4(float fv[4]);
 	vec4(float x,float y,float z,float t);
 	vec4(float x,float y,float z);
+	~vec4();
+
 	vec4& operator=(const vec4& a);
 	vec4& operator=(const vec3& a);
 	vec4 operator+(const vec4& a);
@@ -338,12 +314,13 @@ struct vec4 : TNumberedVectorInterface<float,4>
 
 
 
-struct AABB : TNumberedVectorInterface<vec3,2>
+struct AABB
 {
-	vec3 &a,&b;
+	vec3 a;
+	vec3 b;
 
-	AABB():a(v[0]),b(v[1]){}
-	AABB(vec3 aa,vec3 bb):a(v[0]),b(v[1]){a=aa;b=bb;}
+	AABB();
+	AABB(vec3 aa,vec3 bb);
 
 	bool Contains(vec3 iv);
 
@@ -406,22 +383,26 @@ namespace Matrix
 
 
 
-struct mat2 : TNumberedVectorInterface<float,4>
+struct mat2
 {
-	float &m11,&m12,&m21,&m22;
+	mat2Data* mat2data;
+
+	mat2();
+	~mat2();
 };
 
 
 
-struct mat3 : TNumberedVectorInterface<float,9>
+struct mat3
 {
 
-	float &m11,&m12,&m13,&m21,&m22,&m23,&m31,&m32,&m33;
+	mat3Data* mat3data;
 
 	mat3();
 	mat3(float*);
 	mat3(const mat3&);
 	mat3(mat4);
+	~mat3();
 
 	mat3& operator=(mat3);
 	mat3& operator=(mat4);
@@ -429,18 +410,19 @@ struct mat3 : TNumberedVectorInterface<float,9>
 	mat3& identity();
 
 	float* operator[](int i);
-	operator float* (){return v;}
+	operator float* (){return this->mat3data->v;}
 };
 
-struct mat4 : TNumberedVectorInterface<float,16>
+struct mat4
 {
-	//float &m11,&m12,&m13,&m14,&m21,&m22,&m23,&m24,&m31,&m32,&m33,&m34,&m41,&m42,&m43,&m44;
+	mat4Data* mat4data;
 
 	mat4();
 	mat4(const mat4&);
 	mat4(mat3);
 	mat4(const float*);
 	mat4(const double*);
+	~mat4();
 
 	mat4& operator=(const mat4&);
 	mat4& operator=(mat3);
@@ -487,7 +469,7 @@ struct mat4 : TNumberedVectorInterface<float,16>
 	mat4& perspective(float fov,float ratio,float near,float far);
 	//mat4& lookat(vec3 target,vec3 pos,vec3 up);
 	mat4& lookat(vec3 target,vec3 up=vec3(0,0,1));
-	operator float* (){return v;}
+	operator float* (){return this->mat4data->v;}
 	mat4& ortho(float left, float right,float bottom, float top,float near, float far);
 	void zero();
 };
@@ -544,43 +526,45 @@ struct MatrixStack
 
 struct Timer : TStaticInstance<Timer>
 {
-	unsigned int currentFrameTime;
-	unsigned int currentFrameDeltaTime;
-	unsigned int lastFrameTime;
-	unsigned int renderFps;
+	TimerData* timerdata;
 
-	Timer():renderFps(60){}
+	unsigned int& currentFrameTime;
+	unsigned int& currentFrameDeltaTime;
+	unsigned int& lastFrameTime;
+	unsigned int& renderFps;
+
+	Timer();
 
 	virtual unsigned int GetTime()=0;
 
 	virtual void update(){};
 };
 
-//threading 
-
-
-struct ThreadPool;
-struct Thread;
 
 struct Task
 {
-	std::function<void()> func;
-	bool remove;
-	bool executing;
-	bool pause;
-	Thread* owner;
+	TaskData* taskdata;
+
+	std::function<void()>& func;
+	bool& remove;
+	bool& executing;
+	bool& pause;
+	Thread*& owner;
+
+	Task();
 
 	void Block(bool);
 };
 
 struct Thread  : TPoolVector<Thread>
 {
-	
-	int id;
-	bool pause;
-	std::list<Task*> tasks;
-	Task* executing;
-	unsigned int sleep;
+	ThreadData* threaddata;
+
+	int& id;
+	bool& pause;
+	std::list<Task*>& tasks;
+	Task*& executing;
+	unsigned int& sleep;
 
 	Thread();
 	virtual ~Thread();

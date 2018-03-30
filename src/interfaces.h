@@ -487,13 +487,10 @@ struct GuiRect : THierarchyVector<GuiRect>
 	GuiString* Text(String str,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignText=vec2(-1,-1));
 	GuiString* Text(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
 
-	GuiPropertyString* Property(const char* iLeft,String& iRight);
-	GuiPropertyVec3* Property(const char* iLeft,vec3& iRight);
-	GuiPropertyPtr* Property(const char* iLeft,void* iRight);
-	GuiPropertyFloat* Property(const char* iLeft,float& iRight);
-	GuiPropertyBool* Property(const char* iLeft,bool& iRight);
-	GuiPropertyAnimationController* Property(AnimationController&);
-	GuiPropertySlider* Property(const char* iLeft,float& ref,float& imin,float& imax);
+	GuiPropertyString* Property(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=3,unsigned int iValueParameter2=2);
+	
+	GuiPropertyAnimationController* AnimationControllerProperty(AnimationController&);
+	GuiPropertySlider* SliderProperty(const char* iDescription,float& ref,float& imin,float& imax);
 
 	GuiViewport* Viewport(vec3 pos=vec3(100,100,100),vec3 target=vec3(0,0,0),vec3 up=vec3(0,0,1),bool perspective=true);
 	GuiSceneViewer* SceneViewer();
@@ -630,45 +627,34 @@ struct GuiProperty : GuiRect
 
 struct GuiPropertyString : GuiProperty
 {
-	String& val;
+	static const unsigned int scDefaultParameter1=3;
+	static const unsigned int scDefaultParameter2=2;
 
-	GuiPropertyString(String& iVal):val(iVal){this->name="PropertyString";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
+	enum 
+	{
+		STRING=0,
+		BOOL,
+		INT,
+		FLOAT,
+		VEC2,
+		VEC3,
+		VEC4,
+		PTR,
+		MAT4POS,
+		ENTITYVECSIZE,
+		ANIMATIONVECSIZE,
+		ISBONECOMPONENT,
+		FLOAT2MINUSFLOAT1,
+		MAXVALUE
+	};
 
-	virtual void OnPaint(Tab*,void* data=0);
-};
+	void* valuePointer1;
+	void* valuePointer2;
+	unsigned int valueType;
+	unsigned char valueParameter1;
+	unsigned char valueParameter2;
 
-struct GuiPropertyFloat : GuiProperty
-{
-	float& val;
-
-	GuiPropertyFloat(float& iVal):val(iVal){this->name="GuiPropertyFloat";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
-
-	virtual void OnPaint(Tab*,void* data=0);
-};
-
-struct GuiPropertyVec3 : GuiProperty
-{
-	vec3& val;
-
-	GuiPropertyVec3(vec3& iVal):val(iVal){this->name="GuiPropertyVec3";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
-
-	virtual void OnPaint(Tab*,void* data=0);
-};
-
-struct GuiPropertyPtr : GuiProperty
-{
-	void* val;
-
-	GuiPropertyPtr(void* iVal):val(iVal){this->name="GuiPropertyPtr";this->Set(0,0,0,-1,0,0,0,20,0,0,1,-1);}
-
-	virtual void OnPaint(Tab*,void* data=0);
-};
-
-struct GuiPropertyBool : GuiProperty
-{
-	bool& val;
-
-	GuiPropertyBool(bool& iVal):val(iVal){this->name="GuiPropertyBool";}
+	GuiPropertyString(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
 
 	virtual void OnPaint(Tab*,void* data=0);
 };
@@ -677,7 +663,7 @@ struct GuiPropertySlider : GuiProperty
 {
 	GuiSlider slider;
 
-	GuiPropertySlider(float& iRefVal,float& iMin,float& iMax):slider(iRefVal,iMin,iMax){this->name="PropertySlider";this->Set(0,0,0,-1,0,0,0,25,0,0,1,-1);this->slider.Set(this,0,0,-1,0,0,0,0,0.5f,0,0.5f,1);}
+	GuiPropertySlider(const char* iDescription,float& iRefVal,float& iMin,float& iMax);
 
 	virtual void OnPaint(Tab*,void* data=0);
 };
@@ -1310,7 +1296,7 @@ struct EditorScript : EditorObject<Script>
 	//for the debugger
 	void update()
 	{
-		this->runtime ? this->runtime->update()/*EngineIDE::instance->debugger->RunDebuggeeFunction(this,1)*/,true : false;
+		this->runtime ? EngineIDE::instance->debugger->RunDebuggeeFunction(this,1),true : false;
 	}
 };
 struct EditorCamera : EditorObject<Camera>
