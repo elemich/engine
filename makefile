@@ -8,7 +8,7 @@ x86d:
  @echo project dir: $(DIRPROJ)
  @cd $(DIRDST)
  @nmake.exe /NOLOGO /S all DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
- @$(MAKEDIR)\build-mingw.bat
+ @mingw32-make -f $(MAKEDIR)\makefile-mingw x86d CURDIR=$(MAKEDIR) all
  
 x86r:
  cd build\win32\x86\release
