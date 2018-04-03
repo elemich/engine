@@ -3,5 +3,5 @@ DIRSRC=$(DIRPROJ)\src
 DIRDST=$(DIRPROJ)\build\win32\x86\debug
 
 x86d:
-	$(MAKE) -C $(CURDIR)\build\win32\x86\debug -f makefile-mingw DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST) all
+	$(MAKE) -C $(CURDIR)\build\win32\x86\debug -f makefile-mingw DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST) engineMingW.dll
  

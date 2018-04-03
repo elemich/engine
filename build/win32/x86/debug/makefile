@@ -2,7 +2,7 @@ INCPATH=/Ic:\sdk\OpenGL "/Ic:\sdk\Autodesk\FBX\FBX SDK\2014.1\include"
 LIBPATH="/LIBPATH:c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\debug" "/LIBPATH:C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\lib" 
 
 CLOPT=/Qsafe_fp_loads /Od /MDd /ZI /W0 /nologo /EHsc $(INCPATH) -c
-LKOPT=/nologo /DEBUG /MACHINE:x86 /SUBSYSTEM:CONSOLE $(LIBPATH) 
+LKOPT=/nologo /DEBUG /MANIFEST:NO /MACHINE:x86 /SUBSYSTEM:CONSOLE $(LIBPATH) 
 
 WIN32LIBD=user32.lib opengl32.lib kernel32.lib D3D11.lib d2d1.lib Dwrite.lib Ole32.lib Windowscodecs.lib Comdlg32.lib Gdi32.lib Shlwapi.lib Winmm.lib Comctl32.lib Shell32.lib
 OPENGLLIB=libfbxsdk-md.lib advapi32.lib
@@ -51,7 +51,7 @@ win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h primitives.obj entities.obj int
 # @echo engine.lib
 # @lib.exe /nologo /OUT:engineWin32.lib /NAME:engine.dll primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj
 
-engine.exe: primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj interfaces.obj win32.obj 
+engine.exe: primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj interfaces.obj win32.obj
  @echo engine.exe
  @link.exe $(LKOPT) /OUT:engine.exe engine.lib primitives.obj entities.obj imgpng.obj imgtga.obj imgjpg.obj interfaces.obj win32.obj $(WIN32LIBD)
 
