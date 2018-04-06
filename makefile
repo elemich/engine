@@ -7,7 +7,7 @@ DELTMP=debug
 x86d:
  @echo project dir: $(DIRPROJ)
  @cd $(DIRDST)
- @nmake.exe /NOLOGO /S all DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
+ @nmake.exe /NOLOGO /S engine.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
  @mingw32-make -s -f $(MAKEDIR)\makefile-mingw x86d CURDIR=$(MAKEDIR)
  
 x86r:

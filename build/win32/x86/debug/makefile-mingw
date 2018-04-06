@@ -46,8 +46,8 @@ imgtga.o: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
 	$(warning imgtga.o)
 	$(COMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
 
-engineMingW.dll: primitives.o entities.o imgjpg.o imgtga.o imgpng.o
+engineMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o
 	$(warning engineMingW.dll)
-	$(COMPILER) -shared -o engineMingW.dll engine.dll primitives.o entities.o imgjpg.o imgtga.o imgpng.o
+	$(COMPILER) -shared -o engineMingW.dll engineWin32.dll primitives.o entities.o imgjpg.o imgpng.o imgtga.o -Wl,--out-implib,engineMingW.a
 
 

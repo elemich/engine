@@ -1,13 +1,13 @@
 #ifndef WIN32_H
 #define WIN32_H
 
-struct TabWin32;
-struct ContainerWin32;
-struct Renderer2DWin32;
+
 
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 //#pragma warning(disable:4996) //
+
+#define _CRT_SECURE_NO_WARNINGS
 
 #include <windows.h>
 #include <windowsx.h>
@@ -37,6 +37,13 @@ struct Renderer2DWin32;
 
 #include "interfaces.h"
 
+DLLBUILD void ___saferelease(IUnknown* iPtr);
+
+#define SAFERELEASE(_ptr) ___saferelease(_ptr)
+
+struct DLLBUILD TabWin32;
+struct DLLBUILD ContainerWin32;
+struct DLLBUILD Renderer2DWin32;
 
 #define SPLITTER_DEBUG true
 #define BROWSER_DEBUG true
@@ -58,7 +65,7 @@ struct Renderer2DWin32;
 
 void glCheckError();
 
-struct Direct2D
+struct DLLBUILD Direct2D
 {
 	static ID2D1Factory			*factory;
 	static IWICImagingFactory	*imager;
@@ -98,7 +105,7 @@ struct Direct2D
 
 
 
-struct ThreadWin32 : Thread
+struct DLLBUILD ThreadWin32 : Thread
 {
 	HANDLE handle;
 
@@ -107,7 +114,7 @@ struct ThreadWin32 : Thread
 };
 
 
-struct GuiImageWin32 : GuiImage
+struct DLLBUILD GuiImageWin32 : GuiImage
 {
 	GuiImageWin32();
 	~GuiImageWin32();
@@ -118,12 +125,12 @@ struct GuiImageWin32 : GuiImage
 	bool Fill(Renderer2D*,unsigned char* iData,float iWidth,float iHeight);
 };
 
-struct Renderer2DWin32 : Renderer2D
+struct DLLBUILD Renderer2DWin32 : Renderer2D
 {
 	ID2D1HwndRenderTarget*		renderer;
 	ID2D1SolidColorBrush*		brush;
 
-	struct CaretWin32 : Caret
+	struct DLLBUILD CaretWin32 : Caret
 	{
 		ID2D1Bitmap* background;
 
@@ -167,7 +174,7 @@ struct Renderer2DWin32 : Renderer2D
 	void EnableCaret(bool);
 };
 
-struct Renderer3DOpenGL : Renderer3D
+struct DLLBUILD Renderer3DOpenGL : Renderer3D
 {
 	GLuint vertexArrayObject;
 	GLuint vertexBufferObject;
@@ -226,7 +233,7 @@ struct Renderer3DOpenGL : Renderer3D
 
 
 
-struct DirectXRenderer : WindowData ,  Renderer3D
+struct DLLBUILD DirectXRenderer : WindowData ,  Renderer3D
 {
 	HINSTANCE               hInst;
 	D3D_DRIVER_TYPE         driverType;
@@ -259,7 +266,7 @@ struct DirectXRenderer : WindowData ,  Renderer3D
 	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot){}
 };
 
-struct WindowDataWin32 : WindowData
+struct DLLBUILD WindowDataWin32 : WindowData
 {
 	HWND hwnd;
 	UINT msg;
@@ -284,7 +291,7 @@ struct WindowDataWin32 : WindowData
 
 
 
-struct TabWin32 : Tab
+struct DLLBUILD TabWin32 : Tab
 {
 	WindowDataWin32*& windowDataWin32;
 	ContainerWin32*& editorWindowContainerWin32;
@@ -317,7 +324,7 @@ struct TabWin32 : Tab
 	
 };
 
-struct SplitterWin32 : Splitter 
+struct DLLBUILD SplitterWin32 : Splitter 
 {
 	TabWin32*& currentTabContainerWin32;
 
@@ -355,7 +362,7 @@ struct SplitterWin32 : Splitter
 	void DestroyFloatingTab();
 };
 
-struct ContainerWin32 : Container
+struct DLLBUILD ContainerWin32 : Container
 {
 	ContainerWin32();
 
@@ -368,7 +375,7 @@ struct ContainerWin32 : Container
 	TabWin32* CreateTabContainer(float x,float y,float w,float h);
 };
 
-struct MainContainerWin32 : MainContainer
+struct DLLBUILD MainContainerWin32 : MainContainer
 {
 	static LRESULT CALLBACK MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
@@ -380,13 +387,15 @@ struct MainContainerWin32 : MainContainer
 	ContainerWin32* CreateContainer();
 };
 
-struct TimerWin32 : Timer
+struct DLLBUILD TimerWin32 : Timer
 {
+	TimerWin32();
+
 	virtual void update();
 	virtual unsigned int GetTime();
 };
 
-struct EngineIDEWin32 : EngineIDE
+struct DLLBUILD EngineIDEWin32 : EngineIDE
 {
 	EngineIDEWin32();
 
@@ -403,7 +412,7 @@ struct EngineIDEWin32 : EngineIDE
 	void Sleep(int iMilliseconds=1);
 };
 
-struct SubsystemWin32 : Subsystem
+struct DLLBUILD SubsystemWin32 : Subsystem
 {
 	bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false);
 	unsigned int FindProcessId(String iProcessName);
@@ -411,7 +420,7 @@ struct SubsystemWin32 : Subsystem
 };
 
 
-struct CompilerWin32 : Compiler
+struct DLLBUILD CompilerWin32 : Compiler
 {
 	CompilerWin32();
 
@@ -426,7 +435,7 @@ struct CompilerWin32 : Compiler
 	String CreateRandomDir(String iDirWhere);
 };
 
-struct DebuggerWin32 : Debugger
+struct DLLBUILD DebuggerWin32 : Debugger
 {
 	HANDLE debuggeeThread;
 	DWORD  debuggeeThreadId;

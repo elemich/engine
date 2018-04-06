@@ -12,7 +12,9 @@ Renderer3DBase::Renderer3DBase():
 	unlit_texture(0),
 	font(0),
 	shaded_texture(0),
-	picking(false)
+	picking(false),
+	_shaders(new std::vector<Shader*>),
+	shaders(*_shaders)
 {
 
 }
@@ -47,7 +49,7 @@ bool File::Open(const char* mode)
 	if(!this->path.Count() || this->IsOpen())
 		return false;
 
-	this->data=fopen(path.Buffer(),mode);
+	this->data=fopen(path,mode);
 
 	if(!data)
 		return false;
@@ -70,7 +72,7 @@ bool File::Exist()
 	if(!this->path.Count())
 		return false;
 
-	return File::Exist(this->path.Buffer());
+	return File::Exist(this->path);
 }
 
 int File::Size()
@@ -89,7 +91,7 @@ int File::Size()
 		if(!this->path.Count())
 			return -1;
 
-		result=File::Size(this->path.Buffer());
+		result=File::Size(this->path);
 	}
 
 	return result;
@@ -97,13 +99,13 @@ int File::Size()
 
 bool File::Create()
 {
-	return File::Create(this->path.Buffer());
+	return File::Create(this->path);
 }
 
 bool File::Delete()
 {
 	if(this->path.Count())
-		return !::remove(this->path.Buffer());
+		return !::remove(this->path);
 	return false;
 }
 
@@ -466,8 +468,13 @@ int File::Write(void* iData,int iSize,int iNum)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Shader::Shader()
-{}
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+Shader::Shader(){}
 
 Shader* Shader::Find(const char* name,bool exact)
 {
@@ -508,24 +515,43 @@ bone(0),
 {}
 
 KeyCurve::KeyCurve():
-channel(INVALID_CHANNEL),
+	_frames(new std::vector<Keyframe*>),
+	frames(*_frames),
+	channel(INVALID_CHANNEL),
 	start(-1),
 	end(-1)
 {}
 
+KeyCurve::~KeyCurve()
+{
+	SAFEDELETE(this->_frames);
+}
 
 
 AnimClip::AnimClip():
-start(-1),
+	_curves(new std::vector<KeyCurve*>),
+	curves(*_curves),
+	start(-1),
 	end(-1)
 {}
 
+AnimClip::~AnimClip()
+{
+	SAFEDELETE(this->_curves);
+}
+
 Animation::Animation():
-entity(0),
+	entity(0),
 	clipIdx(0),
 	start(-1),
-	end(-1)
+	end(-1),
+	_clips(new std::vector<AnimClip*>),
+	clips(*_clips)
+{}
+
+Animation::~Animation()
 {
+	SAFEDELETE(this->_clips);
 }
 
 void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
@@ -559,6 +585,24 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 
 
 	return P * x3 + Q * x2 + R * x + S;
+}
+
+AnimationController::AnimationController():
+	_animations(new std::vector<Animation*>),
+	animations(*_animations),
+	speed(1),
+	cursor(0),
+	play(false),
+	looped(true),
+	start(0),
+	end(0),
+	lastFrameTime(0),
+	resolutionFps(60)
+{}
+
+AnimationController::~AnimationController()
+{
+	SAFEDELETE(this->_animations);
 }
 
 
@@ -755,28 +799,37 @@ light_cast(0),
 ///////////////////////////////////////////////
 
 
-Material::Material()
-{
-	Vector::make(emissive,3,0.2f,0.2f,0.2f);
-	Vector::make(diffuse,3,0.2f,0.2f,0.2f);
-	Vector::make(normalmap,3,0.2f,0.2f,0.2f);
-	Vector::make(bump,3,0.2f,0.2f,0.2f);
-	Vector::make(transparent,3,0.2f,0.2f,0.2f);
-	Vector::make(displacement,3,0.2f,0.2f,0.2f);
-	Vector::make(ambient,3,0.2f,0.2f,0.2f);
-	Vector::make(specular,3,0,0,0);
-	Vector::make(reflection,3,0,0,0);
+Material::Material():
+	_textures(new std::vector<Texture*>),
+	textures(*_textures),
+	emissive(0.2f,0.2f,0.2f),
+	diffuse(0.2f,0.2f,0.2f),
+	normalmap(0.2f,0.2f,0.2f),
+	bump(0.2f,0.2f,0.2f),
+	transparent(0.2f,0.2f,0.2f),
+	displacement(0.2f,0.2f,0.2f),
+	ambient(0.2f,0.2f,0.2f),
+	specular(0,0,0),
+	reflection(0,0,0),
+	fbump(0),
+	femissive(0),
+	fambient(0),
+	fdiffuse(0),
+	ftransparent(0),
+	fdisplacement(0),
+	fspecular(0),
+	freflection(0),
+	fshininess(0)
+{}
 
-	fbump=0;
-	femissive=0;
-	fambient=0;
-	fdiffuse=0;
-	ftransparent=0;
-	fdisplacement=0;
-	fspecular=0;
-	freflection=0;
-	fshininess=0;
+Material::~Material()
+{
+	SAFEDELETE(this->_textures);
 }
+
+Material* Material::GetMaterial(){return this;}
+
+void Material::update(){};
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -785,7 +838,7 @@ Material::Material()
 ///////////////////////////////////////////////
 
 Mesh::Mesh():
-controlpoints(NULL),
+	controlpoints(NULL),
 	ncontrolpoints(0),
 	vertexindices(0),
 	nvertexindices(0),
@@ -796,8 +849,15 @@ controlpoints(NULL),
 	npolygons(0),
 	colors(NULL),
 	ncolors(0),
-	isCCW(true)
+	isCCW(true),
+	_materials(new std::vector<Material*>),
+	materials(*_materials)
 {
+}
+
+Mesh::~Mesh()
+{
+	SAFEDELETE(this->_materials);
 }
 
 
@@ -1180,15 +1240,9 @@ int TextureFile::GetBpp()
 
 
 
-TextureLayered::TextureLayered()
-{
+TextureLayered::TextureLayered():_textures(new std::vector<Texture*>),textures(*_textures){}
 
-}
-
-TextureProcedural::TextureProcedural()
-{
-
-}
+TextureProcedural::TextureProcedural(){}
 
 
 
@@ -1203,13 +1257,7 @@ TextureProcedural::TextureProcedural()
 
 EntityScript::EntityScript():entity(0){}
 
-Entity::Entity():
-	entitydata(CreateEntityData()),
-	parent((Entity*&)entitydata->parent),
-	childs((std::list<Entity*>&)entitydata->childs),
-	components((std::vector<EntityComponent*>&)entitydata->components)
-{}
-
+Entity::Entity():parent(0),_childs(new std::list<Entity*>),_components(new std::vector<EntityComponent*>),childs(*_childs),components(*_components){}
 Entity::~Entity()
 {
 	this->SetParent(0);
@@ -1219,6 +1267,9 @@ Entity::~Entity()
 
 	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
 		SAFEDELETE(*tEn);
+
+	SAFEDELETE(this->_childs);
+	SAFEDELETE(this->_components);
 }
 
 void Entity::SetParent(Entity* iParent)
@@ -1256,7 +1307,6 @@ void Entity::draw(Renderer3DBase* renderer)
 }
 
 
-
 bool DllMain(void*,unsigned int iReason,void*)
 {
 	if(iReason==1)//DLL_PROCESS_ATTACH
@@ -1265,5 +1315,3 @@ bool DllMain(void*,unsigned int iReason,void*)
 		return true;
 	}
 }
-
-

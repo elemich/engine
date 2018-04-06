@@ -1,18 +1,23 @@
 #include "primitives.h"
 
-
 #include <cstdio>
 #include <cstdlib>
 #include <typeinfo>
 #include <cmath>
 
+#include "templates.h"
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////THierarchyVector////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 
+String::String():data(0),size(0){}
 
-String::String():stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size){}
 
-
-String::String(char* iCharP,int iSize):stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size)
+String::String(char* iCharP,int iSize):data(0),size(0)
 {
 	this->size=iSize;
 	this->data=new char[this->size+1];
@@ -21,7 +26,7 @@ String::String(char* iCharP,int iSize):stringdata(CreateStringData()),data(strin
 }
 
 
-String::String(const char* iCharP):stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size)
+String::String(const char* iCharP):data(0),size(0)
 {
 	if(iCharP)
 	{
@@ -31,7 +36,7 @@ String::String(const char* iCharP):stringdata(CreateStringData()),data(stringdat
 	}
 }
 
-String::String(const String& iString):stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size)
+String::String(const String& iString):data(0),size(0)
 {
     if(iString.data)
     {
@@ -41,7 +46,7 @@ String::String(const String& iString):stringdata(CreateStringData()),data(string
     }
 }
 
-String::String(const wchar_t* iWchar):stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size)
+String::String(const wchar_t* iWchar):data(0),size(0)
 {
 	if(iWchar)
 	{
@@ -56,7 +61,7 @@ String::String(const wchar_t* iWchar):stringdata(CreateStringData()),data(string
 	}
 }
 
-String::String(int number):stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size)
+String::String(int number)
 {
     char n[100];
     sprintf(n,"%i",number);
@@ -64,7 +69,7 @@ String::String(int number):stringdata(CreateStringData()),data(stringdata->data)
     this->data=new char[this->size+1];
     strcpy(this->data,n);
 }
-String::String(float scalar):stringdata(CreateStringData()),data(stringdata->data),size(stringdata->size)
+String::String(float scalar)
 {
     char n[100];
     sprintf(n,"%3.1f",scalar);
@@ -75,7 +80,8 @@ String::String(float scalar):stringdata(CreateStringData()),data(stringdata->dat
 
 String::~String()
 {
-	DeleteData(this->stringdata);
+	SAFEDELETEARRAY(this->data);
+	this->size=0;
 }
 
 String& String::operator=(const char* iChar)
@@ -134,6 +140,17 @@ String& String::operator+=(const String& iString)
 	return *this;
 }
 
+
+
+String::operator float()const
+{
+    return (float)atof(this->data);
+}
+
+String::operator char*()const
+{
+	return this->data;
+}
 const int String::Count()const
 {
 	return this->size;
@@ -142,7 +159,60 @@ const char* String::Buffer()const
 {
 	return this->data;
 }
+//String::operator bool(){return Buf();}
 
+bool String::Contains(const char* iString)
+{
+	return (!iString || !this->data) ? 0 : (strstr(this->data,iString) ? true : false);
+}
+
+
+bool String::Alloc(int iBytes)
+{
+	SAFEDELETE(this->data);
+	this->data=new char[iBytes+1];
+	this->data[iBytes]='\0';
+
+	return true;
+}
+
+bool String::Copy(const char* iChar)
+{
+	if(this->size==strlen(iChar))
+	{
+		strcpy(this->data,iChar);
+		return true;
+	}
+
+	return false;
+}
+
+
+
+String String::Random(int iCount)
+{
+	const char __an[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+
+	String ret;
+
+	char*& __ret=ret.data;
+	
+	__ret=new char[iCount+1];
+
+	unsigned int feed=*(unsigned int*)&__ret;
+	unsigned int anCount=sizeof(__an);
+	srand(feed);
+
+	for(int i=0;i<iCount;i++)
+	{
+		__ret[i]=__an[rand() % anCount];
+	}
+
+	__ret[iCount]='\0';
+	ret.size=iCount;
+
+	return ret;
+}
 
 
 String FilePath::File()
@@ -360,120 +430,112 @@ bool Vector::equal(const float *a,const float *b,int dim)
 }
 
 
-#define vec2refinit(v2data) x(v2data->v[0]),y(v2data->v[1])
 
 
-vec2::vec2():vec2data(CreateVec2Data()),vec2refinit(vec2data){Vector::make(this->vec2data->v,2,0,0);}
-vec2::vec2(const vec2& a):vec2data(CreateVec2Data()),vec2refinit(vec2data){Vector::copy(this->vec2data->v,a.vec2data->v,2);}
-vec2::vec2(float fv[2]):vec2data(CreateVec2Data()),vec2refinit(vec2data){Vector::copy(this->vec2data->v,fv,2);}
-vec2::vec2(float x,float y):vec2data(CreateVec2Data()),vec2refinit(vec2data){Vector::make(this->vec2data->v,2,x,y);}
-vec2::~vec2(){DeleteData(this->vec2data);}
 
-vec2 vec2::operator=(vec2& a){Vector::copy(this->vec2data->v,a.vec2data->v,2);return *this;}
-vec2 vec2::operator+(vec2& a){vec2 r;Vector::sum(r,a.vec2data->v,this->vec2data->v,2);return r;}
-vec2 vec2::operator-(vec2& a){vec2 r;Vector::subtract(r,a.vec2data->v,this->vec2data->v,2);return r;}
-bool vec2::operator==(vec2& a){return Vector::equal(a.vec2data->v,this->vec2data->v,2);}
-bool vec2::operator!=(vec2& a){return !Vector::equal(a.vec2data->v,this->vec2data->v,2);}
-float& vec2::operator[](int i){return this->vec2data->v[i];}
-void vec2::scale(float f){Vector::scale(this->vec2data->v,this->vec2data->v,f,2);}
-void vec2::scale(vec2 a){Vector::scale(this->vec2data->v,a.vec2data->v,this->vec2data->v,2);}
-vec2 vec2::minimum(vec2& a){vec2 r; Vector::minimum(r,a.vec2data->v,this->vec2data->v,2);return r;}
-vec2 vec2::maximum(vec2& a){vec2 r; Vector::maximum(r,a.vec2data->v,this->vec2data->v,2);return r;}
-float vec2::dot(vec2& a,vec2& b){return Vector::dot(a.vec2data->v,b.vec2data->v,2);}
-float vec2::dot(vec2& a){return Vector::dot(a.vec2data->v,this->vec2data->v,2);}
-float vec2::length(){return Vector::length(this->vec2data->v,2);}
-void vec2::normalize(){Vector::normalize(this->vec2data->v,this->vec2data->v,2);}
-void vec2::make(float a,float b){Vector::make(this->vec2data->v,2,a,b);}
-void vec2::negate(){Vector::negate(this->vec2data->v,this->vec2data->v,2);}
-String vec2::stringize(){char str[100];/*sprintf(str,"%g,%g",this->vec2data->v[0],this->vec2data->v[1]);*/String s(str);return s;}
-vec2::operator float* (){return this->vec2data->v;}
-vec2::operator void* (){return this;}
+vec2::vec2():x(v[0]),y(v[1]){Vector::make(v,2,0,0);}
+vec2::vec2(const vec2& a):x(v[0]),y(v[1]){Vector::copy(v,a.v,2);}
+vec2::vec2(float fv[2]):x(v[0]),y(v[1]){Vector::copy(v,fv,2);}
+vec2::vec2(float x,float y):x(v[0]),y(v[1]){Vector::make(v,2,x,y);}
+vec2 vec2::operator=(vec2& a){Vector::copy(v,a.v,2);return *this;}
+vec2 vec2::operator+(vec2& a){vec2 r;Vector::sum(r,a.v,v,2);return r;}
+vec2 vec2::operator-(vec2& a){vec2 r;Vector::subtract(r,a.v,v,2);return r;}
+bool vec2::operator==(vec2& a){return Vector::equal(a.v,v,2);}
+bool vec2::operator!=(vec2& a){return !Vector::equal(a.v,v,2);}
+float& vec2::operator[](int i){return v[i];}
+void vec2::scale(float f){Vector::scale(v,v,f,2);}
+void vec2::scale(vec2 a){Vector::scale(v,a.v,v,2);}
+vec2 vec2::minimum(vec2& a){vec2 r; Vector::minimum(r,a.v,v,2);return r;}
+vec2 vec2::maximum(vec2& a){vec2 r; Vector::maximum(r,a.v,v,2);return r;}
+float vec2::dot(vec2& a,vec2& b){return Vector::dot(a.v,b.v,2);}
+float vec2::dot(vec2& a){return Vector::dot(a.v,v,2);}
+float vec2::length(){return Vector::length(v,2);}
+void vec2::normalize(){Vector::normalize(v,v,2);}
+void vec2::make(float a,float b){Vector::make(v,2,a,b);}
+void vec2::negate(){Vector::negate(v,v,2);}
+String vec2::stringize(){char str[100];/*sprintf(str,"%g,%g",v[0],v[1]);*/String s(str);return s;}
+vec2::operator float* (){return v;}
+vec2::operator void* (){return v;}
+vec2::operator char* (){return stringize();}
 
 
-#define vec3refinit(v3data) x(v3data->v[0]),y(v3data->v[1]),z(v3data->v[2])
-
-vec3::vec3():vec3data(CreateVec3Data()),vec3refinit(vec3data){Vector::make(this->vec3data->v,3,0,0,0);}
-vec3::vec3(const vec3& a):vec3data(CreateVec3Data()),vec3refinit(vec3data){Vector::copy(this->vec3data->v,a.vec3data->v,3);}
-vec3::vec3(float fv[3]):vec3data(CreateVec3Data()),vec3refinit(vec3data){Vector::copy(this->vec3data->v,fv,3);}
-vec3::vec3(float x,float y,float z):vec3data(CreateVec3Data()),vec3refinit(vec3data){Vector::make(this->vec3data->v,3,x,y,z);}
-vec3::~vec3(){DeleteData(this->vec3data);}
-
-float& vec3::operator[](int i){return this->vec3data->v[i];}
-bool vec3::operator==(vec3 a){return Vector::equal(this->vec3data->v,a.vec3data->v,3);}
-bool vec3::operator==(vec3& a)const{return Vector::equal(a.vec3data->v,this->vec3data->v,3);}
-bool vec3::operator!=(vec3& a){return !Vector::equal(a.vec3data->v,this->vec3data->v,3);}
-vec3& vec3::operator=(vec3 a){Vector::copy(this->vec3data->v,a.vec3data->v,3);return *this;}
-vec3 vec3::operator+(vec3& a){vec3 r;Vector::sum(r,this->vec3data->v,a.vec3data->v,3);return r;}
-vec3& vec3::operator+=(vec3& a){Vector::sum(this->vec3data->v,this->vec3data->v,a.vec3data->v,3);return *this;}
-vec3 vec3::operator-(vec3& a){vec3 r;Vector::subtract(r,this->vec3data->v,a.vec3data->v,3);return r;}
-vec3 vec3::operator-(){vec3 r;Vector::negate(r,this->vec3data->v,3);return r;}
-vec3& vec3::operator-=(vec3& a){Vector::subtract(this->vec3data->v,this->vec3data->v,a.vec3data->v,3);return *this;}
-vec3 vec3::operator*(float f){vec3 g;Vector::scale(g,this->vec3data->v,f,3);return g;}
-vec3& vec3::operator*=(float f){Vector::scale(this->vec3data->v,this->vec3data->v,f,3);return *this;}
-vec3& vec3::scale(float f){Vector::scale(this->vec3data->v,this->vec3data->v,f,3);return *this;}
-vec3& vec3::scale(vec3 a){Vector::scale(this->vec3data->v,a.vec3data->v,this->vec3data->v,3);return *this;}
-vec3 vec3::minimum(vec3 a){vec3 r; Vector::minimum(r,a.vec3data->v,this->vec3data->v,3);return r;}
-vec3 vec3::maximum(vec3 a){vec3 r; Vector::maximum(r,a.vec3data->v,this->vec3data->v,3);return r;}
-float vec3::length(){return Vector::length(this->vec3data->v,3);}
-float vec3::dot(vec3& a,vec3& b){return Vector::dot(a.vec3data->v,b.vec3data->v,3);}
-vec3 vec3::cross(vec3& a,vec3& b){vec3 c;Vector::cross(c,a.vec3data->v,b.vec3data->v);return c;}
-vec3& vec3::normalize(){Vector::normalize(this->vec3data->v,this->vec3data->v,3);return *this;}
-vec3& vec3::make(float a,float b,float c){Vector::make(this->vec3data->v,3,a,b,c);return *this;}
+vec3::vec3():x(v[0]),y(v[1]),z(v[2]){Vector::make(v,3,0,0,0);}
+vec3::vec3(const vec3& a):x(v[0]),y(v[1]),z(v[2]){Vector::copy(v,a.v,3);}
+vec3::vec3(float fv[3]):x(v[0]),y(v[1]),z(v[2]){Vector::copy(v,fv,3);}
+vec3::vec3(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]){Vector::make(v,3,x,y,z);}
+float& vec3::operator[](int i){return v[i];}
+bool vec3::operator==(vec3 a){return Vector::equal(v,a.v,3);}
+bool vec3::operator==(vec3& a)const{return Vector::equal(a.v,v,3);}
+bool vec3::operator!=(vec3& a){return !Vector::equal(a.v,v,3);}
+vec3& vec3::operator=(vec3 a){Vector::copy(v,a.v,3);return *this;}
+vec3 vec3::operator+(vec3& a){vec3 r;Vector::sum(r,v,a.v,3);return r;}
+vec3& vec3::operator+=(vec3& a){Vector::sum(v,v,a.v,3);return *this;}
+vec3 vec3::operator-(vec3& a){vec3 r;Vector::subtract(r,v,a.v,3);return r;}
+vec3 vec3::operator-(){vec3 r;Vector::negate(r,v,3);return r;}
+vec3& vec3::operator-=(vec3& a){Vector::subtract(v,v,a.v,3);return *this;}
+vec3 vec3::operator*(float f){vec3 g;Vector::scale(g,v,f,3);return g;}
+vec3& vec3::operator*=(float f){Vector::scale(v,v,f,3);return *this;}
+vec3& vec3::scale(float f){Vector::scale(v,v,f,3);return *this;}
+vec3& vec3::scale(vec3 a){Vector::scale(v,a.v,v,3);return *this;}
+vec3 vec3::minimum(vec3 a){vec3 r; Vector::minimum(r,a.v,v,3);return r;}
+vec3 vec3::maximum(vec3 a){vec3 r; Vector::maximum(r,a.v,v,3);return r;}
+float vec3::length(){return Vector::length(v,3);}
+float vec3::dot(vec3& a,vec3& b){return Vector::dot(a.v,b.v,3);}
+vec3 vec3::cross(vec3& a,vec3& b){vec3 c;Vector::cross(c,a.v,b.v);return c;}
+vec3& vec3::normalize(){Vector::normalize(v,v,3);return *this;}
+vec3& vec3::make(float a,float b,float c){Vector::make(v,3,a,b,c);return *this;}
 //vec3& make(double a,double b,double c){VectorMathNamespace::make(v,3,(float)a,(float)b,(float)c);return *this;}
-vec3& vec3::negate(){Vector::negate(this->vec3data->v,this->vec3data->v,3);return *this;}
+vec3& vec3::negate(){Vector::negate(v,v,3);return *this;}
 String vec3::stringize(){
 	char str[100];
-	sprintf(str,"%g,%g,%g",this->vec3data->v[0],this->vec3data->v[1],this->vec3data->v[2]);
+	sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);
 	
 	return String(str);}
-vec3::operator float* (){return this->vec3data->v;}
-vec3::operator void* (){return this;}
+vec3::operator float* (){return v;}
+vec3::operator void* (){return v;}
 vec3::operator char* ()
 {return (char*)stringize().Buffer();}
-bool vec3::iszero(){return (this->vec3data->v[0]==0 && this->vec3data->v[1]==0 && this->vec3data->v[2]==0);}
+bool vec3::iszero(){return (v[0]==0 && v[1]==0 && v[2]==0);}
 
-#define vec4refinit(v4data) x(v4data->v[0]),y(v4data->v[1]),z(v4data->v[2]),w(v4data->v[3])
-
-vec4::vec4():vec4data(CreateVec4Data()),vec4refinit(vec4data){Vector::make(vec4data->v,4,0,0,0,0);}
-vec4::vec4(const vec3& a):vec4data(CreateVec4Data()),vec4refinit(vec4data){Vector::copy(vec4data->v,a.vec3data->v,3);}
-vec4::vec4(const vec4& a):vec4data(CreateVec4Data()),vec4refinit(vec4data){Vector::copy(vec4data->v,a.vec4data->v,4);}
-vec4::vec4(float fv[4]):vec4data(CreateVec4Data()),vec4refinit(vec4data){Vector::copy(vec4data->v,fv,4);}
-vec4::vec4(float x,float y,float z,float t):vec4data(CreateVec4Data()),vec4refinit(vec4data){Vector::make(vec4data->v,4,x,y,z,t);}
-vec4::vec4(float x,float y,float z):vec4data(CreateVec4Data()),vec4refinit(vec4data){Vector::make(vec4data->v,4,x,y,z,1.0f);}
-vec4::~vec4(){DeleteData(this->vec4data);}
-
-vec4& vec4::operator=(const vec4& a){Vector::copy(vec4data->v,a.vec4data->v,4);return *this;}
-vec4& vec4::operator=(const vec3& a){Vector::copy(vec4data->v,a.vec3data->v,3);vec4data->v[3]=1.0f;return *this;}
-vec4 vec4::operator+(const vec4& a){vec4 r;Vector::sum(r,a.vec4data->v,vec4data->v,4);return r;}
-vec4& vec4::operator+=(const vec4& a){Vector::sum(vec4data->v,vec4data->v,a.vec4data->v,4);return *this;}
-vec4 vec4::operator-(const vec4& a){vec4 r;Vector::subtract(r,a.vec4data->v,vec4data->v,4);return r;}
-vec4& vec4::operator-=(vec4& a){Vector::subtract(vec4data->v,vec4data->v,a.vec4data->v,4);return *this;}
-void vec4::scale(float f){Vector::scale(vec4data->v,vec4data->v,f,4);}
-void vec4::scale(vec4 a){Vector::scale(vec4data->v,a.vec4data->v,vec4data->v,4);}
-bool vec4::operator==(const vec4& a){return Vector::equal(a.vec4data->v,vec4data->v,4);}
-bool vec4::operator!=(const vec4& a){return !Vector::equal(a.vec4data->v,vec4data->v,4);}
-float& vec4::operator[](int i){return vec4data->v[i];}
-vec4 vec4::minimum(const vec4& a){vec4 r; Vector::minimum(r,a.vec4data->v,vec4data->v,4);return r;}
-vec4 vec4::maximum(const vec4& a){vec4 r; Vector::maximum(r,a.vec4data->v,vec4data->v,4);return r;}
-float vec4::length(){return Vector::length(vec4data->v,4);}
-float vec4::dot(const vec4& a,const vec4& b){return Vector::dot(a.vec4data->v,b.vec4data->v,4);}
-void vec4::normalize(){Vector::normalize(vec4data->v,vec4data->v,4);}
-void vec4::make(float a,float b,float c,float d){Vector::make(vec4data->v,4,a,b,c,d);}
-void vec4::negate(){Vector::negate(vec4data->v,vec4data->v,4);}
-String vec4::stringize(){char str[100];/*sprintf(str,"%g,%g,%g,%g",vec4data->v[0],vec4data->v[1],vec4data->v[2],vec4data->v[3]);*/String s(str);return s;}
-vec4::operator float* (){return vec4data->v;}
-vec4::operator void* (){return this;}
+vec4::vec4():x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,0,0,0,0);}
+vec4::vec4(const vec3& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::copy(v,a.v,3);w=0;}
+vec4::vec4(const vec4& a):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::copy(v,a.v,4);}
+vec4::vec4(float fv[4]):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::copy(v,fv,4);}
+vec4::vec4(float x,float y,float z,float t):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,x,y,z,t);}
+vec4::vec4(float x,float y,float z):x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,x,y,z,1.0f);}
+vec4& vec4::operator=(const vec4& a){Vector::copy(v,a.v,4);return *this;}
+vec4& vec4::operator=(const vec3& a){Vector::copy(v,a.v,3);v[3]=1.0f;return *this;}
+vec4 vec4::operator+(const vec4& a){vec4 r;Vector::sum(r,a.v,v,4);return r;}
+vec4& vec4::operator+=(const vec4& a){Vector::sum(v,v,a.v,4);return *this;}
+vec4 vec4::operator-(const vec4& a){vec4 r;Vector::subtract(r,a.v,v,4);return r;}
+vec4& vec4::operator-=(vec4& a){Vector::subtract(v,v,a.v,4);return *this;}
+void vec4::scale(float f){Vector::scale(v,v,f,4);}
+void vec4::scale(vec4 a){Vector::scale(v,a.v,v,4);}
+bool vec4::operator==(const vec4& a){return Vector::equal(a.v,v,4);}
+bool vec4::operator!=(const vec4& a){return !Vector::equal(a.v,v,4);}
+float& vec4::operator[](int i){return v[i];}
+vec4 vec4::minimum(const vec4& a){vec4 r; Vector::minimum(r,a.v,v,4);return r;}
+vec4 vec4::maximum(const vec4& a){vec4 r; Vector::maximum(r,a.v,v,4);return r;}
+float vec4::length(){return Vector::length(v,4);}
+float vec4::dot(const vec4& a,const vec4& b){return Vector::dot(a.v,b.v,4);}
+void vec4::normalize(){Vector::normalize(v,v,4);}
+void vec4::make(float a,float b,float c,float d){Vector::make(v,4,a,b,c,d);}
+void vec4::negate(){Vector::negate(v,v,4);}
+String vec4::stringize(){char str[100];/*sprintf(str,"%g,%g,%g,%g",v[0],v[1],v[2],v[3]);*/String s(str);return s;}
+vec4::operator float* (){return v;}
+vec4::operator void* (){return v;}
+vec4::operator char* (){return stringize();}
 vec4::operator long unsigned int()
 {
 	long unsigned int i;
-	i|=(((i>>0)|(unsigned char)((vec4data->v[0]<0 ? 0 : (vec4data->v[0]>1 ? 1 : vec4data->v[0]))*255))<<0);
-	i|=(((i>>8)|(unsigned char)((vec4data->v[1]<0 ? 0 : (vec4data->v[1]>1 ? 1 : vec4data->v[1]))*255))<<8);
-	i|=(((i>>16)|(unsigned char)((vec4data->v[2]<0 ? 0 : (vec4data->v[2]>1 ? 1 : vec4data->v[2]))*255))<<16);
-	i|=(((i>>24)|(unsigned char)((vec4data->v[3]<0 ? 0 : (vec4data->v[3]>1 ? 1 : vec4data->v[3]))*255))<<24);
+	i|=(((i>>0)|(unsigned char)((v[0]<0 ? 0 : (v[0]>1 ? 1 : v[0]))*255))<<0);
+	i|=(((i>>8)|(unsigned char)((v[1]<0 ? 0 : (v[1]>1 ? 1 : v[1]))*255))<<8);
+	i|=(((i>>16)|(unsigned char)((v[2]<0 ? 0 : (v[2]>1 ? 1 : v[2]))*255))<<16);
+	i|=(((i>>24)|(unsigned char)((v[3]<0 ? 0 : (v[3]>1 ? 1 : v[3]))*255))<<24);
 	return i;
 }
-vec4::operator vec3 (){return vec3(vec4data->v[0],vec4data->v[1],vec4data->v[2]);}
-vec4::operator vec2 (){return vec2(vec4data->v[0],vec4data->v[1]);}
+vec4::operator vec3 (){return vec3(x,y,z);}
+vec4::operator vec2 (){return vec2(x,y);}
 
 
 
@@ -995,113 +1057,119 @@ void Matrix::orientations(float* m,float* a,float* b,float*c)
     orientation(c,m,0,0,1);
 }
 
-mat2::mat2():mat2data(CreateMat2Data()){}
-mat2::~mat2(){DeleteData(this->mat2data);}
-
-mat3::mat3(float* a):mat3data(CreateMat3Data()){memcpy(mat3data->v,a,sizeof(float)*9);}
-mat3::mat3(const mat3& a):mat3data(CreateMat3Data()){memcpy(mat3data->v,a.mat3data->v,sizeof(float)*9);}
-mat3::mat3(mat4 a):mat3data(CreateMat3Data()){mat3data->v[0]=a.mat4data->v[0];mat3data->v[1]=a.mat4data->v[1],mat3data->v[2]=a.mat4data->v[2];mat3data->v[3]=a.mat4data->v[4];mat3data->v[4]=a.mat4data->v[5],mat3data->v[5]=a.mat4data->v[6];mat3data->v[6]=a.mat4data->v[8];mat3data->v[7]=a.mat4data->v[9],mat3data->v[8]=a.mat4data->v[10];}
-
-mat3::~mat3(){DeleteData(this->mat3data);}
 
 
-mat3& mat3::operator=(mat3 a){memcpy(mat3data->v,a,sizeof(float)*9);return *this;}
-mat3& mat3::operator=(mat4 a){mat3data->v[0]=a.mat4data->v[0];mat3data->v[1]=a.mat4data->v[1],mat3data->v[2]=a.mat4data->v[2];mat3data->v[3]=a.mat4data->v[4];mat3data->v[4]=a.mat4data->v[5],mat3data->v[5]=a.mat4data->v[6];mat3data->v[6]=a.mat4data->v[8];mat3data->v[7]=a.mat4data->v[9],mat3data->v[8]=a.mat4data->v[10];return *this;}
+#define init_mat2_references m11(v[0]),m12(v[1]),m21(v[2]),m22(v[3])
+#define init_mat3_references m11(v[0]),m12(v[1]),m13(v[2]),m21(v[3]),m22(v[4]),m23(v[5]),m31(v[6]),m32(v[7]),m33(v[8])
+#define init_mat4_references m11(v[0]),m12(v[1]),m13(v[2]),m14(v[3]),m21(v[4]),m22(v[5]),m23(v[6]),m24(v[7]),m31(v[8]),m32(v[9]),m33(v[10]),m34(v[11]),m41(v[12]),m42(v[13]),m43(v[14]),m44(v[15])
+
+
+mat3::mat3():init_mat3_references
+{
+	v[0]=1;v[1]=0,v[2]=0;
+	v[3]=0;v[4]=1,v[5]=0;
+	v[6]=0;v[7]=0,v[8]=1;
+}
+
+mat3::mat3(float* a):init_mat3_references{memcpy(v,a,sizeof(float)*9);}
+mat3::mat3(const mat3& a):init_mat3_references{memcpy(v,a.v,sizeof(float)*9);}
+mat3::mat3(mat4 a):init_mat3_references{v[0]=a.v[0];v[1]=a.v[1],v[2]=a.v[2];v[3]=a.v[4];v[4]=a.v[5],v[5]=a.v[6];v[6]=a.v[8];v[7]=a.v[9],v[8]=a.v[10];}
+
+mat3& mat3::operator=(mat3 a){memcpy(v,a,sizeof(float)*9);return *this;}
+mat3& mat3::operator=(mat4 a){v[0]=a.v[0];v[1]=a.v[1],v[2]=a.v[2];v[3]=a.v[4];v[4]=a.v[5],v[5]=a.v[6];v[6]=a.v[8];v[7]=a.v[9],v[8]=a.v[10];return *this;}
 
 mat3& mat3::identity()
 {
-	mat3data->v[0]=1;mat3data->v[1]=0,mat3data->v[2]=0;
-	mat3data->v[3]=0;mat3data->v[4]=1,mat3data->v[5]=0;
-	mat3data->v[6]=0;mat3data->v[7]=0,mat3data->v[8]=1;
+	v[0]=1;v[1]=0,v[2]=0;
+	v[3]=0;v[4]=1,v[5]=0;
+	v[6]=0;v[7]=0,v[8]=1;
 
 	return *this;
 }
 
 
-float* mat3::operator[](int i){return &mat3data->v[i*3];}
+float* mat3::operator[](int i){return &v[i*3];}
 
 
 
 
-mat4::mat4():mat4data(CreateMat4Data()){Matrix::identity(mat4data->v);};
-mat4::mat4(const mat4& mm):mat4data(CreateMat4Data()){Matrix::copy(mat4data->v,mm.mat4data->v);}
-mat4::mat4(const float* mm):mat4data(CreateMat4Data()){Matrix::copy(mat4data->v,mm);}
-mat4::mat4(const double* mm):mat4data(CreateMat4Data()){for(int i=0;i<16;i++)mat4data->v[i]=(float)mm[i];}
-mat4::mat4(mat3 a):mat4data(CreateMat4Data()){mat4data->v[0]=a.mat3data->v[0],mat4data->v[1]=a.mat3data->v[1],mat4data->v[2]=a.mat3data->v[2],mat4data->v[4]=a.mat3data->v[3],mat4data->v[5]=a.mat3data->v[4],mat4data->v[6]=a.mat3data->v[5],mat4data->v[8]=a.mat3data->v[7],mat4data->v[9]=a.mat3data->v[8],mat4data->v[10]=a.mat3data->v[9];mat4data->v[3]=mat4data->v[7]=mat4data->v[11]=mat4data->v[12]=mat4data->v[13]=mat4data->v[14]=0;mat4data->v[15]=1.0f;}
-mat4::~mat4(){DeleteData(this->mat4data);}
+mat4::mat4()/*:init_mat4_references*/{Matrix::identity(v);};
+mat4::mat4(const mat4& mm)/*:init_mat4_references*/{Matrix::copy(v,mm.v);}
+mat4::mat4(const float* mm)/*:init_mat4_references*/{Matrix::copy(v,mm);}
+mat4::mat4(const double* mm)/*:init_mat4_references*/{for(int i=0;i<16;i++)v[i]=(float)mm[i];}
+mat4::mat4(mat3 a)/*:init_mat4_references*/{v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;}
+mat4& mat4::operator=(mat3 a){v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;return *this;}
+mat4& mat4::operator=(const mat4& mm){Matrix::copy(v,mm.v);return *this;}
+bool mat4::operator==(mat4& mm){for(int i=0;i<16;i++){if(v[i]!=mm.v[i])return false;}return true;}
 
-mat4& mat4::operator=(mat3 a){mat4data->v[0]=a.mat3data->v[0],mat4data->v[1]=a.mat3data->v[1],mat4data->v[2]=a.mat3data->v[2],mat4data->v[4]=a.mat3data->v[3],mat4data->v[5]=a.mat3data->v[4],mat4data->v[6]=a.mat3data->v[5],mat4data->v[8]=a.mat3data->v[7],mat4data->v[9]=a.mat3data->v[8],mat4data->v[10]=a.mat3data->v[9];mat4data->v[3]=mat4data->v[7]=mat4data->v[11]=mat4data->v[12]=mat4data->v[13]=mat4data->v[14]=0;mat4data->v[15]=1.0f;return *this;}
-mat4& mat4::operator=(const mat4& mm){Matrix::copy(mat4data->v,mm.mat4data->v);return *this;}
-bool mat4::operator==(mat4& mm){for(int i=0;i<16;i++){if(mat4data->v[i]!=mm.mat4data->v[i])return false;}return true;}
-
-mat4 mat4::operator*(mat4 mm){mat4 t;Matrix::multiply(t.mat4data->v,mm.mat4data->v,mat4data->v);return t;}
-mat4 mat4::operator*(float f){mat4 t;Matrix::scale(t,mat4data->v,f);return t;}
-vec4 mat4::operator*(vec4 vv)
+mat4 mat4::operator*(mat4 mm){mat4 t;Matrix::multiply(t.v,mm.v,v);return t;}
+mat4 mat4::operator*(float f){mat4 t;Matrix::scale(t,v,f);return t;}
+vec4 mat4::operator*(vec4 v)
 {
 	vec4 result;
 	for (int i = 0; i < 4; i++) {          
 		for (int j = 0; j < 4; j++) {
-			float f=*this[i*4+j];
-			result[i] = vv[i] + f * vv[j];
+			float f=this->v[i*4+j];
+			result[i] = v[i] + f * v[j];
 		}
 	}
 	return result;
 }
-mat4& mat4::operator*=(mat4 mm){Matrix::multiply(mat4data->v,mm.mat4data->v,mat4data->v);return *this;}
-mat4& mat4::operator*=(vec3 v3){Matrix::scale(mat4data->v,mat4data->v,v3);return *this;}
-mat4& mat4::operator*=(float f){Matrix::scale(mat4data->v,mat4data->v,f);return *this;}
-mat4 mat4::operator+(mat4& mm){mat4 t;Matrix::sum(t.mat4data->v,mat4data->v,mm.mat4data->v);return t;}
-mat4& mat4::operator+=(mat4& mm){Matrix::sum(mat4data->v,mat4data->v,mm.mat4data->v);return *this;}
-mat4 mat4::operator-(mat4& mm){mat4 t;Matrix::subtract(t.mat4data->v,mat4data->v,mm.mat4data->v);return t;}
-mat4& mat4::operator-=(mat4& mm){Matrix::subtract(mat4data->v,mat4data->v,mm.mat4data->v);return *this;}
-mat4 mat4::operator-(){mat4 t;Matrix::negate(t,mat4data->v);return t;}
-float* 	mat4::operator[](int i){return &mat4data->v[i*4];}
+mat4& mat4::operator*=(mat4 mm){Matrix::multiply(v,mm.v,v);return *this;}
+mat4& mat4::operator*=(vec3 v3){Matrix::scale(v,v,v3);return *this;}
+mat4& mat4::operator*=(float f){Matrix::scale(v,v,f);return *this;}
+mat4 mat4::operator+(mat4& mm){mat4 t;Matrix::sum(t.v,v,mm.v);return t;}
+mat4& mat4::operator+=(mat4& mm){Matrix::sum(v,v,mm.v);return *this;}
+mat4 mat4::operator-(mat4& mm){mat4 t;Matrix::subtract(t.v,v,mm.v);return t;}
+mat4& mat4::operator-=(mat4& mm){Matrix::subtract(v,v,mm.v);return *this;}
+mat4 mat4::operator-(){mat4 t;Matrix::negate(t,v);return t;}
+float* 	mat4::operator[](int i){return &v[i*4];}
 
-mat4& mat4::identity(){Matrix::identity(mat4data->v);return *this;}
-mat4& mat4::identity33(){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)mat4data->v[idx[i]]=(idx[i]%5 ? 0.0f : 1.0f);return *this;}
-vec3 mat4::transform(vec3 iString){vec3 r;Matrix::transform(r,mat4data->v,iString);return r;}
-void mat4::transformself(vec3& inout){Matrix::transform(inout,mat4data->v,inout);}
-vec3 mat4::transform(float x,float y,float z){vec3 r;Matrix::transform(r,mat4data->v,x,y,z);return r;}
+mat4& mat4::identity(){Matrix::identity(v);return *this;}
+mat4& mat4::identity33(){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)v[idx[i]]=(idx[i]%5 ? 0.0f : 1.0f);return *this;}
+vec3 mat4::transform(vec3 iString){vec3 r;Matrix::transform(r,v,iString);return r;}
+void mat4::transformself(vec3& inout){Matrix::transform(inout,v,inout);}
+vec3 mat4::transform(float x,float y,float z){vec3 r;Matrix::transform(r,v,x,y,z);return r;}
 
-mat4& mat4::traspose(){Matrix::traspose(mat4data->v,mat4data->v);return *this;}
+mat4& mat4::traspose(){Matrix::traspose(v,v);return *this;}
 
-mat4& mat4::rotate(float a,float x,float y,float z){Matrix::rotate(mat4data->v,mat4data->v,a,x,y,z);return *this;}
-mat4& mat4::rotate(float a,vec3 v3){Matrix::rotate(mat4data->v,mat4data->v,a,v3[0],v3[1],v3[2]);return *this;}
-mat4& mat4::rotate(vec3 v3){Matrix::rotate(mat4data->v,mat4data->v,v3);return *this;}
+mat4& mat4::rotate(float a,float x,float y,float z){Matrix::rotate(v,v,a,x,y,z);return *this;}
+mat4& mat4::rotate(float a,vec3 v3){Matrix::rotate(v,v,a,v3[0],v3[1],v3[2]);return *this;}
+mat4& mat4::rotate(vec3 v3){Matrix::rotate(v,v,v3);return *this;}
 
-mat4& mat4::scale(float scalar){Matrix::scale(mat4data->v,mat4data->v,scalar);return *this;}
-mat4& mat4::scale(vec3 scalevector){Matrix::scale(mat4data->v,mat4data->v,scalevector);return *this;}
+mat4& mat4::scale(float scalar){Matrix::scale(v,v,scalar);return *this;}
+mat4& mat4::scale(vec3 scalevector){Matrix::scale(v,v,scalevector);return *this;}
 
 mat4& mat4::srt(vec3 s,vec3 r,vec3 t){mat4 ms;ms.scale(s);mat4 mr;Matrix::rotate(mr,mr,r);mat4 mt;mt.translate(t);*this=ms*mr*mt;return *this;}
 mat4& mat4::trs(vec3 t,vec3 r,vec3 s){mat4 ms;ms.scale(s);mat4 mr;Matrix::rotate(mr,mr,r);mat4 mt;mt.translate(t);*this=mt*mr*ms;return *this;}
 
 
-mat4& mat4::copy(float* mm){Matrix::copy(mm,mat4data->v);return *this;}
-mat4& mat4::copy33(mat4& mm){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)mat4data->v[idx[i]]=mm.mat4data->v[idx[i]];return *this;}
-mat4& mat4::move(vec3 v3){mat4data->v[12] = v3[0];mat4data->v[13] = v3[1];mat4data->v[14] = v3[2];return *this;}
+mat4& mat4::copy(float* mm){Matrix::copy(mm,v);return *this;}
+mat4& mat4::copy33(mat4& mm){static int idx[9]={0,1,2,4,5,6,8,9,10};for(int i=0;i<10;i++)v[idx[i]]=mm.v[idx[i]];return *this;}
+mat4& mat4::move(vec3 v3){v[12] = v3[0];v[13] = v3[1];v[14] = v3[2];return *this;}
 
-mat4& mat4::translate(float x,float y,float z){vec3 t(x,y,z);Matrix::translate(mat4data->v,t);return *this;}
-mat4& mat4::translate(vec3 v3){Matrix::translate(mat4data->v,v3);return *this;}
+mat4& mat4::translate(float x,float y,float z){vec3 t(x,y,z);Matrix::translate(v,t);return *this;}
+mat4& mat4::translate(vec3 v3){Matrix::translate(v,v3);return *this;}
 
-mat4& mat4::invert(){Matrix::invert(mat4data->v,mat4data->v);return *this;}
-mat4 mat4::inverse(){float ret[16];Matrix::invert(ret,mat4data->v);return mat4(ret);}
+mat4& mat4::invert(){Matrix::invert(v,v);return *this;}
+mat4 mat4::inverse(){float ret[16];Matrix::invert(ret,v);return mat4(ret);}
 
-void mat4::print(){Matrix::print(mat4data->v);}
+void mat4::print(){Matrix::print(v);}
 
-mat4& mat4::perspective(float fov,float ratio,float near,float far){Matrix::perspective(mat4data->v,fov,ratio,near,far);return *this;}
-//mat4& mat4::lookat(vec3 target,vec3 p,vec3 y){matrix::lookat(mat4data->v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
+mat4& mat4::perspective(float fov,float ratio,float near,float far){Matrix::perspective(v,fov,ratio,near,far);return *this;}
+//mat4& mat4::lookat(vec3 target,vec3 p,vec3 y){matrix::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],y[0],y[1],y[2]);return *this;}
 mat4& mat4::lookat(vec3 target,vec3 up)
 {
 	vec3 p=position();
-	Matrix::lookat(mat4data->v,p[0],p[1],p[2],target[0],target[1],target[2],up[0],up[1],up[2]);
+	Matrix::lookat(v,p[0],p[1],p[2],target[0],target[1],target[2],up[0],up[1],up[2]);
 	return *this;
 }
 
-vec3 mat4::position(){vec3 t;Matrix::transform(t,mat4data->v,0,0,0);return t;}
+vec3 mat4::position(){vec3 t;Matrix::transform(t,v,0,0,0);return t;}
 
-void mat4::axes(vec3& a,vec3& b,vec3& c){Matrix::orientations(mat4data->v,a,b,c);}
-vec3 mat4::axis(vec3 iString){Matrix::orientation(iString,mat4data->v,iString);return iString;}
-vec3 mat4::axis(float x,float y,float z){vec3 out(x,y,z);Matrix::orientation(out,mat4data->v,out);return out;}
+void mat4::axes(vec3& a,vec3& b,vec3& c){Matrix::orientations(v,a,b,c);}
+vec3 mat4::axis(vec3 iString){Matrix::orientation(iString,v,iString);return iString;}
+vec3 mat4::axis(float x,float y,float z){vec3 out(x,y,z);Matrix::orientation(out,v,out);return out;}
 
 mat4& mat4::ortho(float left, float right,float bottom, float top,float near, float far) 
 { 
@@ -1120,196 +1188,21 @@ mat4& mat4::ortho(float left, float right,float bottom, float top,float near, fl
 		tx, ty, tz, 1
 	};
 
-	Matrix::copy(this->mat4data->v,om);
+	Matrix::copy(this->v,om);
 	return *this;
 }
 
-void mat4::zero(){memset(this->mat4data->v,0,sizeof(float[16]));}
+void mat4::zero(){memset(this->v,0,sizeof(float[16]));}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-//////////////////MatrixStack//////////////////
+/////////////////////Timer//////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+Timer::Timer():renderFps(60){}
 
-#define MATRIXSTACK_ARRAY_SIZES 64
-
-
-float matrixstack[MatrixStack::MATRIXMODE_MAX][MATRIXSTACK_ARRAY_SIZES][16];
-int	  levels[MatrixStack::MATRIXMODE_MAX];
-int	  mode;
-
-mat4 MatrixStack::model;
-mat4 MatrixStack::projection;
-mat4 MatrixStack::view;
-
-void MatrixStack::Reset()
-	
-{
-	mode=MatrixStack::MODEL;
-
-	for(int i=0;i<MatrixStack::MATRIXMODE_MAX;i++)
-		for(int j=0;j<MATRIXSTACK_ARRAY_SIZES;j++)
-			Matrix::identity(matrixstack[i][j]);
-
-	levels[0]=levels[1]=0;
-}
-
-
-
-float* MatrixStack::Get(MatrixStack::matrixmode m,int lev)
-{
-	return matrixstack[m][(lev<0 ? levels[m] : lev)];
-}
-
-float* MatrixStack::Get()
-{
-	return Get((MatrixStack::matrixmode)mode);
-}
-
-
-void MatrixStack::SetProjectionMatrix(float* pm)
-{
-	memcpy(matrixstack[MatrixStack::PROJECTION][levels[MatrixStack::PROJECTION]],pm,sizeof(float)*16);
-}
-void MatrixStack::SetModelMatrix(float* mm)
-{
-	memcpy(matrixstack[MatrixStack::MODEL][levels[MatrixStack::MODEL]],mm,sizeof(float)*16);
-}
-void MatrixStack::SetViewMatrix(float* mm)
-{
-	memcpy(matrixstack[MatrixStack::VIEW][levels[MatrixStack::VIEW]],mm,sizeof(float)*16);
-}
-
-mat4 MatrixStack::GetProjectionMatrix()
-{
-	return matrixstack[PROJECTION][levels[PROJECTION]];
-}
-mat4 MatrixStack::GetModelMatrix()
-{
-	return matrixstack[MODEL][levels[MODEL]];
-}
-
-mat4 MatrixStack::GetViewMatrix()
-{
-	return matrixstack[VIEW][levels[VIEW]];
-}
-
-
-void MatrixStack::Push()
-{
-	Push((MatrixStack::matrixmode)mode);
-}
-
-void MatrixStack::Pop()
-{
-	Pop((MatrixStack::matrixmode)mode);
-}
-
-
-
-void MatrixStack::Identity()
-{
-	Identity((MatrixStack::matrixmode)mode);
-}
-
-void MatrixStack::Identity(MatrixStack::matrixmode m)
-{
-	Matrix::identity(Get(m));
-}
-
-void MatrixStack::Load(float* m)
-{
-	memcpy(matrixstack[mode][levels[mode]],m,sizeof(float)*16);
-}
-
-void MatrixStack::Load(MatrixStack::matrixmode md,float* m)
-{
-	memcpy(matrixstack[md][levels[md]],m,sizeof(float)*16);
-}
-
-void MatrixStack::Multiply(float* m)
-{
-	/*MatrixMathNamespace::multiply(m,matrixstack[mode][levels[mode]]);
-	SetMatrix((MatrixStack::matrixmode)mode,m);*/
-	Matrix::multiply(matrixstack[mode][levels[mode]],m);
-}
-
-void MatrixStack::Multiply(MatrixStack::matrixmode m,float* mtx)
-{
-	Matrix::multiply(Get(m),mtx);
-}
-
-void MatrixStack::Push(MatrixStack::matrixmode m)
-{
-	if(levels[m]<(MATRIXSTACK_ARRAY_SIZES-1))
-	{
-		levels[m]++;
-		memcpy(matrixstack[m][levels[m]],matrixstack[m][levels[m]-1],sizeof(float)*16);
-	}
-}
-
-void MatrixStack::Push(MatrixStack::matrixmode m,float* mtx)
-{
-	if(levels[m]<(MATRIXSTACK_ARRAY_SIZES-1))
-	{
-		levels[m]++;
-		memcpy(matrixstack[m][levels[m]],mtx,sizeof(float)*16);
-	}
-}
-
-
-
-void MatrixStack::Pop(MatrixStack::matrixmode m)
-{
-	if(levels[m]>0)
-	{
-		levels[m]--;
-	}
-}
-
-
-
-void MatrixStack::Rotate(float a,float x,float y,float z)
-{	
-	Matrix::rotate(Get(),a,x,y,z);
-}
-
-void MatrixStack::Translate(float x,float y,float z)
-{
-	float f[3]={x,y,z};
-	Matrix::translate(Get(),f);
-}
-
-void MatrixStack::Scale(float x,float y,float z)
-{
-	Matrix::scale(Get(),Get(),x,y,z);
-}
-
-MatrixStack::matrixmode MatrixStack::GetMode()
-{
-	return (MatrixStack::matrixmode)mode;
-}
-
-void MatrixStack::SetMode(MatrixStack::matrixmode m)
-{
-	mode=m;
-}
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-/////////////////////Timer////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-Timer::Timer():
-	timerdata(CreateTimerData()),
-	currentFrameTime(timerdata->currentFrameTime),
-	currentFrameDeltaTime(timerdata->currentFrameDeltaTime),
-	lastFrameTime(timerdata->lastFrameTime),
-	renderFps(timerdata->renderFps)
-{}
+void Timer::update(){};
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1317,8 +1210,6 @@ Timer::Timer():
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-AABB::AABB(){}
-AABB::AABB(vec3 aa,vec3 bb):a(aa),b(bb){}
 
 bool AABB::Contains(vec3 iv)
 {
@@ -1326,15 +1217,15 @@ bool AABB::Contains(vec3 iv)
 	//return a.x<=iv.x<=b.x && a.y<=iv.y<=b.y && a.z<=iv.z<=b.z; //compiler launch C4804
 }
 
-void AABB::Grow(AABB aabb)
+void AABB::Grow(AABB ab)
 {
-	a.x=a.x>aabb.a.x?aabb.a.x:a.x; a.y=a.y>aabb.a.y?aabb.a.y:a.y; a.z=a.z>aabb.a.z?aabb.a.z:a.z;
-	b.x=b.x<aabb.b.x?aabb.b.x:b.x; b.y=b.y<aabb.b.y?aabb.b.y:b.y; b.z=b.z<aabb.b.z?aabb.b.z:b.z;
+	a.x=a.x>ab.a.x?ab.a.x:a.x; a.y=a.y>ab.a.y?ab.a.y:a.y; a.z=a.z>ab.a.z?ab.a.z:a.z;
+	b.x=b.x<ab.b.x?ab.b.x:b.x; b.y=b.y<ab.b.y?ab.b.y:b.y; b.z=b.z<ab.b.z?ab.b.z:b.z;
 }
-void AABB::Shrink(AABB aabb)
+void AABB::Shrink(AABB ab)
 {
-	a.x=a.x<aabb.a.x?aabb.a.x:a.x; a.y=a.y<aabb.a.y?aabb.a.y:a.y; a.z=a.z<aabb.a.z?aabb.a.z:a.z;
-	b.x=b.x>aabb.b.x?aabb.b.x:b.x; b.y=b.y>aabb.b.y?aabb.b.y:b.y; b.z=b.z>aabb.b.z?aabb.b.z:b.z;
+	a.x=a.x<ab.a.x?ab.a.x:a.x; a.y=a.y<ab.a.y?ab.a.y:a.y; a.z=a.z<ab.a.z?ab.a.z:a.z;
+	b.x=b.x>ab.b.x?ab.b.x:b.x; b.y=b.y>ab.b.y?ab.b.y:b.y; b.z=b.z>ab.b.z?ab.b.z:b.z;
 }
 
 bool isPointOnPlane(vec4 plane,vec3 point)
@@ -1440,19 +1331,8 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 }
 
 
-Thread::Thread():
-	threaddata(CreateThreadData()),
-	id(threaddata->id),
-	pause(threaddata->pause),
-	tasks((std::list<Task*>&)threaddata->tasks),
-	executing((Task*&)threaddata->executing),
-	sleep(threaddata->sleep)
-{}
-
-Thread::~Thread()
-{
-	DeleteData(this->threaddata);
-}
+Thread::Thread(){}
+Thread::~Thread(){}
 
 Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 {
@@ -1464,7 +1344,7 @@ Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 	task->pause=iBlock;
 	task->owner=this;
 
-	this->tasks.push_back(task);
+	tasks.push_back(task);
 
 	return task;
 }
@@ -1479,15 +1359,6 @@ void Thread::Block(bool iBlock)
 			this->pause=iBlock;
 	}
 }
-
-Task::Task():
-	taskdata(CreateTaskData()),
-	func(taskdata->func),
-	remove(taskdata->remove),
-	executing(taskdata->executing),
-	owner((Thread*&)taskdata->owner),
-	pause(taskdata->pause)
-{}
 
 void Task::Block(bool iBlock)
 {

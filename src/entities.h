@@ -3,19 +3,19 @@
 
 #include "primitives.h"
 
-struct Entity;
-struct Cluster;
-struct Bone;
-struct EntityScript;
+struct DLLBUILD Entity;
+struct DLLBUILD Cluster;
+struct DLLBUILD Bone;
+struct DLLBUILD EntityScript;
 
-struct Renderer3DBase;
-struct Shader;
+struct DLLBUILD Renderer3DBase;
+struct DLLBUILD Shader;
 
 
 #define PROCESS_ENTITIES_RECURSIVELY 1
 
 
-struct Shader : TPoolVector<Shader>
+struct DLLBUILD Shader : TPoolVector<Shader>
 {
 	static Shader* Find(const char*,bool exact=true);
 
@@ -170,14 +170,14 @@ static const char *EEntityNames[ENTITY_MAX]=
 };
 
 
-struct Resource : THierarchyList<Resource>
+struct DLLBUILD Resource : THierarchyList<Resource>
 {
 	Resource* GetResource(){return this;}
 	Resource* GetTexture(){return 0;}
 	Resource* GetMaterial(){return 0;}
 };
 
-struct File : Resource
+struct DLLBUILD File : Resource
 {
 	FilePath path;
 	void* data;
@@ -204,15 +204,14 @@ struct File : Resource
 	static int Size(const char* iFilename);
 };
 
-struct Dir : Resource
+struct DLLBUILD Dir : Resource
 {
 	String fullPath;
 };
 
-struct Texture
+struct DLLBUILD Texture
 {
 	Texture();
-
 
 	virtual int load(char*)=0;
 	virtual int loadBMP(char*)=0;
@@ -227,43 +226,44 @@ struct Texture
 };
 
 
-struct Material : Resource
+struct DLLBUILD Material : Resource
 {
 	Material();
+	~Material();
 
-	Material* GetMaterial(){return this;}
+	Material* GetMaterial();
+	void update();
 
-	void update(){}
-
-	std::vector<Texture*> textures;
-
-
+private:
+	std::vector<Texture*>* _textures;
+public:
+	std::vector<Texture*>& textures;
 
 	EMaterial m_type;
 
-	float emissive[3];
+	vec3 emissive;
 	float femissive;
-	float ambient[3];
+	vec3 ambient;
 	float fambient;
-	float diffuse[3];
+	vec3 diffuse;
 	float fdiffuse;
-	float normalmap[3];
-	float bump[3];
+	vec3 normalmap;
+	vec3 bump;
 	float fbump;
-	float transparent[3];
+	vec3 transparent;
 	float ftransparent;
-	float displacement[3];
+	vec3 displacement;
 	float fdisplacement;
 
-	float specular[3];
+	vec3 specular;
 	float fspecular;
 	float fshininess;
-	float reflection[3];
+	vec3 reflection;
 	float freflection;
 };
 
 
-struct Influence
+struct DLLBUILD Influence
 {
 	int		*cpIdx;
 	int		nCpIdx;
@@ -272,8 +272,8 @@ struct Influence
 	Influence();
 };
 
-struct Bone;
-struct Cluster
+struct DLLBUILD Bone;
+struct DLLBUILD Cluster
 {
 	Entity* bone;
 
@@ -285,48 +285,50 @@ struct Cluster
 	Cluster();
 };
 
-
-struct Keyframe
+struct DLLBUILD Keyframe
 {
 	Keyframe();
 	float		 time;
 	float value;
 };
 
-
-
-
-
-struct KeyCurve
+struct DLLBUILD KeyCurve
 {
-	
-
 	KeyCurve();
+	~KeyCurve();
 
-	std::vector<Keyframe*>	frames;
+private:
+	std::vector<Keyframe*>*	_frames;
+public:
+	std::vector<Keyframe*>&	frames;
+
 	EChannel		channel;
 	float			start;
 	float			end;
 };
 
 
-struct AnimClip
+struct DLLBUILD AnimClip
 {
 	AnimClip();
+	~AnimClip();
 
-	std::vector<KeyCurve*> curves;
+private:
+	std::vector<KeyCurve*>* _curves;
+public:
+	std::vector<KeyCurve*>& curves;
 
 	float start;
 	float end;
 };
 
-struct EntityBase
+struct DLLBUILD EntityBase
 {
 	virtual void update(){}
 	virtual void draw(Renderer3DBase*){}
 };
 
-struct EntityComponent : EntityBase
+struct DLLBUILD EntityComponent : EntityBase
 {
 	Entity* entity;
 
@@ -338,13 +340,17 @@ struct EntityComponent : EntityBase
 	virtual void draw(Renderer3DBase*){}
 };
 
-struct Entity : EntityBase
+struct DLLBUILD Entity : EntityBase
 {
-	EntityData* entitydata;
+	Entity*					parent;
 
-	Entity*&					parent;
-	std::list<Entity*>&			childs;
+private:
+	std::vector<EntityComponent*>* _components;
+	std::list<Entity*>*		_childs;
+public:
+
 	std::vector<EntityComponent*>& components;
+	std::list<Entity*>&		childs;
 
 	mat4					local;
 	mat4					world;
@@ -395,21 +401,25 @@ struct Entity : EntityBase
 	}
 };
 
-struct Root : EntityComponent
+struct DLLBUILD Root : EntityComponent
 {
 };
 
-struct Skeleton : EntityComponent
+struct DLLBUILD Skeleton : EntityComponent
 {
 };
 
-struct Animation : EntityComponent
+struct DLLBUILD Animation : EntityComponent
 {
 	Animation();
+	~Animation();
 
 	Entity* entity;
 
-	std::vector<AnimClip*> clips;
+private:
+	std::vector<AnimClip*>* _clips;
+public:
+	std::vector<AnimClip*>& clips;
 
 	float	start;
 	float	end;
@@ -417,13 +427,16 @@ struct Animation : EntityComponent
 	int clipIdx;
 };
 
-struct Gizmo : EntityComponent
+struct DLLBUILD Gizmo : EntityComponent
 {
 };
 
-struct AnimationController : EntityComponent
+struct DLLBUILD AnimationController : EntityComponent
 {
-	std::vector<Animation*> animations;
+private:
+	std::vector<Animation*>* _animations;
+public:	
+	std::vector<Animation*>& animations;
 
 	float speed;
 	float cursor;
@@ -437,7 +450,8 @@ struct AnimationController : EntityComponent
 
 	int lastFrameTime;
 
-	AnimationController():speed(1),cursor(0),play(false),looped(true),start(0),end(0),lastFrameTime(0),resolutionFps(60){}
+	AnimationController();
+	~AnimationController();
 
 	void add(Animation* anim);
 
@@ -449,7 +463,7 @@ struct AnimationController : EntityComponent
 	void SetFrame(float iFrame);
 };
 
-struct Bone : EntityComponent
+struct DLLBUILD Bone : EntityComponent
 {
 	Bone();
 
@@ -459,7 +473,7 @@ struct Bone : EntityComponent
 
 };
 
-struct Light : EntityComponent
+struct DLLBUILD Light : EntityComponent
 {
 	Light();
 
@@ -484,9 +498,10 @@ struct Light : EntityComponent
 	float	light_farend;
 };
 
-struct Mesh : EntityComponent
+struct DLLBUILD Mesh : EntityComponent
 {
 	Mesh();
+	~Mesh();
 
 	int save(char*);
 	int load(char*);
@@ -525,12 +540,15 @@ struct Mesh : EntityComponent
 
 	bool  isCCW;
 
-	std::vector<Material*> materials;
+private:
+	std::vector<Material*>* _materials;
+public:	
+	std::vector<Material*>& materials;
 
 	void draw(Renderer3DBase*);
 };
 
-struct Script : EntityComponent
+struct DLLBUILD Script : EntityComponent
 {
 	File file;
 	EntityScript* runtime;
@@ -542,7 +560,7 @@ struct Script : EntityComponent
 	void update();
 };
 
-struct EntityScript
+struct DLLBUILD EntityScript
 {
 	Entity* entity;
 
@@ -553,7 +571,7 @@ struct EntityScript
 	virtual void update(){};
 };
 
-struct Skin : Mesh
+struct DLLBUILD Skin : Mesh
 {
 	Skin();
 
@@ -572,7 +590,7 @@ struct Skin : Mesh
 	void draw(Renderer3DBase*);
 };
 
-struct Camera : EntityComponent
+struct DLLBUILD Camera : EntityComponent
 {
 	float fov;
 	float ratio;
@@ -584,7 +602,7 @@ struct Camera : EntityComponent
 	vec3 target;
 };
 
-struct TextureFile : Texture
+struct DLLBUILD TextureFile : Texture
 {
 	TextureFile();
 	~TextureFile();
@@ -609,16 +627,19 @@ struct TextureFile : Texture
 
 
 
-struct TextureLayered
+struct DLLBUILD TextureLayered
 {
-	std::vector<Texture*> textures;
+private:
+	std::vector<Texture*>* _textures;
+public:
+	std::vector<Texture*>& textures;
 
 	TextureLayered();
 
 	TextureLayered* GetTextureLayered(){return this;}
 };
 
-struct TextureProcedural : Texture 
+struct DLLBUILD TextureProcedural : Texture 
 {
 	TextureProcedural();
 
@@ -634,7 +655,7 @@ struct TextureProcedural : Texture
 	int GetBpp(){return 0;}
 };
 
-struct Renderer3DBase
+struct DLLBUILD Renderer3DBase
 {
 	Renderer3DBase();
 
@@ -665,10 +686,13 @@ struct Renderer3DBase
 	Shader* font;
 	Shader* shaded_texture;
 
-	std::vector<Shader*> shaders;
+private:
+	std::vector<Shader*>* _shaders;
+public:
+	std::vector<Shader*>& shaders;
 };
 
-struct Scene
+struct DLLBUILD Scene
 {
 	Entity* rootEntity;
 };

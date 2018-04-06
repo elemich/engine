@@ -1,30 +1,30 @@
 #ifndef PRIMITIVES_H
 #define PRIMITIVES_H
 
+#ifdef _MSC_VER
+	#ifdef DLLBUILD
+		#define DLLBUILD __declspec(dllexport)
+	#else
+		#define DLLBUILD __declspec(dllimport)
+	#endif
+#else
+	#define DLLBUILD
+#endif
+	
 #define PRINT(x) #x
 #define PRINTF(x) PRINT(x)
 
 #define LOCATION " @mic (" __FILE__ " : " PRINTF(__LINE__) ")"
-
-#define _CRT_SECURE_NO_WARNINGS
 
 #define SAFEDELETE(_ptr) \
 	if(0!=_ptr){\
 	delete _ptr;\
 	_ptr=0;}\
 
-
 #define SAFEDELETEARRAY(_ptr) \
 	if(0!=_ptr){\
 	delete [] _ptr;\
 	_ptr=0;}\
-
-#define SAFERELEASE(_ptr) \
-	if(0!=_ptr)\
-	{\
-	_ptr->Release();\
-	_ptr=0;\
-	}\
 
 #ifdef DEBUG
 	#ifdef _MSC_VER
@@ -38,38 +38,58 @@
 	#define DEBUG_BREAK __debugbreak
 #endif
 
-struct Thread;
+#define SAFESTLDECL(iStlType,iStlName) \
+	private:				\
+	iStlType* _##iStlName;	\
+	public:					\
+	iStlType& iStlName 
 
-#include "engine.h"
+#define SAFESTLIMPL(iStlType,iStlName) \
+	_##iStlName(new iStlType), \
+	iStlName(*_##iStlName)
 
-struct THierarchy
-{
-};
+#define SAFESTLDEST(iStlName) \
+	SAFEDELETE(this->_##iStlName)
 
-template <typename T> struct THierarchyVector : THierarchy
+
+
+#include <vector>
+#include <list>
+#include <functional>
+#include <algorithm>
+#include <cctype>
+#include <cstring> //for g++ str* functions
+
+
+
+template <typename T> struct DLLBUILD THierarchy
 {
 	T* parent;
-	std::vector<T*> childs;
-
-	THierarchyVector():parent(0){}
+	THierarchy():parent(0){}
 };
 
-template <typename T> struct THierarchyList : THierarchy
+template <typename T> struct DLLBUILD  THierarchyVector : THierarchy<T>
 {
-	T* parent;
-	std::list<T*> childs;
+	SAFESTLDECL(std::vector<T*>,childs);
 
-	THierarchyList():parent(0){}
-
-	
+	THierarchyVector():SAFESTLIMPL(std::vector<T*>,childs){}
+	~THierarchyVector(){SAFESTLDEST(childs);}
 };
 
-template<class T,int size> struct TNumberedVectorInterface
+template <typename T> struct DLLBUILD  THierarchyList : THierarchy<T>
+{
+	SAFESTLDECL(std::list<T*>,childs);
+
+	THierarchyList():SAFESTLIMPL(std::list<T*>,childs){}
+	~THierarchyList(){SAFESTLDEST(childs);}
+};
+
+template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 {
 	T v[size];
 };
 
-template <class T> struct TStaticInstance
+template <class T> struct DLLBUILD  TStaticInstance
 {
 	static T* instance;
 
@@ -80,34 +100,47 @@ template <class T> struct TStaticInstance
 	}
 };
 
-template <class T> T* TStaticInstance<T>::instance=0;
+template <typename T> T* TStaticInstance<T>::instance=0;
 
-
-template <typename T> struct TPoolVector : TStaticInstance< TPoolVector<T> >
+template <typename T> struct DLLBUILD TPoolVector
 {
-	static std::vector<T*> pool;
+private:
+	static std::vector<T*>* _pool;
+public:
+	static std::vector<T*>& pool;
 
-	TPoolVector(){pool.push_back((T*)this);}
+	TPoolVector()
+	{
+		pool.push_back((T*)this);
+	}
 
-	~TPoolVector(){pool.erase(std::find(pool.begin(),pool.end(),(T*)this));}
+	~TPoolVector()
+	{
+		pool.erase(std::find(pool.begin(),pool.end(),(T*)this));
+	}
 
 	static void BroadcastToPool(void (T::*func)(void*),void* data=0)
 	{
 		for(typename std::vector< T*>::iterator tPoolElement=TPoolVector<T>::pool.begin();tPoolElement!=TPoolVector<T>::pool.end();tPoolElement++)
 			((*tPoolElement)->*func)(data);
 	}
+
+	static std::vector<T*>& GetPool()
+	{
+		return TPoolVector<T>::pool;
+	}
 };
 
-template <class T> std::vector<T*> TPoolVector<T>::pool;
+template <typename T> std::vector<T*>* TPoolVector<T>::_pool=new std::vector<T*>;
+template <typename T> std::vector<T*>& TPoolVector<T>::pool=*TPoolVector<T>::_pool;
 
-template<typename T> std::vector<T*>& GetPool(){return TPoolVector<T>::pool;}
 
-struct String
+struct DLLBUILD String
 {
-	StringData* stringdata;
-
-	char*& data;
-	size_t& size;
+protected:
+	char* data;
+	size_t size;
+public:
 
 	String();
 	String(const char* s);
@@ -119,20 +152,28 @@ struct String
 
 	~String();
 
-	friend String operator+(const String a,const String& b);
+	DLLBUILD friend String operator+(const String a,const String& b);
 
 	String& operator=(const char* s);
 	String& operator=(const String& s);
-	String& operator+=(const String&);
-
 	bool operator==(const char* s);
 	char operator[](int i);
+	String& operator+=(const String&);
 	
+	
+	
+	static String Random(int iCount);
+	operator char*()const;
+	operator float()const;
 	const int Count()const;
 	const char* Buffer()const;
+	bool Contains(const char*);
+	bool Alloc(int iBytes);
+	bool Copy(const char* iChar);
+	//operator bool();
 };
 
-struct FilePath : String
+struct DLLBUILD  FilePath : String
 {
 	FilePath():String(){}
 	FilePath(const char* s):String(s){}
@@ -158,40 +199,35 @@ namespace Vector
 	#define PI 				3.141592653589793238462643383279502
 	#define PI_OVER_180	 	0.017453292519943295769236907684886
 
-	float dot(const float *a ,const float *b ,int dim);
-	float* cross(float* c,const float* a,const float* b);
-	float* sum(float *c,const float *a ,const float *b,int dim );
-	float* subtract(float *c,const float *a ,const float *b,int dim );
-	float* negate(float *b ,const float *a ,int dim);
-	float* make(float *v ,int dim,float x=0,float y=0,float z=0,float t=0);
-	float* copy(float* b,const float* a,int dim);
-	float length(const float *v,int dim );
-	float* normalize(float *b ,const float *a,int dim );
-	float* scale(float *b ,const float *a ,int dim,float x=1,float y=1,float z=1,float t=1);
-	float* scale(float *b ,const float *a ,float,int dim);
-	float* scale(float *c,const float *a ,const float *b,int dim );
-	float angleg(const float *a,const float *b,int dim);
-	float angler(const float *a,const float *b,int dim);
-	float* minimum(float *c,const float *a,const float *b,int dim);
-	float* maximum(float *c,const float *a,const float *b,int dim);
-	bool equal(const float *a,const float *b,int dim);
+	DLLBUILD float dot(const float *a ,const float *b ,int dim);
+	DLLBUILD float* cross(float* c,const float* a,const float* b);
+	DLLBUILD float* sum(float *c,const float *a ,const float *b,int dim );
+	DLLBUILD float* subtract(float *c,const float *a ,const float *b,int dim );
+	DLLBUILD float* negate(float *b ,const float *a ,int dim);
+	DLLBUILD float* make(float *v ,int dim,float x=0,float y=0,float z=0,float t=0);
+	DLLBUILD float* copy(float* b,const float* a,int dim);
+	DLLBUILD float length(const float *v,int dim );
+	DLLBUILD float* normalize(float *b ,const float *a,int dim );
+	DLLBUILD float* scale(float *b ,const float *a ,int dim,float x=1,float y=1,float z=1,float t=1);
+	DLLBUILD float* scale(float *b ,const float *a ,float,int dim);
+	DLLBUILD float* scale(float *c,const float *a ,const float *b,int dim );
+	DLLBUILD float angleg(const float *a,const float *b,int dim);
+	DLLBUILD float angler(const float *a,const float *b,int dim);
+	DLLBUILD float* minimum(float *c,const float *a,const float *b,int dim);
+	DLLBUILD float* maximum(float *c,const float *a,const float *b,int dim);
+	DLLBUILD bool equal(const float *a,const float *b,int dim);
 	//String stringize(const float *a,int dim);
-	void print(float* v);
+	DLLBUILD void print(float* v);
 };
 
-struct vec2
+struct DLLBUILD  vec2 : TNumberedVectorInterface<float,2>
 {
-	vec2Data* vec2data;
-
-	float& x;
-	float& y;
+	float &x,&y;
 
 	vec2();
 	vec2(const vec2& a);
 	vec2(float fv[2]);
 	vec2(float x,float y);
-	~vec2();
-
 	vec2 operator=(vec2& a);
 	vec2 operator+(vec2& a);
 	vec2 operator-(vec2& a);
@@ -216,19 +252,14 @@ struct vec2
 };
 
 
-struct vec3
+struct DLLBUILD  vec3 : TNumberedVectorInterface<float,3>
 {
-	vec3Data* vec3data;
-
-	float& x;
-	float& y;
-	float& z;
+	float &x,&y,&z;
 
 	vec3();
 	vec3(const vec3& a);
 	vec3(float fv[3]);
 	vec3(float x,float y,float z);
-	~vec3();
 
 	float& operator[](int i);
 
@@ -268,14 +299,9 @@ struct vec3
 	bool iszero();
 };
 
-struct vec4
+struct DLLBUILD  vec4 : TNumberedVectorInterface<float,4>
 {
-	vec4Data* vec4data;
-
-	float& x;
-	float& y;
-	float& z;
-	float& w;
+	float &x,&y,&z,&w;
 
 	vec4();
 	vec4(const vec3& a);
@@ -283,8 +309,6 @@ struct vec4
 	vec4(float fv[4]);
 	vec4(float x,float y,float z,float t);
 	vec4(float x,float y,float z);
-	~vec4();
-
 	vec4& operator=(const vec4& a);
 	vec4& operator=(const vec3& a);
 	vec4 operator+(const vec4& a);
@@ -314,13 +338,12 @@ struct vec4
 
 
 
-struct AABB
+struct DLLBUILD  AABB : TNumberedVectorInterface<vec3,2>
 {
-	vec3 a;
-	vec3 b;
+	vec3 &a,&b;
 
-	AABB();
-	AABB(vec3 aa,vec3 bb);
+	AABB():a(v[0]),b(v[1]){}
+	AABB(vec3 aa,vec3 bb):a(v[0]),b(v[1]){a=aa;b=bb;}
 
 	bool Contains(vec3 iv);
 
@@ -328,81 +351,77 @@ struct AABB
 	void Shrink(AABB ab);
 };
 
-struct mat2;
-struct mat3;
-struct mat4;
+struct DLLBUILD  mat2;
+struct DLLBUILD  mat3;
+struct DLLBUILD  mat4;
 
 namespace Matrix
 {
-	float* identity(float* m);
+	DLLBUILD float* identity(float* m);
 
-	float* sum(float* c,float* a,float* b);
+	DLLBUILD float* sum(float* c,float* a,float* b);
 
-	float* subtract(float* c,float* a,float* b);
+	DLLBUILD float* subtract(float* c,float* a,float* b);
 
-	float* copy(float* b,const float* a);
+	DLLBUILD float* copy(float* b,const float* a);
 
-	float* make(float* mm,float a,float b,float c,float d,float e,float f,float g,float h,float i,float l,float m,float n,float o,float p,float q,float r);
+	DLLBUILD float* make(float* mm,float a,float b,float c,float d,float e,float f,float g,float h,float i,float l,float m,float n,float o,float p,float q,float r);
 
-	float* negate(float* b,float* a);
-	float* traspose(float* b,float* a);
-	float* translate(float*,vec3 iString);
+	DLLBUILD float* negate(float* b,float* a);
+	DLLBUILD float* traspose(float* b,float* a);
+	DLLBUILD float* translate(float*,vec3 iString);
 
-	float* scale(float* b,float* a,float x,float y,float z);
-	float* scale(float* b,float* a,vec3 v);
-	float* scale(float* b,float* a,float s);
+	DLLBUILD float* scale(float* b,float* a,float x,float y,float z);
+	DLLBUILD float* scale(float* b,float* a,vec3 v);
+	DLLBUILD float* scale(float* b,float* a,float s);
 
-	float* set(float* m,vec3 s,vec3 r,vec3 t);
+	DLLBUILD float* set(float* m,vec3 s,vec3 r,vec3 t);
 
-	float* multiply(float* c,float* a,float* b);
-	void multiply(float* a,float* b);
+	DLLBUILD float* multiply(float* c,float* a,float* b);
+	DLLBUILD void multiply(float* a,float* b);
 
-	void print(float*);
+	DLLBUILD void print(float*);
 
-	void perspective(float*,float fov,float ratio,float near,float far);
-	void ortho(float*,float left,float right ,float bottom,float up,float near,float far);
-	void lookat(float*,float posx,float posy,float posz,float centerx,float centery,float centerz,float upx,float upy,float upz);
-	void lookat(float*,float*,float,float,float,float,float,float);
+	DLLBUILD void perspective(float*,float fov,float ratio,float near,float far);
+	DLLBUILD void ortho(float*,float left,float right ,float bottom,float up,float near,float far);
+	DLLBUILD void lookat(float*,float posx,float posy,float posz,float centerx,float centery,float centerz,float upx,float upy,float upz);
+	DLLBUILD void lookat(float*,float*,float,float,float,float,float,float);
 
 
-	void rotate(float* mout,float* m,float a,float x,float y,float z);
-	void rotate(float* m,float a,float x,float y,float z);
-	void rotate(float* b,float* a,vec3);
-	float* rotateq(float*,const float*,const float*);
+	DLLBUILD void rotate(float* mout,float* m,float a,float x,float y,float z);
+	DLLBUILD void rotate(float* m,float a,float x,float y,float z);
+	DLLBUILD void rotate(float* b,float* a,vec3);
+	DLLBUILD float* rotateq(float*,const float*,const float*);
 
-	float* invert(float* b,float* a);
-	float det(const float* m);
+	DLLBUILD float* invert(float* b,float* a);
+	DLLBUILD float det(const float* m);
 
-	float* transform(float* out,float* m,float* iString);
-	float* transform(float* out,float* m,float,float,float);
+	DLLBUILD float* transform(float* out,float* m,float* iString);
+	DLLBUILD float* transform(float* out,float* m,float,float,float);
 
-	float* orientation(float* c,float* m,float* a);
-	float* orientation(float* c,float* m,float x,float y,float z);
-	void orientations(float* m,float*,float*,float*);
+	DLLBUILD float* orientation(float* c,float* m,float* a);
+	DLLBUILD float* orientation(float* c,float* m,float x,float y,float z);
+	DLLBUILD void orientations(float* m,float*,float*,float*);
 };
 
 
 
-struct mat2
+struct DLLBUILD  mat2 : TNumberedVectorInterface<float,4>
 {
-	mat2Data* mat2data;
-
-	mat2();
-	~mat2();
+	float &m11,&m12,&m21,&m22;
 };
 
 
 
-struct mat3
+struct DLLBUILD  mat3 : TNumberedVectorInterface<float,9>
 {
 
-	mat3Data* mat3data;
+	float &m11,&m12,&m13,&m21,&m22,&m23,&m31,&m32,&m33;
 
 	mat3();
 	mat3(float*);
 	mat3(const mat3&);
 	mat3(mat4);
-	~mat3();
 
 	mat3& operator=(mat3);
 	mat3& operator=(mat4);
@@ -410,19 +429,18 @@ struct mat3
 	mat3& identity();
 
 	float* operator[](int i);
-	operator float* (){return this->mat3data->v;}
+	operator float* (){return v;}
 };
 
-struct mat4
+struct DLLBUILD  mat4 : TNumberedVectorInterface<float,16>
 {
-	mat4Data* mat4data;
+	//float &m11,&m12,&m13,&m14,&m21,&m22,&m23,&m24,&m31,&m32,&m33,&m34,&m41,&m42,&m43,&m44;
 
 	mat4();
 	mat4(const mat4&);
 	mat4(mat3);
 	mat4(const float*);
 	mat4(const double*);
-	~mat4();
 
 	mat4& operator=(const mat4&);
 	mat4& operator=(mat3);
@@ -469,102 +487,49 @@ struct mat4
 	mat4& perspective(float fov,float ratio,float near,float far);
 	//mat4& lookat(vec3 target,vec3 pos,vec3 up);
 	mat4& lookat(vec3 target,vec3 up=vec3(0,0,1));
-	operator float* (){return this->mat4data->v;}
+	operator float* (){return v;}
 	mat4& ortho(float left, float right,float bottom, float top,float near, float far);
 	void zero();
 };
 
-
-struct MatrixStack
+struct DLLBUILD  Timer : TStaticInstance<Timer>
 {
-	enum matrixmode
-	{
-		PROJECTION=0,
-		MODEL,
-		VIEW,
-		MATRIXMODE_MAX
-	};
-
-	static void Reset();
-
-
-	static void Push();
-	static void Pop();
-	static void Identity();
-	static float* Get();
-	static void Load(float* m);
-	static void Multiply(float* m);
-
-	static void Pop(MatrixStack::matrixmode);
-	static void Push(MatrixStack::matrixmode);
-	static void Push(MatrixStack::matrixmode,float*);
-	static void Identity(MatrixStack::matrixmode);
-	static float* Get(MatrixStack::matrixmode,int lev=-1);
-	static void Load(MatrixStack::matrixmode,float*);
-	static void Multiply(MatrixStack::matrixmode,float*);
-
-	static void Rotate(float a,float x,float y,float z);
-	static void Translate(float x,float y,float z);
-	static void Scale(float x,float y,float z);
-
-	static mat4 GetProjectionMatrix();
-	static mat4 GetModelMatrix();
-	static mat4 GetViewMatrix();
-
-	static void SetProjectionMatrix(float*);
-	static void SetModelMatrix(float*);
-	static void SetViewMatrix(float*);
-
-	static  MatrixStack::matrixmode GetMode();
-	static  void SetMode(MatrixStack::matrixmode m);
-
-	static mat4 model;
-	static mat4 projection;
-	static mat4 view;
-};
-
-
-struct Timer : TStaticInstance<Timer>
-{
-	TimerData* timerdata;
-
-	unsigned int& currentFrameTime;
-	unsigned int& currentFrameDeltaTime;
-	unsigned int& lastFrameTime;
-	unsigned int& renderFps;
+	unsigned int currentFrameTime;
+	unsigned int currentFrameDeltaTime;
+	unsigned int lastFrameTime;
+	unsigned int renderFps;
 
 	Timer();
 
 	virtual unsigned int GetTime()=0;
-
-	virtual void update(){};
+	virtual void update();
 };
 
+//threading 
 
-struct Task
+
+struct DLLBUILD  ThreadPool;
+struct DLLBUILD  Thread;
+
+struct DLLBUILD  Task
 {
-	TaskData* taskdata;
-
-	std::function<void()>& func;
-	bool& remove;
-	bool& executing;
-	bool& pause;
-	Thread*& owner;
-
-	Task();
+	std::function<void()> func;
+	bool remove;
+	bool executing;
+	bool pause;
+	Thread* owner;
 
 	void Block(bool);
 };
 
-struct Thread  : TPoolVector<Thread>
+struct DLLBUILD  Thread  : TPoolVector<Thread>
 {
-	ThreadData* threaddata;
-
-	int& id;
-	bool& pause;
-	std::list<Task*>& tasks;
-	Task*& executing;
-	unsigned int& sleep;
+	
+	int id;
+	bool pause;
+	std::list<Task*> tasks;
+	Task* executing;
+	unsigned int sleep;
 
 	Thread();
 	virtual ~Thread();

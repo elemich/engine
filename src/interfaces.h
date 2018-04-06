@@ -3,56 +3,105 @@
 
 #include "entities.h"
 
-struct EditorEntity;
+struct DLLBUILD EditorEntity;
 
-struct GuiRect;
-struct GuiRootRect;
-struct GuiString;
-struct GuiButton;
-struct GuiImage;
-struct GuiButtonBool;
-struct GuiScrollBar;
-struct GuiScrollRect;
-struct GuiPropertyString;
-struct GuiPropertySlider;
-struct GuiAnimationController;
-struct GuiLabel;
-struct GuiViewport;
-struct GuiSceneViewer;
-struct GuiEntityViewer;
-struct GuiCompilerViewer;
-struct GuiProjectViewer;
-struct GuiScriptViewer;
-struct GuiPropertyVec3;
-struct GuiPropertyPtr;
-struct GuiPropertyFloat;
-struct GuiPropertyBool;
-struct GuiPropertyAnimationController;
+struct DLLBUILD GuiRect;
+struct DLLBUILD GuiRootRect;
+struct DLLBUILD GuiString;
+struct DLLBUILD GuiButton;
+struct DLLBUILD GuiImage;
+struct DLLBUILD GuiButtonBool;
+struct DLLBUILD GuiScrollBar;
+struct DLLBUILD GuiScrollRect;
+struct DLLBUILD GuiPropertyString;
+struct DLLBUILD GuiPropertySlider;
+struct DLLBUILD GuiAnimationController;
+struct DLLBUILD GuiLabel;
+struct DLLBUILD GuiViewport;
+struct DLLBUILD GuiSceneViewer;
+struct DLLBUILD GuiEntityViewer;
+struct DLLBUILD GuiCompilerViewer;
+struct DLLBUILD GuiProjectViewer;
+struct DLLBUILD GuiScriptViewer;
+struct DLLBUILD GuiPropertyVec3;
+struct DLLBUILD GuiPropertyPtr;
+struct DLLBUILD GuiPropertyFloat;
+struct DLLBUILD GuiPropertyBool;
+struct DLLBUILD GuiPropertyAnimationController;
 
-struct Tab;
-struct Container;
-struct Splitter;
-struct MainContainer;
-struct ResourceNodeDir;
-struct Compiler;
-struct Subsystem;
-struct Debugger;
-struct EditorScript;
+struct DLLBUILD Tab;
+struct DLLBUILD Container;
+struct DLLBUILD Splitter;
+struct DLLBUILD MainContainer;
+struct DLLBUILD ResourceNodeDir;
+struct DLLBUILD Compiler;
+struct DLLBUILD Subsystem;
+struct DLLBUILD Debugger;
+struct DLLBUILD EditorScript;
 
 //entity forward declaration 
 
-struct Entity;
-struct AnimationController;
-struct Script;
+struct DLLBUILD Entity;
+struct DLLBUILD AnimationController;
+struct DLLBUILD Script;
 
 #define MAX_TOUCH_INPUTS 10
 
 
-struct InputInterface
+struct DLLBUILD MatrixStack
+{
+	enum matrixmode
+	{
+		PROJECTION=0,
+		MODEL,
+		VIEW,
+		MATRIXMODE_MAX
+	};
+
+	static void Reset();
+
+
+	static void Push();
+	static void Pop();
+	static void Identity();
+	static float* Get();
+	static void Load(float* m);
+	static void Multiply(float* m);
+
+	static void Pop(MatrixStack::matrixmode);
+	static void Push(MatrixStack::matrixmode);
+	static void Push(MatrixStack::matrixmode,float*);
+	static void Identity(MatrixStack::matrixmode);
+	static float* Get(MatrixStack::matrixmode,int lev=-1);
+	static void Load(MatrixStack::matrixmode,float*);
+	static void Multiply(MatrixStack::matrixmode,float*);
+
+	static void Rotate(float a,float x,float y,float z);
+	static void Translate(float x,float y,float z);
+	static void Scale(float x,float y,float z);
+
+	static mat4 GetProjectionMatrix();
+	static mat4 GetModelMatrix();
+	static mat4 GetViewMatrix();
+
+	static void SetProjectionMatrix(float*);
+	static void SetModelMatrix(float*);
+	static void SetViewMatrix(float*);
+
+	static  MatrixStack::matrixmode GetMode();
+	static  void SetMode(MatrixStack::matrixmode m);
+
+	static mat4 model;
+	static mat4 projection;
+	static mat4 view;
+};
+
+
+struct DLLBUILD InputInterface
 {
 };
 
-struct TouchInput : InputInterface
+struct DLLBUILD TouchInput : InputInterface
 {
 	enum
 	{
@@ -81,12 +130,12 @@ struct TouchInput : InputInterface
 
 };
 
-struct KeyboardInput : InputInterface
+struct DLLBUILD KeyboardInput : InputInterface
 {
 	bool IsPressed(unsigned int iCharCode);
 };
 
-struct MouseInput : InputInterface
+struct DLLBUILD MouseInput : InputInterface
 {
 	vec2	pos;
 	vec2	posold;
@@ -107,7 +156,7 @@ struct MouseInput : InputInterface
 };
 
 
-struct InputManager
+struct DLLBUILD InputManager
 {
 	static TouchInput touchInput;
 	static MouseInput mouseInput;
@@ -118,7 +167,7 @@ struct InputManager
 
 
 
-struct EngineIDE : TStaticInstance<EngineIDE>
+struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 {
 	Timer*					timerMain;
 	MainContainer*			mainAppWindow;
@@ -149,9 +198,9 @@ struct EngineIDE : TStaticInstance<EngineIDE>
 	virtual void Sleep(int iMilliseconds=1)=0;
 };
 
-struct Debugger
+struct DLLBUILD Debugger
 {
-	struct Breakpoint
+	struct DLLBUILD Breakpoint
 	{	
 		void* address;
 		int   line;
@@ -195,7 +244,7 @@ struct Debugger
 	virtual void PrintThreadContext(void*)=0;
 };
 
-struct Renderer2D
+struct DLLBUILD Renderer2D
 {
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
 	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
@@ -205,7 +254,7 @@ struct Renderer2D
 	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
 	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 
-	struct Caret
+	struct DLLBUILD Caret
 	{
 		static const unsigned int BLINKRATE=300;
 
@@ -262,7 +311,7 @@ struct Renderer2D
 	virtual float GetCharWidth(char iCharacter)=0;
 };
 
-struct Renderer3D : Renderer3DBase
+struct DLLBUILD Renderer3D : Renderer3DBase
 {
 	std::list<GuiViewport*> viewports;
 	
@@ -316,7 +365,7 @@ struct Renderer3D : Renderer3DBase
 
 
 
-struct Game
+struct DLLBUILD Game
 {
 
 };
@@ -326,7 +375,7 @@ struct Game
 int simple_shader(const char* name,int shader_type, const char* shader_src);
 int create_program(const char* name,const char* vertexsh,const char* fragmentsh);
 
-struct ShaderOpenGL : Shader
+struct DLLBUILD ShaderOpenGL : Shader
 {
 	static Shader* Create(const char* shader_name,const char* pixel_shader,const char* fragment_shader);
 
@@ -380,7 +429,7 @@ struct ShaderOpenGL : Shader
 	unsigned int	  ibo;
 };
 
-struct GuiRect : THierarchyVector<GuiRect>
+struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 {
 	static const int TREEVIEW_ROW_HEIGHT=20;
 	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
@@ -506,16 +555,16 @@ struct GuiRect : THierarchyVector<GuiRect>
 	template<class C> C* Create(int iSibling=-1,int iContainer=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=0,float iAlignPosY=0,float iAlignRectX=1,float iAlignRectY=1);
 };
 
-struct GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
+struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 {
 	Tab* tabContainer;
 
 	void OnSize(Tab*);
 
-	GuiRootRect(Tab* t):tabContainer(t){this->name="RootRect";this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);}
+	GuiRootRect(Tab* t);
 };
 
-struct GuiString : GuiRect
+struct DLLBUILD GuiString : GuiRect
 {
 	vec2 alignText;
 	std::string text;
@@ -529,7 +578,7 @@ struct GuiString : GuiRect
 	virtual void OnPaint(Tab*,void* data=0);
 };
 
-struct GuiButton : GuiString
+struct DLLBUILD GuiButton : GuiString
 {
 	GuiButton();
 
@@ -537,7 +586,7 @@ struct GuiButton : GuiString
 	virtual void OnPaint(Tab* tab,void* data=0);
 };
 
-struct GuiButtonFunc : GuiButton
+struct DLLBUILD GuiButtonFunc : GuiButton
 {
 	GuiButtonFunc(void (*iFunc)(void*)=0,void* iParam=0);
 
@@ -547,7 +596,7 @@ struct GuiButtonFunc : GuiButton
 	virtual void OnLMouseUp(Tab* tab,void* data=0);
 };
 
-struct GuiButtonBool : GuiButton
+struct DLLBUILD GuiButtonBool : GuiButton
 {
 	bool& referenceValue;
 	int		updateMode;
@@ -557,7 +606,7 @@ struct GuiButtonBool : GuiButton
 	virtual void OnLMouseUp(Tab* tab,void* data=0);
 };
 
-struct GuiScrollBar : GuiRect
+struct DLLBUILD GuiScrollBar : GuiRect
 {
 	float scrollerPosition,scrollerRatio;
 	float scrollerPressed;
@@ -589,7 +638,7 @@ struct GuiScrollBar : GuiRect
 	void SetRect(GuiRect*);
 };
 
-struct GuiScrollRect : GuiRect
+struct DLLBUILD GuiScrollRect : GuiRect
 {
 	GuiScrollRect();
 	~GuiScrollRect();
@@ -605,7 +654,7 @@ struct GuiScrollRect : GuiRect
 	virtual void OnSize(Tab*,void* data=0);
 };	
 
-struct GuiSlider : GuiRect
+struct DLLBUILD GuiSlider : GuiRect
 {
 	float& referenceValue;
 
@@ -620,12 +669,12 @@ struct GuiSlider : GuiRect
 	void DrawSliderTip(Tab*,void* data=0);
 };
 
-struct GuiProperty : GuiRect
+struct DLLBUILD GuiProperty : GuiRect
 {
 	String description;
 };
 
-struct GuiPropertyString : GuiProperty
+struct DLLBUILD GuiPropertyString : GuiProperty
 {
 	static const unsigned int scDefaultParameter1=3;
 	static const unsigned int scDefaultParameter2=2;
@@ -659,7 +708,7 @@ struct GuiPropertyString : GuiProperty
 	virtual void OnPaint(Tab*,void* data=0);
 };
 
-struct GuiPropertySlider : GuiProperty
+struct DLLBUILD GuiPropertySlider : GuiProperty
 {
 	GuiSlider slider;
 
@@ -668,7 +717,7 @@ struct GuiPropertySlider : GuiProperty
 	virtual void OnPaint(Tab*,void* data=0);
 };
 
-struct GuiAnimationController : GuiRect
+struct DLLBUILD GuiAnimationController : GuiRect
 {
 	AnimationController& animationController;
 
@@ -684,14 +733,14 @@ struct GuiAnimationController : GuiRect
 	void OnButtonPressed(Tab* tabContainer,GuiButtonBool*);
 };
 
-struct GuiPropertyAnimationController : GuiProperty
+struct DLLBUILD GuiPropertyAnimationController : GuiProperty
 {
 	GuiAnimationController guiAnimationController;
 
 	GuiPropertyAnimationController(AnimationController&);
 };
 
-struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
+struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 {
 	EditorEntity* rootEntity;
 
@@ -732,9 +781,9 @@ struct GuiViewport : GuiRect , TPoolVector<GuiViewport>
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
+struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 {
-	struct GuiPaper : GuiString
+	struct DLLBUILD GuiPaper : GuiString
 	{
 		GuiScriptViewer* scriptViewer;
 
@@ -775,7 +824,7 @@ struct GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	vec4 GetCaretPosition(Tab*);
 };
 
-struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
+struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
 {
 	GuiCompilerViewer();
 
@@ -783,7 +832,7 @@ struct GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
 	void OnSize(Tab*,void* data=0);
 };
 
-struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
+struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 {
 	GuiSceneViewer();
 	~GuiSceneViewer();
@@ -815,7 +864,7 @@ struct GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 
 };	
 
-struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
+struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 {
 	GuiEntityViewer();
 	~GuiEntityViewer();
@@ -836,13 +885,13 @@ struct GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 	int CalcNodesHeight(GuiRect*);
 };
 
-struct GuiConsoleViewer : GuiScrollRect
+struct DLLBUILD GuiConsoleViewer : GuiScrollRect
 {
 	GuiConsoleViewer();
 	~GuiConsoleViewer();
 };
 
-struct ResourceNode
+struct DLLBUILD ResourceNode
 {
 	ResourceNode* parent;
 
@@ -857,7 +906,7 @@ struct ResourceNode
 	~ResourceNode();
 };
 
-struct ResourceNodeDir : ResourceNode
+struct DLLBUILD ResourceNodeDir : ResourceNode
 {
 	bool expanded;
 
@@ -868,9 +917,9 @@ struct ResourceNodeDir : ResourceNode
 	~ResourceNodeDir();
 };
 
-struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
+struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 {
-	struct GuiProjectDirViewer : GuiScrollRect
+	struct DLLBUILD GuiProjectDirViewer : GuiScrollRect
 	{
 		ResourceNodeDir* rootResource;
 
@@ -885,7 +934,7 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 
 	}dirViewer;
 
-	struct GuiProjectFileViewer : GuiScrollRect
+	struct DLLBUILD GuiProjectFileViewer : GuiScrollRect
 	{
 		ResourceNodeDir* rootResource;
 		std::vector<ResourceNodeDir*> selectedDirs;
@@ -902,7 +951,7 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		void OnDLMouseDown(Tab*,void* data=0);
 	}fileViewer;
 
-	struct GuiProjectDataViewer : GuiScrollRect
+	struct DLLBUILD GuiProjectDataViewer : GuiScrollRect
 	{
 		
 	}resourceViewer;
@@ -953,7 +1002,7 @@ struct GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	}
 };
 
-struct WindowData
+struct DLLBUILD WindowData
 {
 	float width;
 	float height;
@@ -970,7 +1019,7 @@ struct WindowData
 	virtual void OnWindowPosChanging()=0;
 };
 
-struct GuiImage
+struct DLLBUILD GuiImage
 {
 	int width,height;
 	int bpp;
@@ -982,7 +1031,7 @@ struct GuiImage
 	virtual bool Fill(Renderer2D*,unsigned char* iData,float iWidth,float iHeight)=0;
 };
 
-struct DrawInstance
+struct DLLBUILD DrawInstance
 {
 	int		 code;
 	bool	 frame;
@@ -993,7 +1042,7 @@ struct DrawInstance
 	DrawInstance(int a,bool b,GuiRect* c,bool iRemove):code(a),frame(b),rect(c),remove(true){}
 };
 
-struct Tab : TPoolVector<Tab>
+struct DLLBUILD Tab : TPoolVector<Tab>
 {
 	WindowData* windowData;
 
@@ -1104,7 +1153,7 @@ struct Tab : TPoolVector<Tab>
 	GuiRect* GetFocus();
 };
 
-struct Splitter 
+struct DLLBUILD Splitter 
 {
 	Tab* currentTabContainer;
 
@@ -1127,7 +1176,7 @@ struct Splitter
 };
 
 
-struct Container
+struct DLLBUILD Container
 {
 	std::vector<Tab*> tabContainers;
 
@@ -1161,14 +1210,14 @@ struct Container
 };
 
 
-struct MainContainer
+struct DLLBUILD MainContainer
 {
 	std::vector<Container*> containers;
 
 	virtual Container* CreateContainer()=0;
 };
 
-struct Subsystem
+struct DLLBUILD Subsystem
 {
 	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false)=0;
 	virtual unsigned int FindProcessId(String iProcessName)=0;
@@ -1179,7 +1228,7 @@ struct Subsystem
 
 
 
-struct Compiler
+struct DLLBUILD Compiler
 {
 	String compilerPath;
 	String linkerPath;
@@ -1198,7 +1247,7 @@ struct Compiler
 	
 };
 
-struct EditorProperties
+struct DLLBUILD EditorProperties
 {
 	GuiString properties;
 
@@ -1209,9 +1258,9 @@ struct EditorProperties
 	virtual void OnPropertiesUpdate(Tab*){};
 };
 
-template<class T> struct EditorObject : T , EditorProperties{};
+template<class T> struct DLLBUILD EditorObject : T , EditorProperties{};
 
-struct EditorEntity : EditorObject<Entity> 
+struct DLLBUILD EditorEntity : EditorObject<Entity> 
 {
 	bool					selected;
 	bool					expanded;
@@ -1236,7 +1285,7 @@ struct EditorEntity : EditorObject<Entity>
 };
 				
 
-struct EditorAnimationController : EditorObject<AnimationController>
+struct DLLBUILD EditorAnimationController : EditorObject<AnimationController>
 {
 	float oldCursor;
 	GuiPropertyAnimationController*  guiPropertyAnimationController;
@@ -1246,42 +1295,42 @@ struct EditorAnimationController : EditorObject<AnimationController>
 
 };
 
-struct EditorMesh : EditorObject<Mesh>
+struct DLLBUILD EditorMesh : EditorObject<Mesh>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorRoot : EditorObject<Root>
+struct DLLBUILD EditorRoot : EditorObject<Root>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorSkeleton : EditorObject<Skeleton>
+struct DLLBUILD EditorSkeleton : EditorObject<Skeleton>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorGizmo : EditorObject<Gizmo>
+struct DLLBUILD EditorGizmo : EditorObject<Gizmo>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorAnimation : EditorObject<Animation>
+struct DLLBUILD EditorAnimation : EditorObject<Animation>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorBone : EditorObject<Bone>
+struct DLLBUILD EditorBone : EditorObject<Bone>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorLight : EditorObject<Light>
+struct DLLBUILD EditorLight : EditorObject<Light>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorScript : EditorObject<Script>
+struct DLLBUILD EditorScript : EditorObject<Script>
 {
 	GuiButtonFunc* buttonLaunch;
 
@@ -1299,12 +1348,12 @@ struct EditorScript : EditorObject<Script>
 		this->runtime ? EngineIDE::instance->debugger->RunDebuggeeFunction(this,1),true : false;
 	}
 };
-struct EditorCamera : EditorObject<Camera>
+struct DLLBUILD EditorCamera : EditorObject<Camera>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);
 };
-struct EditorSkin : EditorObject<Skin>
+struct DLLBUILD EditorSkin : EditorObject<Skin>
 {
 	void OnPropertiesCreate(); 
 	void OnPropertiesUpdate(Tab*);

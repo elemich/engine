@@ -6,6 +6,17 @@
 	#include "fbxutil.h"
 #endif
 
+
+void ___saferelease(IUnknown* iPtr)
+{
+	if(0!=iPtr)
+	{
+		iPtr->Release();
+		iPtr=0;
+	}
+}
+
+
 bool KeyboardInput::IsPressed(unsigned int iCharCode)
 {
 	return ((::GetKeyState(iCharCode) >> 8) & 0xff)!=0;
@@ -1093,7 +1104,13 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 	return result;
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////TimerWin32///////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
+TimerWin32::TimerWin32(){}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1288,7 +1305,12 @@ int EngineIDEWin32::Initialize()
 		if(!GetModuleFileName(0,ch,5000))
 			DEBUG_BREAK();
 
-		this->ideExecutable.String::operator=(ch);
+		this->ideExecutable=ch;
+
+		if(!SetDllDirectory(this->ideExecutable.Path().Buffer()))
+			printf("failed to add dll search path\n");
+
+		
 
 		printf("Application folder: %s\n",this->ideExecutable.Path().Buffer());
 	}
@@ -1340,6 +1362,7 @@ int EngineIDEWin32::Initialize()
 
 void EngineIDEWin32::Deinitialize()
 {
+	SetDllDirectory(0);
 	Direct2D::Release();
 	CoUninitialize();
 }
@@ -2249,7 +2272,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 
-	glBufferData(GL_ARRAY_BUFFER,3*sizeof(float),point.vec3data->v,GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER,3*sizeof(float),point,GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(ps);glCheckError();
 	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,0);glCheckError();
@@ -3230,7 +3253,7 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 
 		if(tSize.width!=iWidth || tSize.height!=iHeight)
 		{
-			SAFEDELETE(this->handle)
+			SAFEDELETE(this->handle);
 
 			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 			bp.pixelFormat=renderer2DInterfaceWin32->renderer->GetPixelFormat();
@@ -3534,11 +3557,11 @@ void TabWin32::OnGuiRMouseUp(void* data)
 				switch(menuResult)
 				{
 					case 1:
-						if((int)GetPool<Tab>().size()>1)
+						if(this->GetPool().size()>1)
 						{
-							printf("total TabContainer before destroying: %d\n",(int)GetPool<Tab>().size());
+							printf("total TabContainer before destroying: %d\n",this->GetPool().size());
 							this->~TabWin32();
-							printf("total TabContainer after destroying: %d\n",(int)GetPool<Tab>().size());
+							printf("total TabContainer after destroying: %d\n",this->GetPool().size());
 						}
 					break;
 					case 2:
@@ -4294,37 +4317,43 @@ String CompilerWin32::ComposeMingW(Script* iScript)
 
 	String tEngineIncludeSourcePath=EngineIDE::instance->ideExecutable.PathUp(5) + "\\src";
 	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->ideExecutable.Path();
-	String tMingwCommandLine="-O0 -g -I " + tEngineIncludeSourcePath + " -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName + tEngineLibraryPath;
+	String tMingwCommandLine="-O0 -g -I " + tEngineIncludeSourcePath + tEngineLibraryPath + " -static -shared -o " + iScript->file.path.Name() + ".dll " + tSourceFullPathFileName ;
 
-	String objects=EngineIDE::instance->ideExecutable.Path() + "\\engineMingW.dll";
+	String primitives=" " + EngineIDE::instance->ideExecutable.Path() + "\\primitives.o";
+	String entities=" " + EngineIDE::instance->ideExecutable.Path() + "\\entities.o";
+	String jpg=" " + EngineIDE::instance->ideExecutable.Path() + "\\imgjpg.o";
+	String tga=" " + EngineIDE::instance->ideExecutable.Path() + "\\imgtga.o";
+	String png=" " + EngineIDE::instance->ideExecutable.Path() + "\\imgpng.o";
+	String engineWin32=" " + EngineIDE::instance->ideExecutable.Path() + "\\engineWin32.dll";
+	String engineMingW=" " + EngineIDE::instance->ideExecutable.Path() + "\\engineMingW.dll";
 
-	return tMingwCompilerExecutable + tMingwCommandLine + " " + objects + " -lkernel32";
+	return tMingwCompilerExecutable + tMingwCommandLine + engineMingW;
 }
 
 
 String gfCreateRandomString(int iCount)
 {
-	const char __an[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+	const char tSymbolsAlphabet[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
 
-	String ret;
+	char* tRandomString=new char[iCount+1];
 
-	char*& __ret=ret.data;
+	unsigned int tFeed=*(unsigned int*)&tRandomString;
+	unsigned int tSymbol=sizeof(tSymbolsAlphabet);
 
-	__ret=new char[iCount+1];
-
-	unsigned int feed=*(unsigned int*)&__ret;
-	unsigned int anCount=sizeof(__an);
-	srand(feed);
+	srand(tFeed);
 
 	for(int i=0;i<iCount;i++)
 	{
-		__ret[i]=__an[rand() % anCount];
+		tRandomString[i]=tSymbolsAlphabet[rand() % tSymbol];
 	}
 
-	__ret[iCount]='\0';
-	ret.size=iCount;
+	tRandomString[iCount]='\0';
+	
+	String tReturnString(tRandomString);
 
-	return ret;
+	SAFEDELETEARRAY(tRandomString);
+
+	return tReturnString;
 }
 
 
@@ -4553,7 +4582,10 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		iScript->runtime=tCreateMoculeClassFunction();
 		iScript->runtime->entity=iScript->entity;
 
-		printf("outer inited 0x%p %s\n",&iScript->entity->local,iScript->entity->name.Buffer());
+		EntityScript* es=iScript->runtime;
+
+		printf("entityscriptptr 0x%p\nentityptr 0x%p\nentityparentptr 0x%p\nentitychildsptr 0x%p\nentitylocalptr 0x%p\nentityworldptr 0x%p\nentitynameptr 0x%p\nentitybboxptr 0x%p\nentitycomponentsptr 0x%p\n",
+			es,es->entity,es->entity->parent,&es->entity->childs,&es->entity->local,&es->entity->world,&es->entity->name,&es->entity->bbox,&es->entity->components);
 
 		//iScript->runtime->init();
 		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
