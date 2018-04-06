@@ -1,7 +1,7 @@
 ﻿#include "interfaces.h"
 
 //__declspec(dllimport) template <> TStaticInstance<EngineIDE>::TStaticInstance(){}
-//template <class T> std::vector<T*> TPoolVector<T>::pool;
+//template <class T> std::vector<T*> TPoolVector<T>::GetPool();
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3361,7 +3361,7 @@ void GuiProjectViewer::GuiProjectFileViewer::OnRMouseUp(Tab* tabContainer,void* 
 		case 3://load 
 			if(tHoveredResourceNode->fileName.Extension() == &EngineIDE::instance->GetSceneExtension()[1])
 			{
-				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::pool.front();
+				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::GetPool().front();
 
 				if(tGuiSceneViewer)
 				{
@@ -3418,8 +3418,8 @@ void GuiProjectViewer::GuiProjectFileViewer::OnDLMouseDown(Tab* tabContainer,voi
 
 			if(tExtension == &EngineIDE::instance->GetSceneExtension()[1])
 			{
-				Thread* renderThread=GuiViewport::pool[0]->GetRootRect()->tabContainer->threadRender;
-				Task* drawTask=GuiViewport::pool[0]->GetRootRect()->tabContainer->taskDraw;
+				Thread* renderThread=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer->threadRender;
+				Task* drawTask=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer->taskDraw;
 				
 				drawTask->Block(true);
 
@@ -4114,10 +4114,10 @@ void editScriptEditorCallback(void* iData)
 	if(!tabContainer)
 		DEBUG_BREAK();
 
-	if(GuiScriptViewer::pool.empty())
+	if(GuiScriptViewer::GetPool().empty())
 		tabContainer->tabs.ScriptViewer();
 	
-	GuiScriptViewer* guiScriptViewer=GuiScriptViewer::pool.front();
+	GuiScriptViewer* guiScriptViewer=GuiScriptViewer::GetPool().front();
 
 	if(guiScriptViewer)
 	{

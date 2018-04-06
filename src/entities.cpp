@@ -478,15 +478,15 @@ Shader::Shader(){}
 
 Shader* Shader::Find(const char* name,bool exact)
 {
-	for(int i=0;i<(int)pool.size();i++)
+	for(size_t i=0;i<GetPool().size();i++)
 	{
-		Shader* element=pool[i];
+		Shader* element=GetPool()[i];
 
 		const char* programName=element->GetName();
 
 		if(element && programName)
 			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
-				return pool[i];
+				return GetPool()[i];
 	}
 
 	return 0;

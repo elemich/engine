@@ -3029,7 +3029,7 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 
 		viewport->rootEntity->update();
 
-		for(std::vector<GuiEntityViewer*>::iterator it=GuiEntityViewer::pool.begin();it!=GuiEntityViewer::pool.end();it++)
+		for(std::vector<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetPool().begin();it!=GuiEntityViewer::GetPool().end();it++)
 		{
 			EditorEntity* eEntity=(EditorEntity*)(*it)->entity;
 			if(eEntity && (*it)->tabContainer)
@@ -4515,11 +4515,11 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
 
-	GuiCompilerViewer* guiCompilerViewer=!GuiCompilerViewer::pool.empty() ? GuiCompilerViewer::pool.front() : 0;
+	GuiCompilerViewer* guiCompilerViewer=!GuiCompilerViewer::GetPool().empty() ? GuiCompilerViewer::GetPool().front() : 0;
 
 	if(!guiCompilerViewer)
 	{
-		Tab* tabContainer=!Tab::pool.empty() ? Tab::pool.front() : 0;
+		Tab* tabContainer=!Tab::GetPool().empty() ? Tab::GetPool().front() : 0;
 
 		if(!tabContainer)
 			DEBUG_BREAK();
@@ -4635,7 +4635,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 		{
 			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))GetProcAddress(*tModule,"Destroy");
 
-			Tab* tabContainerRunninUpdater=GuiViewport::pool[0]->GetRootRect()->tabContainer;
+			Tab* tabContainerRunninUpdater=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer;
 
 			tabContainerRunninUpdater->taskDraw->pause=true;
 
@@ -4670,7 +4670,7 @@ bool CompilerWin32::CreateAndroidTarget()
 {
 	//get all project scenes 
 
-	std::vector<ResourceNode*> projectSceneResourceNodes=GuiProjectViewer::pool[0]->findResources(EngineIDE::instance->GetSceneExtension());
+	std::vector<ResourceNode*> projectSceneResourceNodes=GuiProjectViewer::GetPool()[0]->findResources(EngineIDE::instance->GetSceneExtension());
 
 	std::vector<std::string> iScriptFilenameVector;
 

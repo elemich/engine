@@ -107,32 +107,30 @@ template <typename T> struct DLLBUILD TPoolVector
 private:
 	static std::vector<T*>* _pool;
 public:
-	static std::vector<T*>& pool;
 
 	TPoolVector()
 	{
-		pool.push_back((T*)this);
+		this->_pool->push_back((T*)this);
 	}
 
 	~TPoolVector()
 	{
-		pool.erase(std::find(pool.begin(),pool.end(),(T*)this));
+		this->_pool->erase(std::find(this->_pool->begin(),this->_pool->end(),(T*)this));
 	}
 
 	static void BroadcastToPool(void (T::*func)(void*),void* data=0)
 	{
-		for(typename std::vector< T*>::iterator tPoolElement=TPoolVector<T>::pool.begin();tPoolElement!=TPoolVector<T>::pool.end();tPoolElement++)
+		for(typename std::vector< T*>::iterator tPoolElement=TPoolVector<T>::GetPool().begin();tPoolElement!=TPoolVector<T>::GetPool().end();tPoolElement++)
 			((*tPoolElement)->*func)(data);
 	}
 
 	static std::vector<T*>& GetPool()
 	{
-		return TPoolVector<T>::pool;
+		return *TPoolVector<T>::_pool;
 	}
 };
 
 template <typename T> std::vector<T*>* TPoolVector<T>::_pool=new std::vector<T*>;
-template <typename T> std::vector<T*>& TPoolVector<T>::pool=*TPoolVector<T>::_pool;
 
 
 struct DLLBUILD String

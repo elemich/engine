@@ -1130,7 +1130,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	template<class C> void BroadcastToAll(void (GuiRect::*func)(Tab*,void*),void*);
 	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(Tab*,void*),void* data=0)
 	{
-		for(std::vector<Tab*>::iterator tabContainer=TPoolVector<Tab>::pool.begin();tabContainer!=TPoolVector<Tab>::pool.end();tabContainer++)
+		for(std::vector<Tab*>::iterator tabContainer=TPoolVector<Tab>::GetPool().begin();tabContainer!=TPoolVector<Tab>::GetPool().end();tabContainer++)
 			(*tabContainer)->BroadcastToSelected(func,data);
 	}
 
@@ -1200,10 +1200,10 @@ struct DLLBUILD Container
 	{
 		Tab* tTabContainer=iTabContainer ? iTabContainer : tabContainers[0];
 
-		if(GuiViewerDerived::pool.empty())
+		if(GuiViewerDerived::GetPool().empty())
 			return tabContainers[0]->tabs.Create<GuiViewerDerived>();
 		else if(skipExist)
-			return GuiViewerDerived::pool.front();
+			return GuiViewerDerived::GetPool().front();
 		else
 			return tabContainers[0]->tabs.Create<GuiViewerDerived>();
 	}
