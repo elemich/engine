@@ -9,13 +9,18 @@ OPENGLLIB=libfbxsdk-md.lib advapi32.lib
 
 LKDLL=/DLL /NOENTRY $(LKOPT)  
 
-engineWin32.dll: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+engineLowHdr=$(DIRSRC)\primitives.h $(DIRSRC)\entities.h $(DIRSRC)\imgjpg.h $(DIRSRC)\imgpng.h $(DIRSRC)\imgtga.h
+engineLowSrc=$(DIRSRC)\primitives.cpp $(DIRSRC)\entities.cpp $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgtga.cpp
+engineHighHdr=$(DIRSRC)\interfaces.h $(DIRSRC)\win32.h $(DIRSRC)\fbxutil.h
+engineHighSrc=$(DIRSRC)\interfaces.cpp $(DIRSRC)\win32.cpp $(DIRSRC)\fbxutil.cpp
+
+engineWin32.dll:  $(engineLowHdr) $(engineLowSrc) $(engineHighHdr) $(engineHighSrc)
  @echo -engineWin32.dll-
- @cl.exe $(CLOPT) /DDLLBUILD $(DIRSRC)\primitives.cpp $(DIRSRC)\entities.cpp $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgtga.cpp $(DIRSRC)\interfaces.cpp $(DIRSRC)\win32.cpp $(DIRSRC)\fbxutil.cpp /link $(LKOPT) /DLL /OUT:engineWin32.dll $(WIN32LIBD) $(OPENGLLIB)
+ @cl.exe $(CLOPT) /DDLLBUILD $(engineLowSrc) $(engineHighSrc) /link $(LKOPT) /DLL /OUT:engineWin32.dll $(WIN32LIBD) $(OPENGLLIB)
  
-engine.exe: engineWin32.dll 
+engine.exe: engineWin32.dll *.obj
  @echo -engine.exe-
- @link $(LKOPT) /OUT:engine.exe engineWin32.lib *.obj $(WIN32LIBD) $(OPENGLLIB)
+ @link $(LKOPT) /OUT:engine.exe *.obj engineWin32.lib  $(WIN32LIBD) $(OPENGLLIB)
 
 clean:
  @echo cleaning $(DIRDST)...
