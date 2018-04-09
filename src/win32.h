@@ -165,6 +165,8 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	float GetFontHeight();
 	float GetCharWidth(char iCharacter);
 
+	void SetTabSpaces(unsigned int iNumOfSpaces);
+
 	ID2D1Brush* SetColorWin32(unsigned int color);
 
 	bool RecreateTarget(HWND);

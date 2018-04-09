@@ -153,6 +153,7 @@ IWICImagingFactory*		Direct2D::imager=0;
 IDWriteFactory*			Direct2D::writer=0;
 IDWriteTextFormat*		Direct2D::texter=0;
 
+
 char	Direct2D::charsWidth[255]={0};
 
 const int Direct2D::fontLogicSize=10;
@@ -436,7 +437,7 @@ float Direct2D::GetFontSize()
 
 float Direct2D::GetCharWidth(char iCharacter)
 {
-	return iCharacter!='\t' ? Direct2D::charsWidth[iCharacter-27] : Direct2D::texter->GetIncrementalTabStop();
+	return iCharacter!='\t' ? Direct2D::charsWidth[iCharacter-27] : Direct2D::charsWidth[' '-27];
 }
 
 
@@ -632,6 +633,8 @@ void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretWin32((CaretWin32*)caret)
 {
 	Direct2D::Init();
+
+	this->SetTabSpaces(this->tabSpaces);
 }
 Renderer2DWin32::~Renderer2DWin32()
 {
@@ -744,13 +747,22 @@ float Renderer2DWin32::GetFontHeight()
 
 float Renderer2DWin32::GetCharWidth(char iCharacter)
 {
-	return Direct2D::GetCharWidth(iCharacter);
+	float tCharWidth=Direct2D::GetCharWidth(iCharacter);
+
+	return iCharacter!='\t' ? tCharWidth : tCharWidth*this->tabSpaces;
 }
 
 ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color)
 {
 	this->brush->SetColor(D2D1::ColorF(color));
 	return this->brush;
+}
+
+void Renderer2DWin32::SetTabSpaces(unsigned int iNumOfSpaces)
+{
+	this->tabSpaces=iNumOfSpaces;
+	unsigned int tSpaceCharWidth=Direct2D::GetCharWidth(' ');
+	Direct2D::texter->SetIncrementalTabStop(tSpaceCharWidth*this->tabSpaces);
 }
 
 

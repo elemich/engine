@@ -281,6 +281,7 @@ struct DLLBUILD Renderer2D
 
 	unsigned int	colorBackgroud;
 	unsigned int	colorText;
+	unsigned int	tabSpaces;
 
 	Tab*			tabContainer;
 
@@ -303,6 +304,8 @@ struct DLLBUILD Renderer2D
 	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
 	virtual float GetFontSize()=0;
 	virtual float GetFontHeight()=0;
+
+	virtual void SetTabSpaces(unsigned int iNumOfSpaces)=0;
 
 	virtual void DrawCaret()=0;
 	virtual void SetCaret(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)=0;
@@ -802,12 +805,18 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 
 	EditorScript* script;
 
-	int			cursor;
+	//unsigned int	cursor;
+	char*           cursor;
+	unsigned int	row;
+	unsigned int	col;
+	vec4			caret;
+	
 	GuiPaper*	paper;
 
 	bool		lineNumbers;
 
 	GuiScriptViewer();
+	~GuiScriptViewer();
 
 	void Open(Script*);
 	bool Save();
@@ -819,9 +828,24 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnMouseMove(Tab*,void* data=0);
 	void OnSize(Tab*,void* data=0);
 
+	enum
+	{
+		CARET_DONTCARE=0,
+		CARET_RECALC,
+		CARET_MOUSEPOS,
+		CARET_CANCEL,
+		CARET_BACKSPACE,
+		CARET_ADD,
+		CARET_ARROWLEFT,
+		CARET_ARROWRIGHT,
+		CARET_ARROWUP,
+		CARET_ARROWDOWN,
+		CARET_MAX
+	};
+
 	int CountScriptLines();
-	void SetCaretPosition(Tab*);
-	vec4 GetCaretPosition(Tab*);
+	void SetCaretPosition(Tab*,unsigned int iCaretOp,void* iParam);
+	vec4 GetCaretPosition(Tab*,unsigned int iCaretOp,void* iParam);
 };
 
 struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>

@@ -606,7 +606,8 @@ Splitter::~Splitter()
 
 Renderer2D::Renderer2D(Tab* iTabContainer):
 	tabContainer(iTabContainer),
-	caret(0)
+	caret(0),
+	tabSpaces(4)
 {}
 
 Renderer2D::Caret::Caret(Renderer2D* iRenderer2D):
@@ -3562,6 +3563,8 @@ void GuiScriptViewer::GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
 GuiScriptViewer::GuiScriptViewer():
 	script(0),
 	cursor(0),
+	row(0),
+	col(0),
 	lineNumbers(true)
 {
 	this->name="Script";
@@ -3596,6 +3599,12 @@ void GuiScriptViewer::Open(Script* iScript)
 
 			iScript->file.Close();
 		}
+
+		this->cursor=(char*)this->paper->text.c_str();
+		this->row=0;
+		this->col=0;
+
+		this->SetCaretPosition(this->GetRootRect()->tabContainer,CARET_RECALC,0);
 	}
 
 	this->script->scriptViewer=this;
@@ -3642,58 +3651,324 @@ bool GuiScriptViewer::Compile()
 	return exited && compiled && runned;
 }
 
-vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer)
-{
-	const char*	pText=this->paper->text.c_str();
-	vec4	tCaretPos;
-	int		tTextIdx=0;
 
+vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,void* iParam)
+{
 	float tFontHeight=tabContainer->renderer2D->GetFontHeight();
 
-	tCaretPos.w=tFontHeight;
+	bool tRecalcSize=false;
 
-	bool tCarriageReturn=false;
-
-	int tCharWidth=0;
-
-	while(*pText)
+	switch(iCaretOp)
 	{
-		if(tCarriageReturn)
+		case CARET_RECALC:
 		{
-			tCaretPos.y+=tFontHeight;
-			tCaretPos.x=0;
-			tCarriageReturn=false;
+			char*	pText=(char*)this->paper->text.c_str();
+
+			bool tCarriageReturn=false;
+			int tCharWidth=0;
+			this->caret=vec4();
+
+			this->caret.w=tFontHeight;
+
+			while(*pText)
+			{
+				if(tCarriageReturn)
+				{
+					this->caret.y+=tFontHeight;
+					this->caret.x=0;
+					this->col=0;
+					this->row+=1;
+
+					tCarriageReturn=false;
+				}
+
+				tCharWidth=tabContainer->renderer2D->GetCharWidth(*pText);
+
+				if(*pText=='\n' ||  *pText=='\r')
+					tCarriageReturn=true;
+
+				this->caret.z=tCharWidth;
+
+				if(pText==this->cursor)
+					break;
+
+				this->caret.x+=tCharWidth;
+				this->col+=1;
+
+				pText++;
+			}
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
 		}
+		case CARET_CANCEL:
+		{
+			if(this->cursor==(char*)this->paper->text.back())
+				return this->caret;
 
-		tCharWidth=tabContainer->renderer2D->GetCharWidth(*pText);
+			this->paper->text.erase(this->cursor-(char*)this->paper->text.c_str(),1);
 
-		if(tTextIdx && (this->paper->text[tTextIdx]=='\n' ||  this->paper->text[tTextIdx]=='\r'))
-			tCarriageReturn=true;
+			--this->cursor;
 
-		tCaretPos.z=tCharWidth;
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
 			
-		if(tTextIdx==this->cursor)
 			break;
+		}
+		case CARET_BACKSPACE:
+		{
+			if(this->cursor==this->paper->text.c_str())
+				return this->caret;
 
-		tCaretPos.x+=tCharWidth;
+			char tCharCode=*(--this->cursor);
 
-		pText++;
-		tTextIdx++;
+			if(tCharCode=='\n' ||  tCharCode=='\r')
+			{
+				//find previous row length
+				char*			pText=--this->cursor;
+				unsigned int	tRowLenght=0;
+				unsigned int    tRowCharCount=0;
+
+				while(*pText && (*pText=='\n' ||  *pText=='\r'))
+				{
+					tRowLenght=tabContainer->renderer2D->GetCharWidth(*pText);
+					pText--;
+					tRowCharCount++;
+				}
+
+				this->caret.x=tRowLenght;
+				this->caret.y-=tFontHeight;
+				this->row--;
+				this->col=tRowCharCount;
+
+				tRecalcSize=true;
+			}
+			else
+			{
+				this->caret.x-=tabContainer->renderer2D->GetCharWidth(tCharCode);
+				this->col--;
+			}
+
+			
+			this->paper->text.erase(this->cursor-this->paper->text.c_str(),1);
+
+			--this->cursor;
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
+			
+			break;
+		}
+		case CARET_ADD:
+		{
+			char tCharcode[2]=
+			{
+				*(char*)iParam,
+				'\0'
+			};
+
+			tCharcode[0]=='\r' ? tCharcode[0]='\n' : 0;
+
+			if(tCharcode[0]=='\n' ||  tCharcode[0]=='\r')
+			{
+				this->caret.x=0;
+				this->caret.y+=tFontHeight;
+				this->row++;
+				this->col=0;
+				tRecalcSize=true;
+			}
+			else
+			{
+				this->caret.x+=tabContainer->renderer2D->GetCharWidth(tCharcode[0]);
+				this->col++;
+			}
+
+			this->paper->text.insert(this->cursor-this->paper->text.c_str(),tCharcode);
+			this->cursor++;
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
+		
+			break;
+		}
+		case CARET_ARROWLEFT:
+		{
+			if(this->cursor==this->paper->text.c_str())
+				return this->caret;
+
+			char tCharCode=*(--this->cursor);
+
+			if(tCharCode=='\n' ||  tCharCode=='\r')
+			{
+				char*			pText=this->cursor;
+				unsigned int	tRowLenght=0;
+				unsigned int    tRowCharCount=0;
+
+				//find previous row lengthc
+
+				while(true)
+				{
+					if(this->cursor!=pText && (*pText=='\n' || *pText=='\r'))
+						break;
+
+					tRowLenght+=tabContainer->renderer2D->GetCharWidth(*pText);
+
+					if(pText==this->paper->text.c_str())
+						break;
+
+					pText--;
+					tRowCharCount++;
+				}
+
+				this->caret.x=tRowLenght;
+				this->caret.y-=tFontHeight;
+				this->row--;
+				this->col=tRowCharCount;
+			}
+			else
+			{
+				this->caret.x-=tabContainer->renderer2D->GetCharWidth(tCharCode);
+				this->col--;
+			}
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
+		
+			break;
+		}
+		case CARET_ARROWRIGHT:
+		{
+			char tCharCode=*this->cursor;
+
+			if(tCharCode=='\n' || tCharCode=='\r')
+			{
+				this->caret.x=0;
+				this->caret.y+=tFontHeight;
+				this->row++;
+				this->col=0;
+			}
+			else
+			{
+				this->caret.x+=tabContainer->renderer2D->GetCharWidth(tCharCode);
+				this->col++;
+			}
+
+			this->cursor++;
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
+		
+			break;
+		}
+		case CARET_ARROWUP:
+		{
+			unsigned int tRowCharWidth=0;
+			unsigned int tColumn=0;
+
+			//---find current rowhead
+
+			char* pText=this->cursor;
+
+			//skip the tail of the current row if present
+			if(*pText=='\r' || *pText=='\n')
+				pText--;
+
+			//find the last upper row or the head of the current row
+			while( pText!=this->paper->text.c_str() && *pText!='\r' &&  *pText!='\n' )
+				pText--;
+
+			//return if no previous row exists
+			if(pText==this->paper->text.c_str())
+				return this->caret; 
+
+			//go to the upper row pre-carriage char 
+			pText--;
+
+			//find the last upper superior row or the head of the upper row
+			while( pText!=this->paper->text.c_str() && *pText!='\r' &&  *pText!='\n' )
+				pText--;
+
+			//go to the upper superior row pre-carriage char 
+			if(pText!=this->paper->text.c_str())
+				pText++;
+
+			//finally found the upper matching position
+			while( tColumn!=this->col && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			{
+				tRowCharWidth+=tabContainer->renderer2D->GetCharWidth(*pText);
+
+				pText++;
+				tColumn++;
+			}
+
+			this->cursor=pText;
+			this->caret.x=tRowCharWidth;
+			this->caret.y-=tFontHeight;
+			this->col=tColumn;
+			this->row--;
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
+		
+			break;
+		}
+		case CARET_ARROWDOWN:
+		{
+			unsigned int tRowCharWidth=0;
+			unsigned int tColumn=0;
+
+			//find current rowtail
+
+			char* pText=this->cursor;
+
+			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			{
+				this->cursor++;
+				pText++;
+			}
+
+			if(*pText=='\0')
+				return this->caret; //no previous row exists
+
+			pText++;
+			this->cursor++;
+
+			//finally found the lower matching position
+
+			while( tColumn!=this->col && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			{
+				tRowCharWidth+=tabContainer->renderer2D->GetCharWidth(*pText);
+
+				pText++;
+				this->cursor++;
+				tColumn++;
+			}
+
+			/*if(tColumn!=this->col)//string is shorter of the lower matching position
+				tRowCharWidth*/
+
+			this->caret.x=tRowCharWidth;
+			this->caret.y+=tFontHeight;
+			this->col=tColumn;
+			this->row++;
+
+			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
+		
+			break;
+		}
 	}
 
-	//printf("%c: %d pos: %d\n",*txt,tCWidth,(int)pos.x);
+	if(tRecalcSize)
+		this->OnSize(tabContainer);
 
-	return tCaretPos;
+	return this->caret;
 }
 
 void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 {
 	if(this->script)
 	{
+		unsigned int	tCaretOperation=CARET_DONTCARE;
+		void*			tCaretParameter=0;
+		char			tCharcode;
+
+		bool			tRedraw=false;
+
 		if(iData)
 		{
-			char charcode=*(int*)iData;
-
 			if(InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/) && !InputManager::keyboardInput.IsPressed(0x12/*VK_ALT*/))
 			{
 				if(InputManager::keyboardInput.IsPressed('S'))
@@ -3703,44 +3978,42 @@ void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 			}
 			else
 			{
-				switch(charcode)
+				tCharcode=*(int*)iData;
+
+				switch(tCharcode)
 				{
-					case 0x08:/*VK_BACK*/
-						this->cursor>0 ? --this->cursor : 0 ;
-						this->paper->text.erase(this->cursor,1);
-						break;
-					default:
-					{
-						charcode=='\r' ? charcode='\n' : 0;
-						char token[2]={charcode,'\0'};
-						this->paper->text.insert(this->cursor,token);
-						this->cursor++;
-					}
+					case 0x08:/*VK_BACK*/tCaretOperation=CARET_BACKSPACE; break;
+					default: 
+						tCaretOperation=CARET_ADD;
+						tCaretParameter=&tCharcode;
 				}
 
-				tabContainer->SetDraw(2,0,this);
+				tRedraw=true;
 			}
 		}
 		else
 		{
 			if(InputManager::keyboardInput.IsPressed(0x25/*VK_LEFT*/))
-				this->cursor>0 ? --this->cursor : 0 ;
+				tCaretOperation=CARET_ARROWLEFT;
 			if(InputManager::keyboardInput.IsPressed(0x27/*VK_RIGHT*/))
-				this->cursor<this->paper->text.size() ? this->cursor++ : 0 ;
-			/*if(InputManager::keyboardInput.IsPressed(0x26/ *VK_UP* /))
-				this->cursor>0 ? --this->cursor : 0 ;
-			if(InputManager::keyboardInput.IsPressed(0x28/ *VK_DOWN* /))
-				this->cursor>0 ? --this->cursor : 0 ;*/
-
-			
+				tCaretOperation=CARET_ARROWRIGHT;
+			if(InputManager::keyboardInput.IsPressed(0x26/*VK_UP*/))
+				tCaretOperation=CARET_ARROWUP;
+			if(InputManager::keyboardInput.IsPressed(0x28/*VK_DOWN*/))
+				tCaretOperation=CARET_ARROWDOWN;
+			if(InputManager::keyboardInput.IsPressed(0x03/*VK_CANCEL*/))
+				tCaretOperation=CARET_CANCEL;
 
 			if(InputManager::keyboardInput.IsPressed(0x74/*VK_F5*/))
 				EngineIDE::instance->debugger->ContinueDebuggee();
 
-			tabContainer->SetDraw(2,0,this);
+			tRedraw=true;
 		}
 
-		this->SetCaretPosition(tabContainer);
+		this->SetCaretPosition(tabContainer,tCaretOperation,tCaretParameter);
+
+		if(tRedraw)
+			tabContainer->SetDraw(2,0,this);
 	}
 
 	GuiRect::OnKeyDown(tabContainer,iData);
@@ -3757,7 +4030,7 @@ void GuiScriptViewer::OnLMouseDown(Tab* tabContainer,void* iData)
 
 	vec2 tMpos=*(vec2*)iData;
 
-	this->SetCaretPosition(tabContainer);
+	this->SetCaretPosition(tabContainer,CARET_MOUSEPOS,0);
 	tabContainer->SetFocus(this);
 	tabContainer->renderer2D->EnableCaret(true);
 }
@@ -3813,14 +4086,16 @@ int GuiScriptViewer::CountScriptLines()
 	return tLinesCount;
 }
 
-void GuiScriptViewer::SetCaretPosition(Tab* tabContainer)
+void GuiScriptViewer::SetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,void* iParam)
 {
-	vec4 tCaretPosition=GetCaretPosition(tabContainer);
+	this->caret=GetCaretPosition(tabContainer,iCaretOp,iParam);
 
-	tCaretPosition.x+=this->paper->rect.x+this->paper->textOffset.x;
-	tCaretPosition.y+=this->paper->rect.y+this->paper->textOffset.y;
+	vec4 tCaret(this->caret);
 
-	tabContainer->renderer2D->SetCaret(this->paper,vec2(tCaretPosition.x,tCaretPosition.y),vec2(tCaretPosition.z,tCaretPosition.w));
+	tCaret.x+=this->paper->rect.x+this->paper->textOffset.x;
+	tCaret.y+=this->paper->rect.y+this->paper->textOffset.y;
+
+	tabContainer->renderer2D->SetCaret(this->paper,vec2(tCaret.x,tCaret.y),vec2(tCaret.z,tCaret.w));
 }
 
 ///////////////////////////////////////////////
