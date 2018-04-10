@@ -576,10 +576,7 @@ void Renderer2DWin32::CaretWin32::enable(bool iEnable)
 	
 void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 {
-	if(!this->enabled)
-		return;
-
-	if(!this->background || this->position!=this->newPosition || this->rect!=this->newRect)
+	if(enabled && !this->background || this->position!=this->newPosition || this->rect!=this->newRect)
 	{
 		Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)iRenderer;
 
@@ -606,7 +603,7 @@ void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
 		this->rect=this->newRect;
 	}
 
-	if(this->guiRect && this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
+	if(enabled && this->guiRect && this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
 	{
 		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iRenderer;
 
@@ -4531,7 +4528,9 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	if(!guiCompilerViewer)
 	{
-		Tab* tabContainer=!Tab::GetPool().empty() ? Tab::GetPool().front() : 0;
+		EditorScript* tEditorScript=(EditorScript*)iScript;
+		
+		Tab* tabContainer=tEditorScript->scriptViewer ? tEditorScript->scriptViewer->GetRootRect()->tabContainer : Tab::GetPool().front();
 
 		if(!tabContainer)
 			DEBUG_BREAK();
@@ -4545,11 +4544,13 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	bool noErrors=guiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
 
+	/*
 	guiCompilerViewer->OnSize(tabContainer);
 	guiCompilerViewer->OnActivate(tabContainer);
 
 	if(false==noErrors)
 		tabContainer->SetSelection(guiCompilerViewer);
+	*/
 
 	printf("%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.path.Buffer());
 

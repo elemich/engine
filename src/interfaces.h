@@ -623,7 +623,7 @@ struct DLLBUILD GuiScrollBar : GuiRect
 
 	bool SetScrollerRatio(float contentHeight,float containerHeight);
 	bool SetScrollerPosition(float contentHeight);
-	bool Scroll(float upOrDown);
+	bool Scroll(Tab*,float upOrDown);
 	bool IsVisible();
 
 	void OnLMouseDown(Tab* tab,void* data=0);

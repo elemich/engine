@@ -341,10 +341,8 @@ void Tab::Draw()
 			this->lastFrameTime=Timer::instance->GetTime();
 			this->renderer3D->Render();
 		}
-		else if(this->focused && this->focused==dynamic_cast<GuiScriptViewer*>(this->focused))
+		else if(this->focused && this->renderer2D->caret->enabled)
 		{
-			GuiScriptViewer* tScriptViewer=(GuiScriptViewer*)this->focused;
-
 			this->renderer2D->DrawCaret();
 		}
 	}
@@ -968,8 +966,8 @@ void GuiRect::OnMouseWheel(Tab* tabContainer,void* data)
 {
 	if(this->clip && this->_contains(this->rect,vec2(tabContainer->mousex,tabContainer->mousey)))
 	{
-		this->clip->scrollBar->Scroll(*(float*)data);
-		tabContainer->SetDraw(2,0,this->clip->parent);
+		this->clip->scrollBar->Scroll(tabContainer,*(float*)data);
+		//tabContainer->SetDraw(2,0,this->clip->parent);
 	}
 
 	this->BroadcastToChilds(&GuiRect::OnMouseWheel,tabContainer,data);
@@ -1437,10 +1435,8 @@ void GuiScrollRect::OnMouseWheel(Tab* tabContainer,void* data)
 	if(!this->hovering)
 		return;
 
-	float scrollValue=*(float*)data;
-	this->scrollBar->Scroll(scrollValue);
-
-	tabContainer->SetDraw(2,0,this);
+	/*float scrollValue=*(float*)data;
+	this->scrollBar->Scroll(tabContainer,scrollValue);*/
 }
 
 void GuiScrollRect::OnSize(Tab* tabContainer,void* data)
@@ -2037,11 +2033,13 @@ bool GuiScrollBar::SetScrollerPosition(float positionPercent)
 	return oldScrollerPosition!=this->scrollerPosition;
 }
 
-bool GuiScrollBar::Scroll(float upOrDown)
+bool GuiScrollBar::Scroll(Tab* tabContainer,float upOrDown)
 {
 	float rowHeightRatio=this->scrollerRatio/GuiSceneViewer::TREEVIEW_ROW_HEIGHT;
 
 	float amount=this->scrollerPosition + (upOrDown<0 ? rowHeightRatio : -rowHeightRatio);
+
+	tabContainer->SetDraw(2,0,this->guiRect);
 
 	return this->SetScrollerPosition(amount);
 }
@@ -2098,7 +2096,7 @@ void GuiScrollBar::OnLMouseDown(Tab* tabContainer,void* data)
 	vec2& mpos=*(vec2*)data;
 
 	if(mpos.y<this->GetContainerTop())
-		this->Scroll(1);
+		this->Scroll(tabContainer,1);
 	else if(mpos.y<this->GetContainerBottom())
 	{
 		this->scrollerPressed=0;
@@ -2108,7 +2106,7 @@ void GuiScrollBar::OnLMouseDown(Tab* tabContainer,void* data)
 		else
 			SetScrollerPosition((mpos.y-this->GetContainerTop())/this->GetContainerHeight());
 	}
-	else this->Scroll(-1);
+	else this->Scroll(tabContainer,-1);
 
 	if(this->parent)
 		tabContainer->SetDraw(2,0,this->parent);
@@ -2189,9 +2187,9 @@ void GuiSceneViewer::OnMouseWheel(Tab* tabContainer,void* data)
 	{
 		float wheelFactor=*(float*)data;
 
-		this->scrollBar->Scroll(wheelFactor);
+		this->scrollBar->Scroll(tabContainer,wheelFactor);
 
-		tabContainer->SetDraw(2,0,this);
+		//tabContainer->SetDraw(2,0,this);
 	}
 }
 
