@@ -138,11 +138,11 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 		~CaretWin32();
 
 		void set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect);
-		void draw(Renderer2D*);
+		void draw();
 		void enable(bool);
 	};
 
-	CaretWin32* caretWin32;
+	CaretWin32*& caretWin32;
 
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();

@@ -567,97 +567,92 @@ void Renderer2DWin32::CaretWin32::set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRec
 	this->guiRect=iGuiRect;
 	this->newPosition=iPosition;
 	this->newRect=iRect;
+
+	if(this->renderer2D->caretGlobal!=this)
+		this->renderer2D->caretGlobal=this;
 }
 
 void Renderer2DWin32::CaretWin32::enable(bool iEnable)
 {
 	this->enabled=iEnable;
+
+	if(this->renderer2D->caretGlobal!=this)
+		this->renderer2D->caretGlobal=this;
 }
 	
-void Renderer2DWin32::CaretWin32::draw(Renderer2D* iRenderer)
+void Renderer2DWin32::CaretWin32::draw()
 {
-	if(enabled && !this->background || this->position!=this->newPosition || this->rect!=this->newRect)
+	if(this->enabled && this->guiRect==this->renderer2D->tabContainer->GetFocus())
 	{
-		Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)iRenderer;
-
-		this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
-		this->blinking=true;
-		
-		SAFERELEASE(this->background);
-
-		D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
-
-		tBitmapProperties.pixelFormat=tRenderer2DWin32->renderer->GetPixelFormat();
-
-		HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
-
-		if(S_OK!=tResult || !this->background)
-			DEBUG_BREAK();
-
-		tResult=this->background->CopyFromRenderTarget(&D2D1::Point2U(0,0),tRenderer2DWin32->renderer,&D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y));
-
-		if(S_OK!=tResult || !this->background)
-			DEBUG_BREAK();
-
-		this->position=this->newPosition;
-		this->rect=this->newRect;
-	}
-
-	if(enabled && this->guiRect && this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
-	{
-		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iRenderer;
-
-		if(iRenderer->tabContainer->BeginDraw())
+		if(!this->background || this->position!=this->newPosition || this->rect!=this->newRect)
 		{
-			bool tSelfClip=this->guiRect->BeginSelfClip(iRenderer->tabContainer);
+			Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)this->renderer2D;
 
-			if(this->blinking)
-				renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+1,this->position.y),D2D1::Point2F(this->position.x+1,this->position.y+iRenderer->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
-			else
-				renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(this->position.x,this->position.y,this->position.x+this->rect.x,this->position.y+this->rect.y));
+			this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
+			this->blinking=true;
+		
+			SAFERELEASE(this->background);
 
-			this->guiRect->EndSelfClip(iRenderer->tabContainer,tSelfClip);
+			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
 
-			iRenderer->tabContainer->EndDraw();
+			tBitmapProperties.pixelFormat=tRenderer2DWin32->renderer->GetPixelFormat();
+
+			HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
+
+			if(S_OK!=tResult || !this->background)
+				DEBUG_BREAK();
+
+			tResult=this->background->CopyFromRenderTarget(&D2D1::Point2U(0,0),tRenderer2DWin32->renderer,&D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y));
+
+			if(S_OK!=tResult || !this->background)
+				DEBUG_BREAK();
+
+			this->position=this->newPosition;
+			this->rect=this->newRect;
 		}
 
-		this->lastBlinkTime=Timer::instance->GetTime();
-		this->blinking=!this->blinking;
+		if(this->guiRect && this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
+		{
+			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->renderer2D;
+
+			if(renderer2DWin32->tabContainer->BeginDraw())
+			{
+				bool tSelfClip=this->guiRect->BeginSelfClip(renderer2DWin32->tabContainer);
+
+				if(this->blinking)
+					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+1,this->position.y),D2D1::Point2F(this->position.x+1,this->position.y+renderer2DWin32->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
+				else
+					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(this->position.x,this->position.y,this->position.x+this->rect.x,this->position.y+this->rect.y));
+
+				this->guiRect->EndSelfClip(renderer2DWin32->tabContainer,tSelfClip);
+
+				renderer2DWin32->tabContainer->EndDraw();
+			}
+
+			this->lastBlinkTime=Timer::instance->GetTime();
+			this->blinking=!this->blinking;
+		}
 	}
 }
 
 
-Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretWin32((CaretWin32*)caret)
+Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretWin32((CaretWin32*&)caret)
 {
 	Direct2D::Init();
 
 	this->SetTabSpaces(this->tabSpaces);
+	this->caret=new CaretWin32(this);
 }
 Renderer2DWin32::~Renderer2DWin32()
 {
 	SAFEDELETE(this->caret);
 }
 
-void Renderer2DWin32::DrawCaret()
-{
-	this->caret->draw(this);
-}
-
-void Renderer2DWin32::SetCaret(GuiRect* iGuiRect,vec2 iPosition, vec2 iRect)
-{
-	this->caret->set(iGuiRect,iPosition,iRect);
-}
-
-void Renderer2DWin32::EnableCaret(bool iEnable)
-{
-	this->caret->enable(iEnable);
-}
-
 bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
 	SAFERELEASE(this->renderer);
 	SAFERELEASE(this->brush);
-	SAFEDELETE(this->caret);
+	//SAFEDELETE(this->caret);
 	
 
 	HRESULT result=S_OK;
@@ -684,7 +679,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	if(S_OK!=result || !this->brush)
 		DEBUG_BREAK();
 
-	this->caret=new CaretWin32(this);
+	//this->caret=new CaretWin32(this);
 	
 	return true;
 }

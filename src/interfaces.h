@@ -244,6 +244,8 @@ struct DLLBUILD Debugger
 	virtual void PrintThreadContext(void*)=0;
 };
 
+
+
 struct DLLBUILD Renderer2D
 {
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
@@ -257,6 +259,8 @@ struct DLLBUILD Renderer2D
 	struct DLLBUILD Caret
 	{
 		static const unsigned int BLINKRATE=300;
+
+		Renderer2D* renderer2D;
 
 		GuiRect*		guiRect;
 
@@ -275,7 +279,7 @@ struct DLLBUILD Renderer2D
 		Caret(Renderer2D*);
 
 		virtual void set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)=0;
-		virtual void draw(Renderer2D*)=0;
+		virtual void draw()=0;
 		virtual void enable(bool)=0;
 	};
 
@@ -285,7 +289,9 @@ struct DLLBUILD Renderer2D
 
 	Tab*			tabContainer;
 
-	Caret*			caret;     
+	Caret*          caret;   
+
+	static Caret*   caretGlobal;    
 
 	Renderer2D(Tab*);
 
@@ -307,9 +313,6 @@ struct DLLBUILD Renderer2D
 
 	virtual void SetTabSpaces(unsigned int iNumOfSpaces)=0;
 
-	virtual void DrawCaret()=0;
-	virtual void SetCaret(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)=0;
-	virtual void EnableCaret(bool)=0;
 
 	virtual float GetCharWidth(char iCharacter)=0;
 };
@@ -621,9 +624,9 @@ struct DLLBUILD GuiScrollBar : GuiRect
 	GuiScrollBar();
 	~GuiScrollBar();
 
-	bool SetScrollerRatio(float contentHeight,float containerHeight);
-	bool SetScrollerPosition(float contentHeight);
-	bool Scroll(Tab*,float upOrDown);
+	void SetScrollerRatio(float contentHeight,float containerHeight);
+	void SetScrollerPosition(float contentHeight);
+	void Scroll(Tab*,float upOrDown);
 	bool IsVisible();
 
 	void OnLMouseDown(Tab* tab,void* data=0);
@@ -827,6 +830,7 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnLMouseDown(Tab*,void* data=0);
 	void OnMouseMove(Tab*,void* data=0);
 	void OnSize(Tab*,void* data=0);
+	void OnDeactivate(Tab*,void* data=0);
 
 	enum
 	{
@@ -1060,10 +1064,11 @@ struct DLLBUILD DrawInstance
 	int		 code;
 	bool	 frame;
 	GuiRect* rect;
+	std::string name;
 
 	bool remove;
 
-	DrawInstance(int a,bool b,GuiRect* c,bool iRemove):code(a),frame(b),rect(c),remove(true){}
+	DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,const char* iName="",bool iRemove=true);
 };
 
 struct DLLBUILD Tab : TPoolVector<Tab>
@@ -1088,6 +1093,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	GuiRootRect	tabs;
 
 	GuiRect* focused;
+	static GuiRect* focusedGlobal;
 
 	Splitter* splitterContainer;
 
@@ -1163,7 +1169,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
 
-	DrawInstance* SetDraw(int iCode=1/*1:allTab,2:rect*/,bool iFrame=true,GuiRect* iRect=0,bool iRemove=true);
+	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,const char* iName="",bool iRemove=true);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
