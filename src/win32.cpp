@@ -4348,7 +4348,7 @@ String gfCreateRandomString(int iCount)
 
 	for(int i=0;i<iCount;i++)
 	{
-		tRandomString[i]=tSymbolsAlphabet[rand() % tSymbol];
+		tRandomString[i]=tSymbolsAlphabet[std::rand() % tSymbol];
 	}
 
 	tRandomString[iCount]='\0';
@@ -4742,11 +4742,9 @@ bool CompilerWin32::CreateAndroidTarget()
 			DEBUG_BREAK();
 	}
 
-	//call the compiler in c:\sdk\android-ndk-r16b
-
 	String cl;
 
-	cl="ndk-build -w APP_PROJECT_PATH=C:/Projects/oirhjoh/src/targets/android";
+	cl="ndk-build -w APP_PROJECT_PATH=" + EngineIDE::instance->ideExecutable.PathUp(5) + "\\src\\targets\\android";
 
 	printf("-------\n");
 

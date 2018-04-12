@@ -13,11 +13,11 @@ EngineIDE::EngineIDE():timerMain(0),mainAppWindow(0),compiler(0),processId(0),pr
 
 const char* EngineIDE::GetSceneExtension()
 {
-	return ".esn";	
+	return ".engineScene";	
 }
 const char* EngineIDE::GetEntityExtension()
 {
-	return ".eae";
+	return ".engineEntity";
 }
 
 ///////////////////////////////////////////////
@@ -42,176 +42,6 @@ Container::Container()
 ///////////////////////////////////////////////
 Debugger::Debugger():breaked(false),threadSuspendend(false),runningScript(0),runningScriptFunction(0),debuggerCode(0),lastBreakedAddress(0){}
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-//////////////////MatrixStack//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-
-#define MATRIXSTACK_ARRAY_SIZES 64
-
-
-float matrixstack[MatrixStack::MATRIXMODE_MAX][MATRIXSTACK_ARRAY_SIZES][16];
-int	  levels[MatrixStack::MATRIXMODE_MAX];
-int	  mode;
-
-mat4 MatrixStack::model;
-mat4 MatrixStack::projection;
-mat4 MatrixStack::view;
-
-void MatrixStack::Reset()
-	
-{
-	mode=MatrixStack::MODEL;
-
-	for(int i=0;i<MatrixStack::MATRIXMODE_MAX;i++)
-		for(int j=0;j<MATRIXSTACK_ARRAY_SIZES;j++)
-			Matrix::identity(matrixstack[i][j]);
-
-	levels[0]=levels[1]=0;
-}
-
-
-
-float* MatrixStack::Get(MatrixStack::matrixmode m,int lev)
-{
-	return matrixstack[m][(lev<0 ? levels[m] : lev)];
-}
-
-float* MatrixStack::Get()
-{
-	return Get((MatrixStack::matrixmode)mode);
-}
-
-
-void MatrixStack::SetProjectionMatrix(float* pm)
-{
-	memcpy(matrixstack[MatrixStack::PROJECTION][levels[MatrixStack::PROJECTION]],pm,sizeof(float)*16);
-}
-void MatrixStack::SetModelMatrix(float* mm)
-{
-	memcpy(matrixstack[MatrixStack::MODEL][levels[MatrixStack::MODEL]],mm,sizeof(float)*16);
-}
-void MatrixStack::SetViewMatrix(float* mm)
-{
-	memcpy(matrixstack[MatrixStack::VIEW][levels[MatrixStack::VIEW]],mm,sizeof(float)*16);
-}
-
-mat4 MatrixStack::GetProjectionMatrix()
-{
-	return matrixstack[PROJECTION][levels[PROJECTION]];
-}
-mat4 MatrixStack::GetModelMatrix()
-{
-	return matrixstack[MODEL][levels[MODEL]];
-}
-
-mat4 MatrixStack::GetViewMatrix()
-{
-	return matrixstack[VIEW][levels[VIEW]];
-}
-
-
-void MatrixStack::Push()
-{
-	Push((MatrixStack::matrixmode)mode);
-}
-
-void MatrixStack::Pop()
-{
-	Pop((MatrixStack::matrixmode)mode);
-}
-
-
-
-void MatrixStack::Identity()
-{
-	Identity((MatrixStack::matrixmode)mode);
-}
-
-void MatrixStack::Identity(MatrixStack::matrixmode m)
-{
-	Matrix::identity(Get(m));
-}
-
-void MatrixStack::Load(float* m)
-{
-	memcpy(matrixstack[mode][levels[mode]],m,sizeof(float)*16);
-}
-
-void MatrixStack::Load(MatrixStack::matrixmode md,float* m)
-{
-	memcpy(matrixstack[md][levels[md]],m,sizeof(float)*16);
-}
-
-void MatrixStack::Multiply(float* m)
-{
-	/*MatrixMathNamespace::multiply(m,matrixstack[mode][levels[mode]]);
-	SetMatrix((MatrixStack::matrixmode)mode,m);*/
-	Matrix::multiply(matrixstack[mode][levels[mode]],m);
-}
-
-void MatrixStack::Multiply(MatrixStack::matrixmode m,float* mtx)
-{
-	Matrix::multiply(Get(m),mtx);
-}
-
-void MatrixStack::Push(MatrixStack::matrixmode m)
-{
-	if(levels[m]<(MATRIXSTACK_ARRAY_SIZES-1))
-	{
-		levels[m]++;
-		memcpy(matrixstack[m][levels[m]],matrixstack[m][levels[m]-1],sizeof(float)*16);
-	}
-}
-
-void MatrixStack::Push(MatrixStack::matrixmode m,float* mtx)
-{
-	if(levels[m]<(MATRIXSTACK_ARRAY_SIZES-1))
-	{
-		levels[m]++;
-		memcpy(matrixstack[m][levels[m]],mtx,sizeof(float)*16);
-	}
-}
-
-
-
-void MatrixStack::Pop(MatrixStack::matrixmode m)
-{
-	if(levels[m]>0)
-	{
-		levels[m]--;
-	}
-}
-
-
-
-void MatrixStack::Rotate(float a,float x,float y,float z)
-{	
-	Matrix::rotate(Get(),a,x,y,z);
-}
-
-void MatrixStack::Translate(float x,float y,float z)
-{
-	float f[3]={x,y,z};
-	Matrix::translate(Get(),f);
-}
-
-void MatrixStack::Scale(float x,float y,float z)
-{
-	Matrix::scale(Get(),Get(),x,y,z);
-}
-
-MatrixStack::matrixmode MatrixStack::GetMode()
-{
-	return (MatrixStack::matrixmode)mode;
-}
-
-void MatrixStack::SetMode(MatrixStack::matrixmode m)
-{
-	mode=m;
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -2467,7 +2297,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		{
 			if(InputManager::keyboardInput.IsPressed('S'))
 			{
-				String tSaveFile=EngineIDE::instance->projectFolder + "\\" + this->sceneName.c_str() + ".esn";
+				String tSaveFile=EngineIDE::instance->projectFolder + "\\" + this->sceneName.c_str() + EngineIDE::instance->GetSceneExtension();
 				this->Save(tSaveFile.Buffer());
 			}
 		}
@@ -4505,7 +4335,7 @@ void EditorScript::OnResourcesCreate()
 
 		if(this->file.Open("wb"))
 		{
-			String content="#include \"entities.h\"\n\nstruct " + this->entity->name + "_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.translate(0,0,0);\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
+			String content="#include \"entities.h\"\n\nstruct " + this->entity->name + "_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
 			int contantCount=content.Count();
 
 			this->file.Write((void*)content.Buffer(),contantCount,1);

@@ -203,7 +203,7 @@ String String::Random(int iCount)
 
 	for(int i=0;i<iCount;i++)
 	{
-		__ret[i]=__an[rand() % anCount];
+		__ret[i]=__an[std::rand() % anCount];
 	}
 
 	__ret[iCount]='\0';
