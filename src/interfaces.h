@@ -124,7 +124,7 @@ struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 {
 	Timer*					timerMain;
 	MainContainer*			mainAppWindow;
-	String					projectFolder;
+	FilePath				projectFolder;
 	FilePath				ideExecutable;
 	String					applicationDataFolder;
 	Compiler*				compiler; 
@@ -1207,18 +1207,12 @@ struct DLLBUILD Subsystem
 	virtual unsigned int FindThreadId(unsigned int iProcessId,String iThreadName)=0;
 };
 
-
-
-
-
 struct DLLBUILD Compiler
 {
-	String compilerPath;
-	String linkerPath;
-	String includePath;
-	String libPath;
-	String runBefore;
-	String runAfter;
+	String ideSourcesPath;
+	String ideLibraryPath;
+
+	String outputDirectory;
 
 	virtual bool Compile(Script*)=0;
 	virtual String ComposeMS(Script*)=0;
@@ -1357,6 +1351,8 @@ namespace Serialization
 	const unsigned char Camera=9;
 	const unsigned char Unknown=10;
 };
+
+
 
 
 #endif //INTERFACES_H

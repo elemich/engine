@@ -2337,10 +2337,10 @@ void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 
 			fwrite(&Serialization::Script,sizeof(unsigned char),1,iFile);//1
 			
-			nameCount=tScript->file.path.Count();
+			nameCount=tScript->script.path.Count();
 
 			fwrite(&nameCount,sizeof(int),1,iFile);//4
-			fwrite(tScript->file.path.Buffer(),tScript->file.path.Count(),1,iFile);//variadic
+			fwrite(tScript->script.path.Buffer(),tScript->script.path.Count(),1,iFile);//variadic
 		}
 		else
 			fwrite(&Serialization::Unknown,sizeof(unsigned char),1,iFile);//1
@@ -2404,7 +2404,7 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 				fread(tNameBuf,nameCount,1,iFile);//variadic
 				tNameBuf[nameCount]='\0';
 
-				tScript->file.path=tNameBuf;
+				tScript->script.path=tNameBuf;
 
 				SAFEDELETEARRAY(tNameBuf);
 			}
@@ -3420,22 +3420,22 @@ void GuiScriptViewer::Open(Script* iScript)
 	this->script=(EditorScript*)iScript;
 	this->cursor=0;
 
-	if(!iScript->file.IsOpen())
+	if(!iScript->script.IsOpen())
 	{
-		if(iScript->file.Open())
+		if(iScript->script.Open())
 		{
-			int size=iScript->file.Size();
+			int size=iScript->script.Size();
 
 			if(size>0)
 			{
 				char* buf=new char[size+1];
-				iScript->file.Read(buf,size);
+				iScript->script.Read(buf,size);
 				buf[size]='\0';
 				this->paper->text=buf;
 				delete [] buf;
 			}
 
-			iScript->file.Close();
+			iScript->script.Close();
 		}
 
 		this->cursor=(char*)this->paper->text.c_str();
@@ -3452,14 +3452,14 @@ bool GuiScriptViewer::Save()
 {
 	if(this->script)
 	{
-		if(!File::Exist(this->script->file.path.Buffer()))
-			File::Create(this->script->file.path.Buffer());
+		if(!File::Exist(this->script->script.path.Buffer()))
+			File::Create(this->script->script.path.Buffer());
 
-		if(this->script->file.Open("wb"))
+		if(this->script->script.Open("wb"))
 		{
-			this->script->file.Write((void*)this->paper->text.c_str(),this->paper->text.size(),1);
+			this->script->script.Write((void*)this->paper->text.c_str(),this->paper->text.size(),1);
 
-			this->script->file.Close();
+			this->script->script.Close();
 
 			return true;
 		}
@@ -4282,7 +4282,7 @@ EditorScript::EditorScript():scriptViewer(0)
 void EditorScript::OnPropertiesCreate()
 {
 	this->properties.text="Script";
-	GuiRect* fileProp=this->properties.Property("File",&this->Script::file.path,GuiPropertyString::STRING);
+	GuiRect* fileProp=this->properties.Property("File",&this->Script::script.path,GuiPropertyString::STRING);
 	this->properties.Property("Running",&this->Script::runtime,GuiPropertyString::BOOL);
 
 	GuiButtonFunc* buttonEdit=new GuiButtonFunc;
@@ -4326,20 +4326,20 @@ void EditorScript::OnPropertiesUpdate(Tab* tab)
 void EditorScript::OnResourcesCreate()
 {
 	String tFileNamePath=EngineIDE::instance->projectFolder + "\\" + this->entity->name;
-	this->file.SetFilename(tFileNamePath + ".cpp");
+	this->script.SetFilename(tFileNamePath + ".cpp");
 
-	if(!File::Exist(this->file.path.Buffer()))
+	if(!File::Exist(this->script.path.Buffer()))
 	{
-		if(!File::Create(this->file.path.Buffer()))
+		if(!File::Create(this->script.path.Buffer()))
 			DEBUG_BREAK();
 
-		if(this->file.Open("wb"))
+		if(this->script.Open("wb"))
 		{
 			String content="#include \"entities.h\"\n\nstruct " + this->entity->name + "_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
 			int contantCount=content.Count();
 
-			this->file.Write((void*)content.Buffer(),contantCount,1);
-			this->file.Close();
+			this->script.Write((void*)content.Buffer(),contantCount,1);
+			this->script.Close();
 		}
 	}
 }
@@ -4352,4 +4352,24 @@ void EditorCamera::OnPropertiesCreate()
 }
 void EditorCamera::OnPropertiesUpdate(Tab* tab)
 {
+}
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////FileSystem////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+bool FileExists(const char* iFile)
+{
+	FILE* tFile=fopen(iFile,"rb");
+
+	if(tFile)
+	{
+		return true;
+		fclose(tFile);
+	}
+
+	return false;
 }

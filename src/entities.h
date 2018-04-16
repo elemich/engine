@@ -598,12 +598,11 @@ public:
 	void draw(Renderer3DBase*);
 };
 
-struct DLLBUILD Script : EntityComponent
+struct DLLBUILD Script : EntityComponent , TPoolVector<Script>
 {
-	File file;
+	File script;
 	EntityScript* runtime;
 	FilePath modulePath;
-	unsigned int moduleBase;
 
 	Script();
 

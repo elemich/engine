@@ -424,9 +424,7 @@ struct DLLBUILD SubsystemWin32 : Subsystem
 
 struct DLLBUILD CompilerWin32 : Compiler
 {
-	CompilerWin32();
-
-	std::map<Script*,HMODULE*> modules;
+	std::map<Script*,HMODULE*> ideScriptSourceModules;
 
 	bool Compile(Script*);
 	String ComposeMS(Script*);
@@ -461,6 +459,8 @@ struct DLLBUILD DebuggerWin32 : Debugger
 
 	void PrintThreadContext(void*);
 };
+
+
 
 
 

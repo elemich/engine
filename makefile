@@ -12,7 +12,7 @@ x86d:
  @echo --mingw nmake--
  @mingw32-make -s -f $(MAKEDIR)\makefile-mingw x86d CURDIR=$(MAKEDIR)
  @echo --ndk-build nmake--
- @ndk-build -w APP_PROJECT_PATH=$(DIRSRC)\targets\android
+ @ndk-build -w APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
  
 x86r:
  cd build\win32\x86\release

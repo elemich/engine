@@ -407,6 +407,8 @@ namespace Matrix
 struct DLLBUILD  mat2 : TNumberedVectorInterface<float,4>
 {
 	float &m11,&m12,&m21,&m22;
+
+	mat2();
 };
 
 

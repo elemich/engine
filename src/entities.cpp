@@ -251,22 +251,22 @@ bool File::Exist()
 
 int File::Size()
 {
-	int result;
+	int result=0;
 
-	if(this->Open())
+	bool tWasOpen=this->IsOpen();
+
+	bool tIsOpen=!tWasOpen ? this->Open() : true;
+
+	if(tIsOpen)
 	{
 		int curPos=ftell((FILE*)this->data);
 		fseek((FILE*)this->data,0,SEEK_END);
 		result=ftell((FILE*)this->data);
 		fseek((FILE*)this->data,0,curPos);
 	}
-	else
-	{
-		if(!this->path.Count())
-			return -1;
 
-		result=File::Size(this->path);
-	}
+	if(!tWasOpen)
+		this->Close();
 
 	return result;
 }
@@ -1182,7 +1182,7 @@ void Skin::draw(Renderer3DBase* renderer3d)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-Script::Script():runtime(0),moduleBase(0){}
+Script::Script():runtime(0){}
 
 
 void Script::update()

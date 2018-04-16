@@ -23,6 +23,9 @@
     <ClCompile Include="src\interfaces.cpp" />
     <ClCompile Include="src\primitives.cpp" />
     <ClCompile Include="src\shaders.cpp" />
+    <ClCompile Include="src\targets\android\android.cpp">
+      <Filter>targets\android</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\win32.h">
@@ -43,6 +46,9 @@
     <ClInclude Include="src\entities.h" />
     <ClInclude Include="src\interfaces.h" />
     <ClInclude Include="src\primitives.h" />
+    <ClInclude Include="src\targets\android\android.h">
+      <Filter>targets\android</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="win32">
@@ -57,5 +63,28 @@
     <Filter Include="script">
       <UniqueIdentifier>{47bfe5ee-cce4-400e-85da-56873ae51ebb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="targets">
+      <UniqueIdentifier>{057c520b-2e1a-4762-84a3-fd874ed1a3c5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="targets\android">
+      <UniqueIdentifier>{539a1394-8550-49da-ab39-45adce76a967}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java">
+      <Filter>targets\android</Filter>
+    </None>
+    <None Include="src\targets\android\src\com\android\Engine\EngineLib.java">
+      <Filter>targets\android</Filter>
+    </None>
+    <None Include="src\targets\android\src\com\android\Engine\EngineView.java">
+      <Filter>targets\android</Filter>
+    </None>
+    <None Include="src\targets\android\jni\Android.mk">
+      <Filter>targets\android</Filter>
+    </None>
+    <None Include="src\targets\android\jni\Application.mk">
+      <Filter>targets\android</Filter>
+    </None>
   </ItemGroup>
 </Project>

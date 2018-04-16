@@ -1062,6 +1062,13 @@ void Matrix::orientations(float* m,float* a,float* b,float*c)
 #define init_mat4_references m11(v[0]),m12(v[1]),m13(v[2]),m14(v[3]),m21(v[4]),m22(v[5]),m23(v[6]),m24(v[7]),m31(v[8]),m32(v[9]),m33(v[10]),m34(v[11]),m41(v[12]),m42(v[13]),m43(v[14]),m44(v[15])
 
 
+mat2::mat2():init_mat2_references
+{
+	v[0]=1;v[1]=0;
+	v[3]=0;v[4]=1;
+}
+
+
 mat3::mat3():init_mat3_references
 {
 	v[0]=1;v[1]=0,v[2]=0;

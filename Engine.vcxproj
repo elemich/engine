@@ -300,6 +300,7 @@ copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProj
     <ClCompile Include="src\imgtga.cpp" />
     <ClCompile Include="src\primitives.cpp" />
     <ClCompile Include="src\shaders.cpp" />
+    <ClCompile Include="src\targets\android\android.cpp" />
     <ClCompile Include="src\win32.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -310,7 +311,15 @@ copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProj
     <ClInclude Include="src\imgtga.h" />
     <ClInclude Include="src\interfaces.h" />
     <ClInclude Include="src\primitives.h" />
+    <ClInclude Include="src\targets\android\android.h" />
     <ClInclude Include="src\win32.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\targets\android\jni\Android.mk" />
+    <None Include="src\targets\android\jni\Application.mk" />
+    <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
+    <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />
+    <None Include="src\targets\android\src\com\android\Engine\EngineView.java" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

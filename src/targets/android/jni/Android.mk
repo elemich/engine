@@ -20,3 +20,8 @@ LOCAL_SRC_FILES  = $(MY_SOURCE_PATH)/primitives.cpp \
 				   $(MY_SOURCE_PATH)/targets/android/android.cpp
 
 include $(BUILD_SHARED_LIBRARY)
+
+all: $(DIRDST)/$(notdir $(LOCAL_BUILT_MODULE))
+
+$(DIRDST)/$(notdir $(LOCAL_BUILT_MODULE)): $(LOCAL_BUILT_MODULE)
+	move /Y "$(subst /,\,$<)" "$(subst /,\,$@)"
