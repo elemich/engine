@@ -8,6 +8,125 @@
 
 #include <cstdlib>
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////ResourceNode/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+ResourceNode::ResourceNode():
+	parent(0),
+	level(0),
+	isDir(0),
+	selectedLeft(0),
+	selectedRight(0)
+{}
+
+ResourceNode::~ResourceNode()
+{
+	this->fileName="";
+	this->selectedLeft=false;
+	this->selectedRight=false;
+	this->level=0;
+	this->isDir=false;
+}
+
+ResourceNodeDir::ResourceNodeDir():
+	expanded(0),
+	SAFESTLIMPL(std::list<ResourceNodeDir*>,dirs),
+	SAFESTLIMPL(std::list<ResourceNode*>,files)
+{}
+
+ResourceNodeDir::~ResourceNodeDir()
+{
+	for(std::list<ResourceNode*>::iterator nCh=this->files.begin();nCh!=this->files.end();nCh++)
+		SAFEDELETE(*nCh);
+
+	for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
+		SAFEDELETE(*nCh);
+
+	if(this->parent)
+	{
+		ResourceNodeDir* tParent=(ResourceNodeDir*)this->parent;
+
+		if(this->isDir)
+			tParent->dirs.erase(std::find(tParent->dirs.begin(),tParent->dirs.end(),this));
+		else
+			tParent->files.erase(std::find(tParent->files.begin(),tParent->files.end(),this));
+	}
+
+	SAFESTLDEST(dirs);
+	SAFESTLDEST(files);
+}
+
+String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeDir* iResDir,String& iResourceName)
+{
+	printf("gFindResource\n");
+
+	//store current dir
+
+	if(iResDir->parent)
+	{
+		iCurrentDirectory+=iResDir->fileName.Buffer();
+		iCurrentDirectory+="\\";
+	}
+
+	printf("resdir filename: %s\n",iResDir->fileName.Buffer());
+
+	//if node contains files, process them, later process other dir nodes
+
+	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
+	{
+		printf("iter %s\n",(*iResDir->files.begin())->fileName.Buffer());
+
+		String	tVirtualFileName(iCurrentDirectory + (*tResFile)->fileName);
+
+		printf("searching %s , %s\n",iResourceName.Buffer(),tVirtualFileName.Buffer());
+				
+		if(tVirtualFileName==iResourceName)
+		{
+			return iProjectDir + iCurrentDirectory + (*tResFile)->fileName;
+		}
+	}
+
+	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
+	{
+		String t=gFindResource(iCurrentDirectory,iProjectDir,*tResNodeDir,iResourceName);
+
+		if(t!="")
+			return t;
+	}
+
+	return "";
+}
+
+ResourceNodeDir* Resource::rootProjectDirectory=0;
+
+String Resource::Find(String iResourceName)
+{
+	String tResult;
+
+#ifdef EDITORBUILD
+	printf("Resource::Find: EDITORBUILD defined, globalRootProjectDirectory address: 0x%p\n",&rootProjectDirectory);
+
+	String tStartingTrail("\\");
+	tResult=gFindResource(tStartingTrail,rootProjectDirectory->fileName,rootProjectDirectory,iResourceName);
+#else 
+	printf("Resource::Find: EDITORBUILD not defined\n");
+	tResult="";
+#endif
+
+	printf("Resource::Find: searching %s, found %s\n",iResourceName.Buffer(),tResult.Buffer());
+
+	return tResult;
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////////Renderer3DBase/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
 Renderer3DBase::Renderer3DBase():
 	unlit(0),
 	unlit_color(0),
@@ -15,10 +134,12 @@ Renderer3DBase::Renderer3DBase():
 	font(0),
 	shaded_texture(0),
 	picking(false),
-	_shaders(new std::vector<Shader*>),
-	shaders(*_shaders)
-{
+	SAFESTLIMPL(std::vector<Shader*>,shaders)
+{}
 
+Renderer3DBase::~Renderer3DBase()
+{
+	SAFESTLDEST(shaders);
 }
 
 ///////////////////////////////////////////////
@@ -201,11 +322,6 @@ void MatrixStack::SetMode(MatrixStack::matrixmode m)
 
 File::File(String iString):path(iString),
 	data(0){}
-
-void File::SetFilename(String iFilename)
-{
-	this->path=iFilename;
-}
 
 bool File::IsOpen()
 {
@@ -689,8 +805,7 @@ bone(0),
 {}
 
 KeyCurve::KeyCurve():
-	_frames(new std::vector<Keyframe*>),
-	frames(*_frames),
+	SAFESTLIMPL(std::vector<Keyframe*>,frames),
 	channel(INVALID_CHANNEL),
 	start(-1),
 	end(-1)
@@ -698,34 +813,32 @@ KeyCurve::KeyCurve():
 
 KeyCurve::~KeyCurve()
 {
-	SAFEDELETE(this->_frames);
+	SAFESTLDEST(frames);
 }
 
 
 AnimClip::AnimClip():
-	_curves(new std::vector<KeyCurve*>),
-	curves(*_curves),
+	SAFESTLIMPL(std::vector<KeyCurve*>,curves),
 	start(-1),
 	end(-1)
 {}
 
 AnimClip::~AnimClip()
 {
-	SAFEDELETE(this->_curves);
+	SAFESTLDEST(curves);
 }
 
 Animation::Animation():
 	entity(0),
-	clipIdx(0),
+	index(0),
 	start(-1),
 	end(-1),
-	_clips(new std::vector<AnimClip*>),
-	clips(*_clips)
+	SAFESTLIMPL(std::vector<AnimClip*>,clips)
 {}
 
 Animation::~Animation()
 {
-	SAFEDELETE(this->_clips);
+	SAFESTLDEST(clips);
 }
 
 void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
@@ -762,8 +875,7 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 }
 
 AnimationController::AnimationController():
-	_animations(new std::vector<Animation*>),
-	animations(*_animations),
+	SAFESTLIMPL(std::vector<Animation*>,animations),
 	speed(1),
 	cursor(0),
 	play(false),
@@ -776,7 +888,7 @@ AnimationController::AnimationController():
 
 AnimationController::~AnimationController()
 {
-	SAFEDELETE(this->_animations);
+	SAFESTLDEST(animations);
 }
 
 
@@ -816,9 +928,9 @@ void AnimationController::SetFrame(float iFrame)
 
 		int keyIdx=0;
 
-		if(anim->clipIdx<(int)anim->clips.size())
+		if(anim->index<(int)anim->clips.size())
 		{
-			AnimClip* curvegroup=anim->clips[anim->clipIdx];
+			AnimClip* curvegroup=anim->clips[anim->index];
 
 			if(curvegroup)
 			{
@@ -974,8 +1086,7 @@ light_cast(0),
 
 
 Material::Material():
-	_textures(new std::vector<Texture*>),
-	textures(*_textures),
+	SAFESTLIMPL(std::vector<Texture*>,textures),
 	emissive(0.2f,0.2f,0.2f),
 	diffuse(0.2f,0.2f,0.2f),
 	normalmap(0.2f,0.2f,0.2f),
@@ -998,10 +1109,8 @@ Material::Material():
 
 Material::~Material()
 {
-	SAFEDELETE(this->_textures);
+	SAFESTLDEST(textures);
 }
-
-Material* Material::GetMaterial(){return this;}
 
 void Material::update(){};
 
@@ -1024,61 +1133,12 @@ Mesh::Mesh():
 	colors(NULL),
 	ncolors(0),
 	isCCW(true),
-	_materials(new std::vector<Material*>),
-	materials(*_materials)
-{
-}
+	SAFESTLIMPL(std::vector<Material*>,materials)
+{}
 
 Mesh::~Mesh()
 {
-	SAFEDELETE(this->_materials);
-}
-
-
-float** Mesh::GetControlPoints()
-{
-	return (float**)this->controlpoints;
-}
-
-int Mesh::GetNumControlPoints()
-{
-	return this->ncontrolpoints;
-}
-
-float** Mesh::GetTriangles()
-{
-	return (float**)this->vertexindices;
-}
-
-int Mesh::GetNumTriangles()
-{
-	return this->nvertexindices;
-}
-
-float** Mesh::GetUV()
-{
-	return (float**)this->texcoord;
-}
-
-int Mesh::GetNumUV()
-{
-	return this->ntexcoord;
-}
-
-
-float** Mesh::GetNormals()
-{
-	return (float**)this->normals;
-}
-
-int Mesh::GetNumNormals()
-{
-	return this->nnormals;
-}
-
-std::vector<Material*>& Mesh::GetMaterials()
-{
-	return this->materials;
+	SAFESTLDEST(materials);
 }
 
 void Mesh::draw(Renderer3DBase* renderer3d)
@@ -1240,15 +1300,15 @@ Texture::Texture()
 
 TextureFile::TextureFile()
 {
-	this->__data=new IMAGE;
+	this->data=new IMAGE;
 }
 
 
 TextureFile::~TextureFile()
 {
-	if(this->__data)
-		delete ((IMAGE*)this->__data);
-	this->__data=NULL;
+	if(this->data)
+		delete ((IMAGE*)this->data);
+	this->data=NULL;
 }
 
 int TextureFile::load(char* fn)
@@ -1304,7 +1364,7 @@ int TextureFile::load(char* fn)
 
 int TextureFile::loadJPG(char* fn)
 {
-	IMAGE* image=getdataref(this->__data);
+	IMAGE* image=getdataref(this->data);
 
 	int ncomp;
 	image->m_buf=(void*)jpgd::decompress_jpeg_image_from_file(fn,&image->m_width,&image->m_height,&ncomp,4);
@@ -1333,7 +1393,7 @@ int TextureFile::loadPNG(char* fn)
 
 	if(!error)
 	{
-		IMAGE* i=getdataref(this->__data);
+		IMAGE* i=getdataref(this->data);
 		i->m_bufsize=image.size();
 		i->m_buf=new unsigned char[i->m_bufsize];
 		memcpy(i->m_buf,&image[0],i->m_bufsize);
@@ -1348,7 +1408,7 @@ int TextureFile::loadPNG(char* fn)
 
 int TextureFile::loadTGA(char* fn)
 {
-	IMAGE* i=getdataref(this->__data);
+	IMAGE* i=getdataref(this->data);
 
 	return LoadTGA(fn,i->m_buf,i->m_bufsize,i->m_width,i->m_height,i->m_bpp);
 	return 1;
@@ -1360,7 +1420,7 @@ int TextureFile::loadBMP(char* filename)
 
 	if(f)
 	{
-		IMAGE* image=getdataref(this->__data);
+		IMAGE* image=getdataref(this->data);
 
 		//@mic only for bitmap
 		fseek(f,0x12,SEEK_SET);
@@ -1392,29 +1452,36 @@ int TextureFile::loadBMP(char* filename)
 
 void* TextureFile::GetBuffer()
 {
-	return getdataref(this->__data)->m_buf;
+	return getdataref(this->data)->m_buf;
 }
 int TextureFile::GetSize()
 {
-	return getdataref(this->__data)->m_bufsize;
+	return getdataref(this->data)->m_bufsize;
 }
 int TextureFile::GetWidth()
 {
-	return getdataref(this->__data)->m_width;
+	return getdataref(this->data)->m_width;
 }
 int TextureFile::GetHeight()
 {
-	return getdataref(this->__data)->m_height;
+	return getdataref(this->data)->m_height;
 }
 int TextureFile::GetBpp()
 {
-	return getdataref(this->__data)->m_bpp;
+	return getdataref(this->data)->m_bpp;
 }
 
 
 
 
-TextureLayered::TextureLayered():_textures(new std::vector<Texture*>),textures(*_textures){}
+TextureLayered::TextureLayered():
+	SAFESTLIMPL(std::vector<Texture*>,textures)
+{}
+
+TextureLayered::~TextureLayered()
+{
+	SAFESTLDEST(textures);
+}
 
 TextureProcedural::TextureProcedural(){}
 
@@ -1431,7 +1498,12 @@ TextureProcedural::TextureProcedural(){}
 
 EntityScript::EntityScript():entity(0){}
 
-Entity::Entity():parent(0),_childs(new std::list<Entity*>),_components(new std::vector<EntityComponent*>),childs(*_childs),components(*_components){}
+Entity::Entity():
+	parent(0),
+	SAFESTLIMPL(std::vector<EntityComponent*>,components),
+	SAFESTLIMPL(std::list<Entity*>,childs)
+{}
+
 Entity::~Entity()
 {
 	this->SetParent(0);
@@ -1442,8 +1514,8 @@ Entity::~Entity()
 	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
 		SAFEDELETE(*tEn);
 
-	SAFEDELETE(this->_childs);
-	SAFEDELETE(this->_components);
+	SAFESTLDEST(components);
+	SAFESTLDEST(childs);
 }
 
 void Entity::SetParent(Entity* iParent)
@@ -1478,14 +1550,4 @@ void Entity::draw(Renderer3DBase* renderer)
 
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->draw(renderer);
-}
-
-
-bool DllMain(void*,unsigned int iReason,void*)
-{
-	if(iReason==1)//DLL_PROCESS_ATTACH
-	{
-		printf("engine dll loaded\n");
-		return true;
-	}
 }

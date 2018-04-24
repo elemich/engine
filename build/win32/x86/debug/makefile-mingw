@@ -4,23 +4,29 @@ MINGWDIR=$(SDKDIR)\mingw
 MINGW32DIR=$(SDKDIR)\mingw32
 MINGW64DIR=$(SDKDIR)\mingw64
 
-COMPILER32=i686-w64-mingw32-g++.exe
-COMPILER64=x86_64-w64-mingw32-g++.exe
+MINGWPREFIX=mingw32
+MINGW32PREFIX=i686-w64-mingw32
+MINGW64PREFIX=x86_64-w64-mingw32
+
+COMPILER=$(MINGWPREFIX)-g++.exe
+COMPILER32=$(MINGW32PREFIX)-g++.exe
+COMPILER64=$(MINGW64PREFIX)-g++.exe
 
 COMPILERDIR=$(MINGW32DIR)\bin
 
-COMPILER=$(COMPILERDIR)\$(COMPILER32)
+CPPCOMPILER=$(COMPILERDIR)\$(COMPILER32)
 LINKER=$(COMPILERDIR)\$(COMPILER32)
 ARCHIVER=$(COMPILERDIR)\ar.exe
 
 OPENGLSDK=$(SDKDIR)\OpenGL
-MINGWINCLUDES=$(SDKDIR)\mingw64\x86_64-w64-mingw32\include
+FBXSDK="$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\include"
+MINGWINCLUDES=$(MINGW32DIR)\$(MINGW32PREFIX)\include
 
-INCPATH=-I $(OPENGLSDK) -I $(MINGWINCLUDES)
-LIBPATH=-L$(MINGWDIR)\x86_64-w64-mingw32\lib
+INCPATH=-I$(OPENGLSDK) -I$(FBXSDK) -I$(MINGWINCLUDES)
+LIBPATH=-L$(MINGW32DIR)\$(MINGW32PREFIX)\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
 
 #CLOPT=-w $(INCPATH) -c
-CLOPT=-O0 $(INCPATH) -c
+CLOPT=  -g -DLLBUILD -DEDITORBUILD -w -O0 $(INCPATH) -c
 LKOPT=-static
 
 WIN32LIBD=-luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32
@@ -28,26 +34,41 @@ FBXLIB=-llibfbxsdk-md -ladvapi32
 
 primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
 	$(warning primitives.o)
-	$(COMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
 
 entities.o: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
 	$(warning entities.o)
-	$(COMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
 
 imgjpg.o: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
 	$(warning imgjpg.o)
-	$(COMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
 
 imgpng.o: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
 	$(warning imgpng.o)
-	$(COMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
 
 imgtga.o: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
 	$(warning imgtga.o)
-	$(COMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
+	
+interfaces.o: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
+	$(warning interfaces.o)
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
+	
+win32.o: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
+	$(warning win32.o)
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
+	
+fbxutil.o: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+	$(warning fbxutil.o)
+	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
+	
+enginelibMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
+	$(warning enginelibMingW.dll)
+	$(CPPCOMPILER) $(LIBPATH) -g -DLLBUILD -o enginelibMingW.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(WIN32LIBD)
 
-engineMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o
-	$(warning engineMingW.dll)
-	$(COMPILER) -shared -o engineMingW.dll engineWin32.dll primitives.o entities.o imgjpg.o imgpng.o imgtga.o -Wl,--out-implib,engineMingW.a
-
-
+engineMingW.exe: enginelibMingW.dll $(DIRSRC)\main.cpp
+	$(warning engineMingW.exe)
+	$(CPPCOMPILER) -g -w -O0 $(INCPATH) $(LIBPATH) -o engineMingW.exe enginelibMingW.dll $(DIRSRC)\main.cpp
+	@del /Q *.o

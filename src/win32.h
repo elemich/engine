@@ -205,7 +205,7 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 
 	char* Name();
 	void ChangeContext();
-	
+
 	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
 	void draw(vec2);
 	void draw(vec3,vec3,vec3 color=vec3(1,1,1));
@@ -214,7 +214,7 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1));
 	//void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
 	void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
-	
+
 	void draw(Light*);
 	void draw(Mesh*);
 	void draw(Skin*);
@@ -323,10 +323,10 @@ struct DLLBUILD TabWin32 : Tab
 	int TrackProjectFileViewerPopup(ResourceNode*);
 
 	void SetCursor(int);
-	
+
 };
 
-struct DLLBUILD SplitterWin32 : Splitter 
+struct DLLBUILD SplitterWin32 : Splitter
 {
 	TabWin32*& currentTabContainerWin32;
 
@@ -404,7 +404,7 @@ struct DLLBUILD EngineIDEWin32 : EngineIDE
 	HANDLE processThreadHandle;
 	HANDLE processHandle;
 
-	int Initialize();	
+	int Initialize();
 	void Deinitialize();
 
 	void Run();
@@ -429,6 +429,8 @@ struct DLLBUILD CompilerWin32 : Compiler
 	bool Compile(Script*);
 	String ComposeMS(Script*);
 	String ComposeMingW(Script*);
+	String ComposeLLVM(Script*);
+	String Compose(unsigned int iCompiler,Script*);
 	bool LoadScript(Script*);
 	bool UnloadScript(Script*);
 	bool CreateAndroidTarget();

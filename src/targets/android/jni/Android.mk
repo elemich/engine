@@ -6,9 +6,6 @@ TARGET_ARCH_ABI := armeabi-v7a
 
 MY_SOURCE_PATH:=$(LOCAL_PATH)/../../..
 
-$(warning $(LOCAL_PATH))
-$(warning $(MY_SOURCE_PATH))
-
 LOCAL_MODULE := Engine
 LOCAL_LDLIBS := -llog -landroid -lEGL -lGLESv2 -latomic
 
@@ -24,4 +21,4 @@ include $(BUILD_SHARED_LIBRARY)
 all: $(DIRDST)/$(notdir $(LOCAL_BUILT_MODULE))
 
 $(DIRDST)/$(notdir $(LOCAL_BUILT_MODULE)): $(LOCAL_BUILT_MODULE)
-	move /Y "$(subst /,\,$<)" "$(subst /,\,$@)"
+	@move /Y "$(subst /,\,$<)" "$(subst /,\,$@)"

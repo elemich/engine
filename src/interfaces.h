@@ -47,9 +47,6 @@ struct DLLBUILD Script;
 
 #define MAX_TOUCH_INPUTS 10
 
-
-
-
 struct DLLBUILD InputInterface
 {
 };
@@ -124,9 +121,9 @@ struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 {
 	Timer*					timerMain;
 	MainContainer*			mainAppWindow;
-	FilePath				projectFolder;
-	FilePath				ideExecutable;
-	String					applicationDataFolder;
+	FilePath				folderProject;
+	FilePath				pathExecutable;
+	FilePath				folderAppData;
 	Compiler*				compiler; 
 	InputManager            inputManager;
 	unsigned int            caretLastTime;
@@ -872,32 +869,6 @@ struct DLLBUILD GuiConsoleViewer : GuiScrollRect
 	~GuiConsoleViewer();
 };
 
-struct DLLBUILD ResourceNode
-{
-	ResourceNode* parent;
-
-	FilePath fileName;
-
-	bool selectedLeft;
-	bool selectedRight;
-	int level;
-	bool isDir;
-
-	ResourceNode();
-	~ResourceNode();
-};
-
-struct DLLBUILD ResourceNodeDir : ResourceNode
-{
-	bool expanded;
-
-	std::list<ResourceNodeDir*> dirs;
-	std::list<ResourceNode*>	files;
-
-	ResourceNodeDir();
-	~ResourceNodeDir();
-};
-
 struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 {
 	struct DLLBUILD GuiProjectDirViewer : GuiScrollRect
@@ -912,8 +883,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 
 		void OnLMouseDown(Tab*,void* data=0);
 		void OnPaint(Tab*,void* data=0);
-
-	}dirViewer;
+	};
 
 	struct DLLBUILD GuiProjectFileViewer : GuiScrollRect
 	{
@@ -930,15 +900,18 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		void OnPaint(Tab*,void* data=0);
 		void OnRMouseUp(Tab*,void* data=0);
 		void OnDLMouseDown(Tab*,void* data=0);
-	}fileViewer;
+	};
 
 	struct DLLBUILD GuiProjectDataViewer : GuiScrollRect
 	{
 		
-	}resourceViewer;
+	};
 
+	GuiProjectDirViewer dirViewer;
+	GuiProjectFileViewer fileViewer;
+	GuiProjectDataViewer resViewer;
 
-	ResourceNodeDir rootResource;
+	ResourceNodeDir*& projectDirectory;
 
 	bool splitterLeft;
 	bool splitterRight;
@@ -946,7 +919,6 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 
 	GuiProjectViewer();
 	~GuiProjectViewer();
-
 
 	void OnPaint(Tab*,void* data=0);
 	void OnLMouseDown(Tab*,void* data=0);
@@ -977,7 +949,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	{
 		std::vector<ResourceNode*> oResultArray;
 
-		this->findResources(oResultArray,&this->rootResource,iExtension);
+		this->findResources(oResultArray,this->projectDirectory,iExtension);
 
 		return oResultArray;
 	}
@@ -1209,14 +1181,43 @@ struct DLLBUILD Subsystem
 
 struct DLLBUILD Compiler
 {
-	String ideSourcesPath;
-	String ideLibraryPath;
+	String ideSrcPath;
+	String ideLibPath;
+
+	struct COMPILER
+	{
+		String name;
+		String version;
+		String compilerFile;
+		String linkerFile;
+		String compilerFlags;
+		String linkerFlags;
+		String outputFlag;
+		String engineLibraryName;
+		String engineLibraryExtension;
+		String includeHeaders;
+		String includeLib;
+	};
+
+	SAFESTLDECL(std::vector<COMPILER>,compilers);
+
+	enum
+	{
+		COMPILER_MS=0,
+		COMPILER_MINGW,
+		COMPILER_LLVM
+	};
+
+	Compiler();
+	~Compiler();
 
 	String outputDirectory;
 
 	virtual bool Compile(Script*)=0;
 	virtual String ComposeMS(Script*)=0;
 	virtual String ComposeMingW(Script*)=0;
+	virtual String ComposeLLVM(Script*)=0;
+	virtual String Compose(unsigned int iCompiler,Script*)=0;
 	virtual bool LoadScript(Script*)=0;
 	virtual bool UnloadScript(Script*)=0;
 	virtual bool CreateAndroidTarget()=0;

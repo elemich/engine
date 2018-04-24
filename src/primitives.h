@@ -5,12 +5,15 @@
 	#ifdef DLLBUILD
 		#define DLLBUILD __declspec(dllexport)
 	#else
-		#define DLLBUILD __declspec(dllimport)
+		#define DLLBUILD //__declspec(dllimport)
 	#endif
+
+	#define STDCALL __stdcall
 #else
 	#define DLLBUILD
+	#define STDCALL
 #endif
-	
+
 #define PRINT(x) #x
 #define PRINTF(x) PRINT(x)
 
@@ -42,7 +45,7 @@
 	private:				\
 	iStlType* _##iStlName;	\
 	public:					\
-	iStlType& iStlName 
+	iStlType& iStlName
 
 #define SAFESTLIMPL(iStlType,iStlName) \
 	_##iStlName(new iStlType), \
@@ -51,8 +54,6 @@
 #define SAFESTLDEST(iStlName) \
 	SAFEDELETE(this->_##iStlName)
 
-
-
 #include <vector>
 #include <list>
 #include <functional>
@@ -60,7 +61,11 @@
 #include <cctype>
 #include <cstring> //for g++ str* functions
 
-
+struct DLLBUILD  mat2;
+struct DLLBUILD  mat3;
+struct DLLBUILD  mat4;
+struct DLLBUILD  ThreadPool;
+struct DLLBUILD  Thread;
 
 template <typename T> struct DLLBUILD THierarchy
 {
@@ -89,7 +94,7 @@ template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 	T v[size];
 };
 
-template <class T> struct DLLBUILD  TStaticInstance
+template <typename T> struct DLLBUILD  TStaticInstance
 {
 	static T* instance;
 
@@ -152,17 +157,18 @@ public:
 
 	DLLBUILD friend String operator+(const String a,const String& b);
 
-	String& operator=(const char* s);
+	//String& operator=(const char* s);
 	String& operator=(const String& s);
+	bool operator==(const String& s);
 	bool operator==(const char* s);
 	char operator[](int i);
 	String& operator+=(const String&);
-	
-	
-	
+
+
+
 	static String Random(int iCount);
 	operator char*()const;
-	operator float()const;
+	//operator float()const;
 	const int Count()const;
 	const char* Buffer()const;
 	bool Contains(const char*);
@@ -266,13 +272,13 @@ struct DLLBUILD  vec3 : TNumberedVectorInterface<float,3>
 	bool operator!=(vec3& a);
 
 	vec3& operator=(vec3 a);
-	
+
 	vec3 operator+(vec3& a);
 	vec3& operator+=(vec3& a);
 	vec3 operator-(vec3& a);
 	vec3 operator-();
 	vec3& operator-=(vec3& a);
-	
+
 	vec3 operator*(float f);
 	vec3& operator*=(float f);
 
@@ -289,7 +295,7 @@ struct DLLBUILD  vec3 : TNumberedVectorInterface<float,3>
 	vec3& negate();
 
 	String stringize();
-	
+
 	operator float* ();
 	operator void* ();
 	operator char* ();
@@ -348,10 +354,6 @@ struct DLLBUILD  AABB : TNumberedVectorInterface<vec3,2>
 	void Grow(AABB ab);
 	void Shrink(AABB ab);
 };
-
-struct DLLBUILD  mat2;
-struct DLLBUILD  mat3;
-struct DLLBUILD  mat4;
 
 namespace Matrix
 {
@@ -505,12 +507,6 @@ struct DLLBUILD  Timer : TStaticInstance<Timer>
 	virtual void update();
 };
 
-//threading 
-
-
-struct DLLBUILD  ThreadPool;
-struct DLLBUILD  Thread;
-
 struct DLLBUILD  Task
 {
 	std::function<void()> func;
@@ -524,7 +520,6 @@ struct DLLBUILD  Task
 
 struct DLLBUILD  Thread  : TPoolVector<Thread>
 {
-	
 	int id;
 	bool pause;
 	std::list<Task*> tasks;
@@ -532,7 +527,7 @@ struct DLLBUILD  Thread  : TPoolVector<Thread>
 	unsigned int sleep;
 
 	Thread();
-	virtual ~Thread();
+	~Thread();
 
 	Task* NewTask(std::function<void()>,bool remove=true,bool iBlock=false);
 

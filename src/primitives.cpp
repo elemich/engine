@@ -7,10 +7,9 @@
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////THierarchyVector////////////
+/////////////////////String////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-
 
 String::String():data(0),size(0){}
 
@@ -82,29 +81,29 @@ String::~String()
 	this->size=0;
 }
 
-String& String::operator=(const char* iChar)
-{
-    SAFEDELETEARRAY(this->data);
-
-	if(iChar)
-	{
-		this->size=strlen(iChar);
-		this->data=new char[this->size+1];
-		strcpy(this->data,iChar);
-	}
-	
-	return *this;
-}
 
 String& String::operator=(const String& iString)
 {
-	return operator=(iString.Buffer());
+	SAFEDELETEARRAY(this->data);
+
+	if(iString.Buffer())
+	{
+		this->size=iString.Count();
+		this->data=new char[this->size+1];
+		strcpy(this->data,iString.Buffer());
+	}
+
+	return *this;
 }
 
 bool String::operator==(const char* iChar)
 {
-    if(strcmp(this->data,iChar)==0)return true;
-        return false;
+    return 0==strcmp(this->data,iChar);
+}
+
+bool String::operator==(const String& iString)
+{
+	return 0==strcmp(this->data,iString.Buffer());
 }
 
 char String::operator[](int iIdx)
@@ -140,10 +139,11 @@ String& String::operator+=(const String& iString)
 
 
 
+/*
 String::operator float()const
 {
     return (float)atof(this->data);
-}
+}*/
 
 String::operator char*()const
 {

@@ -101,13 +101,13 @@
     <NMakeBuildCommandLine>nmake x86d</NMakeBuildCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeReBuildCommandLine>nmake clean x86d</NMakeReBuildCommandLine>
+    <NMakeReBuildCommandLine>nmake cleanx86d x86d</NMakeReBuildCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeCleanCommandLine>nmake clean</NMakeCleanCommandLine>
+    <NMakeCleanCommandLine>nmake cleanx86d</NMakeCleanCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeOutput>build\win32\x86\debug\engine.exe</NMakeOutput>
+    <NMakeOutput>build\win32\x86\debug\engineMS.exe</NMakeOutput>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -298,6 +298,7 @@ copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProj
     <ClCompile Include="src\interfaces.cpp" />
     <ClCompile Include="src\imgpng.cpp" />
     <ClCompile Include="src\imgtga.cpp" />
+    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\primitives.cpp" />
     <ClCompile Include="src\shaders.cpp" />
     <ClCompile Include="src\targets\android\android.cpp" />

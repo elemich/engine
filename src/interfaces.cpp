@@ -1,8 +1,5 @@
 ﻿#include "interfaces.h"
 
-//__declspec(dllimport) template <> TStaticInstance<EngineIDE>::TStaticInstance(){}
-//template <class T> std::vector<T*> TPoolVector<T>::GetPool();
-
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////AppInterface////////////////
@@ -1048,6 +1045,65 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 	guirectderived->Set(this,sibIdx>=0 ? this : 0,sibIdx<0 ? 0 : sibIdx,container,ix,iy,iw,ih,iAlignPosX,iAlignPosY,iAlignRectX,iAlignRectY);
 
 	return guirectderived;
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////Compiler/////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+Compiler::Compiler():
+	SAFESTLIMPL(std::vector<COMPILER>,compilers)
+{
+	ideSrcPath=EngineIDE::instance->pathExecutable.PathUp(5) + "\\src";
+	ideLibPath=EngineIDE::instance->pathExecutable.Path();
+
+	COMPILER msCompiler={"ms",
+						 "vc2010",
+						 "cl.exe ",
+						 "linker.exe ",
+						 " /nologo /MDd /ZI /EHsc ",
+						 " /link /MANIFEST:NO /DLL /NOENTRY ",
+						 " /OUT:",
+						 "enginelibMS",
+						 ".lib ",
+						 " /I"
+						};
+
+	COMPILER mingwCompiler={"mingw",
+							"i686-w64-mingw32",
+							"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
+							"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
+							" -O0 -g -shared ",
+							"",
+							" -o ",
+							"enginelibMingW",
+							".dll ",
+							" -I"
+						   };
+
+	COMPILER llvmCompiler={"llvm",
+						   "5.0.0 32bit",
+						   "c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
+						   "c:\\sdk\\llvm32\\bin\\lld-link.exe ",
+						   " /nologo /MDd /ZI /EHsc ",
+						   " /link /MANIFEST:NO /DLL /NOENTRY ",
+						   " /OUT:",
+						   "enginelibLLVM",
+						   ".lib ",
+						   " /I"
+						  };
+
+	compilers.push_back(msCompiler);
+	compilers.push_back(mingwCompiler);
+	compilers.push_back(llvmCompiler);
+}
+
+
+Compiler::~Compiler()
+{
+	SAFESTLDEST(compilers);
 }
 
 ///////////////////////////////////////////////
@@ -2297,7 +2353,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		{
 			if(InputManager::keyboardInput.IsPressed('S'))
 			{
-				String tSaveFile=EngineIDE::instance->projectFolder + "\\" + this->sceneName.c_str() + EngineIDE::instance->GetSceneExtension();
+				String tSaveFile=EngineIDE::instance->folderProject + "\\" + this->sceneName.c_str() + EngineIDE::instance->GetSceneExtension();
 				this->Save(tSaveFile.Buffer());
 			}
 		}
@@ -2583,48 +2639,6 @@ int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
 	return this->contentHeight;
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////ResourceNode/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-ResourceNode::ResourceNode():
-	parent(0),
-	level(0),
-	isDir(0),
-	selectedLeft(0),
-	selectedRight(0)
-
-{}
-ResourceNode::~ResourceNode()
-{
-	this->fileName="";
-	this->selectedLeft=false;
-	this->selectedRight=false;
-	this->level=0;
-	this->isDir=false;
-}
-
-ResourceNodeDir::ResourceNodeDir():expanded(0){}
-ResourceNodeDir::~ResourceNodeDir()
-{
-	for(std::list<ResourceNode*>::iterator nCh=this->files.begin();nCh!=this->files.end();nCh++)
-		SAFEDELETE(*nCh);
-
-	for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
-		SAFEDELETE(*nCh);
-
-	if(this->parent)
-	{
-		ResourceNodeDir* tParent=(ResourceNodeDir*)this->parent;
-
-		if(this->isDir)
-			tParent->dirs.erase(std::find(tParent->dirs.begin(),tParent->dirs.end(),this));
-		else
-			tParent->files.erase(std::find(tParent->files.begin(),tParent->files.end(),this));
-	}
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -2632,7 +2646,10 @@ ResourceNodeDir::~ResourceNodeDir()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+
+
 GuiProjectViewer::GuiProjectViewer():
+	projectDirectory(Resource::rootProjectDirectory),
 	splitterLeft(false),
 	splitterRight(false),
 	hotspotDist(0)
@@ -2641,16 +2658,16 @@ GuiProjectViewer::GuiProjectViewer():
 
 	dirViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
 	fileViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
-	resourceViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
+	resViewer.Set(this,0,0,-1,0,0,0,0,-1,0,-1,1);
 
-	this->rootResource.fileName=EngineIDE::instance->projectFolder;
-	this->rootResource.expanded=true;
-	this->rootResource.isDir=true;
+	this->projectDirectory->fileName=EngineIDE::instance->folderProject;
+	this->projectDirectory->expanded=true;
+	this->projectDirectory->isDir=true;
 
-	dirViewer.rootResource=&this->rootResource;
-	fileViewer.rootResource=&this->rootResource;
+	dirViewer.rootResource=this->projectDirectory;
+	fileViewer.rootResource=this->projectDirectory;
 
-	dirViewer.selectedDirs.push_back(&this->rootResource);
+	dirViewer.selectedDirs.push_back(this->projectDirectory);
 }
 
 GuiProjectViewer::~GuiProjectViewer()
@@ -2664,11 +2681,11 @@ void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 {
 	if(!this->active)
 	{
-		EngineIDE::instance->ScanDir(this->rootResource.fileName);
-		EngineIDE::instance->CreateNodes(this->rootResource.fileName,&this->rootResource);
+		EngineIDE::instance->ScanDir(this->projectDirectory->fileName);
+		EngineIDE::instance->CreateNodes(this->projectDirectory->fileName,this->projectDirectory);
 
-		this->dirViewer.CalcNodesHeight(&this->rootResource);
-		this->fileViewer.CalcNodesHeight(&this->rootResource);
+		this->dirViewer.CalcNodesHeight(this->projectDirectory);
+		this->fileViewer.CalcNodesHeight(this->projectDirectory);
 
 		float tWidth=tabContainer->windowData->width/3.0f;
 
@@ -2676,8 +2693,8 @@ void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 		dirViewer.fixed.z=tWidth-2;
 		fileViewer.fixed.x=tWidth+2;
 		fileViewer.fixed.z=tWidth-4;
-		resourceViewer.fixed.x=tWidth*2+2;
-		resourceViewer.fixed.z=tWidth;
+		resViewer.fixed.x=tWidth*2+2;
+		resViewer.fixed.z=tWidth;
 
 		this->OnSize(tabContainer,data);
 	}
@@ -2689,8 +2706,8 @@ void GuiProjectViewer::OnDeactivate(Tab* tabContainer,void* data)
 {
 	if(this->active)
 	{
-		this->rootResource.files.erase(this->rootResource.files.begin(),this->rootResource.files.end());
-		this->rootResource.dirs.erase(this->rootResource.dirs.begin(),this->rootResource.dirs.end());
+		this->projectDirectory->files.erase(this->projectDirectory->files.begin(),this->projectDirectory->files.end());
+		this->projectDirectory->dirs.erase(this->projectDirectory->dirs.begin(),this->projectDirectory->dirs.end());
 	}
 
 	GuiRect::OnDeactivate(tabContainer);
@@ -2710,10 +2727,10 @@ void GuiProjectViewer::OnLMouseDown(Tab* tabContainer,void* data)
 			this->splitterLeft=true;
 			this->hotspotDist=this->fileViewer.rect.x-mpos.x;
 		}
-		else if(mpos.x<=this->resourceViewer.rect.x)
+		else if(mpos.x<=this->resViewer.rect.x)
 		{
 			this->splitterRight=true;
-			this->hotspotDist=this->resourceViewer.rect.x-mpos.x;
+			this->hotspotDist=this->resViewer.rect.x-mpos.x;
 		}
 	}
 }
@@ -2745,7 +2762,7 @@ void GuiProjectViewer::OnMouseMove(Tab* tabContainer,void* data)
 				float tRightWidthAbs=this->fileViewer.rect.x+this->fileViewer.rect.z;
 				this->dirViewer.fixed.z=mpos.x-2;
 				this->fileViewer.fixed.x=mpos.x+2;
-				this->fileViewer.fixed.z=this->resourceViewer.rect.x-this->fileViewer.rect.x-4;
+				this->fileViewer.fixed.z=this->resViewer.rect.x-this->fileViewer.rect.x-4;
 
 				this->dirViewer.OnSize(tabContainer);
 				this->fileViewer.OnSize(tabContainer);
@@ -2753,11 +2770,11 @@ void GuiProjectViewer::OnMouseMove(Tab* tabContainer,void* data)
 			if(this->splitterRight)
 			{
 				this->fileViewer.fixed.z=mpos.x-this->fileViewer.rect.x-2;
-				this->resourceViewer.fixed.x=mpos.x+2;
-				this->resourceViewer.fixed.z=this->rect.x+this->rect.z-this->resourceViewer.rect.x;
+				this->resViewer.fixed.x=mpos.x+2;
+				this->resViewer.fixed.z=this->rect.x+this->rect.z-this->resViewer.rect.x;
 
 				this->fileViewer.OnSize(tabContainer);
-				this->resourceViewer.OnSize(tabContainer);
+				this->resViewer.OnSize(tabContainer);
 			}
 
 			
@@ -2795,7 +2812,7 @@ void GuiProjectViewer::OnSize(Tab* tabContainer,void* data)
 {
 	GuiRect::OnSize(tabContainer);
 
-	this->resourceViewer.rect.z=this->rect.x+this->rect.z-this->resourceViewer.rect.x;
+	this->resViewer.rect.z=this->rect.x+this->rect.z-this->resViewer.rect.x;
 }
 
 
@@ -4325,8 +4342,8 @@ void EditorScript::OnPropertiesUpdate(Tab* tab)
 
 void EditorScript::OnResourcesCreate()
 {
-	String tFileNamePath=EngineIDE::instance->projectFolder + "\\" + this->entity->name;
-	this->script.SetFilename(tFileNamePath + ".cpp");
+	String tFileNamePath=EngineIDE::instance->folderProject + "\\" + this->entity->name;
+	this->script.path=tFileNamePath + ".cpp";
 
 	if(!File::Exist(this->script.path.Buffer()))
 	{

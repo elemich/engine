@@ -220,21 +220,60 @@ static const char *EEntityNames[ENTITY_MAX]=
 };
 
 
-struct DLLBUILD Resource : THierarchyList<Resource>
+struct DLLBUILD ResourceNode
 {
-	Resource* GetResource(){return this;}
-	Resource* GetTexture(){return 0;}
-	Resource* GetMaterial(){return 0;}
+	ResourceNode* parent;
+
+	FilePath fileName;
+
+	bool selectedLeft;
+	bool selectedRight;
+	int level;
+	bool isDir;
+
+	ResourceNode();
+	~ResourceNode();
 };
 
-struct DLLBUILD File : Resource
+struct DLLBUILD ResourceNodeDir : ResourceNode
+{
+	bool expanded;
+
+	SAFESTLDECL(std::list<ResourceNodeDir*>,dirs);
+	SAFESTLDECL(std::list<ResourceNode*>,files);
+
+	ResourceNodeDir();
+	~ResourceNodeDir();
+};
+
+struct DLLBUILD Resource
+{
+	static ResourceNodeDir* rootProjectDirectory;
+
+	static String Find(String iResourceName);
+
+	template<typename T> static T* Load(String iResourceName)
+	{
+		String tFileName=Find(iResourceName);
+
+		if(tFileName!="")
+		{
+
+		}
+
+		return 0;
+	}
+};
+
+
+
+struct DLLBUILD File
 {
 	FilePath path;
 	void* data;
 
 	File(String iString=0);
 
-	void SetFilename(String);
 	bool Open(const char* mode="r");
 	void Close();
 	bool IsOpen();
@@ -254,11 +293,6 @@ struct DLLBUILD File : Resource
 	static int Size(const char* iFilename);
 };
 
-struct DLLBUILD Dir : Resource
-{
-	String fullPath;
-};
-
 struct DLLBUILD Texture
 {
 	Texture();
@@ -276,18 +310,9 @@ struct DLLBUILD Texture
 };
 
 
-struct DLLBUILD Material : Resource
+struct DLLBUILD Material
 {
-	Material();
-	~Material();
-
-	Material* GetMaterial();
-	void update();
-
-private:
-	std::vector<Texture*>* _textures;
-public:
-	std::vector<Texture*>& textures;
+	SAFESTLDECL(std::vector<Texture*>,textures);
 
 	EMaterial m_type;
 
@@ -310,6 +335,11 @@ public:
 	float fshininess;
 	vec3 reflection;
 	float freflection;
+
+	Material();
+	~Material();
+
+	void update();
 };
 
 
@@ -347,10 +377,8 @@ struct DLLBUILD KeyCurve
 	KeyCurve();
 	~KeyCurve();
 
-private:
-	std::vector<Keyframe*>*	_frames;
-public:
-	std::vector<Keyframe*>&	frames;
+
+	SAFESTLDECL(std::vector<Keyframe*>,frames);
 
 	EChannel		channel;
 	float			start;
@@ -363,10 +391,7 @@ struct DLLBUILD AnimClip
 	AnimClip();
 	~AnimClip();
 
-private:
-	std::vector<KeyCurve*>* _curves;
-public:
-	std::vector<KeyCurve*>& curves;
+	SAFESTLDECL(std::vector<KeyCurve*>,curves);
 
 	float start;
 	float end;
@@ -394,13 +419,8 @@ struct DLLBUILD Entity : EntityBase
 {
 	Entity*					parent;
 
-private:
-	std::vector<EntityComponent*>* _components;
-	std::list<Entity*>*		_childs;
-public:
-
-	std::vector<EntityComponent*>& components;
-	std::list<Entity*>&		childs;
+	SAFESTLDECL(std::vector<EntityComponent*>,components);
+	SAFESTLDECL(std::list<Entity*>,childs);
 
 	mat4					local;
 	mat4					world;
@@ -411,8 +431,6 @@ public:
 
 	Entity();
 	~Entity();
-
-	
 
 	virtual void SetParent(Entity* iParent);
 	virtual void update();
@@ -466,15 +484,12 @@ struct DLLBUILD Animation : EntityComponent
 
 	Entity* entity;
 
-private:
-	std::vector<AnimClip*>* _clips;
-public:
-	std::vector<AnimClip*>& clips;
+	SAFESTLDECL(std::vector<AnimClip*>,clips);
 
 	float	start;
 	float	end;
 
-	int clipIdx;
+	int index;
 };
 
 struct DLLBUILD Gizmo : EntityComponent
@@ -483,10 +498,7 @@ struct DLLBUILD Gizmo : EntityComponent
 
 struct DLLBUILD AnimationController : EntityComponent
 {
-private:
-	std::vector<Animation*>* _animations;
-public:	
-	std::vector<Animation*>& animations;
+	SAFESTLDECL(std::vector<Animation*>,animations);
 
 	float speed;
 	float cursor;
@@ -556,21 +568,6 @@ struct DLLBUILD Mesh : EntityComponent
 	int save(char*);
 	int load(char*);
 
-	float** GetControlPoints();
-	int GetNumControlPoints();
-
-	float** GetTriangles();
-	int GetNumTriangles();
-
-	float** GetUV();
-	int GetNumUV();
-	int** GetUVIndices();
-
-	float** GetNormals();
-	int GetNumNormals();
-
-	std::vector<Material*>& GetMaterials();
-
 	float (*controlpoints)[3];
 	int	  ncontrolpoints;
 
@@ -590,10 +587,7 @@ struct DLLBUILD Mesh : EntityComponent
 
 	bool  isCCW;
 
-private:
-	std::vector<Material*>* _materials;
-public:	
-	std::vector<Material*>& materials;
+	SAFESTLDECL(std::vector<Material*>,materials);
 
 	void draw(Renderer3DBase*);
 };
@@ -602,7 +596,7 @@ struct DLLBUILD Script : EntityComponent , TPoolVector<Script>
 {
 	File script;
 	EntityScript* runtime;
-	FilePath modulePath;
+	FilePath module;
 
 	Script();
 
@@ -667,25 +661,18 @@ struct DLLBUILD TextureFile : Texture
 	int GetHeight();
 	int GetBpp();
 
-
 	String filename;
-
-	void* __data;
-
+	void* data;
 };
 
 
 
 struct DLLBUILD TextureLayered
 {
-private:
-	std::vector<Texture*>* _textures;
-public:
-	std::vector<Texture*>& textures;
+	SAFESTLDECL(std::vector<Texture*>,textures);
 
 	TextureLayered();
-
-	TextureLayered* GetTextureLayered(){return this;}
+	~TextureLayered();
 };
 
 struct DLLBUILD TextureProcedural : Texture 
@@ -707,6 +694,7 @@ struct DLLBUILD TextureProcedural : Texture
 struct DLLBUILD Renderer3DBase
 {
 	Renderer3DBase();
+	~Renderer3DBase();
 
 	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;
@@ -735,10 +723,7 @@ struct DLLBUILD Renderer3DBase
 	Shader* font;
 	Shader* shaded_texture;
 
-private:
-	std::vector<Shader*>* _shaders;
-public:
-	std::vector<Shader*>& shaders;
+	SAFESTLDECL(std::vector<Shader*>,shaders);
 };
 
 struct DLLBUILD Scene

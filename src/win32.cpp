@@ -1,8 +1,7 @@
 ﻿#include "win32.h"
 
-#define USEFBX 0
 
-#if USEFBX
+#ifdef USEFBX
 	#include "fbxutil.h"
 #endif
 
@@ -85,13 +84,12 @@ bool InitSplitter();
 ///////////////////////////////////////////////
 
 DWORD WINAPI threadFunc(LPVOID data)
-
 {
 	Thread* pThread=(Thread*)data;
 
 	while(true)
 	{
-		Timer::instance->update();
+		TimerWin32::instance->update();
 
 		for(std::list<Task*>::iterator taskIter=pThread->tasks.begin();taskIter!=pThread->tasks.end();)
 		{
@@ -114,7 +112,7 @@ DWORD WINAPI threadFunc(LPVOID data)
 				}
 				else
 					taskIter++;
-				
+
 				pThread->executing=0;
 			}
 			else
@@ -190,7 +188,7 @@ void Direct2D::Init()
 		res=Direct2D::writer->CreateTextFormat(Direct2D::fontFaceName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,Direct2D::fontLogicSize,L"",&Direct2D::texter);
 		if(S_OK!=res || !Direct2D::texter)
 			DEBUG_BREAK();
-		
+
 		res=Direct2D::texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 		if(S_OK!=res)
 			DEBUG_BREAK();
@@ -218,8 +216,8 @@ void Direct2D::Init()
 			if(S_OK!=res || !tFontFace)
 				DEBUG_BREAK();
 
-			BOOL exists=false;	
-		
+			BOOL exists=false;
+
 			res=tFontFace->TryGetFontTable(DWRITE_MAKE_OPENTYPE_TAG('h','d','m','x'),&tTableData,&tTableSize,&tTableContext,&exists);
 
 			if(S_OK!=res || !exists)
@@ -269,7 +267,7 @@ void Direct2D::Init()
 			SAFERELEASE(tFontFace);
 			SAFERELEASE(tFontFile);
 
-			if(0)
+			if(1)
 			{
 				printf("----------\n");
 
@@ -285,7 +283,7 @@ void Direct2D::Init()
 					t++;
 				}
 
-				printf("\n");
+				printf("----------\n");
 			}
 		}
 
@@ -469,7 +467,7 @@ void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wch
 		{
 
 		}
-		
+
 		//
 		iAlignPosX>=0 ? rect.x+=x1+iAlignPosX*width : rect.x=x1;
 		iAlignPosY>=0 ? rect.y+=y1+iAlignPosY*height : rect.y=y1;
@@ -479,7 +477,7 @@ void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wch
 
 		//Direct2D::DrawRectangle(iRenderer,iBrush,rect.x,rect.y,rect.x+rect.z,rect.y+rect.w,false);
 		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-		
+
 	}
 
 	if(iClip)
@@ -579,7 +577,7 @@ void Renderer2DWin32::CaretWin32::enable(bool iEnable)
 	if(this->renderer2D->caretGlobal!=this)
 		this->renderer2D->caretGlobal=this;
 }
-	
+
 void Renderer2DWin32::CaretWin32::draw()
 {
 	if(this->enabled && this->guiRect==this->renderer2D->tabContainer->GetFocus())
@@ -590,7 +588,7 @@ void Renderer2DWin32::CaretWin32::draw()
 
 			this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
 			this->blinking=true;
-		
+
 			SAFERELEASE(this->background);
 
 			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
@@ -602,7 +600,10 @@ void Renderer2DWin32::CaretWin32::draw()
 			if(S_OK!=tResult || !this->background)
 				DEBUG_BREAK();
 
-			tResult=this->background->CopyFromRenderTarget(&D2D1::Point2U(0,0),tRenderer2DWin32->renderer,&D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y));
+			D2D1_POINT_2U tPoint=D2D1::Point2U(0,0);
+			D2D1_RECT_U tRect=D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y);
+
+			tResult=this->background->CopyFromRenderTarget(&tPoint,tRenderer2DWin32->renderer,&tRect);
 
 			if(S_OK!=tResult || !this->background)
 				DEBUG_BREAK();
@@ -653,7 +654,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	SAFERELEASE(this->renderer);
 	SAFERELEASE(this->brush);
 	//SAFEDELETE(this->caret);
-	
+
 
 	HRESULT result=S_OK;
 
@@ -670,7 +671,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 
 		result=Direct2D::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
 	}
-	
+
 	if(S_OK!=result || !this->renderer)
 		DEBUG_BREAK();
 
@@ -680,7 +681,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 		DEBUG_BREAK();
 
 	//this->caret=new CaretWin32(this);
-	
+
 	return true;
 }
 void Renderer2DWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
@@ -769,7 +770,7 @@ void Renderer2DWin32::SetTabSpaces(unsigned int iNumOfSpaces)
 ContainerWin32::ContainerWin32():
 	windowDataWin32((WindowDataWin32*&)window),
 	splitterContainerWin32((SplitterWin32*&)splitter)
-	
+
 {
 	window=new WindowDataWin32;
 	splitter=new SplitterWin32;
@@ -787,7 +788,7 @@ TabWin32* ContainerWin32::CreateTabContainer(float x,float y,float w,float h)
 void ContainerWin32::OnSizing()
 {
 	LPRECT sz=(LPRECT)this->windowDataWin32->lparam;
-	
+
 	RECT trc;
 	GetWindowRect(this->windowDataWin32->hwnd,&trc);
 
@@ -807,7 +808,7 @@ void ContainerWin32::OnSizing()
 
 void ContainerWin32::OnSize()
 {
-	this->OnSize();
+	//this->OnSize();
 	//SplitterContainer::OnSize(this->hwnd,this->wparam,this->lparam);
 
 	if(this->resizeEnumType<0)
@@ -960,13 +961,13 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 							openfilename.nFilterIndex=1;
 							openfilename.lpstrFile=charpretval;
 							openfilename.nMaxFile=5000;
-							 
+
 							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
 							{
-#if USEFBX
+#ifdef USEFBX
 								EditorEntity* importedEntities=ImportFbxScene(openfilename.lpstrFile);
 								Tab::BroadcastToPool(&Tab::OnEntitiesChange,importedEntities);
-#endif							
+#endif
 							}
 						}
 						break;
@@ -1051,7 +1052,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		case WM_NCHITTEST:
 			if(tc->splitterContainer->floatingTabRef)
 				return HTTRANSPARENT;
-			else 
+			else
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
 			break;
 		case WM_LBUTTONUP:
@@ -1095,7 +1096,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		break;
 		default:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			
+
 	}
 
 	if(tc)
@@ -1280,7 +1281,7 @@ int EngineIDEWin32::Initialize()
 
 	if(S_OK!=result)
 		DEBUG_BREAK();
-	
+
 	{//projectFolder
 		char _pszDisplayName[MAX_PATH]="";
 
@@ -1298,8 +1299,8 @@ int EngineIDEWin32::Initialize()
 
 			if(SHGetPathFromIDList(tmpProjectFolder,path))
 			{
-				this->projectFolder=path;
-				printf("User project folder: %s\n",this->projectFolder.Buffer());
+				this->folderProject=path;
+				printf("User project folder: %s\n",this->folderProject.Buffer());
 			}
 		}
 	}
@@ -1309,43 +1310,44 @@ int EngineIDEWin32::Initialize()
 		if(!GetModuleFileName(0,ch,5000))
 			DEBUG_BREAK();
 
-		this->ideExecutable=ch;
+		this->pathExecutable=ch;
 
-		if(!SetDllDirectory(this->ideExecutable.Path().Buffer()))
+		if(!SetDllDirectory(this->pathExecutable.Path().Buffer()))
 			printf("failed to add dll search path\n");
 
-		
 
-		printf("Application folder: %s\n",this->ideExecutable.Path().Buffer());
+
+		printf("Application folder: %s\n",this->pathExecutable.Path().Buffer());
 	}
 
 	this->subsystem=new SubsystemWin32;
 	this->compiler=new CompilerWin32;
 
-	this->compiler->ideSourcesPath=this->ideExecutable.PathUp(5) + "\\src";
-	this->compiler->ideLibraryPath=this->ideExecutable.Path();
+	
 
 	this->debugger=new DebuggerWin32;
+
+	Resource::rootProjectDirectory=new ResourceNodeDir;
 
 	{//applicationDataFolder
 		char ch[5000];
 		if(S_OK!=SHGetFolderPath(0,CSIDL_APPDATA,0,SHGFP_TYPE_CURRENT,ch))
 			DEBUG_BREAK();
 
-		this->applicationDataFolder=String(ch) + "\\EngineAppData";
+		this->folderAppData=String(ch) + "\\EngineAppData";
 
-		if(!PathFileExists(this->applicationDataFolder.Buffer()))
+		if(!PathFileExists(this->folderAppData.Buffer()))
 		{
 			SECURITY_ATTRIBUTES sa;
-			CreateDirectory(this->applicationDataFolder.Buffer(),&sa);
+			CreateDirectory(this->folderAppData.Buffer(),&sa);
 		}
 		else
 		{
-			this->subsystem->Execute(this->applicationDataFolder.Buffer(),"del /F /Q *.*");
-			this->subsystem->Execute(this->applicationDataFolder.Buffer(),"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
+			this->subsystem->Execute(this->folderAppData.Buffer(),"del /F /Q *.*");
+			this->subsystem->Execute(this->folderAppData.Buffer(),"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
 		}
 
-		printf("Application data folder: %s\n",this->applicationDataFolder.Buffer());
+		printf("Application data folder: %s\n",this->folderAppData.Buffer());
 	}
 
 	Direct2D::Init();
@@ -1360,7 +1362,7 @@ int EngineIDEWin32::Initialize()
 
 	if(!this->mainAppWindow)
 		printf("failed to create main window!\n");
-		
+
 	mainAppWindowWin32->Init();
 
 	//threadUpdate=new ThreadWin32;
@@ -1624,7 +1626,7 @@ void DirectXRenderer::Create(HWND container)
 	DXGI_SWAP_CHAIN_DESC scd = {0};
 	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;    // how the swap chain should be used
 	scd.BufferCount = 2;                                  // a front buffer and a back buffer
-	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; 
+	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	scd.SwapEffect = DXGI_SWAP_EFFECT_SEQUENTIAL;    // the recommended flip mode
 	scd.SampleDesc.Count = 1;
 	scd.OutputWindow = container;
@@ -1716,7 +1718,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 	GLint len=0;
 
 	program = glCreateProgram();glCheckError();
-	
+
 	if(!program)
 	{
 		printf("glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
@@ -1744,7 +1746,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 	//print infos
 	/*if(len && len<sizeof(message))
 		printf("%s",message);*/
-	
+
 
 	return program;
 }
@@ -1769,7 +1771,7 @@ Shader* ShaderOpenGL::Create(const char* name,const char* pix,const char* frag)
 		shader->SetProgram(program);
 		shader->Use();
 		shader->init();
-		
+
 		return shader;
 	}
 	else
@@ -2125,8 +2127,8 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(hglrc);
 	}
-	
-	const int pixelFormatAttribList[] = 
+
+	const int pixelFormatAttribList[] =
 	{
 		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
 		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
@@ -2143,12 +2145,12 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 
 	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
 		MessageBox(0,"wglChoosePixelFormatARB fails","Engine",MB_OK|MB_ICONEXCLAMATION);
-	
 
-	const int versionAttribList[] = 
+
+	const int versionAttribList[] =
 	{
 		WGL_CONTEXT_MAJOR_VERSION_ARB,1,
-		WGL_CONTEXT_MINOR_VERSION_ARB,0, 
+		WGL_CONTEXT_MINOR_VERSION_ARB,0,
 		0,        //End
 	};
 
@@ -2158,7 +2160,7 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 
 	if(hglrc)
 		printf("TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
-	
+
 	if(!wglMakeCurrent(hdc,hglrc))
 		DEBUG_BREAK();
 
@@ -2166,14 +2168,14 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 	{
 		{
 			glGenFramebuffers(1,&frameBuffer);glCheckError();
-			
+
 			glGenTextures(1,&textureColorbuffer);glCheckError();
 			glGenTextures(1,&textureRenderbuffer);glCheckError();
 
 			glGenRenderbuffers(1,&renderBufferColor);glCheckError();
 			glGenRenderbuffers(1,&renderBufferDepth);glCheckError();
 		}
-		
+
 		glGenVertexArrays(1, &vertexArrayObject);glCheckError();
 		glBindVertexArray(vertexArrayObject);glCheckError();
 
@@ -2284,7 +2286,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	glEnableVertexAttribArray(ps);glCheckError();
 	glVertexAttribPointer(ps, 3, GL_FLOAT, GL_FALSE, 0,0);glCheckError();
-		
+
 	glDrawArrays(GL_POINTS,0,1);glCheckError();
 
 	glDisableVertexAttribArray(ps);glCheckError();
@@ -2304,7 +2306,7 @@ void Renderer3DOpenGL::draw(vec4 rect)
 	if(shader)
 	{
 		shader->Use();
-		
+
 		////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 		int mdl=shader->GetModelviewSlot();
 		int view=shader->GetProjectionSlot();
@@ -2389,7 +2391,7 @@ void Renderer3DOpenGL::draw(mat4 mtx,float size,vec3 color)
 
 	glDisable(GL_DEPTH_TEST);
 
-	
+
 
 	//MatrixStack::Pop();
 }
@@ -2421,13 +2423,13 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 	{
 		//lower quad
 		a.x,a.y,a.z,		a.x+dx,a.y,a.z,
-		a.x+dx,a.y,a.z,		a.x+dx,a.y+dy,a.z, 
+		a.x+dx,a.y,a.z,		a.x+dx,a.y+dy,a.z,
 		a.x+dx,a.y+dy,a.z,	a.x,a.y+dy,a.z,
 		a.x,a.y+dy,a.z,     a.x,a.y,a.z,
 
 		//upper quad
 		a.x,a.y,a.z+dz,			a.x+dx,a.y,a.z+dz,
-		a.x+dx,a.y,a.z+dz,		a.x+dx,a.y+dy,a.z+dz, 
+		a.x+dx,a.y,a.z+dz,		a.x+dx,a.y+dy,a.z+dz,
 		a.x+dx,a.y+dy,a.z+dz,	a.x,a.y+dy,a.z+dz,
 		a.x,a.y+dy,a.z+dz,		a.x,a.y,a.z+dz,
 
@@ -2473,26 +2475,26 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 	float line[]=
 	{
 		a[0],a[1],a[2],
-		b[0],b[1],b[2], 
+		b[0],b[1],b[2],
 	};
-	
+
 	shader->Use();
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
 	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
-	
+
 	glEnable(GL_DEPTH_TEST);
 
 	int pos=shader->GetPositionSlot();
 	int col=shader->GetUniform("color");
-	
+
 	glUniform3fv(col,1,color);
 
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 
 	glBufferData(GL_ARRAY_BUFFER,6*sizeof(float),line,GL_DYNAMIC_DRAW);
-	
+
 	glEnableVertexAttribArray(pos);glCheckError();
 
 	glVertexAttribPointer(pos,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
@@ -2583,7 +2585,7 @@ void OpenGLFixedRenderer::draw(EntityManager& entityManager)
 
 
 /*
-void OpenGLFixedRenderer::draw(Font* font,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4) 
+void OpenGLFixedRenderer::draw(Font* font,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)
 {
 	//https://en.wikibooks.org/wiki/OpenGL_Programming/Modern_OpenGL_Tutorial_Text_Rendering_01
 
@@ -2678,14 +2680,14 @@ void Renderer3DOpenGL::draw(Texture* _t)
 
 	Texture* texture=(Texture*)_t;
 	//TextureFile* texture=(TextureFile*)_t;
-	
+
 
 	if(!shader || !texture->GetBuffer())
 		return;
 
 	shader->Use();
 
-	const GLfloat rect_data[] = 
+	const GLfloat rect_data[] =
 	{
 		-1.0f, -1.0f,
 		1.0f, -1.0f,
@@ -2693,7 +2695,7 @@ void Renderer3DOpenGL::draw(Texture* _t)
 		1.0f,  1.0f
 	};
 
-	const GLfloat uv_data[] = 
+	const GLfloat uv_data[] =
 	{
 		1.0f, 1.0f,
 		1.0f, 0.0f,
@@ -2755,7 +2757,7 @@ void Renderer3DOpenGL::draw(Mesh* mesh,std::vector<GLuint>& textureIndices,int t
 		for(int j=0;j<(int)mesh->materials[i]->textures.size() && !textureIndices.size();j++)
 		{
 			Texture* texture=mesh->materials[i]->textures[j];
-			
+
 			int		texture_width=texture->GetWidth();
 			int		texture_height=texture->GetHeight();
 			void	*texture_buffer=texture->GetBuffer();
@@ -2817,7 +2819,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 
 
 	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
-	
+
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
 	int texture_slot = shader->GetTextureSlot();
@@ -2833,7 +2835,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	}
 	else
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 	glBufferData(GL_ARRAY_BUFFER,mesh->ncontrolpoints*3*sizeof(float),mesh->controlpoints,GL_DYNAMIC_DRAW);
 
@@ -2901,7 +2903,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	int lightamb_slot = shader->GetLightambSlot();
 	int normal_slot = shader->GetNormalSlot();
 	int color_slot = shader->GetColorSlot();
-	
+
 	std::vector<GLuint> textureIndices;
 
 	draw(skin,textureIndices,texture_slot,texcoord_slot);
@@ -2919,7 +2921,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	if(lightdiff_slot>=0)glUniform3f(lightdiff_slot,v[0],v[1],v[2]);glCheckError();
 	if(lightamb_slot>=0)glUniform3f(lightamb_slot,v[0]+128,v[1]+128,v[2]+255);glCheckError();
 	if(lightpos_slot>=0)glUniform3fv(lightpos_slot,1,lightpos);glCheckError();
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 	glBufferData(GL_ARRAY_BUFFER,skin->ncontrolpoints*3*sizeof(float),skin->vertexcache,GL_DYNAMIC_DRAW);
 
@@ -2937,7 +2939,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	if(lightdiff_slot>=0)glDisableVertexAttribArray(lightdiff_slot);glCheckError();
 	if(lightamb_slot>=0)glDisableVertexAttribArray(lightamb_slot);glCheckError();
 	if(lightpos_slot>=0)glDisableVertexAttribArray(lightpos_slot);glCheckError();
-	
+
 	for(int i=textureIndices.size();i>0;i--)
 	{
 		glDeleteTextures(1,&textureIndices[i-1]);glCheckError();
@@ -2967,7 +2969,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 	float line[]=
 	{
 		a[0],a[1],a[2],
-		b[0],b[1],b[2], 
+		b[0],b[1],b[2],
 	};
 
 	shader->Use();
@@ -3113,7 +3115,7 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 		unsigned char* ptrAddress=(unsigned char*)&address;
 
 		{
-			viewport->pickedEntity=viewport->pickedPixel ? 
+			viewport->pickedEntity=viewport->pickedPixel ?
 
 				ptrAddress[0]=ptrPixel[3],
 				ptrAddress[1]=ptrPixel[2],
@@ -3156,48 +3158,48 @@ void Renderer3DOpenGL::Render()
 
 
 /*
-class Ray 
-{ 
-public: 
-	Ray(const vec3 &orig, const vec3 &dir) : orig(orig), dir(dir) 
-	{ 
-		invdir = 1 / dir; 
-		sign[0] = (invdir.x < 0); 
-		sign[1] = (invdir.y < 0); 
-		sign[2] = (invdir.z < 0); 
-	} 
-	vec3 orig, dir;       // ray orig and dir 
-	vec3 invdir; 
-	int sign[3]; 
-}; 
+class Ray
+{
+public:
+	Ray(const vec3 &orig, const vec3 &dir) : orig(orig), dir(dir)
+	{
+		invdir = 1 / dir;
+		sign[0] = (invdir.x < 0);
+		sign[1] = (invdir.y < 0);
+		sign[2] = (invdir.z < 0);
+	}
+	vec3 orig, dir;       // ray orig and dir
+	vec3 invdir;
+	int sign[3];
+};
 
-bool intersect(AABB &bounds,const Ray &r) const 
-{ 
-	float tmin, tmax, tymin, tymax, tzmin, tzmax; 
+bool intersect(AABB &bounds,const Ray &r) const
+{
+	float tmin, tmax, tymin, tymax, tzmin, tzmax;
 
-	tmin = (bounds[r.sign[0]].x - r.orig.x) * r.invdir.x; 
-	tmax = (bounds[1-r.sign[0]].x - r.orig.x) * r.invdir.x; 
-	tymin = (bounds[r.sign[1]].y - r.orig.y) * r.invdir.y; 
-	tymax = (bounds[1-r.sign[1]].y - r.orig.y) * r.invdir.y; 
+	tmin = (bounds[r.sign[0]].x - r.orig.x) * r.invdir.x;
+	tmax = (bounds[1-r.sign[0]].x - r.orig.x) * r.invdir.x;
+	tymin = (bounds[r.sign[1]].y - r.orig.y) * r.invdir.y;
+	tymax = (bounds[1-r.sign[1]].y - r.orig.y) * r.invdir.y;
 
-	if ((tmin > tymax) || (tymin > tmax)) 
-		return false; 
-	if (tymin > tmin) 
-		tmin = tymin; 
-	if (tymax < tmax) 
-		tmax = tymax; 
+	if ((tmin > tymax) || (tymin > tmax))
+		return false;
+	if (tymin > tmin)
+		tmin = tymin;
+	if (tymax < tmax)
+		tmax = tymax;
 
-	tzmin = (bounds[r.sign[2]].z - r.orig.z) * r.invdir.z; 
-	tzmax = (bounds[1-r.sign[2]].z - r.orig.z) * r.invdir.z; 
+	tzmin = (bounds[r.sign[2]].z - r.orig.z) * r.invdir.z;
+	tzmax = (bounds[1-r.sign[2]].z - r.orig.z) * r.invdir.z;
 
-	if ((tmin > tzmax) || (tzmin > tmax)) 
-		return false; 
-	if (tzmin > tmin) 
-		tmin = tzmin; 
-	if (tzmax < tmax) 
-		tmax = tzmax; 
+	if ((tmin > tzmax) || (tzmin > tmax))
+		return false;
+	if (tzmin > tmin)
+		tmin = tzmin;
+	if (tzmax < tmax)
+		tmax = tzmax;
 
-	return true; 
+	return true;
 }
 */
 
@@ -3243,6 +3245,8 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 	Renderer2DWin32* renderer2DInterfaceWin32=(Renderer2DWin32*)renderer;
 
 	HRESULT result=S_OK;
+
+	renderer2DInterfaceWin32->renderer->GetSize();
 
 	if(!this->handle)
 	{
@@ -3483,7 +3487,7 @@ bool TabWin32::BeginDraw()
 
 			this->resizeTarget=0;
 		}
-		
+
 		this->renderer2DWin32->renderer->BeginDraw();
 		this->isRender=true;
 
@@ -3491,9 +3495,9 @@ bool TabWin32::BeginDraw()
 	}
 	else
 		DEBUG_BREAK();
-	
+
 	return false;
-	
+
 }
 void TabWin32::EndDraw()
 {
@@ -3502,7 +3506,7 @@ void TabWin32::EndDraw()
 		renderer2D->DrawRectangle(0.5f,0.5f,this->windowDataWin32->width-0.5f,this->windowDataWin32->height-0.5f,0xff000000,false);
 
 		HRESULT result=renderer2DWin32->renderer->EndDraw();
-		
+
 		this->recreateTarget=(result==D2DERR_RECREATE_TARGET);
 
 		if(result!=0)
@@ -3527,7 +3531,7 @@ void TabWin32::EndDraw()
 
 void TabWin32::OnGuiMouseMove(void* data)
 {
-	
+
 
 	this->mousex=(float)LOWORD(this->windowDataWin32->lparam);
 	this->mousey=(float)HIWORD(this->windowDataWin32->lparam);
@@ -3542,8 +3546,8 @@ void TabWin32::OnGuiMouseWheel(void* data)
 
 	if(this->mousey>Tab::CONTAINER_HEIGHT)
 		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
-}								  
-		
+}
+
 
 
 void TabWin32::OnGuiRMouseUp(void* data)
@@ -3605,7 +3609,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 	{
 		this->BroadcastToSelected(&GuiRect::OnRMouseUp,vec2(this->mousex,this->mousey));
 	}
-	
+
 }
 
 
@@ -3698,7 +3702,7 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	this->iconDown->Release();
 	this->iconFolder->Release();
 	this->iconFile->Release();
-	
+
 	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
 		DEBUG_BREAK();
 	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
@@ -3726,7 +3730,7 @@ void TabWin32::SetCursor(int iCursorCode)
 		case 1: cursor=LoadCursor(0,IDC_SIZEWE); break;
 		case 2: cursor=LoadCursor(0,IDC_SIZENS); break;
 	}
-	
+
 	if(cursor)
 		::SetCursor(cursor);
 }
@@ -3810,7 +3814,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 						if(!newTabContainer->windowData->FindAndGrowSibling())
 							DEBUG_BREAK();
 
-						
+
 
 						RECT floatingTabTargetRc;
 						GetClientRect(floatingTabTargetHwnd,&floatingTabTargetRc);
@@ -3846,19 +3850,19 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 					else
 					{
 						//newTabContainer=new TabContainerWin32((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top),hwnd);
-						
+
 						newTabContainer=this->currentTabContainerWin32->editorWindowContainerWin32->CreateTabContainer((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
-						
+
 						GuiRect* reparentTab=floatingTabRef->tabs.childs[floatingTabRefTabIdx];
 						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
 						floatingTabRef->OnGuiActivate();
 						reparentTab->SetParent(&newTabContainer->tabs);
-						
+
 						newTabContainer->selected=newTabContainer->tabs.childs.size()-1;
 
-						SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);		
+						SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
 
-						
+
 					}
 
 					floatingTabTarget->windowData->LinkSibling(newTabContainer->windowData,floatingTabTargetAnchorPos);
@@ -3960,7 +3964,7 @@ void SplitterWin32::OnMouseMove(HWND hwnd,LPARAM lparam)
 			else
 				floatingTabTargetAnchorPos=-1;
 
-			
+
 
 			if(anchor==2)
 			{
@@ -4048,7 +4052,7 @@ void SplitterWin32::OnMouseMove(HWND hwnd,LPARAM lparam)
 
 				if(splitterCursor==IDC_SIZEWE)
 					DeferWindowPos(hdwp,resizingWindows1[i],0,0,0,(rc.right-rc.left)-mouseMovedDelta.x,rc.bottom-rc.top,flags1);
-				else 
+				else
 					DeferWindowPos(hdwp,resizingWindows1[i],0,0,0,rc.right-rc.left,(rc.bottom-rc.top)-mouseMovedDelta.y,flags1);
 			}
 
@@ -4195,7 +4199,7 @@ bool InitSplitter()
 			DEBUG_BREAK();
 	}
 
-	
+
 
 	return returnValue;
 }
@@ -4217,7 +4221,7 @@ bool InitSplitter()
 bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput)
 {
 	if(iPath=="none")
-		iPath=EngineIDE::instance->projectFolder;
+		iPath=EngineIDE::instance->folderProject;
 
 	STARTUPINFO si={0};
 	PROCESS_INFORMATION pi={0};
@@ -4235,7 +4239,7 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 
 		sa.nLength = sizeof(SECURITY_ATTRIBUTES);
 		sa.lpSecurityDescriptor = 0;
-		sa.bInheritHandle = true;  
+		sa.bInheritHandle = true;
 
 		tFileOutput = CreateFile(iOutputFile.Buffer(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
@@ -4299,35 +4303,75 @@ unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThread
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
+{
+	CompilerWin32*		icplr=(CompilerWin32*)EngineIDE::instance->compiler;
+	Compiler::COMPILER& cplr=icplr->compilers[iCompiler]; 
+
+	String tScriptFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
+	String tIdeSourcePath=EngineIDE::instance->compiler->ideSrcPath +  " ";
+	String tEngineLibraryFullPathFileName=icplr->ideLibPath + "\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + " ";
+	String tKernelLib="kernel32.lib";
+
+	iScript->module=iScript->module + "\\" + iScript->script.path.Name() + "_" + cplr.name + ".dll ";
+
+	String tCompilerExecutableString;
+
+	if(iCompiler==Compiler::COMPILER_MS)
+		tCompilerExecutableString="vcvars32.bat && ";
+
+	tCompilerExecutableString+=cplr.compilerFile;
+
+	String	tComposedOutput=tCompilerExecutableString + 
+							cplr.compilerFlags + 
+							cplr.includeHeaders + 
+							tIdeSourcePath +
+							tScriptFullPathFileName + 
+							cplr.linkerFlags + 
+							cplr.outputFlag +
+							iScript->module + 
+							tEngineLibraryFullPathFileName +
+							tKernelLib;
+	
+	return	tComposedOutput;
+}
+
 String CompilerWin32::ComposeMS(Script* iScript)
 {
-	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->script.path.File();
+	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
 
 	String compilerOptions="/nologo /MDd /ZI /EHsc";
 	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
 	FilePath outputDLL="/OUT:" + iScript->script.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=EngineIDE::instance->ideExecutable.Path() + "\\engineWin32.lib";
+	String engineLibraryFullPathFileName=EngineIDE::instance->pathExecutable.Path() + "\\engineWin32.lib";
 	String kernelLib="kernel32.lib";
 
-	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  EngineIDE::instance->compiler->ideSourcesPath.Buffer() + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
+	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  EngineIDE::instance->compiler->ideSrcPath.Buffer() + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
+}
+
+String CompilerWin32::ComposeLLVM(Script* iScript) 
+{
+	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
+
+	String compilerOptions="/nologo /MDd /ZI /EHsc";
+	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
+	FilePath outputDLL="/OUT:" + iScript->script.path.Name() + ".dll";
+	String engineLibraryFullPathFileName=EngineIDE::instance->pathExecutable.Path() + "\\engineWin32.lib";
+	String kernelLib="kernel32.lib";
+
+	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  EngineIDE::instance->compiler->ideSrcPath.Buffer() + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
 }
 
 String CompilerWin32::ComposeMingW(Script* iScript)
 {
-	String tSourceFullPathFileName=EngineIDE::instance->projectFolder + "\\" + iScript->script.path.File();
+	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
 
 	String tMingwCompilerExecutable="c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ";
 
-	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->compiler->ideLibraryPath;
-	String tMingwCommandLine="-O0 -g -I " + EngineIDE::instance->compiler->ideSourcesPath + tEngineLibraryPath + " -static -shared -o " + iScript->script.path.Name() + ".dll " + tSourceFullPathFileName ;
+	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->compiler->ideLibPath;
+	String tMingwCommandLine="-O0 -g -shared -I " + EngineIDE::instance->compiler->ideSrcPath + tEngineLibraryPath + " -o " + iScript->script.path.Name() + ".dll " + tSourceFullPathFileName ;
 
-	String primitives=" " + EngineIDE::instance->ideExecutable.Path() + "\\primitives.o";
-	String entities=" " + EngineIDE::instance->ideExecutable.Path() + "\\entities.o";
-	String jpg=" " + EngineIDE::instance->ideExecutable.Path() + "\\imgjpg.o";
-	String tga=" " + EngineIDE::instance->ideExecutable.Path() + "\\imgtga.o";
-	String png=" " + EngineIDE::instance->ideExecutable.Path() + "\\imgpng.o";
-	String engineWin32=" " + EngineIDE::instance->ideExecutable.Path() + "\\engineWin32.dll";
-	String engineMingW=" " + EngineIDE::instance->ideExecutable.Path() + "\\engineMingW.dll";
+	String engineMingW=" " + EngineIDE::instance->pathExecutable.Path() + "\\engineMingW.dll";
 
 	return tMingwCompilerExecutable + tMingwCommandLine + engineMingW;
 }
@@ -4350,7 +4394,7 @@ String gfCreateRandomString(int iCount)
 	}
 
 	tRandomString[iCount]='\0';
-	
+
 	String tReturnString(tRandomString);
 
 	SAFEDELETEARRAY(tRandomString);
@@ -4400,8 +4444,9 @@ bool CompilerWin32::Compile(Script* iScript)
 	bool retVal;
 
 	String tSourceFileContent=iScript->script.All();;
-	File tCompilerTextOutput=EngineIDE::instance->applicationDataFolder + "\\error.output";
+	File tCompilerTextOutput=EngineIDE::instance->folderAppData + "\\error.output";
 	
+
 	//delete error.output
 
 	if(tCompilerTextOutput.Exist())
@@ -4412,8 +4457,10 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//create random directory for the module if not exist yet
 
-	if(!iScript->modulePath.Count())
-		iScript->modulePath=this->CreateRandomDir(EngineIDE::instance->applicationDataFolder);
+	if(!iScript->module.Count())
+		iScript->module=this->CreateRandomDir(EngineIDE::instance->folderAppData);
+
+	String tModulePath=iScript->module.Path();
 
 	//append exports to source
 
@@ -4421,20 +4468,24 @@ bool CompilerWin32::Compile(Script* iScript)
 	{
 		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
 		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+		String tExporterAssignPointers="\n\nextern \"C\" __declspec(dllexport) void AssignPointers(ResourceNodeDir* iResourcesNodeDir){Resource::rootProjectDirectory=iResourcesNodeDir;}";
 
 		iScript->script.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
 		iScript->script.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
+		iScript->script.Write((void*)tExporterAssignPointers.Buffer(),tExporterAssignPointers.Count(),1);
 		iScript->script.Close();
 	}
 
 	//compose the compiler command line
 
-	String tCommandLineMingW=this->ComposeMingW(iScript);
-	String tCommandLineWin32=this->ComposeMS(iScript);
+	unsigned int tCompiler=Compiler::COMPILER_MS;
+
+	String tCommandLineMingW=this->Compose(tCompiler,iScript);
+	//String tCommandLineWin32=this->ComposeMS(iScript);
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->modulePath,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
+	bool tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(tModulePath,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4469,14 +4520,14 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//extract and parse breakpoint line addresses
 
-	File tLineAddressesOutput=iScript->modulePath + "\\laddrss.output";
+	File tLineAddressesOutput=tModulePath + "\\laddrss.output";
 
 	String tSharedObjectFileName=iScript->script.path.Name() + ".dll";
 	String tSharedObjectSourceName=iScript->script.path.Name() + ".cpp";
 
 	String tParseLineAddressesCommandLine="objdump --dwarf=decodedline " + tSharedObjectFileName + " | find \""+ tSharedObjectSourceName + "\" | find /V \":\"";
 
-	tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->modulePath,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(tModulePath,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4506,7 +4557,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 
 				EngineIDE::instance->debugger->allAvailableBreakpoints.push_back(tLineAddress);
-			}			
+			}
 		}
 
 		tLineAddressesOutput.Close();
@@ -4522,7 +4573,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	if(!guiCompilerViewer)
 	{
 		EditorScript* tEditorScript=(EditorScript*)iScript;
-		
+
 		Tab* tabContainer=tEditorScript->scriptViewer ? tEditorScript->scriptViewer->GetRootRect()->tabContainer : Tab::GetPool().front();
 
 		if(!tabContainer)
@@ -4557,12 +4608,12 @@ bool CompilerWin32::Compile(Script* iScript)
 
 bool CompilerWin32::LoadScript(Script* iScript)
 {
-	if(!iScript->modulePath.Count())
+	if(!iScript->module.Count())
 		return false;
 
 	HMODULE*		tModule=0;
-	String			tFullModuleName;
-	EntityScript*	(*tCreateMoculeClassFunction)()=0;
+	EntityScript*	(*tCreateModuleClassFunction)()=0;
+	void			(*tAssignPointersToModule)(ResourceNodeDir*)=0;
 
 	tModule=this->ideScriptSourceModules.find(iScript)!=this->ideScriptSourceModules.end() ? this->ideScriptSourceModules[iScript] : 0;
 
@@ -4572,24 +4623,22 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		this->ideScriptSourceModules.insert(std::pair<Script*,HMODULE*>(iScript,tModule));
 	}
 
-	tFullModuleName=iScript->modulePath + "\\" + iScript->entity->name + ".dll";
-
-	*tModule=(HMODULE)LoadLibrary(tFullModuleName.Buffer());
+	*tModule=(HMODULE)LoadLibrary(iScript->module.Buffer());
 
 	if(!*tModule)
 		return false;
 
-	tCreateMoculeClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
+	tCreateModuleClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
+	tAssignPointersToModule=(void (*)(ResourceNodeDir*))GetProcAddress(*tModule,"AssignPointers");
 
-	if(tCreateMoculeClassFunction)
+	if(tCreateModuleClassFunction && tAssignPointersToModule)
 	{
-		iScript->runtime=tCreateMoculeClassFunction();
+		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->entity;
 
-		EntityScript* es=iScript->runtime;
+		tAssignPointersToModule(Resource::rootProjectDirectory);
 
-		printf("entityscriptptr 0x%p\nentityptr 0x%p\nentityparentptr 0x%p\nentitychildsptr 0x%p\nentitylocalptr 0x%p\nentityworldptr 0x%p\nentitynameptr 0x%p\nentitybboxptr 0x%p\nentitycomponentsptr 0x%p\n",
-			es,es->entity,es->entity->parent,&es->entity->childs,&es->entity->local,&es->entity->world,&es->entity->name,&es->entity->bbox,&es->entity->components);
+		Mesh* mesh=Resource::Load<Mesh>("\\pippo\\1.txt");
 
 		//iScript->runtime->init();
 		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
@@ -4602,7 +4651,7 @@ bool CompilerWin32::LoadScript(Script* iScript)
 
 		if(*tModule && FreeLibrary(*tModule))
 			DEBUG_BREAK();
-			
+
 
 		SAFEDELETE(tModule);
 		this->ideScriptSourceModules.erase(iScript);
@@ -4662,16 +4711,16 @@ String gCompileAndroidSource(FilePath& iScriptSource,String& iAndroidTargetDirec
 {
 	String tLibName=iScriptSource.Name();
 
-	String tAndroidMK=	"LOCAL_PATH := $(call my-dir)\n" 
+	String tAndroidMK=	"LOCAL_PATH := $(call my-dir)\n"
 						"include $(CLEAR_VARS)\n\n"
 
 						"DSTDIR := " + iAndroidTargetDirectory + "\n"
-						"LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSourcesPath + "\n"
+						"LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSrcPath + "\n"
 						"LOCAL_STATIC_LIBRARIES := -lEngine\n"
 						"LOCAL_MODULE := " + tLibName + "\n"
 						"LOCAL_SRC_FILES := " + iScriptSource + "\n"
 						"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE\n"
-						"LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibraryPath + " \n\n"
+						"LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibPath + " \n\n"
 
 						"include $(BUILD_SHARED_LIBRARY)\n\n"
 						"all: $(DSTDIR)/$(notdir $(LOCAL_BUILT_MODULE))\n\n"
@@ -4706,15 +4755,17 @@ void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& i
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		File	tDataFile(EngineIDE::instance->projectFolder + iCurrentDirectory + (*tResFile)->fileName);
+		File	tDataFile(EngineIDE::instance->folderProject + iCurrentDirectory + (*tResFile)->fileName);
 		int		tDataFileStart;
-		int		tDataFileSize;
+		size_t	tDataFileSize;
 		String	tFinalFileName;
+		bool	tDeleteResource=false;
 
 		if(tDataFile.path.Extension()=="cpp")
 		{
 			//compile source, put it into target directory
 			tDataFile.path=gCompileAndroidSource(tDataFile.path,iAndroidTargetDirectory);
+			tDeleteResource=true;
 		}
 
 		tDataFileSize=tDataFile.Size();
@@ -4727,14 +4778,22 @@ void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& i
 			tDataFileStart=ftell((FILE*)iPackFile.data);
 
 			if(tDataFileSize)
-				fwrite(&tDataFile.data,tDataFileSize,1,(FILE*)iPackFile.data);
+			{
+				size_t tWriteResult=fwrite(&tDataFile.data,1,tDataFileSize,(FILE*)iPackFile.data);
+
+				if(tWriteResult!=tDataFileSize)
+					DEBUG_BREAK();
+			}
 
 			tDataFile.Close();
 		}
 		else
 			DEBUG_BREAK();
 
-		tFinalFileName=iCurrentDirectory + tDataFile.path.File(); 
+		/*if(tDeleteResource)
+			File::Delete(tDataFile.path.Buffer());*/
+
+		tFinalFileName=iCurrentDirectory + tDataFile.path.File();
 
 		fprintf((FILE*)iTableFile.data,"%s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
 		//printf("adding to package: %s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
@@ -4746,7 +4805,7 @@ void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& i
 
 bool CompilerWin32::CreateAndroidTarget()
 {
-	String tAndroidTargetDirectory=EngineIDE::instance->projectFolder.PathUp(1) + "\\android";
+	String tAndroidTargetDirectory=EngineIDE::instance->folderProject.PathUp(1) + "\\android";
 	String tAndroidProjectDirectory=tAndroidTargetDirectory + "\\project";
 	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + "\\jni";
 
@@ -4792,7 +4851,7 @@ bool CompilerWin32::CreateAndroidTarget()
 	{
 		//iterate resources
 
-		gPackResourceDir(tResourceDirectory,&GuiProjectViewer::GetPool()[0]->rootResource,tPackFile,tTableFile,tAndroidTargetDirectory);
+		gPackResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidTargetDirectory);
 
 		tPackFile.Close();
 		tTableFile.Close();
@@ -4819,8 +4878,8 @@ bool CompilerWin32::CreateAndroidTarget()
 		tTableFile.Close();
 	}
 
-	File::Delete(tPackFile.path.Buffer());
-	File::Delete(tTableFile.path.Buffer());
+	//File::Delete(tPackFile.path.Buffer());
+	//File::Delete(tTableFile.path.Buffer());
 
 	return true;
 }
@@ -4852,7 +4911,7 @@ const char* ExceptionString(unsigned int iCode)
 		case EXCEPTION_PRIV_INSTRUCTION        : return "EXCEPTION_PRIV_INSTRUCTION"  		; break;
 		case EXCEPTION_IN_PAGE_ERROR           : return "EXCEPTION_IN_PAGE_ERROR"  			; break;
 		case EXCEPTION_ILLEGAL_INSTRUCTION     : return "EXCEPTION_ILLEGAL_INSTRUCTION"  	; break;
-		case EXCEPTION_NONCONTINUABLE_EXCEPTION: return "EXCEPTION_NONCONTINUABLE_EXCEPTION"; break;  
+		case EXCEPTION_NONCONTINUABLE_EXCEPTION: return "EXCEPTION_NONCONTINUABLE_EXCEPTION"; break;
 		case EXCEPTION_STACK_OVERFLOW          : return "EXCEPTION_STACK_OVERFLOW"  		; break;
 		case EXCEPTION_INVALID_DISPOSITION     : return "EXCEPTION_INVALID_DISPOSITION"  	; break;
 		case EXCEPTION_GUARD_PAGE              : return "EXCEPTION_GUARD_PAGE"  			; break;
@@ -4941,7 +5000,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 
 	this->threadContext=exceptionInfo->ContextRecord;
 
-	this->PrintThreadContext(exceptionInfo->ContextRecord);
+	//this->PrintThreadContext(exceptionInfo->ContextRecord);
 
 	if(this->lastBreakedAddress==exceptionInfo->ExceptionRecord->ExceptionAddress)
 	{
@@ -4968,7 +5027,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 			while(this->breaked);
 		else
 		{
-			printf("%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			//printf("%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;
@@ -4978,13 +5037,13 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 		}
 	}
 
-	
+
 
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
-LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)  
-{  
+LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
+{
 	DebuggerWin32* debuggerWin32=(DebuggerWin32*)EngineIDEWin32::instance->debugger;
 
 	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
@@ -5083,10 +5142,10 @@ DebuggerWin32::DebuggerWin32()
 	SetUnhandledExceptionFilter(UnhandledException);
 
 	this->debuggeeThread=CreateThread(0,0,debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
-	
+
 	printf("Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
 
-	
+
 }
 
 void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex)
@@ -5104,38 +5163,5 @@ void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctio
 
 		while(this->runningScript && !this->breaked);
 	}
-	
+
 }
-
-
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-/////////////main  entry point/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-
-
-
-
-
-//int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
-int main()
-{
-	
-
-	EngineIDE *app = new EngineIDEWin32;
-
-	app->Initialize();
-
-	app->Run();
-
-	return 0;
-}
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////

@@ -770,7 +770,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 			printf("extracting texture %s %d,%d:%d\n",name,texture->GetWidth(),texture->GetHeight(),texture->GetBpp());
 		}
 		else
-			printf("failed open %s\n",texture->filename);
+			printf("failed open %s\n",texture->filename.Buffer());
 
 		mapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxfiletexture,texture));
 	}
