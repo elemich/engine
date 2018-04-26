@@ -1,4 +1,4 @@
-﻿#include "win32.h"
+#include "win32.h"
 
 
 #ifdef USEFBX
@@ -1326,8 +1326,6 @@ int EngineIDEWin32::Initialize()
 
 
 	this->debugger=new DebuggerWin32;
-
-	Resource::rootProjectDirectory=new ResourceNodeDir;
 
 	{//applicationDataFolder
 		char ch[5000];
@@ -4339,47 +4337,6 @@ String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 	return	tComposedOutput;
 }
 
-String CompilerWin32::ComposeMS(Script* iScript)
-{
-	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
-
-	String compilerOptions="/nologo /MDd /ZI /EHsc";
-	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	FilePath outputDLL="/OUT:" + iScript->script.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=EngineIDE::instance->pathExecutable.Path() + "\\engineWin32.lib";
-	String kernelLib="kernel32.lib";
-
-	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  EngineIDE::instance->compiler->ideSrcPath.Buffer() + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
-}
-
-String CompilerWin32::ComposeLLVM(Script* iScript)
-{
-	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
-
-	String compilerOptions="/nologo /MDd /ZI /EHsc";
-	String linkerOptions="/link /MANIFEST:NO /DLL /NOENTRY";
-	FilePath outputDLL="/OUT:" + iScript->script.path.Name() + ".dll";
-	String engineLibraryFullPathFileName=EngineIDE::instance->pathExecutable.Path() + "\\engineWin32.lib";
-	String kernelLib="kernel32.lib";
-
-	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  EngineIDE::instance->compiler->ideSrcPath.Buffer() + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
-}
-
-String CompilerWin32::ComposeMingW(Script* iScript)
-{
-	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
-
-	String tMingwCompilerExecutable="c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ";
-
-	String tEngineLibraryPath=" -Lc:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib -L" + EngineIDE::instance->compiler->ideLibPath;
-	String tMingwCommandLine="-O0 -g -shared -I " + EngineIDE::instance->compiler->ideSrcPath + tEngineLibraryPath + " -o " + iScript->script.path.Name() + ".dll " + tSourceFullPathFileName ;
-
-	String engineMingW=" " + EngineIDE::instance->pathExecutable.Path() + "\\engineMingW.dll";
-
-	return tMingwCompilerExecutable + tMingwCommandLine + engineMingW;
-}
-
-
 String gfCreateRandomString(int iCount)
 {
 	const char tSymbolsAlphabet[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
@@ -4406,7 +4363,7 @@ String gfCreateRandomString(int iCount)
 }
 
 
-String CompilerWin32::CreateRandomDir(String iDirWhere)
+String gfCreateRandomDir(String iDirWhere)
 {
 	String tRandomWorkingDirectoryName;
 	String tRandomWorkingDirectory;
@@ -4461,7 +4418,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	//create random directory for the module if not exist yet
 
 	if(!iScript->module.Count())
-		iScript->module=this->CreateRandomDir(EngineIDE::instance->folderAppData);
+		iScript->module=gfCreateRandomDir(EngineIDE::instance->folderAppData);
 
 	String tModulePath=iScript->module.Path();
 
@@ -4471,11 +4428,11 @@ bool CompilerWin32::Compile(Script* iScript)
 	{
 		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
 		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
-		String tExporterAssignPointers="\n\nextern \"C\" __declspec(dllexport) void AssignPointers(ResourceNodeDir* iResourcesNodeDir){Resource::rootProjectDirectory=iResourcesNodeDir;}";
+		//String tExporterAssignPointers="\n\nextern \"C\" __declspec(dllexport) void AssignPointers(ResourceNodeDir* iResourcesNodeDir){Resource::rootProjectDirectory=*iResourcesNodeDir;}";
 
 		iScript->script.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
 		iScript->script.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
-		iScript->script.Write((void*)tExporterAssignPointers.Buffer(),tExporterAssignPointers.Count(),1);
+		//iScript->script.Write((void*)tExporterAssignPointers.Buffer(),tExporterAssignPointers.Count(),1);
 		iScript->script.Close();
 	}
 
@@ -4632,18 +4589,17 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		return false;
 
 	tCreateModuleClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
-	tAssignPointersToModule=(void (*)(ResourceNodeDir*))GetProcAddress(*tModule,"AssignPointers");
+	//tAssignPointersToModule=(void (*)(ResourceNodeDir*))GetProcAddress(*tModule,"AssignPointers");
 
-	if(tCreateModuleClassFunction && tAssignPointersToModule)
+	if(tCreateModuleClassFunction/* && tAssignPointersToModule*/)
 	{
 		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->entity;
 
-		tAssignPointersToModule(Resource::rootProjectDirectory);
+		//tAssignPointersToModule(Resource::rootProjectDirectory);
 
-		Mesh* mesh=Resource::Load<Mesh>("\\pippo\\1.txt");
+		printf("enginelib Resource::rootDir address 0x%p\n",&Resource::rootProjectDirectory);
 
-		//iScript->runtime->init();
 		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
 
 		return true;
@@ -5168,3 +5124,22 @@ void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctio
 	}
 
 }
+
+
+
+/*
+BOOL DllMain(HINSTANCE,DWORD iReason,LPVOID)
+{
+    printf("DllMain\n");
+
+    switch(iReason)
+    {
+        case 0:break; //process detach
+        case 1:break; //process attach
+        case 2:break; //thread attach
+        case 3:break; //thread detach
+    }
+
+    return 1;
+}
+*/

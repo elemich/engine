@@ -427,14 +427,10 @@ struct DLLBUILD CompilerWin32 : Compiler
 	std::map<Script*,HMODULE*> ideScriptSourceModules;
 
 	bool Compile(Script*);
-	String ComposeMS(Script*);
-	String ComposeMingW(Script*);
-	String ComposeLLVM(Script*);
 	String Compose(unsigned int iCompiler,Script*);
 	bool LoadScript(Script*);
 	bool UnloadScript(Script*);
 	bool CreateAndroidTarget();
-	String CreateRandomDir(String iDirWhere);
 };
 
 struct DLLBUILD DebuggerWin32 : Debugger

@@ -61,8 +61,6 @@ ResourceNodeDir::~ResourceNodeDir()
 
 String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeDir* iResDir,String& iResourceName)
 {
-	printf("gFindResource\n");
-
 	//store current dir
 
 	if(iResDir->parent)
@@ -71,18 +69,12 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 		iCurrentDirectory+="\\";
 	}
 
-	printf("resdir filename: %s\n",iResDir->fileName.Buffer());
-
 	//if node contains files, process them, later process other dir nodes
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		printf("iter %s\n",(*iResDir->files.begin())->fileName.Buffer());
-
 		String	tVirtualFileName(iCurrentDirectory + (*tResFile)->fileName);
 
-		printf("searching %s , %s\n",iResourceName.Buffer(),tVirtualFileName.Buffer());
-				
 		if(tVirtualFileName==iResourceName)
 		{
 			return iProjectDir + iCurrentDirectory + (*tResFile)->fileName;
@@ -100,23 +92,20 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 	return "";
 }
 
-ResourceNodeDir* Resource::rootProjectDirectory=0;
+ResourceNodeDir Resource::rootProjectDirectory;
 
 String Resource::Find(String iResourceName)
 {
 	String tResult;
 
 #ifdef EDITORBUILD
-	printf("Resource::Find: EDITORBUILD defined, globalRootProjectDirectory address: 0x%p\n",&rootProjectDirectory);
+	printf("script Resource::rootDir address 0x%p\n",&rootProjectDirectory);
 
 	String tStartingTrail("\\");
-	tResult=gFindResource(tStartingTrail,rootProjectDirectory->fileName,rootProjectDirectory,iResourceName);
-#else 
-	printf("Resource::Find: EDITORBUILD not defined\n");
+	tResult=gFindResource(tStartingTrail,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
+#else
 	tResult="";
 #endif
-
-	printf("Resource::Find: searching %s, found %s\n",iResourceName.Buffer(),tResult.Buffer());
 
 	return tResult;
 }
@@ -161,7 +150,7 @@ mat4 MatrixStack::projection;
 mat4 MatrixStack::view;
 
 void MatrixStack::Reset()
-	
+
 {
 	mode=MatrixStack::MODEL;
 
@@ -288,7 +277,7 @@ void MatrixStack::Pop(MatrixStack::matrixmode m)
 
 
 void MatrixStack::Rotate(float a,float x,float y,float z)
-{	
+{
 	Matrix::rotate(Get(),a,x,y,z);
 }
 
@@ -461,7 +450,7 @@ String File::All()
 		}
 	}
 
-		
+
 	if(!wasOpen)
 		this->Close();
 
@@ -522,7 +511,7 @@ bool File::Exist(const char* iFilename)
 		fclose(tFile);
 		return true;
 	}
-	
+
 	return false;
 }
 bool File::Delete(const char* iFilename)
@@ -547,7 +536,7 @@ int File::Size(const char* iFilename)
 	}
 	else
 		RetVal=-2;
-	
+
 	return RetVal;
 }
 
@@ -1200,7 +1189,7 @@ void Skin::update()
 			Influence &inf=clu->influences[nw];
 
 			src=this->controlpoints[inf.cpIdx[0]];
-			dst=&this->vertexcache[inf.cpIdx[0]*3];	
+			dst=&this->vertexcache[inf.cpIdx[0]*3];
 
 			if(inf.weight!=1.0f)
 			{
@@ -1326,7 +1315,7 @@ int TextureFile::load(char* fn)
 
 		int sign1;
 		int sign2;
-		
+
 		fread(&sign1,4,1,f);
 		fread(&sign2,4,1,f);
 
@@ -1389,7 +1378,7 @@ int TextureFile::loadPNG(char* fn)
 
 		error = decodePNG(image, w, h, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size());
 	}
-	
+
 
 	if(!error)
 	{

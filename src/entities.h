@@ -248,7 +248,7 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 
 struct DLLBUILD Resource
 {
-	static ResourceNodeDir* rootProjectDirectory;
+	static ResourceNodeDir rootProjectDirectory;
 
 	static String Find(String iResourceName);
 
@@ -435,7 +435,7 @@ struct DLLBUILD Entity : EntityBase
 	virtual void SetParent(Entity* iParent);
 	virtual void update();
 	virtual void draw(Renderer3DBase*);
-	
+
 	template<class C> C* CreateComponent()
 	{
 		C* newComp=new C;
@@ -619,8 +619,8 @@ struct DLLBUILD Skin : Mesh
 	Skin();
 
 	virtual void		update();
-	
-	
+
+
 	Texture	    *textures;
 	int			ntextures;
 
@@ -675,7 +675,7 @@ struct DLLBUILD TextureLayered
 	~TextureLayered();
 };
 
-struct DLLBUILD TextureProcedural : Texture 
+struct DLLBUILD TextureProcedural : Texture
 {
 	TextureProcedural();
 

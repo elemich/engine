@@ -3,14 +3,14 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="Engine" />
-		<Option makefile="makefile-mingw" />
+		<Option makefile="makefile" />
 		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="Debug Win32">
-				<Option output="./build/win32/x86/debug/engineMingW" prefix_auto="1" extension_auto="1" />
-				<Option object_output="/build/win32/x86/debug/engineMingW.exe" />
+			<Target title="x86d">
+				<Option output="./build/win32/x86/debug/MINGW/engineMingW" prefix_auto="1" extension_auto="1" />
+				<Option object_output="/build/win32/x86/debug/MINGW" />
 				<Option deps_output="/" />
 				<Option type="1" />
 				<Option compiler="gcc" />

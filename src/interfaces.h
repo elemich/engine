@@ -39,7 +39,7 @@ struct DLLBUILD Subsystem;
 struct DLLBUILD Debugger;
 struct DLLBUILD EditorScript;
 
-//entity forward declaration 
+//entity forward declaration
 
 struct DLLBUILD Entity;
 struct DLLBUILD AnimationController;
@@ -124,7 +124,7 @@ struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 	FilePath				folderProject;
 	FilePath				pathExecutable;
 	FilePath				folderAppData;
-	Compiler*				compiler; 
+	Compiler*				compiler;
 	InputManager            inputManager;
 	unsigned int            caretLastTime;
 	Subsystem*				subsystem;
@@ -135,7 +135,7 @@ struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 
 	EngineIDE();
 
-	virtual int Initialize()=0;	
+	virtual int Initialize()=0;
 	virtual void Deinitialize()=0;
 	virtual void Run()=0;
 
@@ -151,7 +151,7 @@ struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 struct DLLBUILD Debugger
 {
 	struct DLLBUILD Breakpoint
-	{	
+	{
 		void* address;
 		int   line;
 		Script* script;
@@ -163,7 +163,7 @@ struct DLLBUILD Debugger
 	};
 
 	std::vector<Breakpoint> allAvailableBreakpoints;
-	std::vector<Breakpoint> breakpointSet; 
+	std::vector<Breakpoint> breakpointSet;
 
 	bool   breaked;
 	Breakpoint* currentBreakpoint;
@@ -239,9 +239,9 @@ struct DLLBUILD Renderer2D
 
 	Tab*			tabContainer;
 
-	Caret*          caret;   
+	Caret*          caret;
 
-	static Caret*   caretGlobal;    
+	static Caret*   caretGlobal;
 
 	Renderer2D(Tab*);
 
@@ -250,13 +250,13 @@ struct DLLBUILD Renderer2D
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
-	 
+
 	virtual void PushScissor(float x,float y,float w,float h)=0;
 	virtual void PopScissor()=0;
-	 
+
 	virtual void Translate(float,float)=0;
 	virtual void Identity()=0;
-	 
+
 	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
 	virtual float GetFontSize()=0;
 	virtual float GetFontHeight()=0;
@@ -270,7 +270,7 @@ struct DLLBUILD Renderer2D
 struct DLLBUILD Renderer3D : Renderer3DBase
 {
 	std::list<GuiViewport*> viewports;
-	
+
 	Tab* tabContainer;
 
 	Shader* FindShader(const char* name,bool exact);
@@ -316,7 +316,7 @@ struct DLLBUILD Renderer3D : Renderer3DBase
 	Renderer3D(Tab*);
 	virtual ~Renderer3D(){};
 
-	
+
 };
 
 
@@ -466,8 +466,8 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	virtual void SetClip(GuiScrollRect*);
 
-	virtual GuiRect* GetRoot(); 
-	GuiRootRect* GetRootRect(); 
+	virtual GuiRect* GetRoot();
+	GuiRootRect* GetRootRect();
 
 	bool _contains(vec4& quad,vec2);
 
@@ -493,7 +493,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	GuiString* Text(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
 
 	GuiPropertyString* Property(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=3,unsigned int iValueParameter2=2);
-	
+
 	GuiPropertyAnimationController* AnimationControllerProperty(AnimationController&);
 	GuiPropertySlider* SliderProperty(const char* iDescription,float& ref,float& imin,float& imax);
 
@@ -526,7 +526,7 @@ struct DLLBUILD GuiString : GuiRect
 	std::string text;
 	std::wstring wText;
 	bool clipText;
-	
+
 	GuiString();
 
 	void DrawTheText(Tab*,vec2 iOffset=vec2(0,0));
@@ -608,7 +608,7 @@ struct DLLBUILD GuiScrollRect : GuiRect
 
 	virtual void OnMouseWheel(Tab*,void* data=0);
 	virtual void OnSize(Tab*,void* data=0);
-};	
+};
 
 struct DLLBUILD GuiSlider : GuiRect
 {
@@ -635,7 +635,7 @@ struct DLLBUILD GuiPropertyString : GuiProperty
 	static const unsigned int scDefaultParameter1=3;
 	static const unsigned int scDefaultParameter2=2;
 
-	enum 
+	enum
 	{
 		STRING=0,
 		BOOL,
@@ -763,7 +763,7 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	unsigned int	row;
 	unsigned int	col;
 	vec4			caret;
-	
+
 	GuiPaper*	paper;
 
 	bool		lineNumbers;
@@ -840,7 +840,7 @@ struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 	void Load(const char*);
 
 
-};	
+};
 
 struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 {
@@ -895,7 +895,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
 		int CalcNodesHeight(ResourceNodeDir*);
 		void UnselectNodes(ResourceNodeDir*);
-		
+
 		void OnLMouseDown(Tab*,void* data=0);
 		void OnPaint(Tab*,void* data=0);
 		void OnRMouseUp(Tab*,void* data=0);
@@ -904,14 +904,14 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 
 	struct DLLBUILD GuiProjectDataViewer : GuiScrollRect
 	{
-		
+
 	};
 
 	GuiProjectDirViewer dirViewer;
 	GuiProjectFileViewer fileViewer;
 	GuiProjectDataViewer resViewer;
 
-	ResourceNodeDir*& projectDirectory;
+	ResourceNodeDir* projectDirectory;
 
 	bool splitterLeft;
 	bool splitterRight;
@@ -1073,7 +1073,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	virtual void DrawFrame()=0;
 
-	
+
 
 	virtual void OnGuiRecreateTarget(void* data=0);
 
@@ -1108,7 +1108,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	GuiRect* GetFocus();
 };
 
-struct DLLBUILD Splitter 
+struct DLLBUILD Splitter
 {
 	Tab* currentTabContainer;
 
@@ -1214,15 +1214,10 @@ struct DLLBUILD Compiler
 	String outputDirectory;
 
 	virtual bool Compile(Script*)=0;
-	virtual String ComposeMS(Script*)=0;
-	virtual String ComposeMingW(Script*)=0;
-	virtual String ComposeLLVM(Script*)=0;
 	virtual String Compose(unsigned int iCompiler,Script*)=0;
 	virtual bool LoadScript(Script*)=0;
 	virtual bool UnloadScript(Script*)=0;
 	virtual bool CreateAndroidTarget()=0;
-	virtual String CreateRandomDir(String iDirWhere)=0;
-	
 };
 
 struct DLLBUILD EditorProperties
@@ -1238,7 +1233,7 @@ struct DLLBUILD EditorProperties
 
 template<class T> struct DLLBUILD EditorObject : T , EditorProperties{};
 
-struct DLLBUILD EditorEntity : EditorObject<Entity> 
+struct DLLBUILD EditorEntity : EditorObject<Entity>
 {
 	bool					selected;
 	bool					expanded;
@@ -1261,7 +1256,7 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 
 	void OnPropertiesUpdate(Tab*);
 };
-				
+
 
 struct DLLBUILD EditorAnimationController : EditorObject<AnimationController>
 {
@@ -1275,37 +1270,37 @@ struct DLLBUILD EditorAnimationController : EditorObject<AnimationController>
 
 struct DLLBUILD EditorMesh : EditorObject<Mesh>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorRoot : EditorObject<Root>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorSkeleton : EditorObject<Skeleton>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorGizmo : EditorObject<Gizmo>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorAnimation : EditorObject<Animation>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorBone : EditorObject<Bone>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorLight : EditorObject<Light>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorScript : EditorObject<Script>
@@ -1316,7 +1311,7 @@ struct DLLBUILD EditorScript : EditorObject<Script>
 
 	EditorScript();
 
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 	void OnResourcesCreate();
 
@@ -1328,12 +1323,12 @@ struct DLLBUILD EditorScript : EditorObject<Script>
 };
 struct DLLBUILD EditorCamera : EditorObject<Camera>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 struct DLLBUILD EditorSkin : EditorObject<Skin>
 {
-	void OnPropertiesCreate(); 
+	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
 };
 

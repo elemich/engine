@@ -1,4 +1,4 @@
-﻿#include "interfaces.h"
+#include "interfaces.h"
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -2649,7 +2649,7 @@ int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
 
 
 GuiProjectViewer::GuiProjectViewer():
-	projectDirectory(Resource::rootProjectDirectory),
+	projectDirectory(&Resource::rootProjectDirectory),
 	splitterLeft(false),
 	splitterRight(false),
 	hotspotDist(0)

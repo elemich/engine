@@ -33,42 +33,42 @@ WIN32LIBD=-luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindo
 FBXLIB=-llibfbxsdk-md -ladvapi32
 
 primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
-	$(warning primitives.o)
+	$(info primitives.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
 
 entities.o: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
-	$(warning entities.o)
+	$(info entities.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
 
 imgjpg.o: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
-	$(warning imgjpg.o)
+	$(info imgjpg.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
 
 imgpng.o: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
-	$(warning imgpng.o)
+	$(info imgpng.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
 
 imgtga.o: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
-	$(warning imgtga.o)
+	$(info imgtga.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
-	
+
 interfaces.o: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
-	$(warning interfaces.o)
+	$(info interfaces.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
-	
+
 win32.o: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
-	$(warning win32.o)
+	$(info win32.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
-	
+
 fbxutil.o: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
-	$(warning fbxutil.o)
+	$(info fbxutil.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
-	
+
 enginelibMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
-	$(warning enginelibMingW.dll)
+	$(info enginelibMingW.dll)
 	$(CPPCOMPILER) $(LIBPATH) -g -DDLLBUILD -o enginelibMingW.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(WIN32LIBD)
 
 engineMingW.exe: enginelibMingW.dll $(DIRSRC)\main.cpp
-	$(warning engineMingW.exe)
+	$(info engineMingW.exe)
 	$(CPPCOMPILER) -g -w -O0 $(INCPATH) $(LIBPATH) -o engineMingW.exe enginelibMingW.dll $(DIRSRC)\main.cpp
-	
+
