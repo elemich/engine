@@ -26,7 +26,7 @@ INCPATH=-I$(OPENGLSDK) -I$(FBXSDK) -I$(MINGWINCLUDES)
 LIBPATH=-L$(MINGW32DIR)\$(MINGW32PREFIX)\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
 
 #CLOPT=-w $(INCPATH) -c
-CLOPT=  -g -DLLBUILD -DEDITORBUILD -w -O0 $(INCPATH) -c
+CLOPT= -w -O0 -g -DDLLBUILD -DEDITORBUILD $(INCPATH) -c
 LKOPT=-static
 
 WIN32LIBD=-luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32
@@ -66,9 +66,9 @@ fbxutil.o: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
 	
 enginelibMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
 	$(warning enginelibMingW.dll)
-	$(CPPCOMPILER) $(LIBPATH) -g -DLLBUILD -o enginelibMingW.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(WIN32LIBD)
+	$(CPPCOMPILER) $(LIBPATH) -g -DDLLBUILD -o enginelibMingW.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(WIN32LIBD)
 
 engineMingW.exe: enginelibMingW.dll $(DIRSRC)\main.cpp
 	$(warning engineMingW.exe)
 	$(CPPCOMPILER) -g -w -O0 $(INCPATH) $(LIBPATH) -o engineMingW.exe enginelibMingW.dll $(DIRSRC)\main.cpp
-	@del /Q *.o
+	

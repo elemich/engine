@@ -9,17 +9,17 @@ LLVMDIR=$(DIRDST)\LLVM
 x86d:
  @echo project dir: $(DIRPROJ)
  
- @echo --ms build--
+# @echo --ms build--
+# 
+# @if not exist $(MSDIR) md $(MSDIR)
+# @cd $(MSDIR)
+# @nmake.exe -f $(DIRDST)\makefile-ms /NOLOGO /S engineMS.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(MSDIR)
  
- @if not exist $(MSDIR) md $(MSDIR)
- @cd $(MSDIR)
- @nmake.exe -f $(DIRDST)\makefile-ms /NOLOGO /S engineMS.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(MSDIR)
- 
- @echo --llvm build--
- 
- @if not exist $(LLVMDIR) md $(LLVMDIR)
- @cd $(LLVMDIR)
- @nmake.exe -f $(DIRDST)\makefile-llvm /NOLOGO /S engineLLVM.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(LLVMDIR)
+# @echo --llvm build--
+# 
+# @if not exist $(LLVMDIR) md $(LLVMDIR)
+# @cd $(LLVMDIR)
+# @nmake.exe -f $(DIRDST)\makefile-llvm /NOLOGO /S engineLLVM.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(LLVMDIR)
  
  @echo --mingw build--
  
@@ -27,8 +27,8 @@ x86d:
  @cd $(MINGWDIR)
  @mingw32-make -s -f $(DIRDST)\makefile-mingw engineMingW.exe -C $(MINGWDIR) DIRSRC=$(DIRSRC) DIRDST=$(MINGWDIR)
  
- @echo --ndk-build build--
- @ndk-build -s -w APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
+# @echo --ndk-build build--
+# @ndk-build -s -w APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
  
 cleanx86d:
  @echo cleaning x86d dir: $(DIRDST)

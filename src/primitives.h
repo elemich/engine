@@ -5,13 +5,13 @@
 	#ifdef DLLBUILD
 		#define DLLBUILD __declspec(dllexport)
 	#else
-		#define DLLBUILD //__declspec(dllimport)
+		#define DLLBUILD __declspec(dllimport)
 	#endif
 
-	#define STDCALL __stdcall
+	//#define STDCALL __stdcall
 #else
 	#define DLLBUILD
-	#define STDCALL
+	//#define STDCALL
 #endif
 
 #define PRINT(x) #x

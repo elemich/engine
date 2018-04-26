@@ -10,7 +10,7 @@ EngineIDE::EngineIDE():timerMain(0),mainAppWindow(0),compiler(0),processId(0),pr
 
 const char* EngineIDE::GetSceneExtension()
 {
-	return ".engineScene";	
+	return ".engineScene";
 }
 const char* EngineIDE::GetEntityExtension()
 {
@@ -170,7 +170,7 @@ void Tab::Draw()
 			this->lastFrameTime=Timer::instance->GetTime();
 			this->renderer3D->Render();
 		}
-		
+
 		this->renderer2D->caret->draw();
 	}
 }
@@ -298,7 +298,7 @@ void Tab::OnGuiLMouseDown(void* data)
 
 			if(tMouseContained)// && tPreviousTabSelected!=i)
 			{
-				
+
 				mouseDown=true;
 
 				this->SetSelection(tabs.childs[i]);
@@ -537,7 +537,7 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 
 GuiRect::~GuiRect()
 {
-	
+
 }
 
 void GuiRect::SetParent(GuiRect* iParent)
@@ -574,7 +574,7 @@ bool GuiRect::_contains(vec4& quad,vec2 point)
 {
 	return (point.x>quad.x && point.x<(quad.x+quad.z) && point.y>quad.y && point.y<(quad.y+quad.w));
 }
-	
+
 void GuiRect::BroadcastToChilds(void (GuiRect::*func)(Tab*,void*),Tab* tabContainer,void* data)
 {
 	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
@@ -651,7 +651,7 @@ void GuiRect::OnSize(Tab* tabContainer,void* data)
 			this->rect.y+=20;
 		}
 	}
-	
+
 	if(sibling[0])
 	{
 		this->rect.x=this->sibling[0]->rect.x+this->sibling[0]->rect.z;
@@ -767,7 +767,7 @@ void GuiRect::OnMouseMove(Tab* tabContainer,void* data)
 
 	if(parent && _curHover)
 		parent->hovering=false;
-	
+
 	this->hovering=_curHover;
 
 	if(/*_curHover && */this->container!=0)
@@ -881,7 +881,7 @@ bool GuiRect::BeginSelfClip(Tab* tabContainer)
 
 		clipped=this->clip->isClipped=true;
 	}
-		
+
 	return clipped;
 }
 
@@ -1056,7 +1056,7 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 Compiler::Compiler():
 	SAFESTLIMPL(std::vector<COMPILER>,compilers)
 {
-	ideSrcPath=EngineIDE::instance->pathExecutable.PathUp(5) + "\\src";
+	ideSrcPath=EngineIDE::instance->pathExecutable.PathUp(6) + "\\src";
 	ideLibPath=EngineIDE::instance->pathExecutable.Path();
 
 	COMPILER msCompiler={"ms",
@@ -1226,7 +1226,7 @@ void GuiString::OnPaint(Tab* tabContainer,void* data)
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
-	this->EndSelfClip(tabContainer,selfClip);	
+	this->EndSelfClip(tabContainer,selfClip);
 }
 
 ///////////////////////////////////////////////
@@ -1373,7 +1373,7 @@ void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
 	const unsigned int ctMaxTmpArraySize=256;
 
 	/*
-	enum 
+	enum
 	{
 		STRING=0,
 		BOOL,
@@ -1537,7 +1537,7 @@ void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 ///////////////////////////////////////////////
@@ -1550,14 +1550,14 @@ void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
 
 void GuiSlider::DrawSliderTip(Tab* tabContainer,void* data)
 {
-	
+
 	bool selfClip=this->BeginSelfClip(tabContainer);
 
 	float tip=(this->rect.x+10) + ((referenceValue)/(maximum-minimum))*(this->rect.z-20);
 	tabContainer->renderer2D->DrawRectangle(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5,Renderer2D::COLOR_TEXT);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 
@@ -1585,7 +1585,7 @@ void GuiSlider::OnPaint(Tab* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 void GuiSlider::OnMouseMove(Tab* tabContainer,void* data)
@@ -1603,7 +1603,7 @@ void GuiSlider::OnMouseMove(Tab* tabContainer,void* data)
 			float cursor=f1*f2;
 
 			cursor = cursor<minimum ? minimum : (cursor>maximum ? maximum : cursor);
-			
+
 			if(referenceValue!=cursor)
 			{
 				referenceValue=cursor;
@@ -1651,7 +1651,7 @@ void GuiPropertySlider::OnPaint(Tab* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 ///////////////////////////////////////////////
@@ -1788,7 +1788,7 @@ void GuiViewport::OnPaint(Tab* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 void GuiViewport::OnMouseWheel(Tab* tabContainer,void* data)
@@ -1933,7 +1933,7 @@ void GuiScrollBar::Scroll(Tab* tabContainer,float upOrDown)
 
 void GuiScrollBar::SetRect(GuiRect* iRect)
 {
-	
+
 }
 
 bool GuiScrollBar::IsVisible()
@@ -2034,14 +2034,14 @@ void GuiScrollBar::OnPaint(Tab* tabContainer,void* data)
 	tabContainer->renderer2D->DrawBitmap(tabContainer->iconDown,this->rect.x,this->rect.y+this->rect.w-GuiScrollBar::SCROLLBAR_TIP_HEIGHT,this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->rect.y+this->rect.w);
 
 	tabContainer->renderer2D->DrawRectangle(this->rect.x,this->GetContainerTop(),this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->GetContainerBottom(),Renderer2D::COLOR_GUI_BACKGROUND);
-	
+
 	tabContainer->renderer2D->DrawRectangle(this->rect.x,this->GetScrollerTop(),this->rect.x+GuiScrollBar::SCROLLBAR_WIDTH,this->GetScrollerBottom(),0x00000000);
 
 	if(this->container!=0)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 ///////////////////////////////////////////////
@@ -2090,9 +2090,9 @@ void GuiSceneViewer::OnRMouseUp(Tab* tabContainer,void* data)
 
 	bool eEntityExpanded=false;
 	EditorEntity* eEntity = this->GetHoveredRow(this->entityRoot,mpos,tDrawCanvas,eEntityExpanded);
-		
+
 	int menuResult=tabContainer->TrackGuiSceneViewerPopup(eEntity ? true : false);
-	
+
 	switch(menuResult)
 	{
 	case 1:
@@ -2186,7 +2186,7 @@ void GuiSceneViewer::UnselectNodes(EditorEntity* node)
 	node->selected=false;
 
 	for(std::vector<EntityComponent*>::iterator i=node->components.begin();i!=node->components.end();)
-		(*i)->is<EditorGizmo>() ? i=node->components.erase(i) : i++ ; 
+		(*i)->is<EditorGizmo>() ? i=node->components.erase(i) : i++ ;
 
 	for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
 		this->UnselectNodes((EditorEntity*)*nCh);
@@ -2226,7 +2226,7 @@ EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2& iMou
 void GuiSceneViewer::OnLMouseDown(Tab* tabContainer,void* iData)
 {
 	if(this->hovering)
-	{	
+	{
 		vec2& tMousePos=*(vec2*)iData;
 
 		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
@@ -2392,7 +2392,7 @@ void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 			Script* tScript=(Script*)(*cIter);
 
 			fwrite(&Serialization::Script,sizeof(unsigned char),1,iFile);//1
-			
+
 			nameCount=tScript->script.path.Count();
 
 			fwrite(&nameCount,sizeof(int),1,iFile);//4
@@ -2401,7 +2401,7 @@ void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 		else
 			fwrite(&Serialization::Unknown,sizeof(unsigned char),1,iFile);//1
 	}
-	
+
 	if(childsSize)
 	{
 		for(std::list<Entity*>::iterator eIter=iEntity->childs.begin();eIter!=iEntity->childs.end();eIter++)
@@ -2424,7 +2424,7 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 
 	fread(tEditorEntity->local,sizeof(sizeof(float)),16,iFile);//64
 	fread(tEditorEntity->world,sizeof(sizeof(float)),16,iFile);//64
-	
+
 	fread(&nameCount,sizeof(int),1,iFile);//4
 
 	{
@@ -2777,7 +2777,7 @@ void GuiProjectViewer::OnMouseMove(Tab* tabContainer,void* data)
 				this->resViewer.OnSize(tabContainer);
 			}
 
-			
+
 
 			tabContainer->SetDraw(1,0,0);
 		}
@@ -2805,7 +2805,7 @@ void GuiProjectViewer::OnPaint(Tab* tabContainer,void* data)
 		this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
 	this->EndSelfClip(tabContainer,selfClip);
-	
+
 }
 
 void GuiProjectViewer::OnSize(Tab* tabContainer,void* data)
@@ -3160,7 +3160,7 @@ void GuiProjectViewer::GuiProjectFileViewer::OnLMouseDown(Tab* tabContainer,void
 			this->selectedFiles.push_back(node);
 
 			//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
-		}	
+		}
 		else
 		{
 			this->UnselectNodes(this->rootResource);
@@ -3201,11 +3201,11 @@ void GuiProjectViewer::GuiProjectFileViewer::OnRMouseUp(Tab* tabContainer,void* 
 
 				File::Delete(tFileNameBase.Buffer());
 				File::Delete(tFileNameBaseExtended.Buffer());
-				
+
 				SAFEDELETE(tHoveredResourceNode);
 			}
 		break;
-		case 3://load 
+		case 3://load
 			if(tHoveredResourceNode->fileName.Extension() == &EngineIDE::instance->GetSceneExtension()[1])
 			{
 				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::GetPool().front();
@@ -3267,12 +3267,12 @@ void GuiProjectViewer::GuiProjectFileViewer::OnDLMouseDown(Tab* tabContainer,voi
 			{
 				Thread* renderThread=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer->threadRender;
 				Task* drawTask=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer->taskDraw;
-				
+
 				drawTask->Block(true);
 
 				GuiSceneViewer* guiSceneViewer=tabContainer->parentWindowContainer->SpawnViewer<GuiSceneViewer>();
 				guiSceneViewer->Load(tFilename.Buffer());
-				
+
 				drawTask->Block(false);
 
 				//guiSceneViewer->GetRootRect()->tabContainer->SetDraw(2,0,guiSceneViewer);
@@ -3485,7 +3485,7 @@ bool GuiScriptViewer::Save()
 	}
 
 	return false;
-} 
+}
 
 
 bool GuiScriptViewer::Compile()
@@ -3567,7 +3567,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			--this->cursor;
 
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-			
+
 			break;
 		}
 		case CARET_BACKSPACE:
@@ -3593,7 +3593,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 
 					pText--;
 					tRowCharCount++;
-					
+
 				}
 
 				this->caret.x=tRowCharsWidth;
@@ -3610,9 +3610,9 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			}
 
 			this->paper->text.erase(this->cursor-this->paper->text.c_str(),1);
-			
+
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-			
+
 			break;
 		}
 		case CARET_ADD:
@@ -3641,7 +3641,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->cursor=(char*)this->paper->text.c_str()+tPosition+1;
 
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-		
+
 			break;
 		}
 		case CARET_ARROWLEFT:
@@ -3685,7 +3685,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			}
 
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-		
+
 			break;
 		}
 		case CARET_ARROWRIGHT:
@@ -3708,7 +3708,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->cursor++;
 
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-		
+
 			break;
 		}
 		case CARET_ARROWUP:
@@ -3730,16 +3730,16 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 
 			//return if no previous row exists
 			if(pText==this->paper->text.c_str())
-				return this->caret; 
+				return this->caret;
 
-			//go to the upper row pre-carriage char 
+			//go to the upper row pre-carriage char
 			pText--;
 
 			//find the last upper superior row or the head of the upper row
 			while( pText!=this->paper->text.c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
-			//go to the upper superior row pre-carriage char 
+			//go to the upper superior row pre-carriage char
 			if(pText!=this->paper->text.c_str())
 				pText++;
 
@@ -3759,7 +3759,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->row--;
 
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-		
+
 			break;
 		}
 		case CARET_ARROWDOWN:
@@ -3803,7 +3803,7 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->row++;
 
 			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-		
+
 			break;
 		}
 	}
@@ -3840,7 +3840,7 @@ void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 				switch(tCharcode)
 				{
 					case 0x08:/*VK_BACK*/tCaretOperation=CARET_BACKSPACE; break;
-					default: 
+					default:
 						tCaretOperation=CARET_ADD;
 						tCaretParameter=&tCharcode;
 				}
@@ -3910,7 +3910,7 @@ void GuiScriptViewer::OnMouseMove(Tab* tabContainer,void* data)
 
 		if(tMpos.x < this->paper->textOffset.x)
 		{
-			
+
 		}
 		else
 		{
@@ -4030,7 +4030,7 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(wchar_t* fileBuffer)
 				tCompilerMessageRow->alignRect.y=-1;
 				tCompilerMessageRow->alignText.make(-1,0.5f);
 			}
-			
+
 			if(simpleMessage)
 			{
 				tCompilerMessageRow->wText=std::wstring(LineBegin,LineEnd-LineBegin);
@@ -4256,7 +4256,7 @@ void editScriptEditorCallback(void* iData)
 
 	if(GuiScriptViewer::GetPool().empty())
 		tabContainer->tabs.ScriptViewer();
-	
+
 	GuiScriptViewer* guiScriptViewer=GuiScriptViewer::GetPool().front();
 
 	if(guiScriptViewer)

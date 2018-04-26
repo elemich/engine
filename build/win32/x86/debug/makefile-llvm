@@ -1,57 +1,62 @@
 INCPATH=/Ic:\sdk\OpenGL "/Ic:\sdk\Autodesk\FBX\FBX SDK\2014.1\include"
 LIBPATH="/LIBPATH:c:\sdk\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x86\debug"
 
-COMPILER=c:\sdk\llvm32\bin\clang-cl.exe 
+COMPILER=c:\sdk\llvm32\bin\clang-cl.exe
 LINKER=c:\sdk\llvm32\bin\lld-link.exe
 
 CLOPT=/MDd /ZI /W0 /nologo /EHsc $(INCPATH)
-LKOPT=/nologo /DEBUG /MANIFEST:NO /MACHINE:x86 /SUBSYSTEM:CONSOLE $(LIBPATH) 
+LKOPT=/nologo /DEBUG /MANIFEST:NO /MACHINE:x86 /SUBSYSTEM:CONSOLE $(LIBPATH)
 
 WIN32LIBD=user32.lib opengl32.lib kernel32.lib D3D11.lib d2d1.lib Dwrite.lib Ole32.lib Windowscodecs.lib Comdlg32.lib Gdi32.lib Shlwapi.lib Winmm.lib Comctl32.lib Shell32.lib
 OPENGLLIB=libfbxsdk-md.lib advapi32.lib
 
-LKDLL=/DLL /NOENTRY $(LKOPT)  
+LKDLL=/DLL /NOENTRY $(LKOPT)
 CLDLL=/DDLLBUILD -c
 
-#primitives.obj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\primitives.cpp
+primitives.obj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\primitives.cpp
+
+entities.obj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.obj
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\entities.cpp
+
+imgjpg.obj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\imgjpg.cpp
+
+imgpng.obj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\imgpng.cpp
+
+imgtga.obj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\imgtga.cpp
+
+interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\interfaces.cpp
+
+win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\win32.cpp
+
+fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+ $(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\fbxutil.cpp
+
+enginelibLLVM.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj
+ @echo --enginelibLLVM.dll--
+ $(LINKER) $(LKOPT) primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj $(WIN32LIBD) /DLL /OUT:enginelibLLVM.dll
+
+engineLLVM.exe: enginelibLLVM.dll $(DIRSRC)\main.cpp
+ @echo --engineLLVM.exe--
+ $(COMPILER) $(CLOPT) $(DIRSRC)\main.cpp /link $(LKOPT) /OUT:engineLLVM.exe enginelibLLVM.lib
+
+
+
+
+#engineLowHdr=$(DIRSRC)\primitives.h $(DIRSRC)\entities.h $(DIRSRC)\imgjpg.h $(DIRSRC)\imgpng.h $(DIRSRC)\imgtga.h
+#engineLowSrc=$(DIRSRC)\primitives.cpp $(DIRSRC)\entities.cpp $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgtga.cpp
+#engineHighHdr=$(DIRSRC)\interfaces.h $(DIRSRC)\win32.h $(DIRSRC)\fbxutil.h
+#engineHighSrc=$(DIRSRC)\interfaces.cpp $(DIRSRC)\win32.cpp $(DIRSRC)\fbxutil.cpp
 #
-#entities.obj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.obj
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\entities.cpp
-#
-#imgjpg.obj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\imgjpg.cpp
-#
-#imgpng.obj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\imgpng.cpp
-#
-#imgtga.obj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\imgtga.cpp
-#
-#interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\interfaces.cpp
-#
-#win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\win32.cpp
-#
-#fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
-# @$(COMPILER) $(CLOPT) $(CLDLL) $(DIRSRC)\fbxutil.cpp
-#
-#enginelibLLVM.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj
-# $(LINKER) $(LKOPT) /DLL /OUT:enginelibLLVM.dll primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj $(WIN32LIBD) $(OPENGLLIB)
+#enginelibLLVM.dll:  $(engineLowHdr) $(engineLowSrc) $(engineHighHdr) $(engineHighSrc)
+# @echo -enginelibLLVM.dll-
+# @$(COMPILER) $(CLOPT) /DDLLBUILD $(engineLowSrc) $(engineHighSrc) /link $(LKOPT) /DLL /OUT:enginelibLLVM.dll $(WIN32LIBD) $(OPENGLLIB)
 #
 #engineLLVM.exe: enginelibLLVM.dll $(DIRSRC)\main.cpp
-# @$(COMPILER) $(CLOPT) $(DIRSRC)\main.cpp /link $(LKOPT) /OUT:engineLLVM.exe enginelibLLVM.lib
- 
-engineLowHdr=$(DIRSRC)\primitives.h $(DIRSRC)\entities.h $(DIRSRC)\imgjpg.h $(DIRSRC)\imgpng.h $(DIRSRC)\imgtga.h
-engineLowSrc=$(DIRSRC)\primitives.cpp $(DIRSRC)\entities.cpp $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgtga.cpp
-engineHighHdr=$(DIRSRC)\interfaces.h $(DIRSRC)\win32.h $(DIRSRC)\fbxutil.h
-engineHighSrc=$(DIRSRC)\interfaces.cpp $(DIRSRC)\win32.cpp $(DIRSRC)\fbxutil.cpp
-
-enginelibLLVM.dll:  $(engineLowHdr) $(engineLowSrc) $(engineHighHdr) $(engineHighSrc)
- @echo -enginelibLLVM.dll-
- @$(COMPILER) $(CLOPT) /DDLLBUILD $(engineLowSrc) $(engineHighSrc) /link $(LKOPT) /DLL /OUT:enginelibLLVM.dll $(WIN32LIBD) $(OPENGLLIB)
- 
-engineLLVM.exe: enginelibLLVM.dll $(DIRSRC)\main.cpp
- @echo -engineLLVM.exe-
- @$(COMPILER) $(CLOPT) $(DIRSRC)\main.cpp /link $(LKOPT) /OUT:engineLLVM.exe enginelibLLVM.lib $(WIN32LIBD) $(OPENGLLIB)
+# @echo -engineLLVM.exe-
+# @$(COMPILER) $(CLOPT) $(DIRSRC)\main.cpp /link $(LKOPT) /OUT:engineLLVM.exe enginelibLLVM.lib $(WIN32LIBD) $(OPENGLLIB)

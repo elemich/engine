@@ -593,7 +593,7 @@ void Renderer2DWin32::CaretWin32::draw()
 
 			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
 
-			tBitmapProperties.pixelFormat=tRenderer2DWin32->renderer->GetPixelFormat();
+			tRenderer2DWin32->renderer->GetPixelFormat(&tBitmapProperties.pixelFormat);
 
 			HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
 
@@ -847,7 +847,7 @@ void MainContainerWin32::Init()
 		InsertMenu(menuEntities,0,MF_BYPOSITION|MF_STRING,MAINMENU_ENTITIES_IMPORTENTITY,"Import...");
 	}
 
-	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,0,menuMain,0,container);
+	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,menuMain,0,container);
 
 	RECT rc;
 	GetClientRect(container->windowDataWin32->hwnd,&rc);
@@ -1323,7 +1323,7 @@ int EngineIDEWin32::Initialize()
 	this->subsystem=new SubsystemWin32;
 	this->compiler=new CompilerWin32;
 
-	
+
 
 	this->debugger=new DebuggerWin32;
 
@@ -3017,14 +3017,18 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)viewport->renderBitmap;
 	unsigned char*& rBuffer=(unsigned char*&)viewport->renderBuffer;
 
+	D2D1_SIZE_F tSize;
 
-	if(!rBitmap || rBitmap->GetSize().width!=canvas.z || rBitmap->GetSize().height!=canvas.w || !viewport->renderBuffer || !viewport->renderBitmap)
+	if(rBitmap)
+		rBitmap->GetSize(&tSize);
+
+	if(!rBitmap || tSize.width!=canvas.z || tSize.height!=canvas.w || !viewport->renderBuffer || !viewport->renderBitmap)
 	{
 		SAFERELEASE(rBitmap);
 		SAFEDELETEARRAY(viewport->renderBuffer);
 
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		bp.pixelFormat=tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat();
+		tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
 
 		tabContainerWin32->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)canvas.z,(unsigned int)canvas.w),bp,&rBitmap);
 
@@ -3246,12 +3250,10 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 
 	HRESULT result=S_OK;
 
-	renderer2DInterfaceWin32->renderer->GetSize();
-
 	if(!this->handle)
 	{
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		bp.pixelFormat=renderer2DInterfaceWin32->renderer->GetPixelFormat();
+		renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
 		bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
 		result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
@@ -3261,14 +3263,15 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 	}
 	else
 	{
-		D2D1_SIZE_F tSize=this->handle->GetSize();
+		D2D1_SIZE_F tSize;
+		this->handle->GetSize(&tSize);
 
 		if(tSize.width!=iWidth || tSize.height!=iHeight)
 		{
 			SAFEDELETE(this->handle);
 
 			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-			bp.pixelFormat=renderer2DInterfaceWin32->renderer->GetPixelFormat();
+			renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
 			bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
 			result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
@@ -4306,12 +4309,12 @@ unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThread
 String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 {
 	CompilerWin32*		icplr=(CompilerWin32*)EngineIDE::instance->compiler;
-	Compiler::COMPILER& cplr=icplr->compilers[iCompiler]; 
+	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
 
 	String tScriptFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
 	String tIdeSourcePath=EngineIDE::instance->compiler->ideSrcPath +  " ";
 	String tEngineLibraryFullPathFileName=icplr->ideLibPath + "\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + " ";
-	String tKernelLib="kernel32.lib";
+	String tKernelLib=" -lkernel32";
 
 	iScript->module=iScript->module + "\\" + iScript->script.path.Name() + "_" + cplr.name + ".dll ";
 
@@ -4322,17 +4325,17 @@ String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 
 	tCompilerExecutableString+=cplr.compilerFile;
 
-	String	tComposedOutput=tCompilerExecutableString + 
-							cplr.compilerFlags + 
-							cplr.includeHeaders + 
+	String	tComposedOutput=tCompilerExecutableString +
+							cplr.compilerFlags +
+							cplr.includeHeaders +
 							tIdeSourcePath +
-							tScriptFullPathFileName + 
-							cplr.linkerFlags + 
+							tScriptFullPathFileName +
+							cplr.linkerFlags +
 							cplr.outputFlag +
-							iScript->module + 
+							iScript->module +
 							tEngineLibraryFullPathFileName +
 							tKernelLib;
-	
+
 	return	tComposedOutput;
 }
 
@@ -4349,7 +4352,7 @@ String CompilerWin32::ComposeMS(Script* iScript)
 	return "vcvars32.bat && cl.exe " + compilerOptions + " /I" +  EngineIDE::instance->compiler->ideSrcPath.Buffer() + " " +  tSourceFullPathFileName + " " + linkerOptions + " " + outputDLL + " " + engineLibraryFullPathFileName + " " + kernelLib;
 }
 
-String CompilerWin32::ComposeLLVM(Script* iScript) 
+String CompilerWin32::ComposeLLVM(Script* iScript)
 {
 	String tSourceFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
 
@@ -4445,7 +4448,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	String tSourceFileContent=iScript->script.All();;
 	File tCompilerTextOutput=EngineIDE::instance->folderAppData + "\\error.output";
-	
+
 
 	//delete error.output
 
@@ -4478,7 +4481,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//compose the compiler command line
 
-	unsigned int tCompiler=Compiler::COMPILER_MS;
+	unsigned int tCompiler=Compiler::COMPILER_MINGW;
 
 	String tCommandLineMingW=this->Compose(tCompiler,iScript);
 	//String tCommandLineWin32=this->ComposeMS(iScript);
