@@ -4835,7 +4835,7 @@ bool CompilerWin32::CreateAndroidTarget()
                                 "\t<application\n"
                                 "\t\t\tandroid:label=\"@string/Engine_activity\"\n"
                                 "\t\t\tandroid:debuggable=\"true\">\n\n"
-                                "\t\t<activity android:name=\"EngineActivity\"\n"
+                                "\t\t<activity android:name=\".EngineActivity\"\n"
                                 "\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
                                 "\t\t\tandroid:launchMode=\"singleTask\"\n"
                                 "\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
