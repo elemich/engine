@@ -48,7 +48,7 @@ String::String(const wchar_t* iWchar):data(0),size(0)
 	if(iWchar)
 	{
 		this->size=wcslen(iWchar);
-		
+
 		if(!this->size)
 			return;
 
@@ -194,7 +194,7 @@ String String::Random(int iCount)
 	String ret;
 
 	char*& __ret=ret.data;
-	
+
 	__ret=new char[iCount+1];
 
 	unsigned int feed=*(unsigned int*)&__ret;
@@ -274,7 +274,7 @@ String FilePath::PathUp(int iLevels)
 				return String(this->data,i);
 		}
 	}
-	
+
 	return "";
 }
 
@@ -487,7 +487,7 @@ vec3& vec3::negate(){Vector::negate(v,v,3);return *this;}
 String vec3::stringize(){
 	char str[100];
 	sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);
-	
+
 	return String(str);}
 vec3::operator float* (){return v;}
 vec3::operator void* (){return v;}
@@ -785,8 +785,8 @@ void Matrix::perspective(float* m,float fov,float ratio,float near,float far)
 			xScale, 0, 0, 0,
 			0, yScale, 0, 0,
 			0, 0, (far + near) / nearmfar, -1,
-			0, 0, 2*far*near / nearmfar, 0 
-		};    
+			0, 0, 2*far*near / nearmfar, 0
+		};
 		memcpy(m, mo, sizeof(float)*16);
 }
 
@@ -999,7 +999,7 @@ float* Matrix::transform(float* c,float* m,float* a)
     float *t,tt[3];
 
     if(a!=c)t=a;
-    else 
+    else
 	{memcpy(tt,a,3*sizeof(float));t=tt;}
 
     c[0] = m[0] * t[0] + m[4] * t[1] + m[8] * t[2] + m[12];
@@ -1065,7 +1065,7 @@ void Matrix::orientations(float* m,float* a,float* b,float*c)
 mat2::mat2():init_mat2_references
 {
 	v[0]=1;v[1]=0;
-	v[3]=0;v[4]=1;
+	v[2]=0;v[3]=1;
 }
 
 
@@ -1102,8 +1102,8 @@ mat4::mat4()/*:init_mat4_references*/{Matrix::identity(v);};
 mat4::mat4(const mat4& mm)/*:init_mat4_references*/{Matrix::copy(v,mm.v);}
 mat4::mat4(const float* mm)/*:init_mat4_references*/{Matrix::copy(v,mm);}
 mat4::mat4(const double* mm)/*:init_mat4_references*/{for(int i=0;i<16;i++)v[i]=(float)mm[i];}
-mat4::mat4(mat3 a)/*:init_mat4_references*/{v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;}
-mat4& mat4::operator=(mat3 a){v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[7],v[9]=a.v[8],v[10]=a.v[9];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;return *this;}
+mat4::mat4(mat3 a)/*:init_mat4_references*/{v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[6],v[9]=a.v[7],v[10]=a.v[8];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;}
+mat4& mat4::operator=(mat3 a){v[0]=a.v[0],v[1]=a.v[1],v[2]=a.v[2],v[4]=a.v[3],v[5]=a.v[4],v[6]=a.v[5],v[8]=a.v[6],v[9]=a.v[7],v[10]=a.v[8];v[3]=v[7]=v[11]=v[12]=v[13]=v[14]=0;v[15]=1.0f;return *this;}
 mat4& mat4::operator=(const mat4& mm){Matrix::copy(v,mm.v);return *this;}
 bool mat4::operator==(mat4& mm){for(int i=0;i<16;i++){if(v[i]!=mm.v[i])return false;}return true;}
 
@@ -1112,7 +1112,7 @@ mat4 mat4::operator*(float f){mat4 t;Matrix::scale(t,v,f);return t;}
 vec4 mat4::operator*(vec4 v)
 {
 	vec4 result;
-	for (int i = 0; i < 4; i++) {          
+	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			float f=this->v[i*4+j];
 			result[i] = v[i] + f * v[j];
@@ -1176,8 +1176,8 @@ void mat4::axes(vec3& a,vec3& b,vec3& c){Matrix::orientations(v,a,b,c);}
 vec3 mat4::axis(vec3 iString){Matrix::orientation(iString,v,iString);return iString;}
 vec3 mat4::axis(float x,float y,float z){vec3 out(x,y,z);Matrix::orientation(out,v,out);return out;}
 
-mat4& mat4::ortho(float left, float right,float bottom, float top,float near, float far) 
-{ 
+mat4& mat4::ortho(float left, float right,float bottom, float top,float near, float far)
+{
 	float a = 2.0f / (right - left);
 	float b = 2.0f / (top - bottom);
 	float c = -2.0f / (far - near);
@@ -1284,7 +1284,7 @@ void printEqSys(int nrow,int ncol,float** eqsys)
 }
 
 void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
-{	
+{
 	printEqSys(nrow,ncol,_eqsys);
 
 	float** eqsys=new float*[nrow];
@@ -1294,7 +1294,7 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 		eqsys[i]=new float[ncol];
 		memcpy(eqsys[i],&_eqsys[i][0],ncol*sizeof(float));
 	}
-	
+
 	printEqSys(nrow,ncol,eqsys);
 
 	for(int i=0;i<nrow;i++)
@@ -1315,8 +1315,8 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 
 						Vector::scale(p,p,eqsys[k][j],ncol);
 						Vector::subtract(&eqsys[k][0],&eqsys[k][0],p,ncol);
-						delete p;
-					}	
+						delete [] p;
+					}
 				}
 			}
 		}
@@ -1328,7 +1328,7 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 
 	for(int i=0;i<nrow;i++)
 		result[i]=eqsys[i][ncol-1];
-	
+
 	for(int i=0;i<nrow;i++)
 		delete [] eqsys[i];
 

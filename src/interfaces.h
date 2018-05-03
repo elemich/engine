@@ -313,6 +313,8 @@ struct DLLBUILD Renderer3D : Renderer3DBase
 	bool Block();
 	bool Release();
 
+	bool LoadTexture(String iFilename,Texture* iTexture);
+
 	Renderer3D(Tab*);
 	virtual ~Renderer3D(){};
 

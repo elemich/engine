@@ -21,10 +21,12 @@ AAssetManager 	*globalAssetManager=NULL;
 jint JNI_OnLoad(JavaVM* aVm, void* aReserved)
 {
 	java_vm = aVm;
+	
+	printf("Engine: JNI_OnLoad\n");
 
 	if (java_vm->GetEnv((void**)&java_env, java_version) != JNI_OK)
 	{
-		printf("Failed to get the environment");
+		printf("Failed to get the environment\n");
 		return -1;
 	}
 
@@ -97,7 +99,7 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineView_SetTouchEvent(JNIEnv *
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-#include "../../shaders.cpp"
+#include "shaders.cpp"
 
 int simple_shader(const char* name,int shader_type, const char* shader_src)
 {
@@ -110,7 +112,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 
 	if(!shader_id)
 	{
-		printf("glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
+		printf("glCreateShader error for %d,%s\n",shader_type,shader_src);glCheckError();
 		__debugbreak();
 		return 0;
 	}
@@ -388,7 +390,7 @@ Renderer3DAndroid::Renderer3DAndroid()
 	glBindVertexArrayOES = (PFNGLBINDVERTEXARRAYOESPROC)dlsym(libhandle, "glBindVertexArrayOES" );
 	glDeleteVertexArraysOES = (PFNGLDELETEVERTEXARRAYSOESPROC)dlsym(libhandle, "glDeleteVertexArraysOES" );
 	glIsVertexArrayOES = (PFNGLISVERTEXARRAYOESPROC)dlsym(libhandle, "glIsVertexArrayOES" );
-	
+
 	glGenFramebuffers(1,&frameBuffer);glCheckError();
 
 	glGenTextures(1,&textureColorbuffer);glCheckError();

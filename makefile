@@ -1,34 +1,25 @@
 DIRPROJ=$(MAKEDIR)
 DIRSRC=$(DIRPROJ)\src
 DIRDST=$(DIRPROJ)\build\win32\x86\debug
-
-MSDIR=$(DIRDST)\MS
-MINGWDIR=$(DIRDST)\MINGW
-LLVMDIR=$(DIRDST)\LLVM
+ANDROIDSRC=$(DIRSRC)\targets\android\src\com\android\engine
 
 x86d:
  @echo project dir: $(DIRPROJ)
- 
-# @echo --ms build--
-# 
-# @if not exist $(MSDIR) md $(MSDIR)
-# @cd $(MSDIR)
-# @nmake.exe -f $(DIRDST)\makefile-ms /NOLOGO /S engineMS.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(MSDIR)
- 
-# @echo --llvm build--
-# 
-# @if not exist $(LLVMDIR) md $(LLVMDIR)
-# @cd $(LLVMDIR)
-# @nmake.exe -f $(DIRDST)\makefile-llvm /NOLOGO /S engineLLVM.exe DIRPROJ=$(DIRPROJ) DIRSRC=$(DIRSRC) DIRDST=$(LLVMDIR)
- 
+ @echo build dir: $(DIRDST)
+      
  @echo --mingw build--
  
- @if not exist $(MINGWDIR) md $(MINGWDIR)
- @cd $(MINGWDIR)
- @mingw32-make -s -f $(DIRDST)\makefile-mingw engineMingW.exe -C $(MINGWDIR) DIRSRC=$(DIRSRC) DIRDST=$(MINGWDIR)
+ @c:\sdk\mingw32\bin\mingw32-make -s -f $(DIRDST)\makefile engineMingW.exe -C $(DIRDST) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
+  
+ @echo --ndk-build build--        
  
-# @echo --ndk-build build--
-# @ndk-build -s -w APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
+ if not exist $(DIRSRC)\targets\android\obj mkdir $(DIRSRC)\targets\android\obj
+ 
+# C:\Sdk\android\android-sdk\build-tools\27.0.3 C:\Sdk\android\android-sdk\platforms\android-27
+ 
+ @c:\sdk\android\android-ndk-r16b_x86_64\ndk-build APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
+ @javac -verbose -g -d $(DIRSRC)\targets\android\obj  $(ANDROIDSRC)\EngineActivity.java -sourcepath $(ANDROIDSRC)\*.java  -classpath C:\Sdk\android\android-sdk\platforms\android-27\android.jar
+ @C:\Sdk\android\android-sdk\build-tools\27.0.3\dx --dex --output=$(DIRDST)\classes.dex $(DIRSRC)\targets\android\obj
  
 cleanx86d:
  @echo cleaning x86d dir: $(DIRDST)

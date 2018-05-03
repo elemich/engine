@@ -1,4 +1,4 @@
-#include "../../entities.h"
+#include "entities.h"
 
 #include <jni.h>
 #include <android/asset_manager.h>

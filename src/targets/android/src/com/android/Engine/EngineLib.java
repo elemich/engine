@@ -26,12 +26,12 @@ public class EngineLib {
      static {
 		 
 		 try{
-         System.loadLibrary("Engine");
+         System.loadLibrary("engine");
 		 
 		 }
 		 catch(UnsatisfiedLinkError ule)
 		 {
-			 Log.w(EngineView.TAG,"System.loadLibrary: error loading libmulti.so");
+			 Log.w(EngineView.TAG,ule);
 		 }
 	}
 

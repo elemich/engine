@@ -38,7 +38,7 @@
 		#define DEBUG_BREAK __builtin_trap
 	#endif
 #else
-	#define DEBUG_BREAK __debugbreak
+	#define DEBUG_BREAK __builtin_trap
 #endif
 
 #define SAFESTLDECL(iStlType,iStlName) \

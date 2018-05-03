@@ -248,18 +248,12 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 
 struct DLLBUILD Resource
 {
-	static ResourceNodeDir rootProjectDirectory;
-
 	static String Find(String iResourceName);
 
 	template<typename T> static T* Load(String iResourceName)
 	{
 		String tFileName=Find(iResourceName);
 
-		if(tFileName!="")
-		{
-
-		}
 
 		return 0;
 	}
@@ -270,7 +264,7 @@ struct DLLBUILD Resource
 struct DLLBUILD File
 {
 	FilePath path;
-	void* data;
+	FILE* data;
 
 	File(String iString=0);
 
@@ -295,13 +289,16 @@ struct DLLBUILD File
 
 struct DLLBUILD Texture
 {
+	void*	m_buf;
+	int		m_bufsize;
+	int		m_width;
+	int		m_height;
+	int		m_bpp;
+
 	Texture();
+	~Texture();
 
 	virtual int load(char*)=0;
-	virtual int loadBMP(char*)=0;
-	virtual int loadPNG(char*)=0;
-	virtual int loadJPG(char*)=0;
-	virtual int loadTGA(char*)=0;
 	virtual void* GetBuffer()=0;
 	virtual int GetSize()=0;
 	virtual int GetWidth()=0;
@@ -650,19 +647,13 @@ struct DLLBUILD TextureFile : Texture
 	TextureFile();
 	~TextureFile();
 
-	int load(char*);
-	int loadBMP(char*);//0 error
-	int loadPNG(char*);
-	int loadJPG(char*);//0 error
-	int loadTGA(char*);//0 error
 	void* GetBuffer();
 	int GetSize();
 	int GetWidth();
 	int GetHeight();
 	int GetBpp();
 
-	String filename;
-	void* data;
+	FilePath filename;
 };
 
 

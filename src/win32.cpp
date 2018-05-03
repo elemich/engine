@@ -267,7 +267,7 @@ void Direct2D::Init()
 			SAFERELEASE(tFontFace);
 			SAFERELEASE(tFontFile);
 
-			if(1)
+			if(0)
 			{
 				printf("----------\n");
 
@@ -757,6 +757,7 @@ void Renderer2DWin32::SetTabSpaces(unsigned int iNumOfSpaces)
 	unsigned int tSpaceCharWidth=Direct2D::GetCharWidth(' ');
 	Direct2D::texter->SetIncrementalTabStop(tSpaceCharWidth*this->tabSpaces);
 }
+
 
 
 ///////////////////////////////////////////////
@@ -4309,12 +4310,11 @@ String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 	CompilerWin32*		icplr=(CompilerWin32*)EngineIDE::instance->compiler;
 	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
 
-	String tScriptFullPathFileName=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
+    String tOutputModule=iScript->module + "\\" + iScript->script.path.Name() + ".dll ";
+	String tScriptSource=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
 	String tIdeSourcePath=EngineIDE::instance->compiler->ideSrcPath +  " ";
-	String tEngineLibraryFullPathFileName=icplr->ideLibPath + "\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + " ";
+	String tEngineLibrary=icplr->ideLibPath + "\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + " ";
 	String tKernelLib=" -lkernel32";
-
-	iScript->module=iScript->module + "\\" + iScript->script.path.Name() + "_" + cplr.name + ".dll ";
 
 	String tCompilerExecutableString;
 
@@ -4327,11 +4327,11 @@ String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 							cplr.compilerFlags +
 							cplr.includeHeaders +
 							tIdeSourcePath +
-							tScriptFullPathFileName +
+							tScriptSource +
 							cplr.linkerFlags +
 							cplr.outputFlag +
-							iScript->module +
-							tEngineLibraryFullPathFileName +
+							tOutputModule +
+							tEngineLibrary +
 							tKernelLib;
 
 	return	tComposedOutput;
@@ -4420,19 +4420,15 @@ bool CompilerWin32::Compile(Script* iScript)
 	if(!iScript->module.Count())
 		iScript->module=gfCreateRandomDir(EngineIDE::instance->folderAppData);
 
-	String tModulePath=iScript->module.Path();
-
 	//append exports to source
 
 	if(iScript->script.Open("ab"))
 	{
 		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
 		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
-		//String tExporterAssignPointers="\n\nextern \"C\" __declspec(dllexport) void AssignPointers(ResourceNodeDir* iResourcesNodeDir){Resource::rootProjectDirectory=*iResourcesNodeDir;}";
 
 		iScript->script.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
 		iScript->script.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
-		//iScript->script.Write((void*)tExporterAssignPointers.Buffer(),tExporterAssignPointers.Count(),1);
 		iScript->script.Close();
 	}
 
@@ -4441,11 +4437,10 @@ bool CompilerWin32::Compile(Script* iScript)
 	unsigned int tCompiler=Compiler::COMPILER_MINGW;
 
 	String tCommandLineMingW=this->Compose(tCompiler,iScript);
-	//String tCommandLineWin32=this->ComposeMS(iScript);
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(tModulePath,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
+	bool tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->module.Buffer(),tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4480,14 +4475,14 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//extract and parse breakpoint line addresses
 
-	File tLineAddressesOutput=tModulePath + "\\laddrss.output";
+	File tLineAddressesOutput=iScript->module + "\\laddrss.output";
 
 	String tSharedObjectFileName=iScript->script.path.Name() + ".dll";
 	String tSharedObjectSourceName=iScript->script.path.Name() + ".cpp";
 
 	String tParseLineAddressesCommandLine="objdump --dwarf=decodedline " + tSharedObjectFileName + " | find \""+ tSharedObjectSourceName + "\" | find /V \":\"";
 
-	tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(tModulePath,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->module.Buffer(),tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4563,9 +4558,6 @@ bool CompilerWin32::Compile(Script* iScript)
 	return retVal;
 }
 
-
-
-
 bool CompilerWin32::LoadScript(Script* iScript)
 {
 	if(!iScript->module.Count())
@@ -4573,7 +4565,7 @@ bool CompilerWin32::LoadScript(Script* iScript)
 
 	HMODULE*		tModule=0;
 	EntityScript*	(*tCreateModuleClassFunction)()=0;
-	void			(*tAssignPointersToModule)(ResourceNodeDir*)=0;
+	String          tModuleFile=iScript->module + "\\" + iScript->script.path.Name() + ".dll";
 
 	tModule=this->ideScriptSourceModules.find(iScript)!=this->ideScriptSourceModules.end() ? this->ideScriptSourceModules[iScript] : 0;
 
@@ -4583,22 +4575,17 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		this->ideScriptSourceModules.insert(std::pair<Script*,HMODULE*>(iScript,tModule));
 	}
 
-	*tModule=(HMODULE)LoadLibrary(iScript->module.Buffer());
+	*tModule=(HMODULE)LoadLibrary(tModuleFile.Buffer());
 
 	if(!*tModule)
 		return false;
 
 	tCreateModuleClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
-	//tAssignPointersToModule=(void (*)(ResourceNodeDir*))GetProcAddress(*tModule,"AssignPointers");
 
-	if(tCreateModuleClassFunction/* && tAssignPointersToModule*/)
+	if(tCreateModuleClassFunction)
 	{
 		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->entity;
-
-		//tAssignPointersToModule(Resource::rootProjectDirectory);
-
-		printf("enginelib Resource::rootDir address 0x%p\n",&Resource::rootProjectDirectory);
 
 		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
 
@@ -4666,41 +4653,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 }
 
 
-String gCompileAndroidSource(FilePath& iScriptSource,String& iAndroidTargetDirectory)
-{
-	String tLibName=iScriptSource.Name();
-
-	String tAndroidMK=	"LOCAL_PATH := $(call my-dir)\n"
-						"include $(CLEAR_VARS)\n\n"
-
-						"DSTDIR := " + iAndroidTargetDirectory + "\n"
-						"LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSrcPath + "\n"
-						"LOCAL_STATIC_LIBRARIES := -lEngine\n"
-						"LOCAL_MODULE := " + tLibName + "\n"
-						"LOCAL_SRC_FILES := " + iScriptSource + "\n"
-						"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE\n"
-						"LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibPath + " \n\n"
-
-						"include $(BUILD_SHARED_LIBRARY)\n\n"
-						"all: $(DSTDIR)/$(notdir $(LOCAL_BUILT_MODULE))\n\n"
-
-						"$(DSTDIR)/$(notdir $(LOCAL_BUILT_MODULE)): $(LOCAL_BUILT_MODULE)\n"
-						"	move /Y \"$(subst /,\\,$<)\" \"$(subst /,\\,$@)\"\n";
-
-	FILE* tAndroidMKFile=fopen(iAndroidTargetDirectory + "\\project\\jni\\Android.mk","w");
-
-	if(tAndroidMKFile)
-	{
-		fwrite(tAndroidMK.Buffer(),tAndroidMK.Count(),1,tAndroidMKFile);
-		fclose(tAndroidMKFile);
-	}
-
-	EngineIDE::instance->subsystem->Execute(iAndroidTargetDirectory + "\\project","ndk-build");
-
-	return iAndroidTargetDirectory + "\\lib" + tLibName + ".so";
-}
-
-void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory)
+void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources)
 {
 	//store current dir
 
@@ -4718,58 +4671,76 @@ void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& i
 		int		tDataFileStart;
 		size_t	tDataFileSize;
 		String	tFinalFileName;
-		bool	tDeleteResource=false;
 
 		if(tDataFile.path.Extension()=="cpp")
-		{
-			//compile source, put it into target directory
-			tDataFile.path=gCompileAndroidSource(tDataFile.path,iAndroidTargetDirectory);
-			tDeleteResource=true;
-		}
+        {
+            //add sources to vector, later we'll build
+            iCollectSources.push_back(tDataFile.path);
+        }
+        else
+        {
+            tDataFileSize=tDataFile.Size();
 
-		tDataFileSize=tDataFile.Size();
+            /*if(!tDataFileSize)
+                continue;*/
 
-		/*if(!tDataFileSize)
-			continue;*/
+            if(tDataFile.Open())
+            {
+                tDataFileStart=ftell((FILE*)iPackFile.data);
 
-		if(tDataFile.Open())
-		{
-			tDataFileStart=ftell((FILE*)iPackFile.data);
+                if(tDataFileSize)
+                {
+                    size_t tWriteResult=fwrite(&tDataFile.data,1,tDataFileSize,iPackFile.data);
 
-			if(tDataFileSize)
-			{
-				size_t tWriteResult=fwrite(&tDataFile.data,1,tDataFileSize,(FILE*)iPackFile.data);
+                    if(tWriteResult!=tDataFileSize)
+                        DEBUG_BREAK();
+                }
 
-				if(tWriteResult!=tDataFileSize)
-					DEBUG_BREAK();
-			}
+                tDataFile.Close();
+            }
+            else
+                DEBUG_BREAK();
 
-			tDataFile.Close();
-		}
-		else
-			DEBUG_BREAK();
+            /*if(tDeleteResource)
+                File::Delete(tDataFile.path.Buffer());*/
 
-		/*if(tDeleteResource)
-			File::Delete(tDataFile.path.Buffer());*/
+            tFinalFileName=iCurrentDirectory + tDataFile.path.File();
 
-		tFinalFileName=iCurrentDirectory + tDataFile.path.File();
-
-		fprintf((FILE*)iTableFile.data,"%s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
-		//printf("adding to package: %s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
+            fprintf(iTableFile.data,"%s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
+            //printf("adding to package: %s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
+        }
 	}
 
 	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
-		gPackResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory);
+		gPackResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
 }
+
+
+bool gfWriteFile(String iFilename,String iPath,String iContent)
+{
+    FILE* tFileToWrite=fopen(iPath + "\\" + iFilename,"w");
+
+	if(tFileToWrite)
+	{
+		fwrite(iContent.Buffer(),iContent.Count(),1,tFileToWrite);
+		fclose(tFileToWrite);
+	}
+
+	return true;
+}
+
 
 bool CompilerWin32::CreateAndroidTarget()
 {
-	String tAndroidTargetDirectory=EngineIDE::instance->folderProject.PathUp(1) + "\\android";
-	String tAndroidProjectDirectory=tAndroidTargetDirectory + "\\project";
+	String tAndroidOutputDirectory=EngineIDE::instance->folderProject.PathUp(1) + "\\android";
+	String tAndroidProjectDirectory=tAndroidOutputDirectory + "\\project";
 	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + "\\jni";
+	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + "\\assets";
+    String tAndroidProjectResDirectory=tAndroidProjectDirectory + "\\res";
 
-	std::vector<std::string>		tSceneScripts;
-	File							tAssetFile(tAndroidTargetDirectory + "\\asset.mp3");
+	String tAndroidProjectLibsDirectory=tAndroidProjectDirectory + "\\libs\\armeabi-v7a";
+
+	std::vector<String>		        tSources;
 	int								tPackFileSize=0;
 	int								tTableFileSize=0;
 	String							tResourceDirectory="\\";
@@ -4777,49 +4748,156 @@ bool CompilerWin32::CreateAndroidTarget()
 	{
 		SECURITY_ATTRIBUTES sa={sizeof(SECURITY_ATTRIBUTES),0,false};
 
+		//create output directory
+
+		::CreateDirectory(tAndroidOutputDirectory.Buffer(),&sa);
+
 		//create android project directory
 
 		::CreateDirectory(tAndroidProjectDirectory.Buffer(),&sa);
+
+		//create android asset directory
+
+		::CreateDirectory(tAndroidProjectAssetDirectory.Buffer(),&sa);
 
 		//create android jni project directory
 
 		::CreateDirectory(tAndroidProjectJniDirectory.Buffer(),&sa);
 
-		//create jni\Application.mk
+		//create android res project directory
 
-		String tApplicationMK=	"APP_STL := c++_static\n";
-
-		FILE* tApplicationMKFile=fopen(tAndroidProjectJniDirectory + "\\Application.mk","w");
-
-		if(tApplicationMKFile)
-		{
-			fwrite(tApplicationMK.Buffer(),tApplicationMK.Count(),1,tApplicationMKFile);
-			fclose(tApplicationMKFile);
-		}
+		::CreateDirectory(tAndroidProjectResDirectory.Buffer(),&sa);
+		::CreateDirectory(tAndroidProjectResDirectory + "\\values",&sa);
 	}
 
 	//pack data and table
 
-	File tPackFile(tAndroidTargetDirectory + "\\pack.pck");
-	File tTableFile(tAndroidTargetDirectory + "\\ptbl.txt");
+	File tPackFile(tAndroidProjectAssetDirectory + "\\pack.pck");
+	File tTableFile(tAndroidProjectAssetDirectory + "\\ptbl.txt");
 
 	tPackFile.Open("wb");
 	tTableFile.Open("wb");
 
 	if(tPackFile.IsOpen() && tTableFile.IsOpen())
 	{
-		//iterate resources
+		//pack non-sources resources
 
-		gPackResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidTargetDirectory);
+		gPackResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSources);
 
-		tPackFile.Close();
-		tTableFile.Close();
+		//build sources
+
+		String tAndroidMk="LOCAL_PATH := $(call my-dir)\n\n";
+
+        for(std::vector<String>::iterator si=tSources.begin();si!=tSources.end();si++)
+        {
+            tAndroidMk+="include $(CLEAR_VARS)\n"
+                        "DSTDIR := " + tAndroidProjectDirectory + "\n"
+                        "LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSrcPath + "\n"
+                        //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
+                        "LOCAL_MODULE := " + FilePath(*si).Name() + "\n"
+                        "LOCAL_SRC_FILES := " + (*si) + "\n"
+                        "LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE\n"
+                        "LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibPath + " -lEngine\n"
+                        "include $(BUILD_SHARED_LIBRARY)\n\n";
+        }
+
+        gfWriteFile("Android.mk",tAndroidProjectJniDirectory,tAndroidMk);
+
+		gfWriteFile("Application.mk",tAndroidProjectJniDirectory,"APP_STL:=c++_static\nAPP_ABI:=armeabi-v7a\n");
+		gfWriteFile("project.properties",tAndroidProjectDirectory,"target=android-23\n");
+		gfWriteFile("local.properties",tAndroidProjectDirectory,"sdk.dir=C:\\Sdk\\android\\android-sdk\n");
+
+		String tStringsXml= "<resources>\n"
+                            "\t<string name=\"Engine_activity\">Engine</string>\n"
+                            "</resources>\n";
+
+        gfWriteFile("strings.xml",tAndroidProjectResDirectory + "\\values",tStringsXml);
+
+		String tBuildXml=	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                            "<project name=\"EngineActivity\" default=\"help\">\n\n"
+                            "\t<property file=\"local.properties\" />\n"
+                            "\t<property file=\"ant.properties\" />\n\n"
+                            "\t<property environment=\"env\" />\n"
+                            "\t<condition property=\"sdk.dir\" value=\"${env.ANDROID_HOME}\">\n"
+                            "\t\t<isset property=\"env.ANDROID_HOME\" />\n"
+                            "\t</condition>\n\n"
+                            "\t<loadproperties srcFile=\"project.properties\" />\n\n"
+                            "\t<import file=\"custom_rules.xml\" optional=\"true\" />\n\n"
+                            "\t<import file=\"${sdk.dir}/tools/ant/build.xml\" />\n\n"
+                            "</project>\n";
+
+        gfWriteFile("build.xml",tAndroidProjectDirectory,tBuildXml);
+
+        String tManifestXml=    "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+                                "\tpackage=\"com.android.Engine\">\n\n"
+                                "\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>\n"
+                                "\t<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>\n\n"
+                                "\t<application\n"
+                                "\t\t\tandroid:label=\"@string/Engine_activity\"\n"
+                                "\t\t\tandroid:debuggable=\"true\">\n\n"
+                                "\t\t<activity android:name=\"EngineActivity\"\n"
+                                "\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
+                                "\t\t\tandroid:launchMode=\"singleTask\"\n"
+                                "\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
+                                "\t\t\t<intent-filter>\n"
+                                "\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />\n"
+                                "\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />\n"
+                                "\t\t\t</intent-filter>\n\n"
+                                "\t\t</activity>\n"
+                                "\t</application>\n\n"
+                                "\t<uses-feature android:glEsVersion=\"0x00020000\"/>\n"
+                                "\t<uses-sdk android:minSdkVersion=\"15\"/>\n\n"
+                                "</manifest>\n";
+
+        gfWriteFile("AndroidManifest.xml",tAndroidProjectDirectory,tManifestXml);
+
+        EngineIDE::instance->subsystem->Execute(tAndroidProjectDirectory,"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + "\\ndk-build-log.txt",true,true,true);
+
+        //pack source libs
+
+        int		tDataFileStart;
+		size_t	tDataFileSize;
+
+
+        for(std::vector<String>::iterator si=tSources.begin();si!=tSources.end();si++)
+        {
+            FilePath    tSource(*si);
+            String      tLibFileName="lib" + tSource.Name() + ".so";
+            File        tLibFullFilePath=tAndroidProjectLibsDirectory + "\\" + tLibFileName;
+            String	    tFinalFileName=&(*si).Buffer()[EngineIDE::instance->folderProject.Count()] + tLibFileName;
+
+            tDataFileSize=tLibFullFilePath.Size();
+
+            if(tLibFullFilePath.Open())
+            {
+                tDataFileStart=ftell((FILE*)tPackFile.data);
+
+                if(tDataFileSize)
+                {
+                    size_t tWriteResult=fwrite(&tLibFullFilePath.data,1,tDataFileSize,(FILE*)tPackFile.data);
+
+                    if(tWriteResult!=tDataFileSize)
+                        DEBUG_BREAK();
+                }
+
+                tLibFullFilePath.Close();
+            }
+
+            fprintf(tTableFile.data,"%s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
+
+            File::Delete(tLibFullFilePath.path.Buffer());
+        }
+
+        tPackFile.Close();
+        tTableFile.Close();
 	}
 
 	//write asset
 
 	tPackFileSize=tPackFile.Size();
 	tTableFileSize=tTableFile.Size();
+
+	File tAssetFile(tAndroidProjectAssetDirectory + "\\asset.mp3");
 
 	tAssetFile.Open("wb");
 	tPackFile.Open("rb");
@@ -4837,8 +4915,8 @@ bool CompilerWin32::CreateAndroidTarget()
 		tTableFile.Close();
 	}
 
-	//File::Delete(tPackFile.path.Buffer());
-	//File::Delete(tTableFile.path.Buffer());
+	File::Delete(tPackFile.path.Buffer());
+	File::Delete(tTableFile.path.Buffer());
 
 	return true;
 }
@@ -4959,7 +5037,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 
 	this->threadContext=exceptionInfo->ContextRecord;
 
-	//this->PrintThreadContext(exceptionInfo->ContextRecord);
+	this->PrintThreadContext(exceptionInfo->ContextRecord);
 
 	if(this->lastBreakedAddress==exceptionInfo->ExceptionRecord->ExceptionAddress)
 	{
@@ -4986,7 +5064,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 			while(this->breaked);
 		else
 		{
-			//printf("%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			printf("%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;

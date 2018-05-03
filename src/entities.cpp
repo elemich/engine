@@ -1,9 +1,5 @@
 #include "entities.h"
 
-#include "imgpng.h"
-#include "imgjpg.h"
-#include "imgtga.h"
-
 #include <algorithm>
 
 #include <cstdlib>
@@ -59,6 +55,10 @@ ResourceNodeDir::~ResourceNodeDir()
 	SAFESTLDEST(files);
 }
 
+#ifdef EDITORBUILD
+
+ResourceNodeDir rootProjectDirectory;
+
 String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeDir* iResDir,String& iResourceName)
 {
 	//store current dir
@@ -92,23 +92,18 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 	return "";
 }
 
-ResourceNodeDir Resource::rootProjectDirectory;
-
 String Resource::Find(String iResourceName)
 {
-	String tResult;
+    String tRootTrailingSlashes("\\");
 
-#ifdef EDITORBUILD
-	printf("script Resource::rootDir address 0x%p\n",&rootProjectDirectory);
-
-	String tStartingTrail("\\");
-	tResult=gFindResource(tStartingTrail,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
-#else
-	tResult="";
-#endif
-
-	return tResult;
+	return  gFindResource(tRootTrailingSlashes,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
 }
+
+#else
+
+
+
+#endif
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -317,11 +312,7 @@ bool File::IsOpen()
 	return this->data ? true : false;
 }
 
-
 //////////////////////File/////////////////////
-
-#ifndef ANDROID
-
 
 bool File::Open(const char* mode)
 {
@@ -333,7 +324,7 @@ bool File::Open(const char* mode)
 	if(!data)
 		return false;
 
-	int tell=ftell((FILE*)this->data);
+	int tell=ftell(this->data);
 
 	if(tell!=0)
 		DEBUG_BREAK();
@@ -343,7 +334,7 @@ bool File::Open(const char* mode)
 
 void File::Close()
 {
-	this->data ? fclose((FILE*)this->data),this->data=0 : 0;
+	this->data ? fclose(this->data),this->data=0 : 0;
 }
 
 bool File::Exist()
@@ -364,10 +355,10 @@ int File::Size()
 
 	if(tIsOpen)
 	{
-		int curPos=ftell((FILE*)this->data);
-		fseek((FILE*)this->data,0,SEEK_END);
-		result=ftell((FILE*)this->data);
-		fseek((FILE*)this->data,0,curPos);
+		int curPos=ftell(this->data);
+		fseek(this->data,0,SEEK_END);
+		result=ftell(this->data);
+		fseek(this->data,0,curPos);
 	}
 
 	if(!tWasOpen)
@@ -399,18 +390,18 @@ int File::CountOccurrences(char iChar)
 
 	if(this->IsOpen())
 	{
-		int oldPos=ftell((FILE*)this->data);
+		int oldPos=ftell(this->data);
 
-		fseek((FILE*)this->data,0,SEEK_END);
+		fseek(this->data,0,SEEK_END);
 
-		int ___size=ftell((FILE*)this->data);
+		int ___size=ftell(this->data);
 
 		int ___i=0;
 		while(___i < ___size)
 		{
-			fseek((FILE*)this->data,___i,SEEK_SET);
+			fseek(this->data,___i,SEEK_SET);
 
-			char c=fgetc((FILE*)this->data);
+			char c=fgetc(this->data);
 
 			if(iChar==c)
 				occurrences++;
@@ -418,7 +409,7 @@ int File::CountOccurrences(char iChar)
 			___i++;
 		}
 
-		fseek((FILE*)this->data,oldPos,SEEK_SET);
+		fseek(this->data,oldPos,SEEK_SET);
 	}
 
 	if(!wasOpen)
@@ -443,7 +434,7 @@ String File::All()
 		if(tSize>0)
 		{
 			char* tT=new char[tSize+1];
-			fread(tT,tSize,1,(FILE*)this->data);
+			fread(tT,tSize,1,this->data);
 			tT[tSize]='\0';
 			tS=tT;
 			SAFEDELETEARRAY(tT);
@@ -464,7 +455,7 @@ int File::Read(void* outData,int iSize)
 {
 	if(this->data)
 	{
-		return fread(outData,iSize,1,(FILE*)this->data);
+		return fread(outData,iSize,1,this->data);
 	}
 
 	return 0;
@@ -474,7 +465,7 @@ bool File::ReadW(wchar_t* outData,int iSize)
 {
 	if(this->data)
 	{
-		wchar_t* outValue=fgetws(outData,iSize*2,(FILE*)this->data);
+		wchar_t* outValue=fgetws(outData,iSize*2,this->data);
 		outData[iSize]=L'\0';
 		return outValue ? true : false;
 	}
@@ -485,7 +476,7 @@ bool File::ReadW(wchar_t* outData,int iSize)
 int File::Write(void* iData,int iSize,int iNum)
 {
 	if(this->data)
-		return fwrite(iData,iSize,iNum,(FILE*)this->data);
+		return fwrite(iData,iSize,iNum,this->data);
 
 	return 0;
 }
@@ -540,206 +531,6 @@ int File::Size(const char* iFilename)
 	return RetVal;
 }
 
-#else  //////////////////////File/////////////////////
-
-#include <jni.h>
-#include <android/asset_manager.h>
-#include <android/asset_manager_jni.h>
-
-extern AAssetManager *globalAssetManager;
-
-namespace AndroidFileFunc
-{
-	AAsset* fopen(const char* iFilename,const char* iMode)
-	{
-		return AAssetManager_open(globalAssetManager,iFilename,AASSET_MODE_BUFFER);
-	}
-
-	void fclose(AAsset* iAssetManager)
-	{
-		return AAsset_close(iAssetManager);
-	}
-
-	int fread(void* iData,size_t iSize,size_t iCount,AAsset* iAsset)
-	{
-		return AAsset_read(iAsset,iData,iSize);//iCount unused
-	}
-
-	void fwrite(void* iData,size_t iSize,size_t iCount,AAsset* iAsset)
-	{
-		//return AAsset_read(iAsset,iData,iSize);//iCount unused
-	}
-
-	int ftell(AAsset* iAsset)
-	{
-		return AAsset_getLength(iAsset)-AAsset_getRemainingLength(iAsset);
-	}
-
-	int fseek(AAsset* iAsset,long int iOffset, int iOrigin )
-	{
-		return AAsset_seek(iAsset,iOffset,iOrigin);
-	}
-}
-
-bool File::Open(const char* iMode)
-{
-	if(!this->path.Count() || this->IsOpen())
-		return false;
-
-	this->data=AndroidFileFunc::fopen(this->path,iMode);
-
-	return true;
-}
-void File::Close()
-{
-	this->data ? AndroidFileFunc::fclose((AAsset*)this->data),this->data=0 : 0;
-}
-
-bool File::Exist()
-{
-	if(!this->path.Count())
-		return false;
-
-	return File::Exist(this->path);
-}
-
-int File::Size()
-{
-	int result;
-
-	if(this->Open())
-	{
-		int curPos=AndroidFileFunc::ftell((AAsset*)this->data);
-		AndroidFileFunc::fseek((AAsset*)this->data,0,SEEK_END);
-		result=AndroidFileFunc::ftell((AAsset*)this->data);
-		AndroidFileFunc::fseek((AAsset*)this->data,0,curPos);
-	}
-	else
-	{
-		if(!this->path.Count())
-			return -1;
-
-		result=File::Size(this->path);
-	}
-
-	return result;
-}
-
-bool File::Create()
-{
-	return File::Create(this->path);
-}
-
-bool File::Delete()
-{
-	if(this->path.Count())
-		return !::remove(this->path);
-	return false;
-}
-
-int File::CountOccurrences(char iChar)
-{
-	return 0;
-}
-
-String File::All()
-{
-	String tS;
-
-	bool wasOpen=this->IsOpen();
-
-	if(!wasOpen)
-		this->Open();
-
-	if(this->IsOpen())
-	{
-		int tSize=this->Size();
-
-		if(tSize>0)
-		{
-			char* tT=new char[tSize+1];
-			AndroidFileFunc::fread(tT,tSize,1,(AAsset*)this->data);
-			tT[tSize]='\0';
-			tS=tT;
-			SAFEDELETEARRAY(tT);
-		}
-	}
-
-
-	if(!wasOpen)
-		this->Close();
-
-	if(tS.Count()==0)
-		tS="";
-
-	return tS;
-}
-
-//statics function
-
-
-bool File::Create(const char* iFilename)
-{
-	return false;
-}
-bool File::Exist(const char* iFilename)
-{
-	AAsset* tFile=AndroidFileFunc::fopen(iFilename,"r");
-
-	if(tFile)
-	{
-		AndroidFileFunc::fclose(tFile);
-		return true;
-	}
-
-	return false;
-}
-bool File::Delete(const char* iFilename)
-{
-	return false;
-}
-
-int File::Size(const char* iFilename)
-{
-	if(!iFilename)
-		return -1;
-
-	int RetVal;
-
-	AAsset* tFile=AndroidFileFunc::fopen(iFilename,"r");
-
-	if(tFile)
-	{
-		AndroidFileFunc::fseek(tFile,0,SEEK_END);
-		RetVal=AndroidFileFunc::ftell(tFile);
-		AndroidFileFunc::fclose(tFile);
-	}
-	else
-		RetVal=-2;
-
-	return RetVal;
-}
-
-int File::Read(void* iData,int iSize)
-{
-	if(this->data)
-		return AndroidFileFunc::fread(iData,iSize,1,(AAsset*)this->data);
-
-	return 0;
-}
-
-bool File::ReadW(wchar_t* iData,int iSize)
-{
-	return false;
-}
-
-int File::Write(void* iData,int iSize,int iNum)
-{
-	return -1;
-}
-
-
-#endif
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1246,42 +1037,14 @@ void Script::update()
 
 
 
-/*
-extern "C"
-{
-    //#pragma message (LOCATION " remove hidden __dso_handle")
-	void *__dso_handle=NULL;
-};*/
-
-struct IMAGE
-{
-	void*	m_buf;
-	int		m_bufsize;
-	int		m_width;
-	int		m_height;
-	int		m_bpp;
-
-	IMAGE():m_buf(0),m_bufsize(0),m_width(0),m_height(0),m_bpp(0){}
-	~IMAGE(){if(m_buf)delete [] ((unsigned char*)m_buf);m_buf=0;}
-};
-
-IMAGE*& getdataref(void*& d)
-{
-	return (IMAGE*&)d;
-}
-
-IMAGE* getdata(void* d)
-{
-	return (IMAGE*)d;
-}
-
 
 ////TEXTURE
 
-Texture::Texture()
+Texture::Texture():m_buf(0),m_bufsize(0),m_width(0),m_height(0),m_bpp(0){}
+Texture::~Texture()
 {
-	/*TextureManager::Instance()->Push(this);
-	TextureManager::Instance()->textures[texture_type].Push(this);*/
+	SAFEDELETEARRAY(this->m_buf);
+
 }
 
 
@@ -1289,175 +1052,33 @@ Texture::Texture()
 
 TextureFile::TextureFile()
 {
-	this->data=new IMAGE;
+
 }
 
 
 TextureFile::~TextureFile()
 {
-	if(this->data)
-		delete ((IMAGE*)this->data);
-	this->data=NULL;
-}
-
-int TextureFile::load(char* fn)
-{
-	FILE *f=fopen(fn,"rb");
-
-	if(f)
-	{
-		short int bmp_signature=0x4d42;
-		int jpg_signature1=0xe0ffd8ff;
-		int jpg_signature2=0xdbffd8ff;
-		int jpg_signature3=0xe1ffd8ff;
-		int png_signature1=0x474e5089;
-		int png_signature2=0x0a1a0a0d;
-
-		int sign1;
-		int sign2;
-
-		fread(&sign1,4,1,f);
-		fread(&sign2,4,1,f);
-
-		if(bmp_signature==(short int)sign1)
-		{
-			fclose(f);
-			return loadBMP(fn);
-		}
-		else if(jpg_signature1==sign1 || jpg_signature3==sign1 || jpg_signature2==sign2  || jpg_signature3==sign2 )
-		{
-			fclose(f);
-			return loadJPG(fn);
-		}
-		else if(png_signature1==sign1 && png_signature2==sign2)
-		{
-			fclose(f);
-			return loadPNG(fn);
-		}
-		else if(655360==sign1 && 0==sign2)
-		{
-			fclose(f);
-			return loadTGA(fn);
-		}
-
-		#ifndef ANDROID
-			DEBUG_BREAK();
-		#endif
-
-
-		fclose(f);
-	}
-
-	return 1;
-}
-
-int TextureFile::loadJPG(char* fn)
-{
-	IMAGE* image=getdataref(this->data);
-
-	int ncomp;
-	image->m_buf=(void*)jpgd::decompress_jpeg_image_from_file(fn,&image->m_width,&image->m_height,&ncomp,4);
-
-
-	if(image->m_buf)
-		return 0;
-
-	return 1;
-}
-
-int TextureFile::loadPNG(char* fn)
-{
-	std::vector<unsigned char> image;
-	unsigned long w, h;
-	int error=-1;
-
-	{
-		std::string filename=fn;
-		std::vector<unsigned char> buffer;
-		loadFile(buffer, filename);
-
-		error = decodePNG(image, w, h, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size());
-	}
-
-
-	if(!error)
-	{
-		IMAGE* i=getdataref(this->data);
-		i->m_bufsize=image.size();
-		i->m_buf=new unsigned char[i->m_bufsize];
-		memcpy(i->m_buf,&image[0],i->m_bufsize);
-		i->m_width=w;
-		i->m_height=h;
-
-		return 0;
-	}
-	return 1;
-
-}
-
-int TextureFile::loadTGA(char* fn)
-{
-	IMAGE* i=getdataref(this->data);
-
-	return LoadTGA(fn,i->m_buf,i->m_bufsize,i->m_width,i->m_height,i->m_bpp);
-	return 1;
-}
-
-int TextureFile::loadBMP(char* filename)
-{
-	FILE* f=fopen(filename,"rb");
-
-	if(f)
-	{
-		IMAGE* image=getdataref(this->data);
-
-		//@mic only for bitmap
-		fseek(f,0x12,SEEK_SET);
-		fread(&image->m_width,2,1,f);
-		fseek(f,0x16,SEEK_SET);
-		fread(&image->m_height,2,1,f);
-		fseek(f,0x1c,SEEK_SET);
-		fread(&image->m_bpp,2,1,f);
-
-		rewind(f);
-
-
-		fseek(f,0,SEEK_END);
-		image->m_bufsize=ftell(f)-54;
-		rewind(f);
-		fseek(f,54,SEEK_SET);
-
-		image->m_buf=new int[image->m_bufsize];
-
-		fread(image->m_buf,1,image->m_bufsize,f);
-
-		fclose(f);
-
-		return 0;
-	}
-
-	return 1;
 }
 
 void* TextureFile::GetBuffer()
 {
-	return getdataref(this->data)->m_buf;
+	return this->m_buf;
 }
 int TextureFile::GetSize()
 {
-	return getdataref(this->data)->m_bufsize;
+	return this->m_bufsize;
 }
 int TextureFile::GetWidth()
 {
-	return getdataref(this->data)->m_width;
+	return this->m_width;
 }
 int TextureFile::GetHeight()
 {
-	return getdataref(this->data)->m_height;
+	return this->m_height;
 }
 int TextureFile::GetBpp()
 {
-	return getdataref(this->data)->m_bpp;
+	return this->m_bpp;
 }
 
 

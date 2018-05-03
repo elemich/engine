@@ -1,5 +1,9 @@
 #include "interfaces.h"
 
+#include "imgpng.h"
+#include "imgjpg.h"
+#include "imgtga.h"
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////AppInterface////////////////
@@ -510,6 +514,111 @@ void Renderer3D::SetMatrices(const float* view,const float* mdl)
 			this->shaders[i]->SetModelviewMatrix((float*)mdl);
 	}
 }
+
+bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
+{
+    FILE *tFile=fopen(iFilename.Buffer(),"rb");
+
+	if(tFile)
+	{
+		short int bmp_signature=0x4d42;
+		int jpg_signature1=0xe0ffd8ff;
+		int jpg_signature2=0xdbffd8ff;
+		int jpg_signature3=0xe1ffd8ff;
+		int png_signature1=0x474e5089;
+		int png_signature2=0x0a1a0a0d;
+
+		int sign1;
+		int sign2;
+
+		fread(&sign1,4,1,tFile);
+		fread(&sign2,4,1,tFile);
+
+		if(bmp_signature==(short int)sign1)
+		{
+
+            //@mic only for bitmap
+            fseek(tFile,0x12,SEEK_SET);
+            fread(&iTexture->m_width,2,1,tFile);
+            fseek(tFile,0x16,SEEK_SET);
+            fread(&iTexture->m_height,2,1,tFile);
+            fseek(tFile,0x1c,SEEK_SET);
+            fread(&iTexture->m_bpp,2,1,tFile);
+
+            rewind(tFile);
+
+
+            fseek(tFile,0,SEEK_END);
+            iTexture->m_bufsize=ftell(tFile)-54;
+            rewind(tFile);
+            fseek(tFile,54,SEEK_SET);
+
+            iTexture->m_buf=new int[iTexture->m_bufsize];
+
+            fread(iTexture->m_buf,1,iTexture->m_bufsize,tFile);
+
+            fclose(tFile);
+
+            return true;
+
+		}
+		else if(jpg_signature1==sign1 || jpg_signature3==sign1 || jpg_signature2==sign2  || jpg_signature3==sign2 )
+		{
+			fclose(tFile);
+
+            {
+                int ncomp;
+
+                iTexture->m_buf=(void*)jpgd::decompress_jpeg_image_from_file(iFilename.Buffer(),&iTexture->m_width,&iTexture->m_height,&ncomp,4);
+
+                return iTexture->m_buf ? true : false;
+            }
+
+		}
+		else if(png_signature1==sign1 && png_signature2==sign2)
+		{
+			fclose(tFile);
+
+			{
+			    std::vector<unsigned char> image;
+                unsigned long w, h;
+                int error=-1;
+
+                {
+                    std::string filename=iFilename.Buffer();
+                    std::vector<unsigned char> buffer;
+                    loadFile(buffer, filename);
+
+                    error = decodePNG(image, w, h, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size());
+                }
+
+                if(!error)
+                {
+                    iTexture->m_bufsize=image.size();
+                    iTexture->m_buf=new unsigned char[iTexture->m_bufsize];
+                    memcpy(iTexture->m_buf,&image[0],iTexture->m_bufsize);
+                    iTexture->m_width=w;
+                    iTexture->m_height=h;
+
+                    return true;
+                }
+
+                return false;
+			}
+		}
+		else if(655360==sign1 && 0==sign2)
+		{
+			fclose(tFile);
+			return LoadTGA(iFilename.Buffer(),iTexture->m_buf,iTexture->m_bufsize,iTexture->m_width,iTexture->m_height,iTexture->m_bpp);
+		}
+
+		fclose(tFile);
+	}
+
+	return false;
+
+}
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1056,7 +1165,7 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 Compiler::Compiler():
 	SAFESTLIMPL(std::vector<COMPILER>,compilers)
 {
-	ideSrcPath=EngineIDE::instance->pathExecutable.PathUp(6) + "\\src";
+	ideSrcPath=EngineIDE::instance->pathExecutable.PathUp(5) + "\\src";
 	ideLibPath=EngineIDE::instance->pathExecutable.Path();
 
 	COMPILER msCompiler={"ms",
@@ -2639,17 +2748,16 @@ int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
 	return this->contentHeight;
 }
 
-
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////GuiProjectViewer/////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-
+extern ResourceNodeDir rootProjectDirectory;
 
 GuiProjectViewer::GuiProjectViewer():
-	projectDirectory(&Resource::rootProjectDirectory),
+	projectDirectory(&rootProjectDirectory),
 	splitterLeft(false),
 	splitterRight(false),
 	hotspotDist(0)
@@ -3553,8 +3661,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 				pText++;
 			}
 
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-
 			break;
 		}
 		case CARET_CANCEL:
@@ -3565,8 +3671,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->paper->text.erase(this->cursor-(char*)this->paper->text.c_str(),1);
 
 			--this->cursor;
-
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
 
 			break;
 		}
@@ -3611,8 +3715,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 
 			this->paper->text.erase(this->cursor-this->paper->text.c_str(),1);
 
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-
 			break;
 		}
 		case CARET_ADD:
@@ -3639,8 +3741,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 
 			this->paper->text.insert(tPosition,1,tCharcode);
 			this->cursor=(char*)this->paper->text.c_str()+tPosition+1;
-
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
 
 			break;
 		}
@@ -3684,8 +3784,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 				this->col--;
 			}
 
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-
 			break;
 		}
 		case CARET_ARROWRIGHT:
@@ -3706,8 +3804,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			}
 
 			this->cursor++;
-
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
 
 			break;
 		}
@@ -3758,8 +3854,6 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->col=tColumn;
 			this->row--;
 
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-
 			break;
 		}
 		case CARET_ARROWDOWN:
@@ -3802,11 +3896,11 @@ vec4 GuiScriptViewer::GetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,v
 			this->col=tColumn;
 			this->row++;
 
-			printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
-
 			break;
 		}
 	}
+
+	//printf("cursor: %d,col: %d\n",this->cursor-this->paper->text.c_str(),this->col);
 
 	if(tRecalcSize)
 		this->OnSize(tabContainer);
