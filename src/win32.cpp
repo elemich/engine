@@ -4732,6 +4732,14 @@ bool gfWriteFile(String iFilename,String iPath,String iContent)
 
 bool CompilerWin32::CreateAndroidTarget()
 {
+    String tApkName="Engine";
+    String tKeyName="EngineKey";
+
+    String tAndroidSdkDir="C:\\Sdk\\android\\android-sdk";
+    String tAndroidPlatform="platforms\\android-27";
+    String tAndroidBuildTool="build-tools\\27.0.3";
+    String tAndroidDebugBridge="c:\\adb\\adb.exe";
+
 	String tAndroidOutputDirectory=EngineIDE::instance->folderProject.PathUp(1) + "\\android";
 	String tAndroidProjectDirectory=tAndroidOutputDirectory + "\\project";
 	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + "\\jni";
@@ -4917,6 +4925,56 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	File::Delete(tPackFile.path.Buffer());
 	File::Delete(tTableFile.path.Buffer());
+
+	//paths in the apk must have the / separator otherwise LoadLibrary will not find the native so lib
+    //aapt add will register all file path, so call from current dir to avoid full path recording
+
+    String tBuildApk=   "@echo off\n"
+                        "set PLATFORM=" + tAndroidSdkDir + "\\" + tAndroidPlatform + "\n"
+                        "set BUILDTOOL=" + tAndroidSdkDir + "\\" + tAndroidBuildTool + "\n"
+                        "set LIBDIR=" + EngineIDE::instance->compiler->ideLibPath + "\n"
+                        "set PROJDIR=" + tAndroidProjectDirectory + "\n"
+                        "set ADB=" + tAndroidDebugBridge + "\n"
+                        "set KEYSTORE=" + tKeyName + "\n"
+                        "SET APP_NAME=" + tApkName + "\n"
+                        "set PREVDIR=%cd%\n\n"
+
+                        "SET ANDROID_AAPT_ADD=%BUILDTOOL%\\aapt.exe add\n"
+                        "SET ANDROID_AAPT_PACK=%BUILDTOOL%\\aapt.exe package -v -f -I %PLATFORM%\\android.jar\n\n"
+
+                        "if exist \"%PROJDIR%\\lib\" rmdir \"%PROJDIR%\\lib\" /S /Q\n"
+                        "mkdir \"%PROJDIR%\\lib\"\n"
+                        "mkdir \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
+
+                        "copy \"%LIBDIR%\\classes.dex\" \"%PROJDIR%\"\n"
+                        "copy \"%LIBDIR%\\libengine.so\" \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
+
+                        "cd \"%PROJDIR%\"\n"
+                        "call %ANDROID_AAPT_PACK% -M AndroidManifest.xml -A assets -S  res -F  %APP_NAME%.apk\n"
+                        "call %ANDROID_AAPT_ADD% %APP_NAME%.apk classes.dex\n"
+                        "call %ANDROID_AAPT_ADD% %APP_NAME%.apk lib/armeabi-v7a/libengine.so\n\n"
+
+                        "if not exist \"%KEYSTORE%\" (\n"
+                        "	call keytool -genkey -noprompt -alias emmegi -dname \"CN=emmegi.com, OU=emmegi, O=mg, L=SA, S=NA, C=IT\" -keystore %KEYSTORE% -storepass password -keypass password -validity 10000\n\n"
+
+                        "   if not exist \"%KEYSTORE%\" (\n"
+                        "		echo key generation error\n"
+                        "   ) else (\n"
+                        "		echo key generated\n"
+                        "   )\n"
+                        ") else (\n"
+                        "	echo key already exists\n"
+                        ")\n\n"
+
+                        "echo signing key\n"
+                        "call jarsigner -keystore %KEYSTORE% -signedjar %APP_NAME%.apk %APP_NAME%.apk emmegi -storepass password -keypass password\n\n"
+
+                        "call %ADB% install -r %APP_NAME%.apk\n";
+
+    gfWriteFile("buildapk.bat",tAndroidProjectDirectory,tBuildApk);
+
+    EngineIDE::instance->subsystem->Execute(tAndroidProjectDirectory,"buildapk","apk-build-log.txt",true,true,true);
+
 
 	return true;
 }
