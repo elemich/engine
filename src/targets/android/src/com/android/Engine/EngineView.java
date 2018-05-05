@@ -72,12 +72,12 @@ import android.view.MotionEvent;
  *   bit depths). Failure to do so would result in an EGL_BAD_MATCH error.
  */
 class EngineView extends GLSurfaceView {
-    public static String TAG = "multi";
+    public static String TAG = "Engine";
     private static final boolean DEBUG = false;
 	public static AssetManager assetManager;
 	public static Context context;
 
-    public EngineView(Context o_context) {	
+    public EngineView(Context o_context) {
         super(o_context);
 		context=o_context;
         init(false, 0, 0);
@@ -240,7 +240,7 @@ class EngineView extends GLSurfaceView {
             }
         }
 
-		
+
 
         private void printConfig(EGL10 egl, EGLDisplay display,
                 EGLConfig config) {
@@ -362,10 +362,10 @@ class EngineView extends GLSurfaceView {
 		return "";
 	}
 
-	public boolean onTouchEvent(MotionEvent event) 
+	public boolean onTouchEvent(MotionEvent event)
 	{
 		int pointerIndex = event.findPointerIndex(event.getPointerId(0));
-		
+
 		float x = event.getX(pointerIndex);
 		float y = event.getY(pointerIndex);
 
@@ -384,12 +384,12 @@ class EngineView extends GLSurfaceView {
 		return true;
 	}
 
-	public static native void SetTouchEvent(int action,int id,int idx,float x,float y); 
+	public static native void SetTouchEvent(int action,int id,int idx,float x,float y);
 
     private static class Renderer implements GLSurfaceView.Renderer {
         public void onDrawFrame(GL10 gl) {
             EngineLib.step();
-        }	
+        }
 
         public void onSurfaceChanged(GL10 gl, int width, int height) {
             EngineLib.init(width, height);

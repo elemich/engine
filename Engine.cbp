@@ -7,14 +7,14 @@
 		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
+		<Option virtualFolders="Android\;Common\;Win32\;" />
 		<Build>
 			<Target title="x86d">
-				<Option output="./build/win32/x86/debug/MINGW/engineMingW" prefix_auto="1" extension_auto="1" />
+				<Option output="./build/win32/x86/debug/engineMingW" prefix_auto="1" extension_auto="1" />
 				<Option object_output="/build/win32/x86/debug/MINGW" />
 				<Option deps_output="/" />
-				<Option type="1" />
+				<Option type="0" />
 				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
 				<Compiler>
 					<Add option="-Wall" />
 					<Add option="-g" />
@@ -247,40 +247,87 @@
 				</Linker>
 			</Target>
 		</Build>
-		<Unit filename="src/entities.cpp" />
-		<Unit filename="src/entities.h" />
-		<Unit filename="src/fbxutil.cpp" />
-		<Unit filename="src/fbxutil.h" />
-		<Unit filename="src/fbxutil_fbx.cpp" />
-		<Unit filename="src/imgjpg.cpp" />
-		<Unit filename="src/imgjpg.h" />
-		<Unit filename="src/imgpng.cpp" />
-		<Unit filename="src/imgpng.h" />
-		<Unit filename="src/imgtga.cpp" />
-		<Unit filename="src/imgtga.h" />
-		<Unit filename="src/interfaces.cpp" />
-		<Unit filename="src/interfaces.h" />
-		<Unit filename="src/primitives.cpp" />
-		<Unit filename="src/primitives.h" />
-		<Unit filename="src/shaders.cpp" />
-		<Unit filename="src/targets/android/android.cpp" />
-		<Unit filename="src/targets/android/android.h" />
-		<Unit filename="src/targets/android/jni/Android.mk" />
-		<Unit filename="src/targets/android/jni/Application.mk" />
+		<Unit filename="src/android.cpp">
+			<Option virtualFolder="Android/" />
+		</Unit>
+		<Unit filename="src/android.h">
+			<Option virtualFolder="Android/" />
+		</Unit>
+		<Unit filename="src/entities.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/entities.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/fbxutil.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/fbxutil.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/fbxutil_fbx.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/imgjpg.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/imgjpg.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/imgpng.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/imgpng.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/imgtga.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/imgtga.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/interfaces.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/interfaces.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/primitives.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/primitives.h">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/shaders.cpp">
+			<Option virtualFolder="Common/" />
+		</Unit>
+		<Unit filename="src/targets/android/jni/Android.mk">
+			<Option virtualFolder="Android/" />
+		</Unit>
+		<Unit filename="src/targets/android/jni/Application.mk">
+			<Option virtualFolder="Android/" />
+		</Unit>
 		<Unit filename="src/targets/android/src/com/android/Engine/EngineActivity.java">
 			<Option compile="0" />
 			<Option link="0" />
+			<Option virtualFolder="Android/" />
 		</Unit>
 		<Unit filename="src/targets/android/src/com/android/Engine/EngineLib.java">
 			<Option compile="0" />
 			<Option link="0" />
+			<Option virtualFolder="Android/" />
 		</Unit>
 		<Unit filename="src/targets/android/src/com/android/Engine/EngineView.java">
 			<Option compile="0" />
 			<Option link="0" />
+			<Option virtualFolder="Android/" />
 		</Unit>
-		<Unit filename="src/win32.cpp" />
-		<Unit filename="src/win32.h" />
+		<Unit filename="src/win32.cpp">
+			<Option virtualFolder="Win32/" />
+		</Unit>
+		<Unit filename="src/win32.h">
+			<Option virtualFolder="Win32/" />
+		</Unit>
 		<Extensions>
 			<code_completion />
 			<envvars />

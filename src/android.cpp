@@ -10,72 +10,173 @@ void __debugbreak()
 
 const char*     current_dir=NULL;
 
-JavaVM			*java_vm=NULL;
-JNIEnv			*java_env=NULL;
-jobject			java_activity;
-const char*     java_activity_path="com/android/Engine/EngineActivity";
-int				java_version=JNI_VERSION_1_6;
+JavaVM			*globalJvm=NULL;
+JNIEnv			*globalJniEnv=NULL;
+
+//Resources
 
 AAssetManager 	*globalAssetManager=NULL;
 
-jint JNI_OnLoad(JavaVM* aVm, void* aReserved)
+extern FILE*                        resourceData;
+extern unsigned int                 resourceDataSize;
+extern unsigned int                 resourceTableSize;
+extern unsigned int                 resourceTableStart;
+extern unsigned int                 resourceTableEnd;
+extern unsigned int                 resourceDataStart;
+extern unsigned int                 resourceDataEnd;
+
+int asset_read(void* iFile,char* iBuffer,int iCount)
 {
-	java_vm = aVm;
-	
-	printf("Engine: JNI_OnLoad\n");
-
-	if (java_vm->GetEnv((void**)&java_env, java_version) != JNI_OK)
-	{
-		printf("Failed to get the environment\n");
-		return -1;
-	}
-
-	// Get SBCEngine activity class
-	jclass activityClass = java_env->FindClass(java_activity_path);
-	if (!activityClass)
-	{
-		printf("failed to get %s class reference",java_activity_path);
-		return -1;
-	}
-	java_activity = java_env->NewGlobalRef(activityClass);
-
-	// Register methods with env->RegisterNatives.
-	//java_env->RegisterNatives(activityClass, methodTable, sizeof(methodTable) / sizeof(methodTable[0]));
-	//java_env->
-	return java_version;
+    return AAsset_read((AAsset*)iFile,iBuffer,iCount);
 }
 
+int asset_write(void* iFile,const char* iBuffer,int iCount)
+{
+    printf("fwrite not implemented\n");
+    return 0;
+}
 
+fpos_t asset_seek(void* iFile,fpos_t iOffset,int iOrigin)
+{
+    return AAsset_seek((AAsset*)iFile,iOffset,iOrigin);
+}
+
+int asset_close(void* iFile)
+{
+    AAsset_close((AAsset*)iFile);
+    return 0;
+}
+
+FILE* asset_open(const char* iFilename,const char* iMode)
+{
+    if(0!=strstr(iMode,"w") || 0!=strstr(iMode,"W"))
+    {
+        printf("error: trying to open asset in r mode\n");
+        return 0;
+    }
+
+    AAsset* tAsset=AAssetManager_open(globalAssetManager,iFilename,AASSET_MODE_STREAMING);
+
+    if(tAsset)
+    {
+        return funopen((const void*)tAsset,asset_read,asset_write,asset_seek,asset_close);
+    }
+
+    return 0;
+}
+
+jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
+{
+    const int	    tJVer=JNI_VERSION_1_6;
+    const char*     tJavaActivityPath="com/android/Engine/EngineActivity";
+    jclass          tActivityClass;
+
+	globalJvm = iJavaVM;
+
+	printf("Engine: JNI_OnLoad\n");
+
+	if (globalJvm->GetEnv((void**)&globalJniEnv, tJVer) != JNI_OK)
+	{
+		printf("Engine: JNI_OnLoad() failed to get the JVM\n");
+		return -1;
+	}
+
+	//Get SBCEngine activity class
+    tActivityClass = globalJniEnv->FindClass(tJavaActivityPath);
+
+	if(!tActivityClass)
+	{
+		printf("Engine: JNI_OnLoad() failed to get %s class reference through JVM\n",tJavaActivityPath);
+		return -1;
+	}
+
+    //Get SBCEngine activity class
+	globalJniEnv->NewGlobalRef(tActivityClass);
+
+	JniInit();
+
+	return tJVer;
+}
 
 bool JniInit()
 {
-	jmethodID getAssetManagerFunction=NULL;
-	jmethodID getCurrentPathFunction=NULL;
+    printf("Engine: JniInit\n");
 
-	jclass clazz = java_env->FindClass("com/android/Engine/EngineView");
+	jmethodID   pfAssetManagerFunction=NULL;
+	jmethodID   pfCurrentPathFunction=NULL;
 
-	if(clazz)
+	const char* tJavaViewPath="com/android/Engine/EngineView";
+
+	jclass      tEngineViewClass = globalJniEnv->FindClass(tJavaViewPath);
+
+	if(tEngineViewClass)
 	{
-		getCurrentPathFunction = java_env->GetStaticMethodID(clazz, "GetCurrentPath", "()Ljava/lang/String;");
+		pfCurrentPathFunction = globalJniEnv->GetStaticMethodID(tEngineViewClass, "GetCurrentPath", "()Ljava/lang/String;");
 
-		if(getCurrentPathFunction)
-			current_dir = java_env->GetStringUTFChars((jstring)java_env->CallStaticObjectMethod(clazz, getCurrentPathFunction ), 0);
+		if(pfCurrentPathFunction)
+			current_dir = globalJniEnv->GetStringUTFChars((jstring)globalJniEnv->CallStaticObjectMethod(tEngineViewClass, pfCurrentPathFunction ), 0);
 		else
-			return false;
+        {
+            printf("Engine: JniInit() failed to GetCurrentPath from JVM\n");
+            return false;
+        }
 
-		getAssetManagerFunction = java_env->GetStaticMethodID(clazz, "GetAssetManager", "()Landroid/content/res/AssetManager;");
+		pfAssetManagerFunction = globalJniEnv->GetStaticMethodID(tEngineViewClass, "GetAssetManager", "()Landroid/content/res/AssetManager;");
 
-		if(getAssetManagerFunction)
-			globalAssetManager = AAssetManager_fromJava(java_env,java_env->CallStaticObjectMethod(clazz, getAssetManagerFunction ));
+		if(pfAssetManagerFunction)
+        {
+            //create manager
+			globalAssetManager = AAssetManager_fromJava(globalJniEnv,globalJniEnv->CallStaticObjectMethod(tEngineViewClass, pfAssetManagerFunction ));
+
+			//open asset
+            resourceData=asset_open("asset.mp3","r");
+
+            if(resourceData)
+            {
+                fread(&resourceTableSize,sizeof(int),1,resourceData);
+                fread(&resourceDataSize,sizeof(int),1,resourceData);
+
+                resourceTableStart=sizeof(int)*2;
+                resourceTableEnd=resourceTableStart + resourceTableSize;
+                resourceDataStart=resourceTableEnd;
+                resourceDataEnd=resourceDataStart + resourceDataSize;
+
+                printf("Resources tableStart: %d\n",resourceTableStart);
+                printf("Resources tableEnd: %d\n",resourceTableEnd);
+                printf("Resources dataStart: %d\n",resourceDataStart);
+                printf("Resources dataEnd: %d\n",resourceDataEnd);
+
+                printf("Resource sizes (table,data):(%d,%d)\n",resourceTableSize,resourceDataSize);
+
+                {
+                    const char* tResource="\\pippo\\1.txt";
+
+                    char* tBuffer=(char*)Resource::Load(tResource);
+
+                    if(tBuffer)
+                    {
+                        printf("resource %s found: %s\n",tResource,tBuffer);
+                        SAFEDELETE(tBuffer);
+                    }
+                    else
+                        printf("resource %s not found\n",tResource);
+                }
+            }
+            else
+                printf("error opening asset file\n");
+
+        }
 		else
-			return false;
+        {
+            printf("Engine: JniInit() failed to GetAssetManager from JVM\n");
+            return false;
+        }
 
 		return true;
 	}
 
 	return false;
 }
-
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobject  obj,  jint width, jint height)
 {
@@ -85,11 +186,11 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobje
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobject obj)
 {
 
-
 }
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineView_SetTouchEvent(JNIEnv * env, jobject obj,jint action,jint id,jint idx,jfloat x,jfloat y)
 {
+
 
 }
 

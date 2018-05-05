@@ -232,7 +232,7 @@ struct DLLBUILD ResourceNode
 	bool isDir;
 
 	ResourceNode();
-	~ResourceNode();
+	virtual ~ResourceNode();
 };
 
 struct DLLBUILD ResourceNodeDir : ResourceNode
@@ -243,20 +243,12 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 	SAFESTLDECL(std::list<ResourceNode*>,files);
 
 	ResourceNodeDir();
-	~ResourceNodeDir();
+	virtual ~ResourceNodeDir();
 };
 
 struct DLLBUILD Resource
 {
-	static String Find(String iResourceName);
-
-	template<typename T> static T* Load(String iResourceName)
-	{
-		String tFileName=Find(iResourceName);
-
-
-		return 0;
-	}
+	static void* Load(String iResourceName);
 };
 
 
@@ -719,7 +711,9 @@ struct DLLBUILD Renderer3DBase
 
 struct DLLBUILD Scene
 {
-	Entity* rootEntity;
+	Entity* entityRoot;
+	String name;
+
 };
 
 #endif //__ENTITY_HEADER__

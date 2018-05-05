@@ -35,11 +35,18 @@ ResourceNodeDir::ResourceNodeDir():
 
 ResourceNodeDir::~ResourceNodeDir()
 {
-	for(std::list<ResourceNode*>::iterator nCh=this->files.begin();nCh!=this->files.end();nCh++)
+    for(std::list<ResourceNode*>::iterator nCh=this->files.begin();nCh!=this->files.end();nCh++)
 		SAFEDELETE(*nCh);
 
-	for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
-		SAFEDELETE(*nCh);
+    for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
+    {
+        ResourceNodeDir* tResNodeDir=*nCh;
+
+        tResNodeDir->~ResourceNodeDir();
+    }
+
+
+
 
 	if(this->parent)
 	{
@@ -53,6 +60,12 @@ ResourceNodeDir::~ResourceNodeDir()
 
 	SAFESTLDEST(dirs);
 	SAFESTLDEST(files);
+}
+
+
+Scene* gLoadScene()
+{
+
 }
 
 #ifdef EDITORBUILD
@@ -92,18 +105,80 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 	return "";
 }
 
-String Resource::Find(String iResourceName)
+void* Resource::Load(String iResourceName)
 {
     String tRootTrailingSlashes("\\");
 
-	return  gFindResource(tRootTrailingSlashes,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
+	FilePath tResource=gFindResource(tRootTrailingSlashes,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
+
+	if(tResource.File().Count())
+    {
+        String tFileExtension=tResource.Extension();
+
+        if(tFileExtension=="engineScene")
+        {
+
+        }
+    }
+
+    return 0;
 }
 
 #else
 
+FILE*        resourceData=0;
+unsigned int resourceDataSize=0;
+unsigned int resourceTableSize=0;
+unsigned int resourceTableStart=0;
+unsigned int resourceTableEnd=0;
+unsigned int resourceDataStart=0;
+unsigned int resourceDataEnd=0;
 
+void* Resource::Load(String iResourceName)
+{
+    fseek(resourceData,resourceTableStart,SEEK_SET);
+
+    char            tFilePath[500];
+    unsigned int    tFileStart=0;
+    unsigned int    tFileSize=0;
+
+    bool            tFileFound=false;
+
+    while(ftell(resourceData)<resourceTableEnd)
+    {
+        fscanf(resourceData,"%s",tFilePath);
+        fscanf(resourceData,"%u",&tFileStart);
+        fscanf(resourceData,"%u",&tFileSize);
+
+        printf("found file %s\n",tFilePath);
+        printf("found file start %u\n",tFileStart);
+        printf("found file size %u\n",tFileSize);
+
+        if(iResourceName==String(tFilePath))
+        {
+            tFileFound=true;
+            break;
+        }
+    }
+
+    if(tFileFound)
+    {
+        fseek(resourceData,resourceDataStart+tFileStart,SEEK_SET);
+
+        char* rBuffer=new char[tFileSize];
+        fread(rBuffer,tFileSize,1,resourceData);
+
+        return rBuffer;
+    }
+
+    return 0;
+}
 
 #endif
+
+
+
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -628,15 +703,17 @@ void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff
 
 	switch(channel)
 	{
-	case TRANSLATEX:poff[0]	= val; break;
-	case TRANSLATEY:poff[1]	= val; break;
-	case TRANSLATEZ:poff[2]	= val; break;
-	case ROTATEX:roff[0] = val; break;
-	case ROTATEY:roff[1] = val; break;
-	case ROTATEZ:roff[2] = val; break;
-	case SCALEX:soff[0]	= val; break;
-	case SCALEY:soff[1]	= val; break;
-	case SCALEZ:soff[2]	= val; break;
+        case TRANSLATEX:poff[0]	= val; break;
+        case TRANSLATEY:poff[1]	= val; break;
+        case TRANSLATEZ:poff[2]	= val; break;
+        case ROTATEX:roff[0] = val; break;
+        case ROTATEY:roff[1] = val; break;
+        case ROTATEZ:roff[2] = val; break;
+        case SCALEX:soff[0]	= val; break;
+        case SCALEY:soff[1]	= val; break;
+        case SCALEZ:soff[2]	= val; break;
+        case INVALID_CHANNEL:
+            printf("copychannel: INVALID_CHANNEL selected\n");
 	}
 }
 
@@ -1027,7 +1104,8 @@ Script::Script():runtime(0){}
 
 void Script::update()
 {
-	this->runtime ? this->runtime->update(),true : false;
+	if(this->runtime)
+        this->runtime->update();
 }
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

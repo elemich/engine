@@ -2160,14 +2160,13 @@ void GuiScrollBar::OnPaint(Tab* tabContainer,void* data)
 ///////////////////////////////////////////////
 
 GuiSceneViewer::GuiSceneViewer():
-entityRoot(0)
+entityRoot((EditorEntity*&)scene.entityRoot)
 {
 	this->entityRoot=new EditorEntity;
 	this->entityRoot->name="SceneRootEntity";
 	this->entityRoot->expanded=true;
 
-	this->name="Scene";
-	this->sceneName="Scene";
+	this->name="GuiSceneiewer";
 }
 
 GuiSceneViewer::~GuiSceneViewer()
@@ -2462,7 +2461,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		{
 			if(InputManager::keyboardInput.IsPressed('S'))
 			{
-				String tSaveFile=EngineIDE::instance->folderProject + "\\" + this->sceneName.c_str() + EngineIDE::instance->GetSceneExtension();
+				String tSaveFile=EngineIDE::instance->folderProject + "\\" + this->scene.name + EngineIDE::instance->GetSceneExtension();
 				this->Save(tSaveFile.Buffer());
 			}
 		}
@@ -2598,6 +2597,7 @@ void GuiSceneViewer::Save(const char* iFilename)
 
 void GuiSceneViewer::Load(const char* iFilename)
 {
+
 	FILE* file=fopen(iFilename,"rb");
 	if(!file)
 		return;

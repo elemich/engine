@@ -416,7 +416,7 @@ struct DLLBUILD EngineIDEWin32 : EngineIDE
 
 struct DLLBUILD SubsystemWin32 : Subsystem
 {
-	bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false);
+	bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false);
 	unsigned int FindProcessId(String iProcessName);
 	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
 };
@@ -441,6 +441,7 @@ struct DLLBUILD DebuggerWin32 : Debugger
 	CONTEXT*	threadContext;
 
 	DebuggerWin32();
+	~DebuggerWin32();
 
 	void RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex);
 	void SuspendDebuggee();

@@ -817,9 +817,9 @@ struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 	GuiSceneViewer();
 	~GuiSceneViewer();
 
-	EditorEntity* entityRoot;
+	Scene scene;
 
-	std::string sceneName;
+	EditorEntity*& entityRoot;
 
 	std::vector<EditorEntity*> selection;
 
@@ -840,8 +840,6 @@ struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 
 	void Save(const char*);
 	void Load(const char*);
-
-
 };
 
 struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
@@ -1176,7 +1174,7 @@ struct DLLBUILD MainContainer
 
 struct DLLBUILD Subsystem
 {
-	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false)=0;
+	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false)=0;
 	virtual unsigned int FindProcessId(String iProcessName)=0;
 	virtual unsigned int FindThreadId(unsigned int iProcessId,String iThreadName)=0;
 };

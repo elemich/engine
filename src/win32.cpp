@@ -911,6 +911,7 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 		case WM_CLOSE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			PostQuitMessage(1);
+			return 0;
 		break;
 		case WM_SIZING:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
@@ -1371,6 +1372,13 @@ int EngineIDEWin32::Initialize()
 
 void EngineIDEWin32::Deinitialize()
 {
+    SAFEDELETE(this->mainAppWindow);
+    SAFEDELETE(this->subsystem);
+    SAFEDELETE(this->compiler);
+    SAFEDELETE(this->debugger);
+
+
+
 	SetDllDirectory(0);
 	Direct2D::Release();
 	CoUninitialize();
@@ -1541,11 +1549,8 @@ void EngineIDEWin32::Run()
 
 	while(true)
 	{
-		if(GetMessage(&msg,0,0,0))
+		if(GetMessage(&msg,0,0,0)!=WM_QUIT)
 		{
-			if(msg.message==WM_QUIT)
-				break;
-
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
@@ -4220,7 +4225,7 @@ bool InitSplitter()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput)
+bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
 {
 	if(iPath=="none")
 		iPath=EngineIDE::instance->folderProject;
@@ -4241,7 +4246,7 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 
 		sa.nLength = sizeof(SECURITY_ATTRIBUTES);
 		sa.lpSecurityDescriptor = 0;
-		sa.bInheritHandle = true;
+		sa.bInheritHandle = !iNewConsole;
 
 		tFileOutput = CreateFile(iOutputFile.Buffer(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
@@ -4258,7 +4263,7 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 
 	String tCommandLine="cmd.exe /V /C " + iCmdLine;
 
-	if(!CreateProcess(0,(char*)tCommandLine.Buffer(),0,0,true,0,0,0,&si,&pi))
+	if(!CreateProcess(0,(char*)tCommandLine.Buffer(),0,0,!iNewConsole,0,0,0,&si,&pi))
 		return false;
 
 	WaitForSingleObject( pi.hProcess, INFINITE );
@@ -4498,9 +4503,9 @@ bool CompilerWin32::Compile(Script* iScript)
 
 		for(int i=0;i<tNumberOfLines;i++)
 		{
-			fscanf((FILE*)tLineAddressesOutput.data,"%s",c);
-			fscanf((FILE*)tLineAddressesOutput.data,"%u",&line);
-			fscanf((FILE*)tLineAddressesOutput.data,"%s",&c);
+			fscanf(tLineAddressesOutput.data,"%s",c);
+			fscanf(tLineAddressesOutput.data,"%u",&line);
+			fscanf(tLineAddressesOutput.data,"%s",&c);
 
 			if(i>7)//skip source exports
 			{
@@ -4653,7 +4658,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 }
 
 
-void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources)
+void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources)
 {
 	//store current dir
 
@@ -4686,14 +4691,14 @@ void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& i
 
             if(tDataFile.Open())
             {
-                tDataFileStart=ftell((FILE*)iPackFile.data);
+                tDataFileStart=ftell(iPackFile.data);
 
                 if(tDataFileSize)
                 {
-                    size_t tWriteResult=fwrite(&tDataFile.data,1,tDataFileSize,iPackFile.data);
-
-                    if(tWriteResult!=tDataFileSize)
-                        DEBUG_BREAK();
+                    unsigned char* tDataFileData=new unsigned char[tDataFileSize];
+                    fread(tDataFileData,tDataFileSize,1,tDataFile.data);
+                    fwrite(tDataFileData,tDataFileSize,1,iPackFile.data);
+                    SAFEDELETEARRAY(tDataFileData);
                 }
 
                 tDataFile.Close();
@@ -4712,7 +4717,7 @@ void gPackResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& i
 	}
 
 	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
-		gPackResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
+		gPackNonScriptResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
 }
 
 
@@ -4790,7 +4795,7 @@ bool CompilerWin32::CreateAndroidTarget()
 	{
 		//pack non-sources resources
 
-		gPackResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSources);
+		gPackNonScriptResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSources);
 
 		//build sources
 
@@ -4863,10 +4868,6 @@ bool CompilerWin32::CreateAndroidTarget()
 
         //pack source libs
 
-        int		tDataFileStart;
-		size_t	tDataFileSize;
-
-
         for(std::vector<String>::iterator si=tSources.begin();si!=tSources.end();si++)
         {
             FilePath    tSource(*si);
@@ -4874,18 +4875,21 @@ bool CompilerWin32::CreateAndroidTarget()
             File        tLibFullFilePath=tAndroidProjectLibsDirectory + "\\" + tLibFileName;
             String	    tFinalFileName=&(*si).Buffer()[EngineIDE::instance->folderProject.Count()] + tLibFileName;
 
+            unsigned int	tDataFileStart;
+            unsigned int	tDataFileSize;
+
             tDataFileSize=tLibFullFilePath.Size();
 
             if(tLibFullFilePath.Open())
             {
-                tDataFileStart=ftell((FILE*)tPackFile.data);
+                tDataFileStart=ftell(tPackFile.data);
 
                 if(tDataFileSize)
                 {
-                    size_t tWriteResult=fwrite(&tLibFullFilePath.data,1,tDataFileSize,(FILE*)tPackFile.data);
-
-                    if(tWriteResult!=tDataFileSize)
-                        DEBUG_BREAK();
+                    unsigned char* tDataFileData=new unsigned char[tDataFileSize];
+                    fread(tDataFileData,tDataFileSize,1,tLibFullFilePath.data);
+                    fwrite(tDataFileData,tDataFileSize,1,tPackFile.data);
+                    SAFEDELETEARRAY(tDataFileData);
                 }
 
                 tLibFullFilePath.Close();
@@ -4913,18 +4917,26 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	if(tAssetFile.IsOpen() && tPackFile.IsOpen() && tTableFile.IsOpen())
 	{
-		fwrite(&tTableFileSize,sizeof(int),1,(FILE*)tAssetFile.data);
-		fwrite(&tPackFileSize,sizeof(int),1,(FILE*)tAssetFile.data);
-		fwrite(&tTableFile.data,tTableFileSize,1,(FILE*)tAssetFile.data);
-		fwrite(&tPackFile.data,tPackFileSize,1,(FILE*)tAssetFile.data);
+		fwrite(&tTableFileSize,sizeof(int),1,tAssetFile.data);
+		fwrite(&tPackFileSize,sizeof(int),1,tAssetFile.data);
+
+        unsigned char* tTableData=new unsigned char[tTableFileSize];
+        fread(tTableData,tTableFileSize,1,tTableFile.data);
+		fwrite(tTableData,tTableFileSize,1,tAssetFile.data);
+		SAFEDELETEARRAY(tTableData);
+
+        unsigned char* tPackData=new unsigned char[tPackFileSize];
+		fread(tPackData,tPackFileSize,1,tPackFile.data);
+		fwrite(tPackData,tPackFileSize,1,tAssetFile.data);
+        SAFEDELETEARRAY(tPackData);
 
 		tAssetFile.Close();
 		tPackFile.Close();
 		tTableFile.Close();
 	}
 
-	File::Delete(tPackFile.path.Buffer());
-	File::Delete(tTableFile.path.Buffer());
+	//File::Delete(tPackFile.path.Buffer());
+	//File::Delete(tTableFile.path.Buffer());
 
 	//paths in the apk must have the / separator otherwise LoadLibrary will not find the native so lib
     //aapt add will register all file path, so call from current dir to avoid full path recording
@@ -5137,6 +5149,8 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
+LONG WINAPI (*SystemUnhandledException)(LPEXCEPTION_POINTERS exceptionInfo)=0;
+
 LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 {
 	DebuggerWin32* debuggerWin32=(DebuggerWin32*)EngineIDEWin32::instance->debugger;
@@ -5234,13 +5248,17 @@ DebuggerWin32::DebuggerWin32()
 {
 	this->threadContext=new CONTEXT;
 
-	SetUnhandledExceptionFilter(UnhandledException);
+	SystemUnhandledException=SetUnhandledExceptionFilter(UnhandledException);
 
 	this->debuggeeThread=CreateThread(0,0,debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
 
 	printf("Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
+}
 
-
+DebuggerWin32::~DebuggerWin32()
+{
+    SetUnhandledExceptionFilter(SystemUnhandledException);
+    SAFEDELETE(this->threadContext);
 }
 
 void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex)
