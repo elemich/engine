@@ -10,7 +10,7 @@
 		<Option virtualFolders="Android\;Common\;Win32\;" />
 		<Build>
 			<Target title="x86d">
-				<Option output="./build/win32/x86/debug/engineMingW" prefix_auto="1" extension_auto="1" />
+				<Option output="./build/win32/x86/debug/engineMingW.exe" prefix_auto="0" extension_auto="0" />
 				<Option object_output="/build/win32/x86/debug/MINGW" />
 				<Option deps_output="/" />
 				<Option type="0" />

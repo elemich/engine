@@ -114,7 +114,20 @@ struct DLLBUILD Shader : TPoolVector<Shader>
 	Shader();
 };
 
-
+namespace Serialization
+{
+	const unsigned char Root=0;
+	const unsigned char Skeleton=1;
+	const unsigned char Animation=2;
+	const unsigned char Gizmo=3;
+	const unsigned char AnimationController=4;
+	const unsigned char Bone=5;
+	const unsigned char Light=6;
+	const unsigned char Mesh=7;
+	const unsigned char Script=8;
+	const unsigned char Camera=9;
+	const unsigned char Unknown=10;
+};
 
 enum EEntity
 {

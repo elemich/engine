@@ -36,27 +36,18 @@ ResourceNodeDir::ResourceNodeDir():
 ResourceNodeDir::~ResourceNodeDir()
 {
     for(std::list<ResourceNode*>::iterator nCh=this->files.begin();nCh!=this->files.end();nCh++)
-		SAFEDELETE(*nCh);
+	{
+		ResourceNode* tResNode=*nCh;
+
+		SAFEDELETE(tResNode);
+	}
 
     for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
     {
         ResourceNodeDir* tResNodeDir=*nCh;
 
-        tResNodeDir->~ResourceNodeDir();
+        SAFEDELETE(tResNodeDir);
     }
-
-
-
-
-	if(this->parent)
-	{
-		ResourceNodeDir* tParent=(ResourceNodeDir*)this->parent;
-
-		if(this->isDir)
-			tParent->dirs.erase(std::find(tParent->dirs.begin(),tParent->dirs.end(),this));
-		else
-			tParent->files.erase(std::find(tParent->files.begin(),tParent->files.end(),this));
-	}
 
 	SAFESTLDEST(dirs);
 	SAFESTLDEST(files);
@@ -149,10 +140,6 @@ void* Resource::Load(String iResourceName)
         fscanf(resourceData,"%s",tFilePath);
         fscanf(resourceData,"%u",&tFileStart);
         fscanf(resourceData,"%u",&tFileSize);
-
-        printf("found file %s\n",tFilePath);
-        printf("found file start %u\n",tFileStart);
-        printf("found file size %u\n",tFileSize);
 
         if(iResourceName==String(tFilePath))
         {
@@ -1181,8 +1168,69 @@ TextureProcedural::TextureProcedural(){}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+Entity* loadEntityRecursively(Entity* iEditorEntityParent,FILE* iFile)
+{
+	int nameCount;
+	int componentsSize;
+	int childsSize;
+	unsigned char componentCode;
 
+	Entity* tEntity=new Entity;
 
+	tEntity->SetParent(iEditorEntityParent);
+
+	fread(&childsSize,sizeof(sizeof(int)),1,iFile);//4
+
+	fread(tEntity->local,sizeof(sizeof(float)),16,iFile);//64
+	fread(tEntity->world,sizeof(sizeof(float)),16,iFile);//64
+
+	fread(&nameCount,sizeof(int),1,iFile);//4
+
+	{
+		char *tNameBuf=new char[nameCount+1];
+		fread(tNameBuf,nameCount,1,iFile);//variadic
+		tNameBuf[nameCount]='\0';
+
+		tEntity->name=tNameBuf;
+
+		SAFEDELETEARRAY(tNameBuf);
+	}
+
+	fread(tEntity->bbox.a,sizeof(sizeof(float)),3,iFile);//12
+	fread(tEntity->bbox.b,sizeof(sizeof(float)),3,iFile);//12
+
+	fread(&componentsSize,sizeof(int),1,iFile);//4
+
+	for(int i=0;i<componentsSize;i++)
+	{
+		fread(&componentCode,sizeof(unsigned char),1,iFile);//1
+
+		if(componentCode==Serialization::Script)
+		{
+			Script* tScript=tEntity->CreateComponent<Script>();
+
+			fread(&nameCount,sizeof(int),1,iFile);//4
+
+			{
+				char *tNameBuf=new char[nameCount+1];
+				fread(tNameBuf,nameCount,1,iFile);//variadic
+				tNameBuf[nameCount]='\0';
+
+				tScript->script.path=tNameBuf;
+
+				SAFEDELETEARRAY(tNameBuf);
+			}
+		}
+	}
+
+	if(childsSize)
+	{
+		for(int i=0;i<childsSize;i++)
+			loadEntityRecursively(tEntity,iFile);
+	}
+
+	return tEntity;
+}
 
 EntityScript::EntityScript():entity(0){}
 

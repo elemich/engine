@@ -1,93 +1,92 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\win32.cpp">
-      <Filter>win32</Filter>
-    </ClCompile>
-    <ClCompile Include="src\imgjpg.cpp">
-      <Filter>img</Filter>
-    </ClCompile>
-    <ClCompile Include="src\imgpng.cpp">
-      <Filter>img</Filter>
-    </ClCompile>
-    <ClCompile Include="src\imgtga.cpp">
-      <Filter>img</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fbxutil_fbx.cpp">
-      <Filter>importers</Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{ebef4071-7a9b-4075-9f2c-050673031288}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Android">
+      <UniqueIdentifier>{a70132d0-a52b-452f-91cc-421d934c4eb2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Win32">
+      <UniqueIdentifier>{e87e9899-61f2-4f14-bb02-b3bd0e7a8cdb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\entities.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="src\fbxutil.cpp">
-      <Filter>importers</Filter>
+      <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="src\entities.cpp" />
-    <ClCompile Include="src\interfaces.cpp" />
-    <ClCompile Include="src\primitives.cpp" />
-    <ClCompile Include="src\shaders.cpp" />
-    <ClCompile Include="src\targets\android\android.cpp">
-      <Filter>targets\android</Filter>
+    <ClCompile Include="src\fbxutil_fbx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgjpg.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgpng.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\imgtga.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\interfaces.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp">
-      <Filter>win32</Filter>
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\primitives.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shaders.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\android.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32.cpp">
+      <Filter>Win32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\win32.h">
-      <Filter>win32</Filter>
-    </ClInclude>
-    <ClInclude Include="src\imgjpg.h">
-      <Filter>img</Filter>
-    </ClInclude>
-    <ClInclude Include="src\imgpng.h">
-      <Filter>img</Filter>
-    </ClInclude>
-    <ClInclude Include="src\imgtga.h">
-      <Filter>img</Filter>
+    <ClInclude Include="src\entities.h">
+      <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="src\fbxutil.h">
-      <Filter>importers</Filter>
+      <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="src\entities.h" />
-    <ClInclude Include="src\interfaces.h" />
-    <ClInclude Include="src\primitives.h" />
-    <ClInclude Include="src\targets\android\android.h">
-      <Filter>targets\android</Filter>
+    <ClInclude Include="src\imgjpg.h">
+      <Filter>Common</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="win32">
-      <UniqueIdentifier>{5aba703e-82ba-43ca-bf63-a319167ebb4e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="importers">
-      <UniqueIdentifier>{47efae74-b238-4d58-bb97-898567eaccca}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="img">
-      <UniqueIdentifier>{7c99c0b9-51a3-4ab8-b753-6aa3fe71e4da}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="script">
-      <UniqueIdentifier>{47bfe5ee-cce4-400e-85da-56873ae51ebb}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="targets">
-      <UniqueIdentifier>{057c520b-2e1a-4762-84a3-fd874ed1a3c5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="targets\android">
-      <UniqueIdentifier>{539a1394-8550-49da-ab39-45adce76a967}</UniqueIdentifier>
-    </Filter>
+    <ClInclude Include="src\imgpng.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\imgtga.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\interfaces.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\primitives.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\android.h">
+      <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java">
-      <Filter>targets\android</Filter>
+      <Filter>Android</Filter>
     </None>
     <None Include="src\targets\android\src\com\android\Engine\EngineLib.java">
-      <Filter>targets\android</Filter>
+      <Filter>Android</Filter>
     </None>
     <None Include="src\targets\android\src\com\android\Engine\EngineView.java">
-      <Filter>targets\android</Filter>
-    </None>
-    <None Include="src\targets\android\jni\Android.mk">
-      <Filter>targets\android</Filter>
-    </None>
-    <None Include="src\targets\android\jni\Application.mk">
-      <Filter>targets\android</Filter>
+      <Filter>Android</Filter>
     </None>
   </ItemGroup>
 </Project>

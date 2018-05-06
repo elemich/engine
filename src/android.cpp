@@ -133,6 +133,8 @@ bool JniInit()
 
             if(resourceData)
             {
+                printf("Resource: loading asset\n");
+
                 fread(&resourceTableSize,sizeof(int),1,resourceData);
                 fread(&resourceDataSize,sizeof(int),1,resourceData);
 
@@ -141,25 +143,29 @@ bool JniInit()
                 resourceDataStart=resourceTableEnd;
                 resourceDataEnd=resourceDataStart + resourceDataSize;
 
-                printf("Resources tableStart: %d\n",resourceTableStart);
-                printf("Resources tableEnd: %d\n",resourceTableEnd);
-                printf("Resources dataStart: %d\n",resourceDataStart);
-                printf("Resources dataEnd: %d\n",resourceDataEnd);
-
-                printf("Resource sizes (table,data):(%d,%d)\n",resourceTableSize,resourceDataSize);
+                printf("Resource: asset table size is %d\n",resourceTableSize);
+                printf("Resource: asset data size is %d\n",resourceDataSize);
 
                 {
                     const char* tResource="\\pippo\\1.txt";
+                    const char* tResource2="\\pippo\\peppo\\2.txt";
 
                     char* tBuffer=(char*)Resource::Load(tResource);
+                    char* tBuffer2=(char*)Resource::Load(tResource2);
 
-                    if(tBuffer)
+                    if(tBuffer && tBuffer2)
                     {
-                        printf("resource %s found: %s\n",tResource,tBuffer);
+                        printf("resource %s %s found\n",tResource,tResource2);
+
+                        printf("result %s %s \n",tBuffer,tBuffer2);
+
                         SAFEDELETE(tBuffer);
+                        SAFEDELETE(tBuffer2);
                     }
                     else
                         printf("resource %s not found\n",tResource);
+
+
                 }
             }
             else

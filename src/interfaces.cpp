@@ -2597,7 +2597,6 @@ void GuiSceneViewer::Save(const char* iFilename)
 
 void GuiSceneViewer::Load(const char* iFilename)
 {
-
 	FILE* file=fopen(iFilename,"rb");
 	if(!file)
 		return;
@@ -2789,8 +2788,7 @@ void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 {
 	if(!this->active)
 	{
-		EngineIDE::instance->ScanDir(this->projectDirectory->fileName);
-		EngineIDE::instance->CreateNodes(this->projectDirectory->fileName,this->projectDirectory);
+		EngineIDE::instance->ScanDir(this->projectDirectory->fileName,this->projectDirectory);
 
 		this->dirViewer.CalcNodesHeight(this->projectDirectory);
 		this->fileViewer.CalcNodesHeight(this->projectDirectory);
@@ -3299,16 +3297,24 @@ void GuiProjectViewer::GuiProjectFileViewer::OnRMouseUp(Tab* tabContainer,void* 
 			{
 				ResourceNodeDir* parentDirectory=(ResourceNodeDir*)tHoveredResourceNode->parent;
 
-				if(tHoveredResourceNode->isDir)
-					parentDirectory->dirs.remove((ResourceNodeDir*)tHoveredResourceNode);
-				else
-					parentDirectory->files.remove(tHoveredResourceNode);
-
 				String tFileNameBase=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
-				String tFileNameBaseExtended=tFileNameBase + EngineIDE::instance->GetEntityExtension();
+                String tFileNameBaseExtended=tFileNameBase + EngineIDE::instance->GetEntityExtension();
 
-				File::Delete(tFileNameBase.Buffer());
-				File::Delete(tFileNameBaseExtended.Buffer());
+				//first remove from the list
+
+				if(tHoveredResourceNode->isDir)
+                {
+                    parentDirectory->dirs.remove((ResourceNodeDir*)tHoveredResourceNode);
+
+                    EngineIDE::instance->subsystem->Execute(parentDirectory->fileName.Buffer(),"rd /S /Q " + tHoveredResourceNode->fileName);
+                }
+				else
+                {
+                    parentDirectory->files.remove(tHoveredResourceNode);
+
+                    File::Delete(tFileNameBase.Buffer());
+                    File::Delete(tFileNameBaseExtended.Buffer());
+                }
 
 				SAFEDELETE(tHoveredResourceNode);
 			}

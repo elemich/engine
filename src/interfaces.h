@@ -139,8 +139,7 @@ struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
 	virtual void Deinitialize()=0;
 	virtual void Run()=0;
 
-	virtual void CreateNodes(String,ResourceNodeDir*)=0;
-	virtual void ScanDir(String)=0;
+	virtual void ScanDir(String,ResourceNodeDir*)=0;
 
 	const char* GetSceneExtension();
 	const char* GetEntityExtension();
@@ -1332,21 +1331,6 @@ struct DLLBUILD EditorSkin : EditorObject<Skin>
 	void OnPropertiesUpdate(Tab*);
 };
 
-
-namespace Serialization
-{
-	const unsigned char Root=0;
-	const unsigned char Skeleton=1;
-	const unsigned char Animation=2;
-	const unsigned char Gizmo=3;
-	const unsigned char AnimationController=4;
-	const unsigned char Bone=5;
-	const unsigned char Light=6;
-	const unsigned char Mesh=7;
-	const unsigned char Script=8;
-	const unsigned char Camera=9;
-	const unsigned char Unknown=10;
-};
 
 
 

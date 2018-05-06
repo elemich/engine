@@ -1384,7 +1384,7 @@ void EngineIDEWin32::Deinitialize()
 	CoUninitialize();
 }
 
-void EngineIDEWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
+void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 {
 	HANDLE handle;
 	WIN32_FIND_DATA data;
@@ -1393,8 +1393,6 @@ void EngineIDEWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 	scanDir+="\\*";
 
 	handle=FindFirstFile(scanDir.Buffer(),&data); //. dir
-
-	//printf("GuiProjectViewer::CreateNodes(%s)\n",scanDir);
 
 	if(!handle || INVALID_HANDLE_VALUE == handle)
 	{
@@ -1406,104 +1404,56 @@ void EngineIDEWin32::CreateNodes(String dir,ResourceNodeDir* iParent)
 
 	int tEngineExtensionCharSize=strlen(EngineIDE::instance->GetEntityExtension());
 
-	while(FindNextFile(handle,&data))
-	{
-		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
-			continue;
+	FILE* tFile;
 
-		if(strstr(data.cFileName,EngineIDE::instance->GetEntityExtension()))
-		{
-			String tEngineFile=dir + "\\" + String(data.cFileName);
+	bool selectedLeft;
+	bool selectedRight;
+	bool isDir;
+	bool expanded;
 
-			bool selectedLeft;
-			bool selectedRight;
-			bool isDir;
-			bool expanded;
+	const unsigned char _true=1;
+	const unsigned char _false=0;
 
-			{
-				FILE* f=fopen(tEngineFile.Buffer(),"r");
+	bool tCreateNode;
 
-				if(f)
-				{
-					fread(&selectedLeft,1,1,f);
-					fread(&selectedRight,1,1,f);
-					fread(&isDir,1,1,f);
-					fread(&expanded,1,1,f);
-
-					fclose(f);
-				}
-			}
-
-			std::string tOriginalFileName(data.cFileName,&data.cFileName[strlen(data.cFileName)-tEngineExtensionCharSize]);
-
-			if(isDir)
-			{
-				ResourceNodeDir* dirNode=new ResourceNodeDir;
-
-				iParent->dirs.push_back(dirNode);
-				dirNode->parent=iParent;
-				dirNode->fileName=tOriginalFileName.c_str();
-				dirNode->level = iParent ? iParent->level+1 : 0;
-				dirNode->selectedLeft=selectedLeft;
-				dirNode->selectedRight=selectedRight;
-				dirNode->expanded=expanded;
-				dirNode->isDir=isDir;
-
-				this->CreateNodes(dir + "\\" + dirNode->fileName,dirNode);
-			}
-			else
-			{
-				ResourceNode* fileNode=new ResourceNode;
-
-				iParent->files.push_back(fileNode);
-				fileNode->parent=iParent;
-				fileNode->fileName=tOriginalFileName.c_str();
-				fileNode->level = iParent ? iParent->level+1 : 0;
-				fileNode->selectedLeft=selectedLeft;
-				fileNode->selectedRight=selectedRight;
-				fileNode->isDir=isDir;
-			}
-		}
-	}
-
-	FindClose(handle);
-	handle=0;
-}
-
-void EngineIDEWin32::ScanDir(String dir)
-{
-	HANDLE handle;
-	WIN32_FIND_DATA data;
-
-	String scanDir=dir;
-	scanDir+="\\*";
-
-	handle=FindFirstFile(scanDir.Buffer(),&data); //. dir
-
-	//printf("GuiProjectViewer::ScanDir(%s)\n",scanDir);
-
-	if(!handle || INVALID_HANDLE_VALUE == handle)
-	{
-		DEBUG_BREAK();
-		return;
-	}
-	else
-		FindNextFile(handle,&data);
+	String tCreateNodeFilename;
 
 	while(FindNextFile(handle,&data))
 	{
 		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
+		tCreateNode=false;
+
 		if(strstr(data.cFileName,EngineIDE::instance->GetEntityExtension()))
 		{
-			String s = dir + "\\" + String(data.cFileName);
+			//if filename not exists delete it
 
-			if(!PathFileExists(s.Buffer()))
+			String tOriginalFullFileName=dir + "\\" + String(data.cFileName,strlen(data.cFileName)-tEngineExtensionCharSize);
+			String tEngineFileName=dir + "\\" + String(data.cFileName);
+
+			DWORD tAttr=GetFileAttributes(tOriginalFullFileName.Buffer());
+
+			if(tAttr == INVALID_FILE_ATTRIBUTES)
 			{
-				//delete .engine file
+				File::Delete(tEngineFileName.Buffer());
 				continue;
 			}
+
+			tFile=fopen(tEngineFileName.Buffer(),"r");
+
+			if(tFile)
+			{
+				fread(&selectedLeft,1,1,tFile);
+				fread(&selectedRight,1,1,tFile);
+				fread(&isDir,1,1,tFile);
+				fread(&expanded,1,1,tFile);
+
+				fclose(tFile);
+			}
+
+			tCreateNode=true;
+			tCreateNodeFilename=String(data.cFileName,strlen(data.cFileName)-tEngineExtensionCharSize);
 		}
 		else
 		{
@@ -1511,27 +1461,58 @@ void EngineIDEWin32::ScanDir(String dir)
 
 			if(!PathFileExists(engineFile.Buffer()))
 			{
-				FILE* f=fopen(engineFile.Buffer(),"w");
+				selectedLeft=false;
+				selectedRight=false;
+				isDir=(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
+				expanded=false;
 
-				if(f)
+				tFile=fopen(engineFile.Buffer(),"w");
+
+				if(tFile)
 				{
-					unsigned char _true=1;
-					unsigned char _false=0;
-
-					fwrite(&_false,1,1,f);//selectedLeft
-					fwrite(&_false,1,1,f);//selectedRight
-					fwrite((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)? &_true : &_false,1,1,f);//isDir
-					fwrite(&_false,1,1,f);//expanded
-					fclose(f);
-
-					DWORD fileAttribute=GetFileAttributes(engineFile.Buffer());
-					SetFileAttributes(engineFile.Buffer(),FILE_ATTRIBUTE_HIDDEN|fileAttribute);
-
-
-					if(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-						this->ScanDir(dir +"\\"+data.cFileName);
-
+					fwrite(&_false,1,1,tFile);//selectedLeft
+					fwrite(&_false,1,1,tFile);//selectedRight
+					fwrite(isDir? &_true : &_false,1,1,tFile);//isDir
+					fwrite(&_false,1,1,tFile);//expanded
+					fclose(tFile);
 				}
+
+				DWORD fileAttribute=GetFileAttributes(engineFile.Buffer());
+				SetFileAttributes(engineFile.Buffer(),FILE_ATTRIBUTE_HIDDEN|fileAttribute);
+
+				tCreateNode=true;
+				tCreateNodeFilename=data.cFileName;
+			}
+		}
+
+		if(tCreateNode)
+		{
+			if(isDir)
+			{
+				ResourceNodeDir* dirNode=new ResourceNodeDir;
+
+				iParent->dirs.push_back(dirNode);
+				dirNode->parent=iParent;
+				dirNode->fileName=tCreateNodeFilename;
+				dirNode->level = iParent ? iParent->level+1 : 0;
+				dirNode->selectedLeft=selectedLeft;
+				dirNode->selectedRight=selectedRight;
+				dirNode->expanded=expanded;
+				dirNode->isDir=isDir;
+
+				this->ScanDir(dir +"\\"+ tCreateNodeFilename,dirNode);
+			}
+			else
+			{
+				ResourceNode* fileNode=new ResourceNode;
+
+				iParent->files.push_back(fileNode);
+				fileNode->parent=iParent;
+				fileNode->fileName=tCreateNodeFilename;
+				fileNode->level = iParent ? iParent->level+1 : 0;
+				fileNode->selectedLeft=selectedLeft;
+				fileNode->selectedRight=selectedRight;
+				fileNode->isDir=isDir;
 			}
 		}
 	}

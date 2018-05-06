@@ -26,6 +26,36 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\android.cpp" />
+    <ClCompile Include="src\entities.cpp" />
+    <ClCompile Include="src\fbxutil.cpp" />
+    <ClCompile Include="src\fbxutil_fbx.cpp" />
+    <ClCompile Include="src\imgjpg.cpp" />
+    <ClCompile Include="src\imgpng.cpp" />
+    <ClCompile Include="src\imgtga.cpp" />
+    <ClCompile Include="src\interfaces.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\primitives.cpp" />
+    <ClCompile Include="src\shaders.cpp" />
+    <ClCompile Include="src\win32.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\android.h" />
+    <ClInclude Include="src\entities.h" />
+    <ClInclude Include="src\fbxutil.h" />
+    <ClInclude Include="src\imgjpg.h" />
+    <ClInclude Include="src\imgpng.h" />
+    <ClInclude Include="src\imgtga.h" />
+    <ClInclude Include="src\interfaces.h" />
+    <ClInclude Include="src\primitives.h" />
+    <ClInclude Include="src\win32.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
+    <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />
+    <None Include="src\targets\android\src\com\android\Engine\EngineView.java" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{723F1E61-5F13-4596-9185-160E49DA5BFC}</ProjectGuid>
     <RootNamespace>Engine</RootNamespace>
@@ -290,38 +320,6 @@ copy "$(MSBuildProjectDirectory)\$(IntermediateOutputPath)\*.obj" "$(MSBuildProj
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="src\entities.cpp" />
-    <ClCompile Include="src\fbxutil.cpp" />
-    <ClCompile Include="src\fbxutil_fbx.cpp" />
-    <ClCompile Include="src\imgjpg.cpp" />
-    <ClCompile Include="src\interfaces.cpp" />
-    <ClCompile Include="src\imgpng.cpp" />
-    <ClCompile Include="src\imgtga.cpp" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\primitives.cpp" />
-    <ClCompile Include="src\shaders.cpp" />
-    <ClCompile Include="src\targets\android\android.cpp" />
-    <ClCompile Include="src\win32.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\entities.h" />
-    <ClInclude Include="src\fbxutil.h" />
-    <ClInclude Include="src\imgjpg.h" />
-    <ClInclude Include="src\imgpng.h" />
-    <ClInclude Include="src\imgtga.h" />
-    <ClInclude Include="src\interfaces.h" />
-    <ClInclude Include="src\primitives.h" />
-    <ClInclude Include="src\targets\android\android.h" />
-    <ClInclude Include="src\win32.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="src\targets\android\jni\Android.mk" />
-    <None Include="src\targets\android\jni\Application.mk" />
-    <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
-    <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />
-    <None Include="src\targets\android\src\com\android\Engine\EngineView.java" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

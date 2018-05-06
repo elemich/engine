@@ -409,8 +409,7 @@ struct DLLBUILD EngineIDEWin32 : EngineIDE
 
 	void Run();
 
-	void CreateNodes(String,ResourceNodeDir*);
-	void ScanDir(String);
+	void ScanDir(String,ResourceNodeDir*);
 	void Sleep(int iMilliseconds=1);
 };
 
