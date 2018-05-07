@@ -364,6 +364,7 @@ struct DLLBUILD ShaderOpenGL : Shader
 	int GetNormalSlot();
 	int GetMouseSlot();
 	int GetHoveringSlot();
+	int GetPointSize();
 
 	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
 

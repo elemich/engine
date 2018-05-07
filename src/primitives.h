@@ -60,6 +60,14 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring> //for g++ str* functions
+#include <cstdio>
+
+#ifdef __ANDROID__
+	#include <dlfcn.h>
+	#include <android/log.h>
+	#define  LOG_TAG    "Engine"
+	#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#endif
 
 struct DLLBUILD  mat2;
 struct DLLBUILD  mat3;

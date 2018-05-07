@@ -52,11 +52,11 @@ imgtga.o: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
 	$(info imgtga.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
 
-interfaces.o: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
+interfaces.o: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h $(DIRSRC)\shaders.cpp
 	$(info interfaces.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
 
-win32.o: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
+win32.o: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h $(DIRSRC)\shaders.cpp
 	$(info win32.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
 

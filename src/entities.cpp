@@ -53,11 +53,99 @@ ResourceNodeDir::~ResourceNodeDir()
 	SAFESTLDEST(files);
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////Resource load functions////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
-Scene* gLoadScene()
+Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<EntityComponent*>& iComponents)
 {
+	int nameCount;
+	int componentsSize;
+	int childsSize;
+	unsigned char componentCode;
 
+	Entity* tEntity=new Entity;
+
+	tEntity->SetParent(iEntityParent);
+
+	printf("-------creating new entity-------\n");
+
+	fread(&childsSize,sizeof(int),1,iFile);//4
+
+	printf("childsize %d\n",childsSize);
+
+	fread(tEntity->local,sizeof(float),16,iFile);//64
+	fread(tEntity->world,sizeof(float),16,iFile);//64
+
+	printf("local,world matrices\n");
+
+	fread(&nameCount,sizeof(int),1,iFile);//4
+
+	printf("name count %d\n",nameCount);
+
+	{
+		char *tNameBuf=new char[nameCount+1];
+		fread(tNameBuf,nameCount,1,iFile);//variadic
+		tNameBuf[nameCount]='\0';
+
+		tEntity->name=tNameBuf;
+
+		SAFEDELETEARRAY(tNameBuf);
+	}
+
+	printf("name: %s\n",tEntity->name.Buffer());
+
+	fread(tEntity->bbox.a,sizeof(float),3,iFile);//12
+	fread(tEntity->bbox.b,sizeof(float),3,iFile);//12
+
+	printf("bounding box\n");
+
+	fread(&componentsSize,sizeof(int),1,iFile);//4
+
+	printf("componentsSize %d\n",componentsSize);
+
+	for(int i=0;i<componentsSize;i++)
+	{
+		fread(&componentCode,sizeof(unsigned char),1,iFile);//1
+
+		printf("componentsCode %d\n",componentCode);
+
+		if(componentCode==Serialization::Script)
+		{
+			Script* tScript=tEntity->CreateComponent<Script>();
+
+			fread(&nameCount,sizeof(int),1,iFile);//4
+
+			{
+				char *tNameBuf=new char[nameCount+1];
+				fread(tNameBuf,nameCount,1,iFile);//variadic
+				tNameBuf[nameCount]='\0';
+
+				tScript->script.path=tNameBuf;
+
+				SAFEDELETEARRAY(tNameBuf);
+			}
+
+			printf("componentName %s\n",tScript->script.path.Buffer());
+
+			iComponents.push_back(tScript);
+		}
+	}
+
+	if(childsSize)
+	{
+		for(int i=0;i<childsSize;i++)
+			loadEntityRecursively(tEntity,iFile,iComponents);
+	}
+	else
+		printf("---loadEntityRecursively end---\n");
+
+	return tEntity;
 }
+
+
 
 #ifdef EDITORBUILD
 
@@ -96,7 +184,7 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 	return "";
 }
 
-void* Resource::Load(String iResourceName)
+void* Resource::Load(FilePath iResourceName)
 {
     String tRootTrailingSlashes("\\");
 
@@ -125,7 +213,79 @@ unsigned int resourceTableEnd=0;
 unsigned int resourceDataStart=0;
 unsigned int resourceDataEnd=0;
 
-void* Resource::Load(String iResourceName)
+
+Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
+{
+	Scene* tScene=new Scene;
+	std::vector<EntityComponent*> tComponents;
+
+	//assign the file name to the scene name
+	tScene->name=iSceneResource.Name();
+
+	printf("loading scene %s\n",tScene->name.Buffer());
+
+	//barely load entities and components
+	if(!(tScene->entityRoot=loadEntityRecursively(tScene->entityRoot,resourceData,tComponents)))
+		printf("error loading scene %s\n",tScene->name.Buffer());
+	else
+		printf("approaching to load %d component(s)\n",tComponents.size());
+
+	//eventually load needed resources
+	int tComponentIdx=0;
+	for(std::vector<EntityComponent*>::iterator tLoadedComponent=tComponents.begin();tLoadedComponent<tComponents.end();tLoadedComponent++,tComponentIdx++)
+	{
+		EntityComponent* tComponent=*tLoadedComponent;
+
+		if(tComponent->is<Script>())
+		{
+			Script* tScript=dynamic_cast<Script*>(tComponent);
+
+			printf("component %d is a script\n",tComponentIdx);
+
+			if(tScript)
+			{
+				String tLibFile="lib" + tScript->script.path.Name() + ".so";
+
+				printf("loading script %s\n",tLibFile.Buffer());
+
+				void *libhandle = dlopen(tLibFile.Buffer(), RTLD_LAZY);
+
+				if(libhandle)
+				{
+					printf("approaching to load create script class\n");
+
+					EntityScript* (*tCreateFunction)()=(EntityScript* (*)())dlsym(libhandle,"Create");
+
+					if(tCreateFunction)
+					{
+						printf("create the %s class\n",tLibFile.Buffer());
+
+						tScript->runtime=tCreateFunction();
+
+						if(tScript->runtime)
+						{
+							tScript->runtime->entity=tScript->entity;
+							printf("init the script class\n");
+							tScript->runtime->init();
+						}
+						else
+							printf("error creating %s class\n",tLibFile.Buffer());
+					}
+					else
+						printf("error loading create script class\n");
+				}
+				else
+					printf("error loading script %s\n",tLibFile.Buffer());
+			}
+			else
+				printf("error getting script pointer from EntityComponent\n");
+		}
+	}
+
+	return tScene;
+}
+
+void* Resource::Load(FilePath iResourceName)
 {
     fseek(resourceData,resourceTableStart,SEEK_SET);
 
@@ -150,12 +310,19 @@ void* Resource::Load(String iResourceName)
 
     if(tFileFound)
     {
-        fseek(resourceData,resourceDataStart+tFileStart,SEEK_SET);
+		fseek(resourceData,resourceDataStart+tFileStart,SEEK_SET);
 
-        char* rBuffer=new char[tFileSize];
-        fread(rBuffer,tFileSize,1,resourceData);
+		if(iResourceName.Extension()==String("engineScene"))
+		{
+			return LoadScene(iResourceName,resourceData);
+		}
+		else
+		{
+			char* rBuffer=new char[tFileSize];
+			fread(rBuffer,tFileSize,1,resourceData);
 
-        return rBuffer;
+			return rBuffer;
+		}
     }
 
     return 0;
@@ -1164,75 +1331,17 @@ TextureProcedural::TextureProcedural(){}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+////////////////EntityScript///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-Entity* loadEntityRecursively(Entity* iEditorEntityParent,FILE* iFile)
-{
-	int nameCount;
-	int componentsSize;
-	int childsSize;
-	unsigned char componentCode;
-
-	Entity* tEntity=new Entity;
-
-	tEntity->SetParent(iEditorEntityParent);
-
-	fread(&childsSize,sizeof(sizeof(int)),1,iFile);//4
-
-	fread(tEntity->local,sizeof(sizeof(float)),16,iFile);//64
-	fread(tEntity->world,sizeof(sizeof(float)),16,iFile);//64
-
-	fread(&nameCount,sizeof(int),1,iFile);//4
-
-	{
-		char *tNameBuf=new char[nameCount+1];
-		fread(tNameBuf,nameCount,1,iFile);//variadic
-		tNameBuf[nameCount]='\0';
-
-		tEntity->name=tNameBuf;
-
-		SAFEDELETEARRAY(tNameBuf);
-	}
-
-	fread(tEntity->bbox.a,sizeof(sizeof(float)),3,iFile);//12
-	fread(tEntity->bbox.b,sizeof(sizeof(float)),3,iFile);//12
-
-	fread(&componentsSize,sizeof(int),1,iFile);//4
-
-	for(int i=0;i<componentsSize;i++)
-	{
-		fread(&componentCode,sizeof(unsigned char),1,iFile);//1
-
-		if(componentCode==Serialization::Script)
-		{
-			Script* tScript=tEntity->CreateComponent<Script>();
-
-			fread(&nameCount,sizeof(int),1,iFile);//4
-
-			{
-				char *tNameBuf=new char[nameCount+1];
-				fread(tNameBuf,nameCount,1,iFile);//variadic
-				tNameBuf[nameCount]='\0';
-
-				tScript->script.path=tNameBuf;
-
-				SAFEDELETEARRAY(tNameBuf);
-			}
-		}
-	}
-
-	if(childsSize)
-	{
-		for(int i=0;i<childsSize;i++)
-			loadEntityRecursively(tEntity,iFile);
-	}
-
-	return tEntity;
-}
 
 EntityScript::EntityScript():entity(0){}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////////////Entity/////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 Entity::Entity():
 	parent(0),
@@ -1287,3 +1396,11 @@ void Entity::draw(Renderer3DBase* renderer)
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		(*it)->draw(renderer);
 }
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////////Scene/////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+Scene::Scene():entityRoot(0){}

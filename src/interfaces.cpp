@@ -553,7 +553,7 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
             rewind(tFile);
             fseek(tFile,54,SEEK_SET);
 
-            iTexture->m_buf=new int[iTexture->m_bufsize];
+            iTexture->m_buf=new unsigned char[iTexture->m_bufsize];
 
             fread(iTexture->m_buf,1,iTexture->m_bufsize,tFile);
 
@@ -569,7 +569,7 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
             {
                 int ncomp;
 
-                iTexture->m_buf=(void*)jpgd::decompress_jpeg_image_from_file(iFilename.Buffer(),&iTexture->m_width,&iTexture->m_height,&ncomp,4);
+                iTexture->m_buf=jpgd::decompress_jpeg_image_from_file(iFilename.Buffer(),&iTexture->m_width,&iTexture->m_height,&ncomp,4);
 
                 return iTexture->m_buf ? true : false;
             }
@@ -2159,14 +2159,14 @@ void GuiScrollBar::OnPaint(Tab* tabContainer,void* data)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiSceneViewer::GuiSceneViewer():
-entityRoot((EditorEntity*&)scene.entityRoot)
+GuiSceneViewer::GuiSceneViewer():entityRoot((EditorEntity*&)scene.entityRoot)
 {
 	this->entityRoot=new EditorEntity;
 	this->entityRoot->name="SceneRootEntity";
 	this->entityRoot->expanded=true;
 
 	this->name="GuiSceneiewer";
+	this->scene.name="Scene";
 }
 
 GuiSceneViewer::~GuiSceneViewer()
@@ -2482,14 +2482,14 @@ void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 
 	fwrite(&childsSize,sizeof(int),1,iFile);//4
 
-	fwrite(iEntity->local,sizeof(sizeof(float)),16,iFile);//64
-	fwrite(iEntity->world,sizeof(sizeof(float)),16,iFile);//64
+	fwrite(iEntity->local,sizeof(float),16,iFile);//64
+	fwrite(iEntity->world,sizeof(float),16,iFile);//64
 
 	fwrite(&nameCount,sizeof(int),1,iFile);//4
 	fwrite(iEntity->name.Buffer(),iEntity->name.Count(),1,iFile);//variadic
 
-	fwrite(iEntity->bbox.a,sizeof(sizeof(float)),3,iFile);//12
-	fwrite(iEntity->bbox.b,sizeof(sizeof(float)),3,iFile);//12
+	fwrite(iEntity->bbox.a,sizeof(float),3,iFile);//12
+	fwrite(iEntity->bbox.b,sizeof(float),3,iFile);//12
 
 	fwrite(&componentsSize,sizeof(int),1,iFile);//4
 
@@ -2528,10 +2528,10 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 
 	tEditorEntity->SetParent(iEditorEntityParent);
 
-	fread(&childsSize,sizeof(sizeof(int)),1,iFile);//4
+	fread(&childsSize,sizeof(int),1,iFile);//4
 
-	fread(tEditorEntity->local,sizeof(sizeof(float)),16,iFile);//64
-	fread(tEditorEntity->world,sizeof(sizeof(float)),16,iFile);//64
+	fread(tEditorEntity->local,sizeof(float),16,iFile);//64
+	fread(tEditorEntity->world,sizeof(float),16,iFile);//64
 
 	fread(&nameCount,sizeof(int),1,iFile);//4
 
@@ -2545,8 +2545,8 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 		SAFEDELETEARRAY(tNameBuf);
 	}
 
-	fread(tEditorEntity->bbox.a,sizeof(sizeof(float)),3,iFile);//12
-	fread(tEditorEntity->bbox.b,sizeof(sizeof(float)),3,iFile);//12
+	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);//12
+	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);//12
 
 	tEditorEntity->OnResourcesCreate();
 	tEditorEntity->OnPropertiesCreate();

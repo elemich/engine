@@ -1,6 +1,5 @@
 #include "primitives.h"
 
-#include <cstdio>
 #include <cstdlib>
 #include <typeinfo>
 #include <cmath>

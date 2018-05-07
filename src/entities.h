@@ -100,6 +100,7 @@ struct DLLBUILD Shader : TPoolVector<Shader>
 	virtual int GetLightambSlot()=0;
 	virtual int GetNormalSlot()=0;
 	virtual int GetHoveringSlot()=0;
+	virtual int GetPointSize()=0;
 
 	virtual void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm)=0;
 
@@ -261,7 +262,7 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 
 struct DLLBUILD Resource
 {
-	static void* Load(String iResourceName);
+	static void* Load(FilePath iResourceName);
 };
 
 
@@ -294,7 +295,7 @@ struct DLLBUILD File
 
 struct DLLBUILD Texture
 {
-	void*	m_buf;
+	unsigned char*	m_buf;
 	int		m_bufsize;
 	int		m_width;
 	int		m_height;
@@ -727,6 +728,7 @@ struct DLLBUILD Scene
 	Entity* entityRoot;
 	String name;
 
+	Scene();
 };
 
 #endif //__ENTITY_HEADER__

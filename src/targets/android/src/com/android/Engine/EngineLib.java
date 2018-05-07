@@ -26,7 +26,7 @@ public class EngineLib {
      static {
 		 
 		 try{
-         System.loadLibrary("engine");
+         System.loadLibrary("Engine");
 		 
 		 }
 		 catch(UnsatisfiedLinkError ule)

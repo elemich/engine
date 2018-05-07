@@ -1,15 +1,11 @@
 #include "entities.h"
 
 #include <jni.h>
-#include <android/log.h>
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-
-#define  LOG_TAG    "Engine"
-#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 extern "C" {
 	JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env, jobject obj,  jint width, jint height);
@@ -54,6 +50,7 @@ struct ShaderAndroid : Shader
 	int GetNormalSlot();
 	int GetMouseSlot();
 	int GetHoveringSlot();
+	int GetPointSize();
 
 	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
 

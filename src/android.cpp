@@ -1,7 +1,5 @@
 #include "android.h"
 
-#include <dlfcn.h>
-
 void glCheckError();
 void __debugbreak()
 {
@@ -24,6 +22,18 @@ extern unsigned int                 resourceTableStart;
 extern unsigned int                 resourceTableEnd;
 extern unsigned int                 resourceDataStart;
 extern unsigned int                 resourceDataEnd;
+
+Scene* currentScene=0;
+
+int screenWidth=0;
+int screenHeight=0;
+
+mat4 projection;
+mat4 modelview;
+mat4 view;
+
+ShaderAndroid*     shader=0;
+Renderer3DAndroid* renderer3D=0;
 
 int asset_read(void* iFile,char* iBuffer,int iCount)
 {
@@ -186,12 +196,45 @@ bool JniInit()
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobject  obj,  jint width, jint height)
 {
+	screenWidth=width;
+	screenHeight=height;
 
+	shader=new ShaderAndroid;
+	renderer3D=new Renderer3DAndroid;
+	
+	projection.perspective(90,16/9,1,1000);
+	view.move(vec3(100,100,100));
+	view.lookat(vec3(0,0,0),vec3(0,0,1));
+
+	glViewport((int)0,(int)0,screenWidth,screenHeight);glCheckError();
+	glEnable(GL_DEPTH_TEST);
+
+	//load scene
+	currentScene=(Scene*)Resource::Load("\\Scene.engineScene");
 }
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobject obj)
 {
+	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
+	if(currentScene && currentScene->entityRoot)
+		currentScene->entityRoot->update();
+
+	MatrixStack::Push(MatrixStack::PROJECTION,projection);
+	MatrixStack::Push(MatrixStack::VIEW,view);
+	MatrixStack::Push(MatrixStack::MODEL,modelview);
+
+	renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+	renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+	renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+
+	if(currentScene && currentScene->entityRoot)
+		currentScene->entityRoot->draw(renderer3D);	
+
+	MatrixStack::Pop(MatrixStack::MODEL);
+	MatrixStack::Pop(MatrixStack::VIEW);
+	MatrixStack::Pop(MatrixStack::PROJECTION);
 }
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineView_SetTouchEvent(JNIEnv * env, jobject obj,jint action,jint id,jint idx,jfloat x,jfloat y)
@@ -232,6 +275,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 	{
 		sprintf(message,"glCompileShader[%s] error:\n",name);
 		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
+		printf("simple_shader error: %s",message);
 		__debugbreak();
 	}
 
@@ -424,6 +468,10 @@ int ShaderAndroid::GetHoveringSlot()
 {
 	return GetAttribute("hovered");
 }
+int ShaderAndroid::GetPointSize()
+{
+	return GetUniform("pointsize");
+}
 
 void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
 {
@@ -578,6 +626,10 @@ void Renderer3DAndroid::draw(vec3 point,float psize,vec3 col)
 
 	int ps=shader->GetPositionSlot();
 	int uniform_color=shader->GetUniform("color");
+	int tPointSize=shader->GetPointSize();
+
+	if(tPointSize)
+		glUniform1f(tPointSize,psize);
 
 	if(uniform_color>=0)
 	{glUniform3fv(uniform_color,1,col);glCheckError();}

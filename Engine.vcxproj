@@ -137,7 +137,7 @@
     <NMakeCleanCommandLine>nmake cleanx86d</NMakeCleanCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeOutput>build\win32\x86\debug\engineMS.exe</NMakeOutput>
+    <NMakeOutput>build\win32\x86\debug\engineMingW.exe</NMakeOutput>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

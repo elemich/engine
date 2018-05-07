@@ -5,8 +5,10 @@ static const char* unlit_color_vert =
 	"uniform mat4 modelview;\n"
 	"uniform mat4 projection;\n"
 	"uniform vec3 color;\n"
+	"uniform float pointsize;\n"
 	"void main() {\n"
 	"	 vcolor=color;"
+	"	 gl_PointSize=pointsize;"
 	"    gl_Position = projection * modelview * vec4(position.xyz,1.0);\n"
 	"}\n";
 
@@ -24,8 +26,10 @@ static const char* unlit_vert =
 	"varying vec3 vcolor;\n"
 	"uniform mat4 modelview;\n"
 	"uniform mat4 projection;\n"
+	"uniform float pointsize;\n"
 	"void main() {\n"
 	"	 vcolor=color;"
+	"	 gl_PointSize=pointsize;"
 	"    gl_Position = projection * modelview * vec4(position.xyz,1.0);\n"
 	"}\n";
 
@@ -43,12 +47,14 @@ static const char* unlit_texture_vs =
 	"attribute vec3 normal;\n"
 	"uniform mat4 modelview;\n"
 	"uniform mat4 projection;\n"
+	"uniform float pointsize;\n"
 	"varying vec2 varying_texcoord;\n"
 	"varying vec3 varying_normal;\n"
 	"\n"
 	"void main() {\n"
 	"    varying_texcoord = texcoord;\n"
 	"    varying_normal = normal;\n"
+	"	 gl_PointSize=pointsize;"
 	"    gl_Position = projection * modelview * position;\n"
 	"}\n";
 
@@ -75,6 +81,7 @@ static const char* texture_vertex_shaded_vert =
 	"uniform vec3 lightpos;\n"
 	"uniform vec3 lightdiff;\n"
 	"uniform vec3 lightamb;\n"
+	"uniform float pointsize;\n"
 	"varying vec4 varying_color;\n"
 	"varying vec4 varying_texcolor;\n"
 	"vec3 lightdir;\n"
@@ -83,6 +90,7 @@ static const char* texture_vertex_shaded_vert =
 	"float luminosity;\n"
 	"\n"
 	"void main() {\n"
+	"	 gl_PointSize=pointsize;"
 	"    vec4 pos = vec4(position,1.0);\n"
 	"    varying_texcolor = textured ? texture2D(texture, texcoord) : vec4(1.0,1.0,1.0,1.0);\n"
 	"    lightdir = lightpos - vec3(pos);\n"

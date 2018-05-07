@@ -1377,39 +1377,37 @@ void EngineIDEWin32::Deinitialize()
     SAFEDELETE(this->compiler);
     SAFEDELETE(this->debugger);
 
-
-
 	SetDllDirectory(0);
 	Direct2D::Release();
 	CoUninitialize();
 }
 
-void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
+void EngineIDEWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 {
-	HANDLE handle;
-	WIN32_FIND_DATA data;
+	HANDLE			tHandle;
+	WIN32_FIND_DATA tData;
 
-	String scanDir=dir;
-	scanDir+="\\*";
+	String tScanDir=iDirectory;
+	tScanDir+="\\*";
 
-	handle=FindFirstFile(scanDir.Buffer(),&data); //. dir
+	tHandle=FindFirstFile(tScanDir.Buffer(),&tData); //. dir
 
-	if(!handle || INVALID_HANDLE_VALUE == handle)
+	if(!tHandle || INVALID_HANDLE_VALUE == tHandle)
 	{
 		DEBUG_BREAK();
 		return;
 	}
 	else
-		FindNextFile(handle,&data);
+		FindNextFile(tHandle,&tData);
 
 	int tEngineExtensionCharSize=strlen(EngineIDE::instance->GetEntityExtension());
 
 	FILE* tFile;
 
-	bool selectedLeft;
-	bool selectedRight;
-	bool isDir;
-	bool expanded;
+	bool tSelectedLeft;
+	bool tSelectedRight;
+	bool tIsDir;
+	bool tExpanded;
 
 	const unsigned char _true=1;
 	const unsigned char _false=0;
@@ -1418,19 +1416,19 @@ void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 
 	String tCreateNodeFilename;
 
-	while(FindNextFile(handle,&data))
+	while(FindNextFile(tHandle,&tData))
 	{
-		if(data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+		if(tData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;
 
 		tCreateNode=false;
 
-		if(strstr(data.cFileName,EngineIDE::instance->GetEntityExtension()))
+		if(strstr(tData.cFileName,EngineIDE::instance->GetEntityExtension()))
 		{
 			//if filename not exists delete it
 
-			String tOriginalFullFileName=dir + "\\" + String(data.cFileName,strlen(data.cFileName)-tEngineExtensionCharSize);
-			String tEngineFileName=dir + "\\" + String(data.cFileName);
+			String tOriginalFullFileName=iDirectory + "\\" + String(tData.cFileName,strlen(tData.cFileName)-tEngineExtensionCharSize);
+			String tEngineFileName=iDirectory + "\\" + String(tData.cFileName);
 
 			DWORD tAttr=GetFileAttributes(tOriginalFullFileName.Buffer());
 
@@ -1444,27 +1442,27 @@ void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 
 			if(tFile)
 			{
-				fread(&selectedLeft,1,1,tFile);
-				fread(&selectedRight,1,1,tFile);
-				fread(&isDir,1,1,tFile);
-				fread(&expanded,1,1,tFile);
+				fread(&tSelectedLeft,1,1,tFile);
+				fread(&tSelectedRight,1,1,tFile);
+				fread(&tIsDir,1,1,tFile);
+				fread(&tExpanded,1,1,tFile);
 
 				fclose(tFile);
 			}
 
 			tCreateNode=true;
-			tCreateNodeFilename=String(data.cFileName,strlen(data.cFileName)-tEngineExtensionCharSize);
+			tCreateNodeFilename=String(tData.cFileName,strlen(tData.cFileName)-tEngineExtensionCharSize);
 		}
 		else
 		{
-			String engineFile = dir + "\\" + String(data.cFileName) + EngineIDE::instance->GetEntityExtension();
+			String engineFile = iDirectory + "\\" + String(tData.cFileName) + EngineIDE::instance->GetEntityExtension();
 
 			if(!PathFileExists(engineFile.Buffer()))
 			{
-				selectedLeft=false;
-				selectedRight=false;
-				isDir=(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
-				expanded=false;
+				tSelectedLeft=false;
+				tSelectedRight=false;
+				tIsDir=(tData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
+				tExpanded=false;
 
 				tFile=fopen(engineFile.Buffer(),"w");
 
@@ -1472,7 +1470,7 @@ void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 				{
 					fwrite(&_false,1,1,tFile);//selectedLeft
 					fwrite(&_false,1,1,tFile);//selectedRight
-					fwrite(isDir? &_true : &_false,1,1,tFile);//isDir
+					fwrite(tIsDir? &_true : &_false,1,1,tFile);//isDir
 					fwrite(&_false,1,1,tFile);//expanded
 					fclose(tFile);
 				}
@@ -1481,13 +1479,13 @@ void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 				SetFileAttributes(engineFile.Buffer(),FILE_ATTRIBUTE_HIDDEN|fileAttribute);
 
 				tCreateNode=true;
-				tCreateNodeFilename=data.cFileName;
+				tCreateNodeFilename=tData.cFileName;
 			}
 		}
 
 		if(tCreateNode)
 		{
-			if(isDir)
+			if(tIsDir)
 			{
 				ResourceNodeDir* dirNode=new ResourceNodeDir;
 
@@ -1495,12 +1493,12 @@ void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 				dirNode->parent=iParent;
 				dirNode->fileName=tCreateNodeFilename;
 				dirNode->level = iParent ? iParent->level+1 : 0;
-				dirNode->selectedLeft=selectedLeft;
-				dirNode->selectedRight=selectedRight;
-				dirNode->expanded=expanded;
-				dirNode->isDir=isDir;
+				dirNode->selectedLeft=tSelectedLeft;
+				dirNode->selectedRight=tSelectedRight;
+				dirNode->expanded=tExpanded;
+				dirNode->isDir=tIsDir;
 
-				this->ScanDir(dir +"\\"+ tCreateNodeFilename,dirNode);
+				this->ScanDir(iDirectory +"\\"+ tCreateNodeFilename,dirNode);
 			}
 			else
 			{
@@ -1510,22 +1508,20 @@ void EngineIDEWin32::ScanDir(String dir,ResourceNodeDir* iParent)
 				fileNode->parent=iParent;
 				fileNode->fileName=tCreateNodeFilename;
 				fileNode->level = iParent ? iParent->level+1 : 0;
-				fileNode->selectedLeft=selectedLeft;
-				fileNode->selectedRight=selectedRight;
-				fileNode->isDir=isDir;
+				fileNode->selectedLeft=tSelectedLeft;
+				fileNode->selectedRight=tSelectedRight;
+				fileNode->isDir=tIsDir;
 			}
 		}
 	}
 
-	FindClose(handle);
-	handle=0;
+	FindClose(tHandle);
+	tHandle=0;
 }
 
 
 void EngineIDEWin32::Run()
 {
-//#pragma message (LOCATION " PeekMessage has 0 as hwnd to let other windows work")
-
 	MSG msg;
 
 	while(true)
@@ -1883,6 +1879,10 @@ int ShaderOpenGL::GetNormalSlot()
 int ShaderOpenGL::GetHoveringSlot()
 {
 	return GetAttribute("hovered");
+}
+int ShaderOpenGL::GetPointSize()
+{
+	return GetUniform("pointsize");
 }
 
 void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
@@ -2257,10 +2257,14 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
-	glPointSize(psize);
+	/*glPointSize(psize);*/
 
 	int ps=shader->GetPositionSlot();
 	int uniform_color=shader->GetUniform("color");
+	int tPointSize=shader->GetPointSize();
+
+	if(tPointSize)
+		glUniform1f(tPointSize,psize);
 
 	if(uniform_color>=0)
 	{glUniform3fv(uniform_color,1,col);glCheckError();}
@@ -4564,7 +4568,11 @@ bool CompilerWin32::LoadScript(Script* iScript)
 	*tModule=(HMODULE)LoadLibrary(tModuleFile.Buffer());
 
 	if(!*tModule)
+	{
+		DWORD err=GetLastError();
+		printf("error(%d) loading module %s\n",err,tModuleFile.Buffer());
 		return false;
+	}
 
 	tCreateModuleClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
 
@@ -4579,6 +4587,8 @@ bool CompilerWin32::LoadScript(Script* iScript)
 	}
 	else
 	{
+		printf("error creating module %s\n",tModuleFile.Buffer());
+
 		SAFEDELETEARRAY(iScript->runtime);
 
 		if(*tModule && FreeLibrary(*tModule))
@@ -4734,7 +4744,8 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	String tAndroidProjectLibsDirectory=tAndroidProjectDirectory + "\\libs\\armeabi-v7a";
 
-	std::vector<String>		        tSources;
+	std::vector<String>		        tSourcePaths;
+	std::vector<String>				tSourceFilesContent;
 	int								tPackFileSize=0;
 	int								tTableFileSize=0;
 	String							tResourceDirectory="\\";
@@ -4776,115 +4787,115 @@ bool CompilerWin32::CreateAndroidTarget()
 	{
 		//pack non-sources resources
 
-		gPackNonScriptResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSources);
+		gPackNonScriptResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
-		//build sources
-
-		String tAndroidMk="LOCAL_PATH := $(call my-dir)\n\n";
-
-        for(std::vector<String>::iterator si=tSources.begin();si!=tSources.end();si++)
-        {
-            tAndroidMk+="include $(CLEAR_VARS)\n"
-                        "DSTDIR := " + tAndroidProjectDirectory + "\n"
-                        "LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSrcPath + "\n"
-                        //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
-                        "LOCAL_MODULE := " + FilePath(*si).Name() + "\n"
-                        "LOCAL_SRC_FILES := " + (*si) + "\n"
-                        "LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE\n"
-                        "LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibPath + " -lEngine\n"
-                        "include $(BUILD_SHARED_LIBRARY)\n\n";
-        }
-
-        gfWriteFile("Android.mk",tAndroidProjectJniDirectory,tAndroidMk);
-
-		gfWriteFile("Application.mk",tAndroidProjectJniDirectory,"APP_STL:=c++_static\nAPP_ABI:=armeabi-v7a\n");
-		gfWriteFile("project.properties",tAndroidProjectDirectory,"target=android-23\n");
-		gfWriteFile("local.properties",tAndroidProjectDirectory,"sdk.dir=C:\\Sdk\\android\\android-sdk\n");
-
-		String tStringsXml= "<resources>\n"
-                            "\t<string name=\"Engine_activity\">Engine</string>\n"
-                            "</resources>\n";
-
-        gfWriteFile("strings.xml",tAndroidProjectResDirectory + "\\values",tStringsXml);
-
-		String tBuildXml=	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                            "<project name=\"EngineActivity\" default=\"help\">\n\n"
-                            "\t<property file=\"local.properties\" />\n"
-                            "\t<property file=\"ant.properties\" />\n\n"
-                            "\t<property environment=\"env\" />\n"
-                            "\t<condition property=\"sdk.dir\" value=\"${env.ANDROID_HOME}\">\n"
-                            "\t\t<isset property=\"env.ANDROID_HOME\" />\n"
-                            "\t</condition>\n\n"
-                            "\t<loadproperties srcFile=\"project.properties\" />\n\n"
-                            "\t<import file=\"custom_rules.xml\" optional=\"true\" />\n\n"
-                            "\t<import file=\"${sdk.dir}/tools/ant/build.xml\" />\n\n"
-                            "</project>\n";
-
-        gfWriteFile("build.xml",tAndroidProjectDirectory,tBuildXml);
-
-        String tManifestXml=    "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
-                                "\tpackage=\"com.android.Engine\">\n\n"
-                                "\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>\n"
-                                "\t<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>\n\n"
-                                "\t<application\n"
-                                "\t\t\tandroid:label=\"@string/Engine_activity\"\n"
-                                "\t\t\tandroid:debuggable=\"true\">\n\n"
-                                "\t\t<activity android:name=\".EngineActivity\"\n"
-                                "\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
-                                "\t\t\tandroid:launchMode=\"singleTask\"\n"
-                                "\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
-                                "\t\t\t<intent-filter>\n"
-                                "\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />\n"
-                                "\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />\n"
-                                "\t\t\t</intent-filter>\n\n"
-                                "\t\t</activity>\n"
-                                "\t</application>\n\n"
-                                "\t<uses-feature android:glEsVersion=\"0x00020000\"/>\n"
-                                "\t<uses-sdk android:minSdkVersion=\"15\"/>\n\n"
-                                "</manifest>\n";
-
-        gfWriteFile("AndroidManifest.xml",tAndroidProjectDirectory,tManifestXml);
-
-        EngineIDE::instance->subsystem->Execute(tAndroidProjectDirectory,"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + "\\ndk-build-log.txt",true,true,true);
-
-        //pack source libs
-
-        for(std::vector<String>::iterator si=tSources.begin();si!=tSources.end();si++)
-        {
-            FilePath    tSource(*si);
-            String      tLibFileName="lib" + tSource.Name() + ".so";
-            File        tLibFullFilePath=tAndroidProjectLibsDirectory + "\\" + tLibFileName;
-            String	    tFinalFileName=&(*si).Buffer()[EngineIDE::instance->folderProject.Count()] + tLibFileName;
-
-            unsigned int	tDataFileStart;
-            unsigned int	tDataFileSize;
-
-            tDataFileSize=tLibFullFilePath.Size();
-
-            if(tLibFullFilePath.Open())
-            {
-                tDataFileStart=ftell(tPackFile.data);
-
-                if(tDataFileSize)
-                {
-                    unsigned char* tDataFileData=new unsigned char[tDataFileSize];
-                    fread(tDataFileData,tDataFileSize,1,tLibFullFilePath.data);
-                    fwrite(tDataFileData,tDataFileSize,1,tPackFile.data);
-                    SAFEDELETEARRAY(tDataFileData);
-                }
-
-                tLibFullFilePath.Close();
-            }
-
-            fprintf(tTableFile.data,"%s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
-
-            File::Delete(tLibFullFilePath.path.Buffer());
-        }
-
-        tPackFile.Close();
-        tTableFile.Close();
+		tPackFile.Close();
+		tTableFile.Close();
 	}
 
+	//build sources
+
+	String tAndroidMk="LOCAL_PATH := $(call my-dir)\n\n";
+
+    for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++)
+    {
+        tAndroidMk+="include $(CLEAR_VARS)\n"
+                    "DSTDIR := " + tAndroidProjectDirectory + "\n"
+                    "LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSrcPath + "\n"
+                    //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
+                    "LOCAL_MODULE := " + FilePath(*si).Name() + "\n"
+                    "LOCAL_SRC_FILES := " + (*si) + "\n"
+                    "LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
+                    "LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibPath + " -lEngine -llog\n"
+                    "include $(BUILD_SHARED_LIBRARY)\n\n";
+    }
+
+    gfWriteFile("Android.mk",tAndroidProjectJniDirectory,tAndroidMk);
+
+	gfWriteFile("Application.mk",tAndroidProjectJniDirectory,"APP_STL:=c++_static\nAPP_ABI:=armeabi-v7a\nAPP_CPPFLAGS := -frtti\nAPP_OPTIM := debug\n");
+	gfWriteFile("project.properties",tAndroidProjectDirectory,"target=android-23\n");
+	gfWriteFile("local.properties",tAndroidProjectDirectory,"sdk.dir=C:\\Sdk\\android\\android-sdk\n");
+
+	String tStringsXml= "<resources>\n"
+                        "\t<string name=\"Engine_activity\">Engine</string>\n"
+                        "</resources>\n";
+
+    gfWriteFile("strings.xml",tAndroidProjectResDirectory + "\\values",tStringsXml);
+
+	String tBuildXml=	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                        "<project name=\"EngineActivity\" default=\"help\">\n\n"
+                        "\t<property file=\"local.properties\" />\n"
+                        "\t<property file=\"ant.properties\" />\n\n"
+                        "\t<property environment=\"env\" />\n"
+                        "\t<condition property=\"sdk.dir\" value=\"${env.ANDROID_HOME}\">\n"
+                        "\t\t<isset property=\"env.ANDROID_HOME\" />\n"
+                        "\t</condition>\n\n"
+                        "\t<loadproperties srcFile=\"project.properties\" />\n\n"
+                        "\t<import file=\"custom_rules.xml\" optional=\"true\" />\n\n"
+                        "\t<import file=\"${sdk.dir}/tools/ant/build.xml\" />\n\n"
+                        "</project>\n";
+
+    gfWriteFile("build.xml",tAndroidProjectDirectory,tBuildXml);
+
+    String tManifestXml=    "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+                            "\tpackage=\"com.android.Engine\">\n\n"
+                            "\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>\n"
+                            "\t<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>\n\n"
+                            "\t<application\n"
+                            "\t\t\tandroid:label=\"@string/Engine_activity\"\n"
+                            "\t\t\tandroid:debuggable=\"true\">\n\n"
+                            "\t\t<activity android:name=\".EngineActivity\"\n"
+                            "\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
+                            "\t\t\tandroid:launchMode=\"singleTask\"\n"
+                            "\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
+                            "\t\t\t<intent-filter>\n"
+                            "\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />\n"
+                            "\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />\n"
+                            "\t\t\t</intent-filter>\n\n"
+                            "\t\t</activity>\n"
+                            "\t</application>\n\n"
+                            "\t<uses-feature android:glEsVersion=\"0x00020000\"/>\n"
+                            "\t<uses-sdk android:minSdkVersion=\"15\"/>\n\n"
+                            "</manifest>\n";
+
+    gfWriteFile("AndroidManifest.xml",tAndroidProjectDirectory,tManifestXml);
+
+	//append exports to source
+
+	for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++)
+	{
+		File tSourceFile(*si);
+		tSourceFilesContent.push_back(tSourceFile.All());
+
+		if(tSourceFile.Open("ab"))
+		{
+			String tExporterClassDeclaration="\n\nextern \"C\" __attribute__ ((dllexport)) EntityScript* Create(){return new " + tSourceFile.path.Name() + "_;}";
+			String tExporterDeleterDeclaration="\n\nextern \"C\" __attribute__ ((dllexport)) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+
+			tSourceFile.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
+			tSourceFile.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
+			tSourceFile.Close();
+		}
+	}
+
+	//build the native code
+
+    EngineIDE::instance->subsystem->Execute(tAndroidProjectDirectory,"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + "\\ndk-build-log.txt",true,true,true);
+
+	//unroll exports
+
+	int tSourceFilesContentIdx=0;
+	for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++,tSourceFilesContentIdx++)
+	{
+		File tSourceFile(*si); 
+
+		if(tSourceFile.Open("wb"))
+		{
+			tSourceFile.Write((void*)tSourceFilesContent[tSourceFilesContentIdx].Buffer(),tSourceFilesContent[tSourceFilesContentIdx].Count(),1);
+			tSourceFile.Close();
+		}
+	}
+	
 	//write asset
 
 	tPackFileSize=tPackFile.Size();
@@ -4943,9 +4954,12 @@ bool CompilerWin32::CreateAndroidTarget()
                         "copy \"%LIBDIR%\\libengine.so\" \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
 
                         "cd \"%PROJDIR%\"\n"
+						"copy /Y libs\\armeabi-v7a\\*.so lib\\armeabi-v7a\n"
                         "call %ANDROID_AAPT_PACK% -M AndroidManifest.xml -A assets -S  res -F  %APP_NAME%.apk\n"
                         "call %ANDROID_AAPT_ADD% %APP_NAME%.apk classes.dex\n"
-                        "call %ANDROID_AAPT_ADD% %APP_NAME%.apk lib/armeabi-v7a/libengine.so\n\n"
+						"for %%f in (lib\\armeabi-v7a\\*.so) do (\n"
+						"	call %ANDROID_AAPT_ADD% %APP_NAME%.apk lib/armeabi-v7a/%%~nxf\n"
+						")\n\n"
 
                         "if not exist \"%KEYSTORE%\" (\n"
                         "	call keytool -genkey -noprompt -alias emmegi -dname \"CN=emmegi.com, OU=emmegi, O=mg, L=SA, S=NA, C=IT\" -keystore %KEYSTORE% -storepass password -keypass password -validity 10000\n\n"
