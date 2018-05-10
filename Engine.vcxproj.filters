@@ -10,6 +10,9 @@
     <Filter Include="Win32">
       <UniqueIdentifier>{e87e9899-61f2-4f14-bb02-b3bd0e7a8cdb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Makefiles">
+      <UniqueIdentifier>{f58d3918-0949-41de-a0d9-cda4a0dfa009}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\entities.cpp">
@@ -87,6 +90,12 @@
     </None>
     <None Include="src\targets\android\src\com\android\Engine\EngineView.java">
       <Filter>Android</Filter>
+    </None>
+    <None Include="makefile">
+      <Filter>Makefiles</Filter>
+    </None>
+    <None Include="build\win32\x86\debug\makefile">
+      <Filter>Makefiles</Filter>
     </None>
   </ItemGroup>
 </Project>

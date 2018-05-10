@@ -3303,6 +3303,8 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	if(!this->windowDataWin32->hwnd)
 		DEBUG_BREAK();
 
+	printf("Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
+
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
 	this->iconRight=new GuiImageWin32;
@@ -3495,8 +3497,6 @@ void TabWin32::EndDraw()
 {
 	if(this->isRender)
 	{
-		renderer2D->DrawRectangle(0.5f,0.5f,this->windowDataWin32->width-0.5f,this->windowDataWin32->height-0.5f,0xff000000,false);
-
 		HRESULT result=renderer2DWin32->renderer->EndDraw();
 
 		this->recreateTarget=(result==D2DERR_RECREATE_TARGET);

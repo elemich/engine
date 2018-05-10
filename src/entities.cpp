@@ -248,7 +248,7 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 
 				printf("loading script %s\n",tLibFile.Buffer());
 
-				void *libhandle = dlopen(tLibFile.Buffer(), RTLD_LAZY);
+				void *libhandle = dlopen(tLibFile.Buffer(), 1 /*RTLD_LAZY*/);
 
 				if(libhandle)
 				{

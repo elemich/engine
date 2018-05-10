@@ -1,19 +1,6 @@
 #ifndef PRIMITIVES_H
 #define PRIMITIVES_H
 
-#ifdef _MSC_VER
-	#ifdef DLLBUILD
-		#define DLLBUILD __declspec(dllexport)
-	#else
-		#define DLLBUILD __declspec(dllimport)
-	#endif
-
-	//#define STDCALL __stdcall
-#else
-	#define DLLBUILD
-	//#define STDCALL
-#endif
-
 #define PRINT(x) #x
 #define PRINTF(x) PRINT(x)
 
@@ -67,6 +54,19 @@
 	#include <android/log.h>
 	#define  LOG_TAG    "Engine"
 	#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#endif
+
+#ifdef _MSC_VER
+	#ifdef CREATEDLL
+		#define DLLBUILD __declspec(dllexport)
+	#else
+		#define DLLBUILD __declspec(dllimport)
+	#endif
+
+	//#define LOADLIBRARY(iLibName) LoadLibrary(iLibName)
+#else
+	#define DLLBUILD
+	//#define LOADLIBRARY(iLibName) dlopen(iLibName,RTLD_LAZY)
 #endif
 
 struct DLLBUILD  mat2;

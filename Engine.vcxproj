@@ -52,6 +52,8 @@
     <ClInclude Include="src\win32.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="build\win32\x86\debug\makefile" />
+    <None Include="makefile" />
     <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
     <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />
     <None Include="src\targets\android\src\com\android\Engine\EngineView.java" />

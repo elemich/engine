@@ -239,7 +239,7 @@ struct DLLBUILD Renderer2D
 	Tab*			tabContainer;
 
 	Caret*          caret;
-
+	
 	static Caret*   caretGlobal;
 
 	Renderer2D(Tab*);
@@ -389,19 +389,21 @@ struct DLLBUILD ShaderOpenGL : Shader
 
 struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 {
-	static const int TREEVIEW_ROW_HEIGHT=20;
-	static const int TREEVIEW_ROW_ADVANCE=TREEVIEW_ROW_HEIGHT;
+	static const int ROW_HEIGHT=20;
+	static const int ROW_ADVANCE=ROW_HEIGHT;
 	static const int SCROLLBAR_WIDTH=20;
 	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
 	static const int SCROLLBAR_AMOUNT=10;
 
 	String name;
 
+	struct Edges{float *left,*top,*right,*bottom;};
+	Edges refedges;
+	vec4 offsets;
+	vec4 scalars;
 	vec4 fixed;
+	vec4 edges;
 	vec4 rect;
-	vec4 offset;
-	vec2 alignPos;
-	vec2 alignRect;
 
 	unsigned int colorBackground;
 	unsigned int colorForeground;
@@ -417,8 +419,6 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	int container;
 
-	GuiRect* sibling[4];
-
 	int	sequence;
 
 	int animFrame;
@@ -428,7 +428,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
 	~GuiRect();
 
-	virtual void Set(GuiRect* iParent=0,GuiRect* sibling=0,int sibIdx=0,int container=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=-1.0f,float iAlignPosY=-1.0f,float iAlignRectX=-1.0f,float iAlignRectY=-1.0f);
+	virtual void SetEdges(float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
 
 	void SetParent(GuiRect*);
 
@@ -491,8 +491,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	GuiRect* Rect(float ix=0, float iy=0, float iw=0,float ih=0,float apx=0, float apy=0, float arx=1,float ary=1);
 
-	GuiString* Text(String str,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignText=vec2(-1,-1));
-	GuiString* Text(String str,vec2 _alignPos=vec2(-1,-1),vec2 _alignRect=vec2(-1,-1),vec2 _alignText=vec2(-1,-1));
+	GuiString* Text(String str);
 
 	GuiPropertyString* Property(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=3,unsigned int iValueParameter2=2);
 
@@ -506,7 +505,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	GuiScriptViewer* ScriptViewer();
 	GuiCompilerViewer* CompilerViewer();
 
-	void AppendChild(GuiRect*);
+	void AppendChild(GuiRect*,float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
 
 	void DestroyChilds();
 
@@ -520,6 +519,7 @@ struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 	void OnSize(Tab*);
 
 	GuiRootRect(Tab* t);
+	~GuiRootRect();
 };
 
 struct DLLBUILD GuiString : GuiRect
@@ -608,7 +608,6 @@ struct DLLBUILD GuiScrollRect : GuiRect
 
 	bool isClipped;
 
-	virtual void OnMouseWheel(Tab*,void* data=0);
 	virtual void OnSize(Tab*,void* data=0);
 };
 
@@ -641,6 +640,7 @@ struct DLLBUILD GuiPropertyString : GuiProperty
 	{
 		STRING=0,
 		BOOL,
+		BOOLPTR,
 		INT,
 		FLOAT,
 		VEC2,
@@ -652,6 +652,7 @@ struct DLLBUILD GuiPropertyString : GuiProperty
 		ANIMATIONVECSIZE,
 		ISBONECOMPONENT,
 		FLOAT2MINUSFLOAT1,
+		VEC32MINUSVEC31,
 		MAXVALUE
 	};
 
@@ -711,7 +712,7 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	vec2 mouseold;
 
 	void*	renderBitmap;
-	void*	renderBuffer;
+	unsigned char*	renderBuffer;
 
 	unsigned int lastFrameTime;
 
@@ -871,8 +872,10 @@ struct DLLBUILD GuiConsoleViewer : GuiScrollRect
 
 struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 {
-	struct DLLBUILD GuiProjectDirViewer : GuiScrollRect
+	struct DLLBUILD DirViewer : GuiScrollRect
 	{
+		GuiProjectViewer* projectViewer;
+
 		ResourceNodeDir* rootResource;
 
 		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&,bool& terminated);
@@ -885,8 +888,10 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		void OnPaint(Tab*,void* data=0);
 	};
 
-	struct DLLBUILD GuiProjectFileViewer : GuiScrollRect
+	struct DLLBUILD FileViewer : GuiScrollRect
 	{
+		GuiProjectViewer* projectViewer;
+
 		ResourceNodeDir* rootResource;
 		std::vector<ResourceNodeDir*> selectedDirs;
 		std::vector<ResourceNode*> selectedFiles;
@@ -902,20 +907,22 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		void OnDLMouseDown(Tab*,void* data=0);
 	};
 
-	struct DLLBUILD GuiProjectDataViewer : GuiScrollRect
+	struct DLLBUILD DataViewer : GuiScrollRect
 	{
-
+		GuiProjectViewer* projectViewer;
 	};
 
-	GuiProjectDirViewer dirViewer;
-	GuiProjectFileViewer fileViewer;
-	GuiProjectDataViewer resViewer;
+	DirViewer dirViewer;
+	FileViewer fileViewer;
+	DataViewer resViewer;
 
 	ResourceNodeDir* projectDirectory;
 
-	bool splitterLeft;
-	bool splitterRight;
-	float hotspotDist;
+	bool splitterLeftActive;
+	bool splitterRightActive;
+
+	float splitterLeft;
+	float splitterRight;
 
 	GuiProjectViewer();
 	~GuiProjectViewer();
