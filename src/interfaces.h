@@ -432,6 +432,9 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	void SetParent(GuiRect*);
 
+	void CalcRect();
+	void CalcContainerRect();
+
 	virtual void OnRecreateTarget(Tab*,void* data=0){}
 	virtual void OnPaint(Tab*,void* data=0);
 	virtual void OnEntitiesChange(Tab*,void* data=0);
@@ -489,8 +492,6 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	GuiString* Container(const char* iText);
 
-	GuiRect* Rect(float ix=0, float iy=0, float iw=0,float ih=0,float apx=0, float apy=0, float arx=1,float ary=1);
-
 	GuiString* Text(String str);
 
 	GuiPropertyString* Property(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=3,unsigned int iValueParameter2=2);
@@ -505,7 +506,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	GuiScriptViewer* ScriptViewer();
 	GuiCompilerViewer* CompilerViewer();
 
-	void AppendChild(GuiRect*,float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
+	void AppendAsProperty(GuiRect* iProperty);
 
 	void DestroyChilds();
 
@@ -559,7 +560,7 @@ struct DLLBUILD GuiButtonBool : GuiButton
 	bool& referenceValue;
 	int		updateMode;
 
-	GuiButtonBool(bool& iBool):referenceValue(iBool),updateMode(-1){this->name="Button";}
+	GuiButtonBool(bool& iBool);
 
 	virtual void OnLMouseUp(Tab* tab,void* data=0);
 };
@@ -602,9 +603,10 @@ struct DLLBUILD GuiScrollRect : GuiRect
 	~GuiScrollRect();
 
 	float contentHeight;
-	float width;
+	float contentWidth;
 
-	GuiScrollBar	*scrollBar;
+	GuiScrollBar	vScrollbar;
+	//GuiScrollBar	hScrollbar;
 
 	bool isClipped;
 
@@ -625,6 +627,12 @@ struct DLLBUILD GuiSlider : GuiRect
 	virtual void OnSize(Tab*,void* data=0);
 	void DrawSliderTip(Tab*,void* data=0);
 };
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////GuiProperty///////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 struct DLLBUILD GuiProperty : GuiRect
 {
@@ -1272,7 +1280,6 @@ struct DLLBUILD EditorAnimationController : EditorObject<AnimationController>
 
 	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
-
 };
 
 struct DLLBUILD EditorMesh : EditorObject<Mesh>

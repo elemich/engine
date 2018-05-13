@@ -1,5 +1,10 @@
 #include "win32.h"
 
+#ifdef _MSC_VER
+	#define AGGREGATECALL(Func,Arg) Arg=Func()
+#else
+	#define AGGREGATECALL(Func,Arg) Func(&Arg)
+#endif
 
 #ifdef USEFBX
 	#include "fbxutil.h"
@@ -593,7 +598,8 @@ void Renderer2DWin32::CaretWin32::draw()
 
 			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
 
-			tRenderer2DWin32->renderer->GetPixelFormat(&tBitmapProperties.pixelFormat);
+			//tRenderer2DWin32->renderer->GetPixelFormat(&tBitmapProperties.pixelFormat);
+			AGGREGATECALL(tRenderer2DWin32->renderer->GetPixelFormat,tBitmapProperties.pixelFormat);
 
 			HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
 
@@ -3000,8 +3006,8 @@ void Renderer3DOpenGL::draw(Entity* iEntity)
 
 void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 {
-	vec4 canvas=viewport->rect;
-	vec2 mouse(tabContainerWin32->mousex,tabContainerWin32->mousey);
+	vec4 tCanvas=viewport->rect;
+	vec2 tMouse(tabContainerWin32->mousex,tabContainerWin32->mousey);
 
 	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)viewport->renderBitmap;
 	unsigned char*& rBuffer=(unsigned char*&)viewport->renderBuffer;
@@ -3009,19 +3015,21 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 	D2D1_SIZE_F tSize;
 
 	if(rBitmap)
-		rBitmap->GetSize(&tSize);
+		//rBitmap->GetSize(&tSize);
+		AGGREGATECALL(rBitmap->GetSize,tSize);
 
-	if(!rBitmap || tSize.width!=canvas.z || tSize.height!=canvas.w || !viewport->renderBuffer || !viewport->renderBitmap)
+	if(!rBitmap || tSize.width!=tCanvas.z || tSize.height!=tCanvas.w || !viewport->renderBuffer || !viewport->renderBitmap)
 	{
 		SAFERELEASE(rBitmap);
 		SAFEDELETEARRAY(viewport->renderBuffer);
 
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+		//tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+		AGGREGATECALL(tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
 
-		tabContainerWin32->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)canvas.z,(unsigned int)canvas.w),bp,&rBitmap);
+		tabContainerWin32->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)tCanvas.z,(unsigned int)tCanvas.w),bp,&rBitmap);
 
-		int rBufferSize=canvas.z*canvas.w*4;
+		int rBufferSize=tCanvas.z*tCanvas.w*4;
 
 		rBuffer=new unsigned char[rBufferSize];
 	}
@@ -3034,16 +3042,17 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 
 		for(std::vector<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetPool().begin();it!=GuiEntityViewer::GetPool().end();it++)
 		{
-			EditorEntity* eEntity=(EditorEntity*)(*it)->entity;
-			if(eEntity && (*it)->tabContainer)
-				eEntity->OnPropertiesUpdate((*it)->tabContainer);
+			EditorEntity* tEditorEntity=(EditorEntity*)(*it)->entity;
+
+			if(tEditorEntity && (*it)->tabContainer)
+				tEditorEntity->OnPropertiesUpdate((*it)->tabContainer);
 		}
 	}
 
 	tabContainerWin32->renderer3D->ChangeContext();
 
-	glViewport((int)0,(int)0,(int)canvas.z,(int)canvas.w);glCheckError();
-	glScissor((int)0,(int)0,(int)canvas.z,(int)canvas.w);glCheckError();
+	glViewport((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
+	glScissor((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -3068,16 +3077,16 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 
 		glReadBuffer(GL_BACK);glCheckError();
 
-		glReadPixels((int)0,(int)0,(int)canvas.z,(int)canvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
+		glReadPixels((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
 
-		D2D1_RECT_U rBitmapRect={0,0,canvas.z,canvas.w};
+		D2D1_RECT_U rBitmapRect={0,0,tCanvas.z,tCanvas.w};
 
-		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(canvas.z*4));
+		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(tCanvas.z*4));
 
-		tabContainerWin32->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(canvas.x,canvas.y,canvas.x+canvas.z,canvas.y+canvas.w));
+		tabContainerWin32->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(tCanvas.x,tCanvas.y,tCanvas.x+tCanvas.z,tCanvas.y+tCanvas.w));
 	}
 
-	if(viewport->needsPicking && mouse.y-canvas.y>=0)
+	if(viewport->needsPicking && tMouse.y-tCanvas.y>=0)
 	{
 		glDisable(GL_DITHER);
 
@@ -3100,7 +3109,7 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 		glReadBuffer(GL_BACK);glCheckError();
 
 		viewport->pickedPixel;
-		glReadPixels((int)mouse.x,(int)mouse.y-canvas.y,(int)1,(int)1,GL_RGBA,GL_UNSIGNED_BYTE,&viewport->pickedPixel);glCheckError();//@mic should implement pbo for performance
+		glReadPixels((int)tMouse.x,(int)tMouse.y-tCanvas.y,(int)1,(int)1,GL_RGBA,GL_UNSIGNED_BYTE,&viewport->pickedPixel);glCheckError();//@mic should implement pbo for performance
 
 		unsigned int address=0;
 
@@ -3242,7 +3251,8 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 	if(!this->handle)
 	{
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+		//renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+		AGGREGATECALL(renderer2DInterfaceWin32->renderer->GetPixelFormat,bp.pixelFormat);
 		bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
 		result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
@@ -3253,14 +3263,16 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 	else
 	{
 		D2D1_SIZE_F tSize;
-		this->handle->GetSize(&tSize);
+		//this->handle->GetSize(&tSize);
+		AGGREGATECALL(this->handle->GetSize,tSize);
 
 		if(tSize.width!=iWidth || tSize.height!=iHeight)
 		{
 			SAFEDELETE(this->handle);
 
 			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-			renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+			//renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+			AGGREGATECALL(renderer2DInterfaceWin32->renderer->GetPixelFormat,bp.pixelFormat);
 			bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
 
 			result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
@@ -5139,12 +5151,10 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 		}
 	}
 
-
-
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
-LONG WINAPI (*SystemUnhandledException)(LPEXCEPTION_POINTERS exceptionInfo)=0;
+//LONG WINAPI (*SystemUnhandledException)(LPEXCEPTION_POINTERS exceptionInfo)=0;
 
 LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 {
@@ -5243,7 +5253,7 @@ DebuggerWin32::DebuggerWin32()
 {
 	this->threadContext=new CONTEXT;
 
-	SystemUnhandledException=SetUnhandledExceptionFilter(UnhandledException);
+	/*SystemUnhandledException=*/SetUnhandledExceptionFilter(UnhandledException);
 
 	this->debuggeeThread=CreateThread(0,0,debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
 
@@ -5252,7 +5262,7 @@ DebuggerWin32::DebuggerWin32()
 
 DebuggerWin32::~DebuggerWin32()
 {
-    SetUnhandledExceptionFilter(SystemUnhandledException);
+    //SetUnhandledExceptionFilter(SystemUnhandledException);
     SAFEDELETE(this->threadContext);
 }
 

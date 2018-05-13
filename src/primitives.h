@@ -16,14 +16,8 @@
 	delete [] _ptr;\
 	_ptr=0;}\
 
-#ifdef DEBUG
-	#ifdef _MSC_VER
-		#define DEBUG_BREAK \
-		#pragma message "BREAK ON __FILE__ " : " PRINTF(__LINE__) " \
-		__debugbreak
-	#else
-		#define DEBUG_BREAK __builtin_trap
-	#endif
+#ifdef _MSC_VER
+	#define DEBUG_BREAK __debugbreak
 #else
 	#define DEBUG_BREAK __builtin_trap
 #endif
@@ -60,13 +54,10 @@
 	#ifdef CREATEDLL
 		#define DLLBUILD __declspec(dllexport)
 	#else
-		#define DLLBUILD __declspec(dllimport)
+		#define DLLBUILD // __declspec(dllimport)
 	#endif
-
-	//#define LOADLIBRARY(iLibName) LoadLibrary(iLibName)
 #else
 	#define DLLBUILD
-	//#define LOADLIBRARY(iLibName) dlopen(iLibName,RTLD_LAZY)
 #endif
 
 struct DLLBUILD  mat2;

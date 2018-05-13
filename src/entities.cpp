@@ -248,13 +248,21 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 
 				printf("loading script %s\n",tLibFile.Buffer());
 
-				void *libhandle = dlopen(tLibFile.Buffer(), 1 /*RTLD_LAZY*/);
+				void *libhandle=0;
+				
+				#ifndef _MSC_VER
+					libhandle=dlopen(tLibFile.Buffer(), 1 /*RTLD_LAZY*/);
+				#endif
 
 				if(libhandle)
 				{
 					printf("approaching to load create script class\n");
 
-					EntityScript* (*tCreateFunction)()=(EntityScript* (*)())dlsym(libhandle,"Create");
+					EntityScript* (*tCreateFunction)()=0;
+					
+					#ifndef _MSC_VER
+						tCreateFunction=(EntityScript* (*)())dlsym(libhandle,"Create");
+					#endif
 
 					if(tCreateFunction)
 					{

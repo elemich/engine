@@ -221,7 +221,7 @@ enum ETexture
 	TEXTURE_MAX
 };
 
-static const char *EEntityNames[ENTITY_MAX]=
+static const char *EnumEntityNames[ENTITY_MAX]=
 {
 	"ENTITY_GENERIC",
 	"ENTITY_IMAGE",

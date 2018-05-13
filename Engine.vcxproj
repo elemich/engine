@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="build\win32\x86\debug\makefile" />
+    <None Include="build\win32\x86\debug\makefile-ms" />
     <None Include="makefile" />
     <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
     <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />
@@ -139,7 +140,7 @@
     <NMakeCleanCommandLine>nmake cleanx86d</NMakeCleanCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeOutput>build\win32\x86\debug\engineMingW.exe</NMakeOutput>
+    <NMakeOutput>build\win32\x86\debug\engineMS.exe</NMakeOutput>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
