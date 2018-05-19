@@ -7,6 +7,7 @@ struct DLLBUILD EditorEntity;
 
 struct DLLBUILD GuiRect;
 struct DLLBUILD GuiRootRect;
+struct DLLBUILD GuiContainer;
 struct DLLBUILD GuiString;
 struct DLLBUILD GuiButton;
 struct DLLBUILD GuiImage;
@@ -257,6 +258,7 @@ struct DLLBUILD Renderer2D
 	virtual void Identity()=0;
 
 	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
+	virtual vec2 MeasureText(const wchar_t*,int iSlen=-1)=0;
 	virtual float GetFontSize()=0;
 	virtual float GetFontHeight()=0;
 
@@ -391,14 +393,12 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 {
 	static const int ROW_HEIGHT=20;
 	static const int ROW_ADVANCE=ROW_HEIGHT;
-	static const int SCROLLBAR_WIDTH=20;
-	static const int SCROLLBAR_TIP_HEIGHT=SCROLLBAR_WIDTH;
-	static const int SCROLLBAR_AMOUNT=10;
 
 	String name;
 
 	struct Edges{float *left,*top,*right,*bottom;};
 	Edges refedges;
+	vec2 minimums;
 	vec4 offsets;
 	vec4 scalars;
 	vec4 fixed;
@@ -417,12 +417,6 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	bool active;
 
-	int container;
-
-	int	sequence;
-
-	int animFrame;
-
 	GuiScrollRect* clip;
 
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
@@ -430,10 +424,11 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	virtual void SetEdges(float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
 
-	void SetParent(GuiRect*);
+	virtual void SetParent(GuiRect*);
 
 	void CalcRect();
-	void CalcContainerRect();
+
+	virtual void AppendAsProperty(GuiRect* iProperty);
 
 	virtual void OnRecreateTarget(Tab*,void* data=0){}
 	virtual void OnPaint(Tab*,void* data=0);
@@ -476,7 +471,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	bool _contains(vec4& quad,vec2);
 
-	void BroadcastToChilds(void (GuiRect::*func)(Tab*,void*),Tab*,void* data=0);
+	virtual void BroadcastToChilds(void (GuiRect::*func)(Tab*,void*),Tab*,void* data=0);
 	void BroadcastToRoot(void (GuiRect::*func)(Tab*,void*),void* data=0);
 
 	template<class C> void BroadcastTo(void (GuiRect::*func)(Tab*,void*),Tab* iTabContainer,void* iData=0)
@@ -490,7 +485,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 			((*tRect)->*func)(iTabContainer,iData);
 	}
 
-	GuiString* Container(const char* iText);
+	GuiContainer* Container(const char* iText);
 
 	GuiString* Text(String str);
 
@@ -505,8 +500,6 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	GuiProjectViewer* ProjectViewer();
 	GuiScriptViewer* ScriptViewer();
 	GuiCompilerViewer* CompilerViewer();
-
-	void AppendAsProperty(GuiRect* iProperty);
 
 	void DestroyChilds();
 
@@ -525,16 +518,62 @@ struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 
 struct DLLBUILD GuiString : GuiRect
 {
-	vec2 alignText;
 	std::string text;
 	std::wstring wText;
-	bool clipText;
+	
+	vec4 textOffsets;
+	vec4 textFixed;
+	vec4 textEdges;
+	vec4 textRect;
+
+	vec2 textSpot;
+	vec2 textAlign;
+
+	bool textClip;
+
+	char*           cursor;
+	unsigned int	row;
+	unsigned int	col;
+	vec4			caret;
+
+	enum
+	{
+		CARET_DONTCARE=0,
+		CARET_RECALC,
+		CARET_MOUSEPOS,
+		CARET_CANCEL,
+		CARET_BACKSPACE,
+		CARET_ADD,
+		CARET_ARROWLEFT,
+		CARET_ARROWRIGHT,
+		CARET_ARROWUP,
+		CARET_ARROWDOWN,
+		CARET_MAX
+	};
 
 	GuiString();
 
-	void DrawTheText(Tab*,vec2 iOffset=vec2(0,0));
+	void CalcTextRect(Tab*);
+	void DrawTheText(Tab*);
 
 	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnLMouseDown(Tab*,void* data=0);
+	virtual void OnKeyDown(Tab*,void* data=0);
+	virtual void OnSize(Tab*,void* data=0);
+};
+
+struct DLLBUILD GuiContainer : GuiString
+{
+	bool		state;
+
+	GuiContainer();
+
+	void CalcContainerRect();
+	void AppendAsProperty(GuiRect* iProperty);
+	void BroadcastToChilds(void (GuiRect::*iFunction)(Tab*,void*),Tab* iTabContainer,void* iData=0);
+	void OnLMouseDown(Tab*,void*);
+	void OnSize(Tab*,void* iData=0);
+	void OnPaint(Tab*,void* iData=0);
 };
 
 struct DLLBUILD GuiButton : GuiString
@@ -567,15 +606,29 @@ struct DLLBUILD GuiButtonBool : GuiButton
 
 struct DLLBUILD GuiScrollBar : GuiRect
 {
-	float scrollerPosition,scrollerRatio;
-	float scrollerPressed;
+	static const int SCROLLBAR_TICK=20;
+	static const int SCROLLBAR_TIP_SIZE=SCROLLBAR_TICK;
+	static const int SCROLLBAR_SCROLL_AMOUNT=10;
 
-	float parentAlignRectX;
+	enum
+	{
+		SCROLLBAR_VERTICAL=0,
+		SCROLLBAR_HORIZONTAL,
+		SCROLLBAR_INVALID
+	};
+
+	unsigned int scrollbarType;
+
+	float scrollerPosition;
+	float scrollerRatio;
+	float scrollerPressed;
 
 	GuiRect* guiRect;
 
-	GuiScrollBar();
+	GuiScrollBar(unsigned int iScrollbarType=SCROLLBAR_VERTICAL);
 	~GuiScrollBar();
+
+	void SetType(unsigned int iScrollbarType);
 
 	void SetScrollerRatio(float contentHeight,float containerHeight);
 	void SetScrollerPosition(float contentHeight);
@@ -587,12 +640,12 @@ struct DLLBUILD GuiScrollBar : GuiRect
 	void OnMouseMove(Tab* tab,void* data=0);
 	void OnPaint(Tab* tab,void* data=0);
 
-	float GetContainerHeight();
-	float GetContainerTop();
-	float GetContainerBottom();
-	float GetScrollerTop();
-	float GetScrollerBottom();
-	float GetScrollerHeight();
+	float GetContainerLength();
+	float GetContainerBegin();
+	float GetContainerEnd();
+	float GetScrollerBegin();
+	float GetScrollerEnd();
+	float GetScrollerLength();
 
 	void SetRect(GuiRect*);
 };
@@ -606,7 +659,7 @@ struct DLLBUILD GuiScrollRect : GuiRect
 	float contentWidth;
 
 	GuiScrollBar	vScrollbar;
-	//GuiScrollBar	hScrollbar;
+	GuiScrollBar	hScrollbar;
 
 	bool isClipped;
 
@@ -637,6 +690,8 @@ struct DLLBUILD GuiSlider : GuiRect
 struct DLLBUILD GuiProperty : GuiRect
 {
 	String description;
+
+	GuiProperty();
 };
 
 struct DLLBUILD GuiPropertyString : GuiProperty
@@ -670,9 +725,14 @@ struct DLLBUILD GuiPropertyString : GuiProperty
 	unsigned char valueParameter1;
 	unsigned char valueParameter2;
 
+	GuiString value;
+
 	GuiPropertyString(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
 
 	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnSize(Tab*,void* data=0);
+
+	virtual void RefreshReference(Tab*);
 };
 
 struct DLLBUILD GuiPropertySlider : GuiProperty
@@ -754,7 +814,6 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	{
 		GuiScriptViewer* scriptViewer;
 
-		vec2 textOffset;
 		unsigned int lineCount;
 		bool lineNumbers;
 
@@ -793,24 +852,8 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnSize(Tab*,void* data=0);
 	void OnDeactivate(Tab*,void* data=0);
 
-	enum
-	{
-		CARET_DONTCARE=0,
-		CARET_RECALC,
-		CARET_MOUSEPOS,
-		CARET_CANCEL,
-		CARET_BACKSPACE,
-		CARET_ADD,
-		CARET_ARROWLEFT,
-		CARET_ARROWRIGHT,
-		CARET_ARROWUP,
-		CARET_ARROWDOWN,
-		CARET_MAX
-	};
-
 	int CountScriptLines();
 	void SetCaretPosition(Tab*,unsigned int iCaretOp,void* iParam);
-	vec4 GetCaretPosition(Tab*,unsigned int iCaretOp,void* iParam);
 };
 
 struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
@@ -1026,6 +1069,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	static unsigned char rawUpArrow[];
 	static unsigned char rawRightArrow[];
+	static unsigned char rawLeftArrow[];
 	static unsigned char rawDownArrow[];
 	static unsigned char rawFolder[];
 	static unsigned char rawFile[];
@@ -1042,6 +1086,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	GuiImage* iconUp;
 	GuiImage* iconRight;
+	GuiImage* iconLeft;
 	GuiImage* iconDown;
 	GuiImage* iconFolder;
 	GuiImage* iconFile;
@@ -1051,6 +1096,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	bool isRender;
 	bool recreateTarget;
 	bool resizeTarget;
+	bool resizing;
 
 	std::list<DrawInstance*> drawInstances;
 
@@ -1237,7 +1283,7 @@ struct DLLBUILD Compiler
 
 struct DLLBUILD EditorProperties
 {
-	GuiString properties;
+	GuiContainer* container;
 
 	EditorProperties();
 
@@ -1253,6 +1299,8 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 	bool					selected;
 	bool					expanded;
 	int						level;
+
+	GuiRect					properties;
 
 	EditorEntity();
 

@@ -231,7 +231,7 @@ struct DLLBUILD  vec2 : TNumberedVectorInterface<float,2>
 	vec2(const vec2& a);
 	vec2(float fv[2]);
 	vec2(float x,float y);
-	vec2 operator=(vec2& a);
+	vec2 operator=(const vec2& a);
 	vec2 operator+(vec2& a);
 	vec2 operator-(vec2& a);
 	bool operator==(vec2& a);

@@ -376,10 +376,15 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 
 vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
 {
-	float fontHeight=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
-
 	float width=0;
 	float height=0;
+
+	if(!iText)
+		vec2(width,height);
+
+	float fontHeight=height=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
+
+	
 
 	char* t=(char*)iText;
 
@@ -398,10 +403,13 @@ vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSle
 
 vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
 {
-	float fontHeight=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
-
 	float width=0;
 	float height=0;
+
+	if(!iText)
+		vec2(width,height);
+
+	float fontHeight=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
 
 	wchar_t* t=(wchar_t*)iText;
 
@@ -420,6 +428,9 @@ vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int i
 
 float Direct2D::GetFontHeight(ID2D1HwndRenderTarget* renderer)
 {
+	if(!renderer)
+		return 0;
+
 	const float tTypographicPoint=1.0f/72.0f;
 	const float tDeviceIndependentPixelFontHeightValue=Direct2D::texter->GetFontSize();
 
@@ -456,12 +467,12 @@ void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wch
 
 	if(iAlignPosX<0 && iAlignPosY<0)
 	{
-		//Direct2D::DrawRectangle(iRenderer,iBrush,x1,y1,x2,y2,false);
 		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2+500,y2+500),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 	}
 	else
 	{
 		vec2 tSize=MeasureText(iRenderer,iText);
+/*
 
 		float width=x2-x1;
 		float height=y2-y1;
@@ -473,15 +484,11 @@ void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wch
 
 		}
 
-		//
 		iAlignPosX>=0 ? rect.x+=x1+iAlignPosX*width : rect.x=x1;
 		iAlignPosY>=0 ? rect.y+=y1+iAlignPosY*height : rect.y=y1;
+*/
 
-		/*rect.x = x > rect.x ? x : (x+w < rect.x+rect.z ? rect.x - (rect.x+rect.z - (x+w)) - tSize.cx/2.0f: rect.x);
-		rect.y = y > rect.y ? y : (y+h < rect.y+rect.w ? rect.y - (rect.y+rect.w - (y+h)) - tSize.c/2.0f: rect.y);*/
-
-		//Direct2D::DrawRectangle(iRenderer,iBrush,rect.x,rect.y,rect.x+rect.z,rect.y+rect.w,false);
-		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(rect.x,rect.y,rect.x+rect.z,rect.y+rect.w),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 
 	}
 
@@ -730,6 +737,11 @@ void Renderer2DWin32::Identity()
 }
 
 vec2 Renderer2DWin32::MeasureText(const char* iText,int iSlen)
+{
+	return Direct2D::MeasureText(this->renderer,iText,iSlen);
+}
+
+vec2 Renderer2DWin32::MeasureText(const wchar_t* iText,int iSlen)
 {
 	return Direct2D::MeasureText(this->renderer,iText,iSlen);
 }
@@ -3319,11 +3331,14 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
+	this->iconLeft=new GuiImageWin32;
 	this->iconRight=new GuiImageWin32;
 	this->iconFolder=new GuiImageWin32;
 	this->iconFile=new GuiImageWin32;
 
 	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
+
+	this->OnGuiRecreateTarget();
 
 	this->parentWindowContainer=(Container*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
 	this->parentWindowContainer->tabContainers.push_back(this);
@@ -3703,6 +3718,7 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 
 	this->iconUp->Release();
 	this->iconRight->Release();
+	this->iconLeft->Release();
 	this->iconDown->Release();
 	this->iconFolder->Release();
 	this->iconFile->Release();
@@ -3710,6 +3726,8 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
 		DEBUG_BREAK();
 	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+		DEBUG_BREAK();
+	if(!this->iconLeft->Fill(this->renderer2D,this->rawLeftArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
 		DEBUG_BREAK();
 	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
 		DEBUG_BREAK();

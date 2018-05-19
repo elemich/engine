@@ -160,6 +160,7 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	void Identity();
 
 	vec2 MeasureText(const char*,int iSlen=-1);
+	vec2 MeasureText(const wchar_t*,int iSlen=-1);
 
 	float GetFontSize();
 	float GetFontHeight();
