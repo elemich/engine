@@ -83,7 +83,8 @@ struct DLLBUILD Direct2D
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
 	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const wchar_t* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const wchar_t* text,int iLength,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
@@ -129,20 +130,6 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 {
 	ID2D1HwndRenderTarget*		renderer;
 	ID2D1SolidColorBrush*		brush;
-
-	struct DLLBUILD CaretWin32 : Caret
-	{
-		ID2D1Bitmap* background;
-
-		CaretWin32(Renderer2D*);
-		~CaretWin32();
-
-		void set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect);
-		void draw();
-		void enable(bool);
-	};
-
-	CaretWin32*& caretWin32;
 
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
@@ -398,9 +385,9 @@ struct DLLBUILD TimerWin32 : Timer
 	virtual unsigned int GetTime();
 };
 
-struct DLLBUILD EngineIDEWin32 : EngineIDE
+struct DLLBUILD IdeWin32 : Ide
 {
-	EngineIDEWin32();
+	IdeWin32();
 
 	HANDLE processThreadHandle;
 	HANDLE processHandle;
@@ -460,7 +447,15 @@ struct DLLBUILD DebuggerWin32 : Debugger
 };
 
 
+struct DLLBUILD StringEditorWin32 : StringEditor
+{
+	ID2D1Bitmap* background;
 
+	StringEditorWin32();
+	~StringEditorWin32();
+
+	void Draw(Tab*);
+};
 
 
 #endif //WIN32_H

@@ -455,45 +455,18 @@ float Direct2D::GetCharWidth(char iCharacter)
 }
 
 
-void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
+void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,int iLength,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
 	if(!iText)
 		return;
 
-	unsigned int tFinalTextLength=wcslen(iText);
+	/*if(iClip)
+		iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);*/
 
-	if(iClip)
-		iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);
+	iRenderer->DrawText(iText,iLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 
-	if(iAlignPosX<0 && iAlignPosY<0)
-	{
-		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2+500,y2+500),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-	}
-	else
-	{
-		vec2 tSize=MeasureText(iRenderer,iText);
-/*
-
-		float width=x2-x1;
-		float height=y2-y1;
-
-		vec4 rect(-tSize.x/2.0f,-tSize.y/2.0f,(float)tSize.x,(float)tSize.y);
-
-		if(tSize.x>width || tSize.y>height)
-		{
-
-		}
-
-		iAlignPosX>=0 ? rect.x+=x1+iAlignPosX*width : rect.x=x1;
-		iAlignPosY>=0 ? rect.y+=y1+iAlignPosY*height : rect.y=y1;
-*/
-
-		iRenderer->DrawText(iText,tFinalTextLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-
-	}
-
-	if(iClip)
-		iRenderer->PopAxisAlignedClip();
+	/*if(iClip)
+		iRenderer->PopAxisAlignedClip();*/
 }
 
 void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
@@ -517,7 +490,7 @@ void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const cha
 		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
 	}
 
-	Direct2D::DrawText(iRenderer,iBrush,tWcharTextOutput,x1,y1,x2,y2,iAlignPosX,iAlignPosY,iClip);
+	Direct2D::DrawText(iRenderer,iBrush,tWcharTextOutput,tFinalTextLength,x1,y1,x2,y2,iAlignPosX,iAlignPosY,iClip);
 
 	SAFEDELETEARRAY(tWcharTextOutput);
 }
@@ -558,109 +531,13 @@ void Direct2D::Identity(ID2D1RenderTarget* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-
-Renderer2DWin32::CaretWin32::CaretWin32(Renderer2D* iRendererWin32):
-	Caret(iRendererWin32),
-	background(0)
-{}
-
-Renderer2DWin32::CaretWin32::~CaretWin32()
-{
-	SAFERELEASE(this->background);
-}
-
-void Renderer2DWin32::CaretWin32::set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)
-{
-	if(iPosition.x<0 || iPosition.y<0 || iRect.x<0 || iRect.y<0)
-		DEBUG_BREAK();
-
-	this->guiRect=iGuiRect;
-	this->newPosition=iPosition;
-	this->newRect=iRect;
-
-	if(this->renderer2D->caretGlobal!=this)
-		this->renderer2D->caretGlobal=this;
-}
-
-void Renderer2DWin32::CaretWin32::enable(bool iEnable)
-{
-	this->enabled=iEnable;
-
-	if(this->renderer2D->caretGlobal!=this)
-		this->renderer2D->caretGlobal=this;
-}
-
-void Renderer2DWin32::CaretWin32::draw()
-{
-	if(this->enabled && this->guiRect==this->renderer2D->tabContainer->GetFocus())
-	{
-		if(!this->background || this->position!=this->newPosition || this->rect!=this->newRect)
-		{
-			Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)this->renderer2D;
-
-			this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
-			this->blinking=true;
-
-			SAFERELEASE(this->background);
-
-			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
-
-			//tRenderer2DWin32->renderer->GetPixelFormat(&tBitmapProperties.pixelFormat);
-			AGGREGATECALL(tRenderer2DWin32->renderer->GetPixelFormat,tBitmapProperties.pixelFormat);
-
-			HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(this->newRect.x,this->newRect.y),tBitmapProperties,&this->background);
-
-			if(S_OK!=tResult || !this->background)
-				DEBUG_BREAK();
-
-			D2D1_POINT_2U tPoint=D2D1::Point2U(0,0);
-			D2D1_RECT_U tRect=D2D1::RectU(this->newPosition.x,this->newPosition.y,this->newPosition.x+this->newRect.x,this->newPosition.y+this->newRect.y);
-
-			tResult=this->background->CopyFromRenderTarget(&tPoint,tRenderer2DWin32->renderer,&tRect);
-
-			if(S_OK!=tResult || !this->background)
-				DEBUG_BREAK();
-
-			this->position=this->newPosition;
-			this->rect=this->newRect;
-		}
-
-		if(this->guiRect && this->background && Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate)
-		{
-			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->renderer2D;
-
-			if(renderer2DWin32->tabContainer->BeginDraw())
-			{
-				bool tSelfClip=this->guiRect->BeginSelfClip(renderer2DWin32->tabContainer);
-
-				if(this->blinking)
-					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(this->position.x+1,this->position.y),D2D1::Point2F(this->position.x+1,this->position.y+renderer2DWin32->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
-				else
-					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(this->position.x,this->position.y,this->position.x+this->rect.x,this->position.y+this->rect.y));
-
-				this->guiRect->EndSelfClip(renderer2DWin32->tabContainer,tSelfClip);
-
-				renderer2DWin32->tabContainer->EndDraw();
-			}
-
-			this->lastBlinkTime=Timer::instance->GetTime();
-			this->blinking=!this->blinking;
-		}
-	}
-}
-
-
-Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretWin32((CaretWin32*&)caret)
+Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0)
 {
 	Direct2D::Init();
-
 	this->SetTabSpaces(this->tabSpaces);
-	this->caret=new CaretWin32(this);
 }
 Renderer2DWin32::~Renderer2DWin32()
-{
-	SAFEDELETE(this->caret);
-}
+{}
 
 bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
@@ -1275,7 +1152,7 @@ bool WindowDataWin32::FindAndGrowSibling()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-EngineIDEWin32::EngineIDEWin32():
+IdeWin32::IdeWin32():
 processThreadHandle(0),
 processHandle(0)
 {
@@ -1283,7 +1160,7 @@ processHandle(0)
 	this->mainAppWindow=new MainContainerWin32;
 }
 
-int EngineIDEWin32::Initialize()
+int IdeWin32::Initialize()
 {
 	HRESULT result;
 
@@ -1374,6 +1251,8 @@ int EngineIDEWin32::Initialize()
 
 	InitSplitter();
 
+	this->stringEditor=new StringEditorWin32;
+
 	MainContainerWin32* mainAppWindowWin32=new MainContainerWin32;
 
 	this->mainAppWindow=mainAppWindowWin32;
@@ -1383,12 +1262,12 @@ int EngineIDEWin32::Initialize()
 
 	mainAppWindowWin32->Init();
 
-	//threadUpdate=new ThreadWin32;
+	
 
 	return error;
 }
 
-void EngineIDEWin32::Deinitialize()
+void IdeWin32::Deinitialize()
 {
     SAFEDELETE(this->mainAppWindow);
     SAFEDELETE(this->subsystem);
@@ -1400,7 +1279,7 @@ void EngineIDEWin32::Deinitialize()
 	CoUninitialize();
 }
 
-void EngineIDEWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
+void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 {
 	HANDLE			tHandle;
 	WIN32_FIND_DATA tData;
@@ -1418,7 +1297,7 @@ void EngineIDEWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 	else
 		FindNextFile(tHandle,&tData);
 
-	int tEngineExtensionCharSize=strlen(EngineIDE::instance->GetEntityExtension());
+	int tEngineExtensionCharSize=strlen(Ide::instance->GetEntityExtension());
 
 	FILE* tFile;
 
@@ -1441,7 +1320,7 @@ void EngineIDEWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 		tCreateNode=false;
 
-		if(strstr(tData.cFileName,EngineIDE::instance->GetEntityExtension()))
+		if(strstr(tData.cFileName,Ide::instance->GetEntityExtension()))
 		{
 			//if filename not exists delete it
 
@@ -1473,7 +1352,7 @@ void EngineIDEWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 		}
 		else
 		{
-			String engineFile = iDirectory + "\\" + String(tData.cFileName) + EngineIDE::instance->GetEntityExtension();
+			String engineFile = iDirectory + "\\" + String(tData.cFileName) + Ide::instance->GetEntityExtension();
 
 			if(!PathFileExists(engineFile.Buffer()))
 			{
@@ -1538,7 +1417,7 @@ void EngineIDEWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 }
 
 
-void EngineIDEWin32::Run()
+void IdeWin32::Run()
 {
 	MSG msg;
 
@@ -1554,7 +1433,7 @@ void EngineIDEWin32::Run()
 	this->Deinitialize();
 }
 
-void EngineIDEWin32::Sleep(int iMilliseconds)
+void IdeWin32::Sleep(int iMilliseconds)
 {
 	::Sleep(iMilliseconds);
 }
@@ -3458,7 +3337,7 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	{
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,"Delete");
 
-		if(iResourceNode->fileName.Extension() == &EngineIDE::instance->GetSceneExtension()[1])
+		if(iResourceNode->fileName.Extension() == &Ide::instance->GetSceneExtension()[1])
 			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,"Load");
 	}
 	else
@@ -4243,7 +4122,7 @@ bool InitSplitter()
 bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
 {
 	if(iPath=="none")
-		iPath=EngineIDE::instance->folderProject;
+		iPath=Ide::instance->folderProject;
 
 	STARTUPINFO si={0};
 	PROCESS_INFORMATION pi={0};
@@ -4327,12 +4206,12 @@ unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThread
 
 String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 {
-	CompilerWin32*		icplr=(CompilerWin32*)EngineIDE::instance->compiler;
+	CompilerWin32*		icplr=(CompilerWin32*)Ide::instance->compiler;
 	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
 
     String tOutputModule=iScript->module + "\\" + iScript->script.path.Name() + ".dll ";
-	String tScriptSource=EngineIDE::instance->folderProject + "\\" + iScript->script.path.File();
-	String tIdeSourcePath=EngineIDE::instance->compiler->ideSrcPath +  " ";
+	String tScriptSource=Ide::instance->folderProject + "\\" + iScript->script.path.File();
+	String tIdeSourcePath=Ide::instance->compiler->ideSrcPath +  " ";
 	String tEngineLibrary=icplr->ideLibPath + "\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + " ";
 	String tKernelLib=" -lkernel32";
 
@@ -4424,7 +4303,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	bool retVal;
 
 	String tSourceFileContent=iScript->script.All();;
-	File tCompilerTextOutput=EngineIDE::instance->folderAppData + "\\error.output";
+	File tCompilerTextOutput=Ide::instance->folderAppData + "\\error.output";
 
 
 	//delete error.output
@@ -4438,7 +4317,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	//create random directory for the module if not exist yet
 
 	if(!iScript->module.Count())
-		iScript->module=gfCreateRandomDir(EngineIDE::instance->folderAppData);
+		iScript->module=gfCreateRandomDir(Ide::instance->folderAppData);
 
 	//append exports to source
 
@@ -4460,7 +4339,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->module.Buffer(),tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
+	bool tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module.Buffer(),tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4502,7 +4381,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	String tParseLineAddressesCommandLine="objdump --dwarf=decodedline " + tSharedObjectFileName + " | find \""+ tSharedObjectSourceName + "\" | find /V \":\"";
 
-	tExecuteWithSuccess=EngineIDE::instance->subsystem->Execute(iScript->module.Buffer(),tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module.Buffer(),tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4531,7 +4410,7 @@ bool CompilerWin32::Compile(Script* iScript)
 				tLineAddress.script=iScript;
 
 
-				EngineIDE::instance->debugger->allAvailableBreakpoints.push_back(tLineAddress);
+				Ide::instance->debugger->allAvailableBreakpoints.push_back(tLineAddress);
 			}
 		}
 
@@ -4611,7 +4490,7 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->entity;
 
-		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,0);
+		Ide::instance->debugger->RunDebuggeeFunction(iScript,0);
 
 		return true;
 	}
@@ -4644,7 +4523,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 			return false;
 
 		//iScript->runtime->deinit();
-		EngineIDE::instance->debugger->RunDebuggeeFunction(iScript,2);
+		Ide::instance->debugger->RunDebuggeeFunction(iScript,2);
 
 		if(!FreeLibrary(*tModule))
 			return false;
@@ -4693,7 +4572,7 @@ void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDi
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		File	tDataFile(EngineIDE::instance->folderProject + iCurrentDirectory + (*tResFile)->fileName);
+		File	tDataFile(Ide::instance->folderProject + iCurrentDirectory + (*tResFile)->fileName);
 		int		tDataFileStart;
 		size_t	tDataFileSize;
 		String	tFinalFileName;
@@ -4766,7 +4645,7 @@ bool CompilerWin32::CreateAndroidTarget()
     String tAndroidBuildTool="build-tools\\27.0.3";
     String tAndroidDebugBridge="c:\\adb\\adb.exe";
 
-	String tAndroidOutputDirectory=EngineIDE::instance->folderProject.PathUp(1) + "\\android";
+	String tAndroidOutputDirectory=Ide::instance->folderProject.PathUp(1) + "\\android";
 	String tAndroidProjectDirectory=tAndroidOutputDirectory + "\\project";
 	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + "\\jni";
 	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + "\\assets";
@@ -4831,12 +4710,12 @@ bool CompilerWin32::CreateAndroidTarget()
     {
         tAndroidMk+="include $(CLEAR_VARS)\n"
                     "DSTDIR := " + tAndroidProjectDirectory + "\n"
-                    "LOCAL_C_INCLUDES := " + EngineIDE::instance->compiler->ideSrcPath + "\n"
+                    "LOCAL_C_INCLUDES := " + Ide::instance->compiler->ideSrcPath + "\n"
                     //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
                     "LOCAL_MODULE := " + FilePath(*si).Name() + "\n"
                     "LOCAL_SRC_FILES := " + (*si) + "\n"
                     "LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-                    "LOCAL_LDLIBS := -L" + EngineIDE::instance->compiler->ideLibPath + " -lEngine -llog\n"
+                    "LOCAL_LDLIBS := -L" + Ide::instance->compiler->ideLibPath + " -lEngine -llog\n"
                     "include $(BUILD_SHARED_LIBRARY)\n\n";
     }
 
@@ -4910,7 +4789,7 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	//build the native code
 
-    EngineIDE::instance->subsystem->Execute(tAndroidProjectDirectory,"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + "\\ndk-build-log.txt",true,true,true);
+    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + "\\ndk-build-log.txt",true,true,true);
 
 	//unroll exports
 
@@ -4966,7 +4845,7 @@ bool CompilerWin32::CreateAndroidTarget()
     String tBuildApk=   "@echo off\n"
                         "set PLATFORM=" + tAndroidSdkDir + "\\" + tAndroidPlatform + "\n"
                         "set BUILDTOOL=" + tAndroidSdkDir + "\\" + tAndroidBuildTool + "\n"
-                        "set LIBDIR=" + EngineIDE::instance->compiler->ideLibPath + "\n"
+                        "set LIBDIR=" + Ide::instance->compiler->ideLibPath + "\n"
                         "set PROJDIR=" + tAndroidProjectDirectory + "\n"
                         "set ADB=" + tAndroidDebugBridge + "\n"
                         "set KEYSTORE=" + tKeyName + "\n"
@@ -5010,7 +4889,7 @@ bool CompilerWin32::CreateAndroidTarget()
 
     gfWriteFile("buildapk.bat",tAndroidProjectDirectory,tBuildApk);
 
-    EngineIDE::instance->subsystem->Execute(tAndroidProjectDirectory,"buildapk","apk-build-log.txt",true,true,true);
+    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,"buildapk","apk-build-log.txt",true,true,true);
 
 
 	return true;
@@ -5176,7 +5055,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 
 LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 {
-	DebuggerWin32* debuggerWin32=(DebuggerWin32*)EngineIDEWin32::instance->debugger;
+	DebuggerWin32* debuggerWin32=(DebuggerWin32*)IdeWin32::instance->debugger;
 
 	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
 }
@@ -5303,6 +5182,84 @@ void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctio
 }
 
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////DebuggerWin32/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+StringEditorWin32::StringEditorWin32():
+	background(0)
+{}
+
+StringEditorWin32::~StringEditorWin32()
+{
+	SAFERELEASE(this->background);
+}
+
+void StringEditorWin32::Draw(Tab* iCallerTab)
+{
+	if(!this->tab || iCallerTab!=this->tab)
+		return;
+
+	if(this->enabled && this->string && iCallerTab->GetFocus()==this->string)
+	{
+		vec4 tCaret=this->cursor->caret;
+		bool tRecalcBackground=this->recalcBackground;
+
+		if(!this->background || tRecalcBackground)
+		{
+			Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
+
+			this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
+			this->blinking=true;
+
+			SAFERELEASE(this->background);
+
+			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
+
+			//tRenderer2DWin32->renderer->GetPixelFormat(&tBitmapProperties.pixelFormat);
+			AGGREGATECALL(tRenderer2DWin32->renderer->GetPixelFormat,tBitmapProperties.pixelFormat);
+
+			HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(tCaret.z,tCaret.w),tBitmapProperties,&this->background);
+
+			if(S_OK!=tResult || !this->background)
+				DEBUG_BREAK();
+
+			D2D1_POINT_2U tPoint=D2D1::Point2U(0,0);
+			D2D1_RECT_U tRect=D2D1::RectU(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w);
+
+			tResult=this->background->CopyFromRenderTarget(&tPoint,tRenderer2DWin32->renderer,&tRect);
+
+			if(S_OK!=tResult || !this->background)
+				DEBUG_BREAK();
+
+			this->recalcBackground=false;
+		}
+
+		if(this->string && this->background && (Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate))
+		{
+			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
+
+			if(renderer2DWin32->tabContainer->BeginDraw())
+			{
+				bool tSelfClip=this->string->BeginSelfClip(renderer2DWin32->tabContainer);
+
+				if(this->blinking)
+					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+renderer2DWin32->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
+				else
+					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w));
+
+				this->string->EndSelfClip(renderer2DWin32->tabContainer,tSelfClip);
+
+				renderer2DWin32->tabContainer->EndDraw();
+			}
+
+			this->lastBlinkTime=Timer::instance->GetTime();
+			this->blinking=!this->blinking;
+		}
+	}
+}
 
 /*
 BOOL DllMain(HINSTANCE,DWORD iReason,LPVOID)

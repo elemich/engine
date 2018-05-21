@@ -5,6 +5,9 @@
 
 struct DLLBUILD EditorEntity;
 
+struct DLLBUILD Renderer2D;
+struct DLLBUILD Renderer3D;
+
 struct DLLBUILD GuiRect;
 struct DLLBUILD GuiRootRect;
 struct DLLBUILD GuiContainer;
@@ -38,6 +41,7 @@ struct DLLBUILD ResourceNodeDir;
 struct DLLBUILD Compiler;
 struct DLLBUILD Subsystem;
 struct DLLBUILD Debugger;
+struct DLLBUILD StringEditor;
 struct DLLBUILD EditorScript;
 
 //entity forward declaration
@@ -118,23 +122,26 @@ struct DLLBUILD InputManager
 
 
 
-struct DLLBUILD EngineIDE : TStaticInstance<EngineIDE>
+struct DLLBUILD Ide : TStaticInstance<Ide>
 {
 	Timer*					timerMain;
 	MainContainer*			mainAppWindow;
+	Compiler*				compiler;
+	Subsystem*				subsystem;
+	Debugger*				debugger;
+	StringEditor*			stringEditor;
+
+	InputManager            inputManager;
+	
 	FilePath				folderProject;
 	FilePath				pathExecutable;
 	FilePath				folderAppData;
-	Compiler*				compiler;
-	InputManager            inputManager;
+	
 	unsigned int            caretLastTime;
-	Subsystem*				subsystem;
-	Debugger*				debugger;
 	unsigned int			processId;
 	unsigned int			processThreadId;
-	//Thread*					threadUpdate;
-
-	EngineIDE();
+	
+	Ide();
 
 	virtual int Initialize()=0;
 	virtual void Deinitialize()=0;
@@ -196,6 +203,59 @@ struct DLLBUILD Debugger
 
 
 
+struct DLLBUILD StringEditor
+{
+	static const unsigned int BLINKRATE=300;
+
+	enum
+	{
+		CARET_DONTCARE=0,
+		CARET_RECALC,
+		CARET_MOUSEPOS,
+		CARET_CANCEL,
+		CARET_BACKSPACE,
+		CARET_ADD,
+		CARET_ARROWLEFT,
+		CARET_ARROWRIGHT,
+		CARET_ARROWUP,
+		CARET_ARROWDOWN,
+		CARET_MAX
+	};
+
+	struct DLLBUILD Cursor
+	{
+		char*           cursor;
+		vec2			rowcol;
+		vec4			caret;
+
+		Cursor();
+	};
+
+	GuiString*		string;
+	Tab*			tab;
+
+	Cursor*			cursor;
+
+	unsigned int	blinkingRate;
+	unsigned int	lastBlinkTime;
+	bool			blinking;
+
+	vec4			newCaret;
+
+	bool			enabled;
+
+	bool			recalcBackground;
+
+	StringEditor();
+
+	bool EditText(unsigned int iCaretOp,void* iParam);
+
+	void Bind(GuiString* iString,Cursor* iCaret=0);
+	void Enable(bool);
+	
+	virtual void Draw(Tab*)=0;
+};
+
 struct DLLBUILD Renderer2D
 {
 	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
@@ -206,42 +266,11 @@ struct DLLBUILD Renderer2D
 	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
 	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 
-	struct DLLBUILD Caret
-	{
-		static const unsigned int BLINKRATE=300;
-
-		Renderer2D* renderer2D;
-
-		GuiRect*		guiRect;
-
-		unsigned int	blinkingRate;
-
-		unsigned int	lastBlinkTime;
-		bool			blinking;
-		vec2			rect;
-		vec2            position;
-
-		vec2			newPosition;
-		vec2            newRect;
-
-		bool			enabled;
-
-		Caret(Renderer2D*);
-
-		virtual void set(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect)=0;
-		virtual void draw()=0;
-		virtual void enable(bool)=0;
-	};
-
 	unsigned int	colorBackgroud;
 	unsigned int	colorText;
 	unsigned int	tabSpaces;
 
 	Tab*			tabContainer;
-
-	Caret*          caret;
-	
-	static Caret*   caretGlobal;
 
 	Renderer2D(Tab*);
 
@@ -529,38 +558,19 @@ struct DLLBUILD GuiString : GuiRect
 	vec2 textSpot;
 	vec2 textAlign;
 
-	bool textClip;
-
-	char*           cursor;
-	unsigned int	row;
-	unsigned int	col;
-	vec4			caret;
-
-	enum
-	{
-		CARET_DONTCARE=0,
-		CARET_RECALC,
-		CARET_MOUSEPOS,
-		CARET_CANCEL,
-		CARET_BACKSPACE,
-		CARET_ADD,
-		CARET_ARROWLEFT,
-		CARET_ARROWRIGHT,
-		CARET_ARROWUP,
-		CARET_ARROWDOWN,
-		CARET_MAX
-	};
-
 	GuiString();
 
 	void CalcTextRect(Tab*);
 	void DrawTheText(Tab*);
+
+	bool ParseKeyInput(Tab*,void*);
 
 	virtual void OnPaint(Tab*,void* data=0);
 	virtual void OnLMouseDown(Tab*,void* data=0);
 	virtual void OnKeyDown(Tab*,void* data=0);
 	virtual void OnSize(Tab*,void* data=0);
 };
+
 
 struct DLLBUILD GuiContainer : GuiString
 {
@@ -808,31 +818,27 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+struct DLLBUILD GuiPaper : GuiString
+{
+	GuiScriptViewer* scriptViewer;
+
+	unsigned int lineCount;
+	bool lineNumbers;
+
+	StringEditor::Cursor cursor;
+
+	GuiPaper();
+
+	void DrawLineNumbers(Tab*);
+	void DrawBreakpoints(Tab*);
+
+	virtual void OnPaint(Tab*,void* data=0);
+	virtual void OnLMouseDown(Tab*,void* data=0);
+};
+
 struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 {
-	struct DLLBUILD GuiPaper : GuiString
-	{
-		GuiScriptViewer* scriptViewer;
-
-		unsigned int lineCount;
-		bool lineNumbers;
-
-		GuiPaper();
-
-		void DrawLineNumbers(Tab*);
-		void DrawBreakpoints(Tab*);
-
-		virtual void OnPaint(Tab*,void* data=0);
-		virtual void OnLMouseDown(Tab*,void* data=0);
-	};
-
 	EditorScript* script;
-
-	//unsigned int	cursor;
-	char*           cursor;
-	unsigned int	row;
-	unsigned int	col;
-	vec4			caret;
 
 	GuiPaper*	paper;
 
@@ -853,7 +859,7 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnDeactivate(Tab*,void* data=0);
 
 	int CountScriptLines();
-	void SetCaretPosition(Tab*,unsigned int iCaretOp,void* iParam);
+	
 };
 
 struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
@@ -866,14 +872,12 @@ struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewe
 
 struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 {
+	Scene						scene;
+	EditorEntity*&				entityRoot;
+	std::vector<EditorEntity*>	selection;
+
 	GuiSceneViewer();
 	~GuiSceneViewer();
-
-	Scene scene;
-
-	EditorEntity*& entityRoot;
-
-	std::vector<EditorEntity*> selection;
 
 	void OnPaint(Tab*,void* data=0);
 	void OnLMouseDown(Tab*,void* data=0);
@@ -1380,7 +1384,7 @@ struct DLLBUILD EditorScript : EditorObject<Script>
 	//for the debugger
 	void update()
 	{
-		this->runtime ? EngineIDE::instance->debugger->RunDebuggeeFunction(this,1),true : false;
+		this->runtime ? Ide::instance->debugger->RunDebuggeeFunction(this,1),true : false;
 	}
 };
 struct DLLBUILD EditorCamera : EditorObject<Camera>

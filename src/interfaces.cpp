@@ -4,7 +4,6 @@
 #include "imgjpg.h"
 #include "imgtga.h"
 
-vec4 EditText(Tab* tabContainer,unsigned int iCaretOp,void* iParam,std::string& iText,char* iCursor,vec4& iCaret,unsigned int& iRow,unsigned int& iCol,bool& ioMustResize);
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -12,13 +11,20 @@ vec4 EditText(Tab* tabContainer,unsigned int iCaretOp,void* iParam,std::string& 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-EngineIDE::EngineIDE():timerMain(0),mainAppWindow(0),compiler(0),processId(0),processThreadId(0){}
+Ide::Ide():
+	timerMain(0),
+	mainAppWindow(0),
+	compiler(0),
+	processId(0),
+	processThreadId(0),
+	stringEditor(0)
+{}
 
-const char* EngineIDE::GetSceneExtension()
+const char* Ide::GetSceneExtension()
 {
 	return ".engineScene";
 }
-const char* EngineIDE::GetEntityExtension()
+const char* Ide::GetEntityExtension()
 {
 	return ".engineEntity";
 }
@@ -183,7 +189,7 @@ void Tab::Draw()
 		this->renderer3D->Render();
 	}
 
-	this->renderer2D->caret->draw();
+	Ide::instance->stringEditor->Draw(this);
 }
 
 DrawInstance* Tab::SetDraw(int iNoneAllRect,bool iFrame,GuiRect* iRect,const char* iName,bool iRemove)
@@ -443,26 +449,351 @@ Splitter::~Splitter()
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+//////////////////GuiCaret///////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+StringEditor::Cursor::Cursor():cursor(0){}
+
+StringEditor::StringEditor():
+	string(0),
+	tab(0),
+	lastBlinkTime(0),
+	blinking(false),
+	enabled(false),
+	blinkingRate(BLINKRATE),
+	recalcBackground(false)
+{}
+
+void StringEditor::Bind(GuiString* iString,Cursor* iCursor)
+{
+	this->string=iString;
+	this->tab=iString->GetRootRect()->tabContainer;
+	this->cursor=iCursor;
+
+	if(!this->cursor)
+		this->cursor=new Cursor;
+
+	if(!this->cursor->cursor)
+		this->cursor->cursor=(char*)iString->text.c_str();
+
+	this->EditText(CARET_RECALC,0);
+}
+
+void StringEditor::Enable(bool iEnable)
+{
+	this->enabled=iEnable;
+}
+
+
+bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
+{
+	float tFontHeight=tab->renderer2D->GetFontHeight();
+
+	bool tMustResize=false;
+
+	switch(iCaretOp)
+	{
+	case CARET_RECALC:
+		{
+			char*	pText=(char*)this->string->text.c_str();
+
+			bool tCarriageReturn=false;
+			int tCharWidth=0;
+
+			this->cursor->caret=vec4(this->string->textEdges.x,this->string->textEdges.y,0,tFontHeight);
+
+			while(*pText)
+			{
+				if(tCarriageReturn)
+				{
+					this->cursor->caret.x=0;
+					this->cursor->caret.y+=tFontHeight;
+					
+					this->cursor->rowcol.x+=1;
+					this->cursor->rowcol.y=0;
+
+					tCarriageReturn=false;
+				}
+
+				tCharWidth=tab->renderer2D->GetCharWidth(*pText);
+
+				if(*pText=='\n' ||  *pText=='\r')
+					tCarriageReturn=true;
+
+				this->cursor->caret.z=tCharWidth;
+
+				if(pText==this->cursor->cursor)
+					break;
+
+				this->cursor->caret.x+=tCharWidth;
+				this->cursor->rowcol.y+=1;
+
+				pText++;
+			}
+
+			break;
+		}
+		case CARET_CANCEL:
+		{
+			if(this->string->text.empty() || this->cursor->cursor==(char*)this->string->text.back())
+				return false;
+
+			std::string::iterator sIt=this->string->text.begin()+this->cursor->rowcol.y;
+
+			if(sIt!=this->string->text.end())
+				this->string->text.erase(sIt);
+
+			break;
+		}
+		case CARET_BACKSPACE:
+		{
+			if(this->cursor->cursor==this->string->text.c_str())
+				return false;
+
+			char tCharCode=*(--this->cursor->cursor);
+
+			if(tCharCode=='\n' ||  tCharCode=='\r')
+			{
+				//find previous row length
+				char*			pText=this->cursor->cursor-1;
+				unsigned int	tRowCharsWidth=0;
+				unsigned int    tRowCharCount=0;
+
+				while(*pText!='\n' &&  *pText!='\r')
+				{
+					tRowCharsWidth+=tab->renderer2D->GetCharWidth(*pText);
+
+					if(pText==(char*)this->string->text.c_str())
+						break;
+
+					pText--;
+					tRowCharCount++;
+
+				}
+
+				this->cursor->caret.x=tRowCharsWidth;
+				this->cursor->caret.y-=tFontHeight;
+				this->cursor->rowcol.x--;
+				this->cursor->rowcol.y=tRowCharCount;
+
+				tMustResize=true;
+			}
+			else
+			{
+				this->cursor->caret.x-=tab->renderer2D->GetCharWidth(tCharCode);
+				this->cursor->rowcol.y--;
+			}
+
+			this->string->text.erase(this->cursor->cursor-this->string->text.c_str(),1);
+
+			break;
+		}
+		case CARET_ADD:
+		{
+			char tCharcode=*(char*)iParam;
+
+			tCharcode=='\r' ? tCharcode='\n' : 0;
+
+			if(tCharcode=='\n' || tCharcode=='\r')
+			{
+				this->cursor->caret.x=0;
+				this->cursor->caret.y+=tFontHeight;
+				this->cursor->rowcol.x++;
+				this->cursor->rowcol.y=0;
+				tMustResize=true;
+			}
+			else
+			{
+				this->cursor->caret.x+=tab->renderer2D->GetCharWidth(tCharcode);
+				this->cursor->rowcol.y++;
+			}
+
+			size_t tPosition=this->cursor->cursor-this->string->text.c_str();
+
+			this->string->text.insert(tPosition,1,tCharcode);
+			this->cursor->cursor=(char*)this->string->text.c_str()+tPosition+1;
+
+			break;
+		}
+		case CARET_ARROWLEFT:
+		{
+			if(this->cursor->cursor==this->string->text.c_str())
+				return false;
+
+			char tCharCode=*(--this->cursor->cursor);
+
+			if(tCharCode=='\n' ||  tCharCode=='\r')
+			{
+				char*			pText=this->cursor->cursor;
+				unsigned int	tRowLenght=0;
+				unsigned int    tRowCharCount=0;
+
+				//find previous row lengthc
+
+				while(true)
+				{
+					if(this->cursor->cursor!=pText && (*pText=='\n' || *pText=='\r'))
+						break;
+
+					tRowLenght+=tab->renderer2D->GetCharWidth(*pText);
+
+					if(pText==this->string->text.c_str())
+						break;
+
+					pText--;
+					tRowCharCount++;
+				}
+
+				this->cursor->caret.x=tRowLenght;
+				this->cursor->caret.y-=tFontHeight;
+				this->cursor->rowcol.x--;
+				this->cursor->rowcol.y=tRowCharCount;
+			}
+			else
+			{
+				this->cursor->caret.x-=tab->renderer2D->GetCharWidth(tCharCode);
+				this->cursor->rowcol.y--;
+			}
+
+			break;
+		}
+		case CARET_ARROWRIGHT:
+		{
+			char tCharCode=*this->cursor->cursor;
+
+			if(tCharCode=='\0')
+				break;
+
+			if(tCharCode=='\n' || tCharCode=='\r')
+			{
+				this->cursor->caret.x=0;
+				this->cursor->caret.y+=tFontHeight;
+				this->cursor->rowcol.x++;
+				this->cursor->rowcol.y=0;
+			}
+			else
+			{
+				this->cursor->caret.x+=tab->renderer2D->GetCharWidth(tCharCode);
+				this->cursor->rowcol.y++;
+			}
+
+			this->cursor->cursor++;
+
+			break;
+		}
+		case CARET_ARROWUP:
+		{
+			unsigned int tRowCharWidth=0;
+			unsigned int tColumn=0;
+
+			//---find current rowhead
+
+			char* pText=this->cursor->cursor;
+
+			//skip the tail of the current row if present
+			if(*pText=='\r' || *pText=='\n')
+				pText--;
+
+			//find the last upper row or the head of the current row
+			while( pText!=this->string->text.c_str() && *pText!='\r' &&  *pText!='\n' )
+				pText--;
+
+			//return if no previous row exists
+			if(pText==this->string->text.c_str())
+				return false;
+
+			//go to the upper row pre-carriage char
+			pText--;
+
+			//find the last upper superior row or the head of the upper row
+			while( pText!=this->string->text.c_str() && *pText!='\r' &&  *pText!='\n' )
+				pText--;
+
+			//go to the upper superior row pre-carriage char
+			if(pText!=this->string->text.c_str())
+				pText++;
+
+			//finally found the upper matching position
+			while( tColumn!=this->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			{
+				tRowCharWidth+=tab->renderer2D->GetCharWidth(*pText);
+
+				pText++;
+				tColumn++;
+			}
+
+			this->cursor->cursor=pText;
+			this->cursor->caret.x=tRowCharWidth;
+			this->cursor->caret.y-=tFontHeight;
+			this->cursor->rowcol.y=tColumn;
+			this->cursor->rowcol.x--;
+
+			break;
+		}
+		case CARET_ARROWDOWN:
+		{
+			unsigned int tRowCharWidth=0;
+			unsigned int tColumn=0;
+
+			//find current rowtail
+
+			char* pText=this->cursor->cursor;
+
+			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			{
+				this->cursor->cursor++;
+				pText++;
+			}
+
+			if(*pText=='\0')
+				return false; //no previous row exists
+
+			pText++;
+			this->cursor->cursor++;
+
+			//finally found the lower matching position
+
+			while( tColumn!=this->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			{
+				tRowCharWidth+=tab->renderer2D->GetCharWidth(*pText);
+
+				pText++;
+				this->cursor->cursor++;
+				tColumn++;
+			}
+
+			/*if(tColumn!=this->cursor->rowcol.y)//string is shorter of the lower matching position
+				tRowCharWidth*/
+
+			this->cursor->caret.x=tRowCharWidth;
+			this->cursor->caret.y+=tFontHeight;
+			this->cursor->rowcol.y=tColumn;
+			this->cursor->rowcol.x++;
+
+			break;
+		}
+	}
+
+	if(tMustResize)
+		this->string->OnSize(this->tab);
+
+	this->recalcBackground=true;
+
+	//printf("cursor: %d,col: %d\n",this->cursor->cursor-this->string->text.c_str(),this->cursor->rowcol.y);
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 //////////////////Renderer2D///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Renderer2D::Caret* Renderer2D::caretGlobal=0;
-
 Renderer2D::Renderer2D(Tab* iTabContainer):
 	tabContainer(iTabContainer),
-	tabSpaces(4),
-	caret(0)
+	tabSpaces(4)
 {}
 
-Renderer2D::Caret::Caret(Renderer2D* iRenderer2D):
-	renderer2D(iRenderer2D),
-	guiRect(0),
-	lastBlinkTime(0),
-	blinking(false),
-	enabled(false),
-	blinkingRate(BLINKRATE)
-{}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1129,8 +1460,8 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 Compiler::Compiler():
 	SAFESTLIMPL(std::vector<COMPILER>,compilers)
 {
-	ideSrcPath=EngineIDE::instance->pathExecutable.PathUp(5) + "\\src";
-	ideLibPath=EngineIDE::instance->pathExecutable.Path();
+	ideSrcPath=Ide::instance->pathExecutable.PathUp(5) + "\\src";
+	ideLibPath=Ide::instance->pathExecutable.Path();
 
 	COMPILER msCompiler={"ms",
 						 "vc2010",
@@ -1344,14 +1675,10 @@ void GuiContainer::OnLMouseDown(Tab* iTabContainer,void* iData)
 
 GuiString::GuiString():
 	textAlign(0.0f,0.5f),
-	textSpot(0.0f,0.5f),
-	textClip(true)
+	textSpot(0.0f,0.5f)
 {
 	this->fixed.make(0,0,0,20);
 	this->name="GuiString";
-	this->cursor=(char*)this->text.c_str();
-	this->row=0;
-	this->col=0;
 }
 
 void GuiString::CalcTextRect(Tab* iTabContainer)
@@ -1412,10 +1739,7 @@ void GuiString::DrawTheText(Tab* tabContainer)
 												this->textEdges.y,
 												this->textEdges.z,
 												this->textEdges.w,
-												Renderer2D::COLOR_TEXT,
-												this->textAlign.x,
-												this->textAlign.y,
-												this->textClip
+												Renderer2D::COLOR_TEXT
 											);
 
 	if(!this->wText.empty())
@@ -1425,10 +1749,7 @@ void GuiString::DrawTheText(Tab* tabContainer)
 												this->textEdges.y,
 												this->textEdges.z,
 												this->textEdges.w,
-												Renderer2D::COLOR_TEXT,
-												this->textAlign.x,
-												this->textAlign.y,
-												this->textClip
+												Renderer2D::COLOR_TEXT
 											);
 }
 
@@ -1445,75 +1766,72 @@ void GuiString::OnPaint(Tab* tabContainer,void* data)
 	this->EndSelfClip(tabContainer,selfClip);
 }
 
+bool GuiString::ParseKeyInput(Tab* iTab,void* iData)
+{
+	StringEditor&	stringEditor=*Ide::instance->stringEditor;
+
+	bool			tRedraw=false;
+
+	if(stringEditor.string==this && stringEditor.enabled)
+	{
+		unsigned int	tCaretOperation=stringEditor.CARET_DONTCARE;
+		void*			tCaretParameter=0;
+		char			tCharcode;
+
+		if(iData)
+		{
+			tCharcode=*(int*)iData;
+
+			switch(tCharcode)
+			{
+				case 0x08:/*VK_BACK*/tCaretOperation=stringEditor.CARET_BACKSPACE; break;
+				default:
+					tCaretOperation=stringEditor.CARET_ADD;
+					tCaretParameter=&tCharcode;
+			}
+		}
+		else
+		{
+			if(InputManager::keyboardInput.IsPressed(0x25/*VK_LEFT*/))
+				tCaretOperation=stringEditor.CARET_ARROWLEFT;
+			if(InputManager::keyboardInput.IsPressed(0x27/*VK_RIGHT*/))
+				tCaretOperation=stringEditor.CARET_ARROWRIGHT;
+			if(InputManager::keyboardInput.IsPressed(0x26/*VK_UP*/))
+				tCaretOperation=stringEditor.CARET_ARROWUP;
+			if(InputManager::keyboardInput.IsPressed(0x28/*VK_DOWN*/))
+				tCaretOperation=stringEditor.CARET_ARROWDOWN;
+			if(InputManager::keyboardInput.IsPressed(0x03/*VK_CANCEL*/))
+				tCaretOperation=stringEditor.CARET_CANCEL;
+			if(InputManager::keyboardInput.IsPressed(0x2E/*VK_DELETE*/))
+				tCaretOperation=stringEditor.CARET_CANCEL;
+			if(InputManager::keyboardInput.IsPressed(0x1B/*VK_ESCAPE*/)) 
+			{
+				stringEditor.Enable(false);
+				return false;
+			}
+		}
+
+		tRedraw=true;
+
+		bool tMustResize=stringEditor.EditText(tCaretOperation,tCaretParameter);
+	}
+	else if(InputManager::keyboardInput.IsPressed(0x71/*VK_F2*/))
+	{
+		stringEditor.Bind(this);
+		stringEditor.Enable(true);
+	}
+
+	return tRedraw;
+}
+
 void GuiString::OnKeyDown(Tab* iTabContainer,void* iData)
 {
 	if(this==iTabContainer->focused)
 	{
-		if(InputManager::keyboardInput.IsPressed(0x71/*VK_F2*/))
-		{
-			bool tMustResize=false;
-			iTabContainer->renderer2D->caret->enable(true);
-			this->caret=EditText(iTabContainer,GuiString::CARET_RECALC,0,this->text,this->cursor,this->caret,this->row,this->col,tMustResize);
-			iTabContainer->renderer2D->caret->set(this,vec2(this->caret.x,this->caret.y),vec2(this->caret.z,this->caret.w));
-		}
+		bool tRedraw=this->ParseKeyInput(iTabContainer,iData);
 
-		if(iTabContainer->renderer2D->caret->guiRect==this && iTabContainer->renderer2D->caret->enabled)
-		{
-			unsigned int	tCaretOperation=CARET_DONTCARE;
-			void*			tCaretParameter=0;
-			char			tCharcode;
-
-			bool			tRedraw=false;
-
-			if(iData)
-			{
-				tCharcode=*(int*)iData;
-
-				switch(tCharcode)
-				{
-				case 0x08:/*VK_BACK*/tCaretOperation=CARET_BACKSPACE; break;
-				default:
-					tCaretOperation=CARET_ADD;
-					tCaretParameter=&tCharcode;
-				}
-
-				tRedraw=true;
-			}
-			else
-			{
-				if(InputManager::keyboardInput.IsPressed(0x25/*VK_LEFT*/))
-					tCaretOperation=GuiString::CARET_ARROWLEFT;
-				if(InputManager::keyboardInput.IsPressed(0x27/*VK_RIGHT*/))
-					tCaretOperation=GuiString::CARET_ARROWRIGHT;
-				if(InputManager::keyboardInput.IsPressed(0x26/*VK_UP*/))
-					tCaretOperation=GuiString::CARET_ARROWUP;
-				if(InputManager::keyboardInput.IsPressed(0x28/*VK_DOWN*/))
-					tCaretOperation=GuiString::CARET_ARROWDOWN;
-				if(InputManager::keyboardInput.IsPressed(0x03/*VK_CANCEL*/))
-					tCaretOperation=GuiString::CARET_CANCEL;
-				if(InputManager::keyboardInput.IsPressed(0x1B/*VK_ESCAPE*/)) 
-					iTabContainer->renderer2D->caret->enable(false);
-
-				tRedraw=true;
-			}
-
-			bool tMustResize=false;
-
-			this->caret=EditText(iTabContainer,tCaretOperation,tCaretParameter,this->text,this->cursor,this->caret,this->row,this->col,tMustResize);
-
-			if(tMustResize)
-				this->OnSize(iTabContainer);
-
-			vec4 tCaret(this->caret);
-
-			tCaret.x+=this->rect.x;
-			tCaret.y+=this->rect.y;
-
-			iTabContainer->renderer2D->caret->set(this,vec2(tCaret.x,tCaret.y),vec2(tCaret.z,tCaret.w));
-
-			if(tRedraw)
-				iTabContainer->SetDraw(2,0,this);
-		}
+		if(tRedraw)
+			iTabContainer->SetDraw(2,0,this);
 	}
 
 	GuiRect::OnKeyDown(iTabContainer,iData);
@@ -2090,7 +2408,7 @@ void launchStopGuiViewportCallback(void* iData)
 {
 	GuiViewport* guiViewport=(GuiViewport*)iData;
 
-	bool executedWithSuccess=EngineIDE::instance->compiler->CreateAndroidTarget();
+	bool executedWithSuccess=Ide::instance->compiler->CreateAndroidTarget();
 
 	if(!executedWithSuccess)
 		DEBUG_BREAK();
@@ -2745,7 +3063,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		{
 			if(InputManager::keyboardInput.IsPressed('S'))
 			{
-				String tSaveFile=EngineIDE::instance->folderProject + "\\" + this->scene.name + EngineIDE::instance->GetSceneExtension();
+				String tSaveFile=Ide::instance->folderProject + "\\" + this->scene.name + Ide::instance->GetSceneExtension();
 				this->Save(tSaveFile.Buffer());
 			}
 		}
@@ -3070,7 +3388,7 @@ GuiProjectViewer::GuiProjectViewer():
 	this->resViewer.SetEdges(&this->splitterRight);
 	this->resViewer.offsets.make(tHalfSplit,0,0,0);
 
-	this->projectDirectory->fileName=EngineIDE::instance->folderProject;
+	this->projectDirectory->fileName=Ide::instance->folderProject;
 	this->projectDirectory->expanded=true;
 	this->projectDirectory->isDir=true;
 
@@ -3091,7 +3409,7 @@ void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 {
 	if(!this->active)
 	{
-		EngineIDE::instance->ScanDir(this->projectDirectory->fileName,this->projectDirectory);
+		Ide::instance->ScanDir(this->projectDirectory->fileName,this->projectDirectory);
 
 		this->dirViewer.CalcNodesHeight(this->projectDirectory);
 		this->fileViewer.CalcNodesHeight(this->projectDirectory);
@@ -3591,7 +3909,7 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
 				ResourceNodeDir* parentDirectory=(ResourceNodeDir*)tHoveredResourceNode->parent;
 
 				String tFileNameBase=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
-                String tFileNameBaseExtended=tFileNameBase + EngineIDE::instance->GetEntityExtension();
+                String tFileNameBaseExtended=tFileNameBase + Ide::instance->GetEntityExtension();
 
 				//first remove from the list
 
@@ -3599,7 +3917,7 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
                 {
                     parentDirectory->dirs.remove((ResourceNodeDir*)tHoveredResourceNode);
 
-                    EngineIDE::instance->subsystem->Execute(parentDirectory->fileName.Buffer(),"rd /S /Q " + tHoveredResourceNode->fileName);
+                    Ide::instance->subsystem->Execute(parentDirectory->fileName.Buffer(),"rd /S /Q " + tHoveredResourceNode->fileName);
                 }
 				else
                 {
@@ -3613,7 +3931,7 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
 			}
 		break;
 		case 3://load
-			if(tHoveredResourceNode->fileName.Extension() == &EngineIDE::instance->GetSceneExtension()[1])
+			if(tHoveredResourceNode->fileName.Extension() == &Ide::instance->GetSceneExtension()[1])
 			{
 				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::GetPool().front();
 
@@ -3671,7 +3989,7 @@ void GuiProjectViewer::FileViewer::OnDLMouseDown(Tab* iTabContainer,void* data)
 				String tExtension=tHoveredResourceNode->fileName.Extension();
 				String tFilename=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
 
-				if(tExtension == &EngineIDE::instance->GetSceneExtension()[1])
+				if(tExtension == &Ide::instance->GetSceneExtension()[1])
 				{
 					Thread* renderThread=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer->threadRender;
 					Task* drawTask=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer->taskDraw;
@@ -3749,17 +4067,17 @@ DrawInstance::DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,const cha
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////GuiScriptViewer/////////////////
+////////////////////GuiPaper///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiScriptViewer::GuiPaper::GuiPaper():lineCount(0),lineNumbers(true)
+GuiPaper::GuiPaper():lineCount(0),lineNumbers(true)
 {
 	this->textSpot.make(0,0);
 	this->textAlign.make(0,0);
 }
 
-void GuiScriptViewer::GuiPaper::DrawLineNumbers(Tab* tabContainer)
+void GuiPaper::DrawLineNumbers(Tab* tabContainer)
 {
 	float tTextHeight=tabContainer->renderer2D->GetFontHeight();
 	float tRowY=this->rect.y;
@@ -3771,11 +4089,11 @@ void GuiScriptViewer::GuiPaper::DrawLineNumbers(Tab* tabContainer)
 	}
 }
 
-void GuiScriptViewer::GuiPaper::DrawBreakpoints(Tab* tabContainer)
+void GuiPaper::DrawBreakpoints(Tab* tabContainer)
 {
 	float tFontHeight=tabContainer->renderer2D->GetFontHeight();
 
-	std::vector<Debugger::Breakpoint>& breakpoints=EngineIDE::instance->debugger->breakpointSet;
+	std::vector<Debugger::Breakpoint>& breakpoints=Ide::instance->debugger->breakpointSet;
 
 	for(size_t i=0;i<breakpoints.size();i++)
 	{
@@ -3790,7 +4108,7 @@ void GuiScriptViewer::GuiPaper::DrawBreakpoints(Tab* tabContainer)
 	}
 }
 
-void GuiScriptViewer::GuiPaper::OnPaint(Tab* tabContainer,void* data)
+void GuiPaper::OnPaint(Tab* tabContainer,void* data)
 {
 	bool selfClip=this->BeginSelfClip(tabContainer);
 
@@ -3808,7 +4126,7 @@ void GuiScriptViewer::GuiPaper::OnPaint(Tab* tabContainer,void* data)
 	this->EndSelfClip(tabContainer,selfClip);
 }
 
-void GuiScriptViewer::GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
+void GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
 {
 	GuiString::OnLMouseDown(tabContainer,iData);
 
@@ -3822,8 +4140,8 @@ void GuiScriptViewer::GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
 
 		EditorScript* tEditorScript=(EditorScript*)this->scriptViewer->script;
 
-		std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=EngineIDE::instance->debugger->allAvailableBreakpoints;
-		std::vector<Debugger::Breakpoint>& tBreakpoints=EngineIDE::instance->debugger->breakpointSet;
+		std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Ide::instance->debugger->allAvailableBreakpoints;
+		std::vector<Debugger::Breakpoint>& tBreakpoints=Ide::instance->debugger->breakpointSet;
 
 		for(size_t i=0;i<tAvailableBreakpoints.size();i++)
 		{
@@ -3838,7 +4156,7 @@ void GuiScriptViewer::GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
 				else
 					tBreakpoints.erase(tFoundedBreakpointIterator);
 
-				EngineIDE::instance->debugger->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
+				Ide::instance->debugger->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
 
 				tabContainer->SetDraw(2,false,this->scriptViewer);
 
@@ -3848,12 +4166,14 @@ void GuiScriptViewer::GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
 	}
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////GuiScriptViewer/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 GuiScriptViewer::GuiScriptViewer():
 	script(0),
-	cursor(0),
-	row(0),
-	col(0),
 	lineNumbers(true)
 {
 	this->name="ScriptViewer";
@@ -3861,7 +4181,6 @@ GuiScriptViewer::GuiScriptViewer():
 	this->paper=this->Create<GuiPaper>();
 	this->paper->scriptViewer=this;
 	this->paper->name="ScriptSource";
-	this->paper->textClip=false;
 	this->paper->SetClip(this);
 	this->paper->textOffsets.make(20,0,0,0);
 }
@@ -3869,7 +4188,7 @@ GuiScriptViewer::GuiScriptViewer():
 void GuiScriptViewer::Open(Script* iScript)
 {
 	this->script=(EditorScript*)iScript;
-	this->cursor=0;
+	this->paper->cursor=StringEditor::Cursor();
 
 	if(!iScript->script.IsOpen())
 	{
@@ -3889,11 +4208,10 @@ void GuiScriptViewer::Open(Script* iScript)
 			iScript->script.Close();
 		}
 
-		this->cursor=(char*)this->paper->text.c_str();
-		this->row=0;
-		this->col=0;
+		this->paper->cursor.cursor=(char*)this->paper->text.c_str();
+		this->paper->cursor.rowcol.make(0,0);
 
-		this->SetCaretPosition(this->GetRootRect()->tabContainer,GuiString::CARET_RECALC,0);
+		Ide::instance->stringEditor->Bind(this->paper,&this->paper->cursor);
 	}
 
 	this->script->scriptViewer=this;
@@ -3930,363 +4248,34 @@ bool GuiScriptViewer::Compile()
 
 	if(this->script)
 	{
-		exited=EngineIDE::instance->compiler->UnloadScript(this->script);
+		exited=Ide::instance->compiler->UnloadScript(this->script);
 
-		compiled=EngineIDE::instance->compiler->Compile(this->script);
+		compiled=Ide::instance->compiler->Compile(this->script);
 
-		runned=EngineIDE::instance->compiler->LoadScript(this->script);
+		runned=Ide::instance->compiler->LoadScript(this->script);
 	}
 
 	return exited && compiled && runned;
 }
 
-vec4 EditText(Tab* tabContainer,unsigned int iCaretOp,void* iParam,std::string& iText,char* iCursor,vec4& iCaret,unsigned int& iRow,unsigned int& iCol,bool& ioMustResize)
-{
-	float tFontHeight=tabContainer->renderer2D->GetFontHeight();
 
-	ioMustResize=false;
-
-	switch(iCaretOp)
-	{
-	case GuiString::CARET_RECALC:
-		{
-			char*	pText=(char*)iText.c_str();
-
-			bool tCarriageReturn=false;
-			int tCharWidth=0;
-			iCaret=vec4();
-
-			iCaret.w=tFontHeight;
-
-			while(*pText)
-			{
-				if(tCarriageReturn)
-				{
-					iCaret.y+=tFontHeight;
-					iCaret.x=0;
-					iCol=0;
-					iRow+=1;
-
-					tCarriageReturn=false;
-				}
-
-				tCharWidth=tabContainer->renderer2D->GetCharWidth(*pText);
-
-				if(*pText=='\n' ||  *pText=='\r')
-					tCarriageReturn=true;
-
-				iCaret.z=tCharWidth;
-
-				if(pText==iCursor)
-					break;
-
-				iCaret.x+=tCharWidth;
-				iCol+=1;
-
-				pText++;
-			}
-
-			break;
-		}
-		case GuiString::CARET_CANCEL:
-		{
-			if(iCursor==(char*)iText.back())
-				return iCaret;
-
-			iText.erase(iCursor-(char*)iText.c_str(),1);
-
-			--iCursor;
-
-			break;
-		}
-		case GuiString::CARET_BACKSPACE:
-		{
-			if(iCursor==iText.c_str())
-				return iCaret;
-
-			char tCharCode=*(--iCursor);
-
-			if(tCharCode=='\n' ||  tCharCode=='\r')
-			{
-				//find previous row length
-				char*			pText=iCursor-1;
-				unsigned int	tRowCharsWidth=0;
-				unsigned int    tRowCharCount=0;
-
-				while(*pText!='\n' &&  *pText!='\r')
-				{
-					tRowCharsWidth+=tabContainer->renderer2D->GetCharWidth(*pText);
-
-					if(pText==(char*)iText.c_str())
-						break;
-
-					pText--;
-					tRowCharCount++;
-
-				}
-
-				iCaret.x=tRowCharsWidth;
-				iCaret.y-=tFontHeight;
-				iRow--;
-				iCol=tRowCharCount;
-
-				ioMustResize=true;
-			}
-			else
-			{
-				iCaret.x-=tabContainer->renderer2D->GetCharWidth(tCharCode);
-				iCol--;
-			}
-
-			iText.erase(iCursor-iText.c_str(),1);
-
-			break;
-		}
-		case GuiString::CARET_ADD:
-		{
-			char tCharcode=*(char*)iParam;
-
-			tCharcode=='\r' ? tCharcode='\n' : 0;
-
-			if(tCharcode=='\n' || tCharcode=='\r')
-			{
-				iCaret.x=0;
-				iCaret.y+=tFontHeight;
-				iRow++;
-				iCol=0;
-				ioMustResize=true;
-			}
-			else
-			{
-				iCaret.x+=tabContainer->renderer2D->GetCharWidth(tCharcode);
-				iCol++;
-			}
-
-			size_t tPosition=iCursor-iText.c_str();
-
-			iText.insert(tPosition,1,tCharcode);
-			iCursor=(char*)iText.c_str()+tPosition+1;
-
-			break;
-		}
-		case GuiString::CARET_ARROWLEFT:
-		{
-			if(iCursor==iText.c_str())
-				return iCaret;
-
-			char tCharCode=*(--iCursor);
-
-			if(tCharCode=='\n' ||  tCharCode=='\r')
-			{
-				char*			pText=iCursor;
-				unsigned int	tRowLenght=0;
-				unsigned int    tRowCharCount=0;
-
-				//find previous row lengthc
-
-				while(true)
-				{
-					if(iCursor!=pText && (*pText=='\n' || *pText=='\r'))
-						break;
-
-					tRowLenght+=tabContainer->renderer2D->GetCharWidth(*pText);
-
-					if(pText==iText.c_str())
-						break;
-
-					pText--;
-					tRowCharCount++;
-				}
-
-				iCaret.x=tRowLenght;
-				iCaret.y-=tFontHeight;
-				iRow--;
-				iCol=tRowCharCount;
-			}
-			else
-			{
-				iCaret.x-=tabContainer->renderer2D->GetCharWidth(tCharCode);
-				iCol--;
-			}
-
-			break;
-		}
-		case GuiString::CARET_ARROWRIGHT:
-		{
-			char tCharCode=*iCursor;
-
-			if(tCharCode=='\n' || tCharCode=='\r')
-			{
-				iCaret.x=0;
-				iCaret.y+=tFontHeight;
-				iRow++;
-				iCol=0;
-			}
-			else
-			{
-				iCaret.x+=tabContainer->renderer2D->GetCharWidth(tCharCode);
-				iCol++;
-			}
-
-			iCursor++;
-
-			break;
-		}
-		case GuiString::CARET_ARROWUP:
-		{
-			unsigned int tRowCharWidth=0;
-			unsigned int tColumn=0;
-
-			//---find current rowhead
-
-			char* pText=iCursor;
-
-			//skip the tail of the current row if present
-			if(*pText=='\r' || *pText=='\n')
-				pText--;
-
-			//find the last upper row or the head of the current row
-			while( pText!=iText.c_str() && *pText!='\r' &&  *pText!='\n' )
-				pText--;
-
-			//return if no previous row exists
-			if(pText==iText.c_str())
-				return iCaret;
-
-			//go to the upper row pre-carriage char
-			pText--;
-
-			//find the last upper superior row or the head of the upper row
-			while( pText!=iText.c_str() && *pText!='\r' &&  *pText!='\n' )
-				pText--;
-
-			//go to the upper superior row pre-carriage char
-			if(pText!=iText.c_str())
-				pText++;
-
-			//finally found the upper matching position
-			while( tColumn!=iCol && *pText!='\0' && *pText!='\r' && *pText!='\n' )
-			{
-				tRowCharWidth+=tabContainer->renderer2D->GetCharWidth(*pText);
-
-				pText++;
-				tColumn++;
-			}
-
-			iCursor=pText;
-			iCaret.x=tRowCharWidth;
-			iCaret.y-=tFontHeight;
-			iCol=tColumn;
-			iRow--;
-
-			break;
-		}
-		case GuiString::CARET_ARROWDOWN:
-		{
-			unsigned int tRowCharWidth=0;
-			unsigned int tColumn=0;
-
-			//find current rowtail
-
-			char* pText=iCursor;
-
-			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
-			{
-				iCursor++;
-				pText++;
-			}
-
-			if(*pText=='\0')
-				return iCaret; //no previous row exists
-
-			pText++;
-			iCursor++;
-
-			//finally found the lower matching position
-
-			while( tColumn!=iCol && *pText!='\0' && *pText!='\r' && *pText!='\n' )
-			{
-				tRowCharWidth+=tabContainer->renderer2D->GetCharWidth(*pText);
-
-				pText++;
-				iCursor++;
-				tColumn++;
-			}
-
-			/*if(tColumn!=iCol)//string is shorter of the lower matching position
-				tRowCharWidth*/
-
-			iCaret.x=tRowCharWidth;
-			iCaret.y+=tFontHeight;
-			iCol=tColumn;
-			iRow++;
-
-			break;
-		}
-	}
-
-	//printf("cursor: %d,col: %d\n",iCursor-iText.c_str(),iCol);
-
-	return iCaret;
-}
 
 void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 {
 	if(this->script)
 	{
-		unsigned int	tCaretOperation=GuiString::CARET_DONTCARE;
-		void*			tCaretParameter=0;
-		char			tCharcode;
-
-		bool			tRedraw=false;
-
-		if(iData)
+		if(InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/) && !InputManager::keyboardInput.IsPressed(0x12/*VK_ALT*/))
 		{
-			if(InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/) && !InputManager::keyboardInput.IsPressed(0x12/*VK_ALT*/))
-			{
-				if(InputManager::keyboardInput.IsPressed('S'))
-				{
-					this->Save();
-				}
-			}
-			else
-			{
-				tCharcode=*(int*)iData;
-
-				switch(tCharcode)
-				{
-					case 0x08:/*VK_BACK*/tCaretOperation=GuiString::CARET_BACKSPACE; break;
-					default:
-						tCaretOperation=GuiString::CARET_ADD;
-						tCaretParameter=&tCharcode;
-				}
-
-				tRedraw=true;
-			}
+			if(InputManager::keyboardInput.IsPressed('S'))
+				this->Save();
 		}
 		else
 		{
-			if(InputManager::keyboardInput.IsPressed(0x25/*VK_LEFT*/))
-				tCaretOperation=GuiString::CARET_ARROWLEFT;
-			if(InputManager::keyboardInput.IsPressed(0x27/*VK_RIGHT*/))
-				tCaretOperation=GuiString::CARET_ARROWRIGHT;
-			if(InputManager::keyboardInput.IsPressed(0x26/*VK_UP*/))
-				tCaretOperation=GuiString::CARET_ARROWUP;
-			if(InputManager::keyboardInput.IsPressed(0x28/*VK_DOWN*/))
-				tCaretOperation=GuiString::CARET_ARROWDOWN;
-			if(InputManager::keyboardInput.IsPressed(0x03/*VK_CANCEL*/))
-				tCaretOperation=GuiString::CARET_CANCEL;
+			bool tRedraw=this->paper->ParseKeyInput(tabContainer,iData);
 
-			if(InputManager::keyboardInput.IsPressed(0x74/*VK_F5*/))
-				EngineIDE::instance->debugger->ContinueDebuggee();
-
-			tRedraw=true;
+			if(tRedraw)
+				tabContainer->SetDraw(2,0,this);
 		}
-
-		this->SetCaretPosition(tabContainer,tCaretOperation,tCaretParameter);
-
-		if(tRedraw)
-			tabContainer->SetDraw(2,0,this);
 	}
 
 	GuiRect::OnKeyDown(tabContainer,iData);
@@ -4303,15 +4292,16 @@ void GuiScriptViewer::OnLMouseDown(Tab* tabContainer,void* iData)
 
 	vec2 tMpos=*(vec2*)iData;
 
-	this->SetCaretPosition(tabContainer,GuiString::CARET_MOUSEPOS,0);
 	tabContainer->SetFocus(this->paper);
-	tabContainer->renderer2D->caret->enable(true);
+
+	Ide::instance->stringEditor->Bind(this->paper,&this->paper->cursor);
+	Ide::instance->stringEditor->Enable(true);
 }
 
 void GuiScriptViewer::OnDeactivate(Tab* tabContainer,void* data)
 {
 	tabContainer->SetFocus(0);
-	tabContainer->renderer2D->caret->enable(false);
+	Ide::instance->stringEditor->Enable(false);
 
 	GuiRect::OnDeactivate(tabContainer,data);
 }
@@ -4365,23 +4355,6 @@ int GuiScriptViewer::CountScriptLines()
 	}
 
 	return tLinesCount;
-}
-
-void GuiScriptViewer::SetCaretPosition(Tab* tabContainer,unsigned int iCaretOp,void* iParam)
-{
-	bool tMustResize=false;
-
-	this->caret=EditText(tabContainer,iCaretOp,iParam,this->paper->text,this->cursor,this->caret,this->row,this->col,tMustResize);
-
-	if(tMustResize)
-		this->OnSize(tabContainer);
-
-	vec4 tCaret(this->caret);
-
-	tCaret.x+=this->paper->rect.x+this->paper->textOffsets.x;
-	tCaret.y+=this->paper->rect.y+this->paper->textOffsets.y;
-
-	tabContainer->renderer2D->caret->set(this->paper,vec2(tCaret.x,tCaret.y),vec2(tCaret.z,tCaret.w));
 }
 
 ///////////////////////////////////////////////
@@ -4661,7 +4634,7 @@ void editScriptEditorCallback(void* iData)
 {
 	EditorScript* editorScript=(EditorScript*)iData;
 
-	Tab* tabContainer=EngineIDE::instance->mainAppWindow->containers[0]->tabContainers[0];
+	Tab* tabContainer=Ide::instance->mainAppWindow->containers[0]->tabContainers[0];
 
 	if(!tabContainer)
 		DEBUG_BREAK();
@@ -4682,7 +4655,7 @@ void compileScriptEditorCallback(void* iData)
 {
 	EditorScript* editorScript=(EditorScript*)iData;
 
-    EngineIDE::instance->compiler->Compile(editorScript);
+    Ide::instance->compiler->Compile(editorScript);
 }
 
 void launchStopScriptEditorCallback(void* iData)
@@ -4691,12 +4664,12 @@ void launchStopScriptEditorCallback(void* iData)
 
 	if(editorScript->runtime)
 	{
-		if(EngineIDE::instance->compiler->UnloadScript(editorScript))
+		if(Ide::instance->compiler->UnloadScript(editorScript))
 			editorScript->buttonLaunch->text="Launch";
 	}
 	else
 	{
-		if(EngineIDE::instance->compiler->LoadScript(editorScript))
+		if(Ide::instance->compiler->LoadScript(editorScript))
 			editorScript->buttonLaunch->text="Stop";
 	}
 
@@ -4751,7 +4724,7 @@ void EditorScript::OnPropertiesUpdate(Tab* tab)
 
 void EditorScript::OnResourcesCreate()
 {
-	String tFileNamePath=EngineIDE::instance->folderProject + "\\" + this->entity->name;
+	String tFileNamePath=Ide::instance->folderProject + "\\" + this->entity->name;
 	this->script.path=tFileNamePath + ".cpp";
 
 	if(!File::Exist(this->script.path.Buffer()))
