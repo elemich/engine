@@ -119,7 +119,7 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 
 	//scene()->SetCurrentTake(pAnimLayer->GetName());
 
-	FbxTakeInfo* lCurrentTakeInfo = pNode->GetScene()->GetTakeInfo(animnae.Buffer());
+	FbxTakeInfo* lCurrentTakeInfo = pNode->GetScene()->GetTakeInfo(animnae.c_str());
 	FbxTime tStart, tStop;
 
 	if (lCurrentTakeInfo)

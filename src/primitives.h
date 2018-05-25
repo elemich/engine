@@ -16,24 +16,6 @@
 	delete [] _ptr;\
 	_ptr=0;}\
 
-#ifdef _MSC_VER
-	#define DEBUG_BREAK __debugbreak
-#else
-	#define DEBUG_BREAK __builtin_trap
-#endif
-
-#define SAFESTLDECL(iStlType,iStlName) \
-	private:				\
-	iStlType* _##iStlName;	\
-	public:					\
-	iStlType& iStlName
-
-#define SAFESTLIMPL(iStlType,iStlName) \
-	_##iStlName(new iStlType), \
-	iStlName(*_##iStlName)
-
-#define SAFESTLDEST(iStlName) \
-	SAFEDELETE(this->_##iStlName)
 
 #include <vector>
 #include <list>
@@ -41,14 +23,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring> //for g++ str* functions
+#include <string> //for g++ str* functions
 #include <cstdio>
 
-#ifdef __ANDROID__
-	#include <dlfcn.h>
-	#include <android/log.h>
-	#define  LOG_TAG    "Engine"
-	#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#endif
+
 
 #ifdef _MSC_VER
 	#ifdef CREATEDLL
@@ -56,8 +34,21 @@
 	#else
 		#define DLLBUILD // __declspec(dllimport)
 	#endif
+
+	#define DEBUG_BREAK __debugbreak
 #else
 	#define DLLBUILD
+	#define DEBUG_BREAK __builtin_trap
+
+	#ifdef __ANDROID__
+
+		#include <wchar.h>
+		#include <dlfcn.h>
+		#include <android/log.h>
+		#define  LOG_TAG    "Engine"
+		#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+	
+	#endif
 #endif
 
 struct DLLBUILD  mat2;
@@ -74,18 +65,12 @@ template <typename T> struct DLLBUILD THierarchy
 
 template <typename T> struct DLLBUILD  THierarchyVector : THierarchy<T>
 {
-	SAFESTLDECL(std::vector<T*>,childs);
-
-	THierarchyVector():SAFESTLIMPL(std::vector<T*>,childs){}
-	~THierarchyVector(){SAFESTLDEST(childs);}
+	std::vector<T*> childs;
 };
 
 template <typename T> struct DLLBUILD  THierarchyList : THierarchy<T>
 {
-	SAFESTLDECL(std::list<T*>,childs);
-
-	THierarchyList():SAFESTLIMPL(std::list<T*>,childs){}
-	~THierarchyList(){SAFESTLDEST(childs);}
+	std::list<T*> childs;
 };
 
 template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
@@ -136,55 +121,33 @@ public:
 
 template <typename T> std::vector<T*>* TPoolVector<T>::_pool=new std::vector<T*>;
 
+typedef std::wstring String;
+//typedef std::wstring FilePath;
 
-struct DLLBUILD String
+namespace StringUtils
 {
-protected:
-	char* data;
-	size_t size;
-public:
+	void WriteWstring(FILE* iFile,String& iWstring);
+	void ReadWstring(FILE* iFile,String& iWstring);
 
-	String();
-	String(const char* s);
-	String(const String& s);
-	String(const wchar_t* s);
-	String(int number);
-	String(float scalar);
-	String(char* from,int t);
+	std::string ToChar(const String&);
+	std::string ToChar(const wchar_t*);
+	String ToWide(const char*);
+	String ToWide(const std::string&);
 
-	~String();
+	String Int(int&);
+	String Float(float&,int iBefore=3,int iAfter=1);
 
-	DLLBUILD friend String operator+(const String a,const String& b);
+	bool WriteCharFile(String iFilename,String iContent,String iMode=L"w");
+	String ReadCharFile(String iFilename,String iMode=L"r");
+	bool WriteWideFile(String iFilename,String iContent,String iMode=L"w");
+	String ReadWideFile(String iFilename,String iMode=L"r");
+}
 
-	//String& operator=(const char* s);
-	String& operator=(const String& s);
-	bool operator==(const String& s);
-	bool operator==(const char* s);
-	char operator[](int i);
-	String& operator+=(const String&);
-
-
-
-	static String Random(int iCount);
-	operator char*()const;
-	//operator float()const;
-	const int Count()const;
-	const char* Buffer()const;
-	bool Contains(const char*);
-	bool Alloc(int iBytes);
-	bool Copy(const char* iChar);
-	//operator bool();
-};
-
-struct DLLBUILD  FilePath : String
+struct FilePath : String
 {
-	FilePath():String(){}
-	FilePath(const char* s):String(s){}
-	FilePath(const String& s):String(s){}
-	FilePath(const wchar_t* s):String(s){}
-	FilePath(int number):String(number){}
-	FilePath(float scalar):String(scalar){}
-	FilePath(char* from,int t):String(from,t){}
+	FilePath();
+	FilePath(const String&);
+	FilePath(const wchar_t*);
 
 	String File();
 	String Name();
@@ -192,8 +155,35 @@ struct DLLBUILD  FilePath : String
 	String Path();
 	String Extension();
 	String PointedExtension();
-
 	String PathUp(int iLevels);
+};
+
+struct DLLBUILD File
+{
+	FilePath path;
+	FILE* data;
+
+	File();
+	File(String);
+	~File();
+
+	bool Open(const wchar_t* mode=L"r");
+	void Close();
+	bool IsOpen();
+	bool Exist();
+	int Size();
+	bool Create();
+	int CountOccurrences(char);
+	int Read(void* outData,int iSize);
+	int Write(void* iData,int iSize,int iNum);
+	bool Delete();
+
+	operator FILE* ();
+
+	static bool Create(String iFilename);
+	static bool Exist(String iFilename);
+	static bool Delete(String iFilename);
+	static int Size(String iFilename);
 };
 
 
@@ -219,7 +209,6 @@ namespace Vector
 	DLLBUILD float* minimum(float *c,const float *a,const float *b,int dim);
 	DLLBUILD float* maximum(float *c,const float *a,const float *b,int dim);
 	DLLBUILD bool equal(const float *a,const float *b,int dim);
-	//String stringize(const float *a,int dim);
 	DLLBUILD void print(float* v);
 };
 
@@ -248,7 +237,6 @@ struct DLLBUILD  vec2 : TNumberedVectorInterface<float,2>
 	void normalize();
 	void make(float a,float b);
 	void negate();
-	String stringize();
 	operator float* ();
 	operator void* ();
 	operator char* ();
@@ -292,9 +280,6 @@ struct DLLBUILD  vec3 : TNumberedVectorInterface<float,3>
 	vec3& make(float a,float b,float c);
 	//vec3& make(double a,double b,double c){VectorMathNamespace::make(v,3,(float)a,(float)b,(float)c);return *this;}
 	vec3& negate();
-
-	String stringize();
-
 	operator float* ();
 	operator void* ();
 	operator char* ();
@@ -330,10 +315,8 @@ struct DLLBUILD  vec4 : TNumberedVectorInterface<float,4>
 	void normalize();
 	void make(float a,float b,float c,float d);
 	void negate();
-	String stringize();
 	operator float* ();
 	operator void* ();
-	operator char* ();
 	operator long unsigned int();
 	operator vec3 ();
 	operator vec2 ();

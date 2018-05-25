@@ -4,180 +4,394 @@
 #include <typeinfo>
 #include <cmath>
 
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-/////////////////////String////////////////////
+/////////////////////FilePath//////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-String::String():data(0),size(0){}
+
+FilePath::FilePath(){}
+FilePath::FilePath(const String& iString):String(iString){}
+FilePath::FilePath(const wchar_t* iString):String(iString){}
 
 
-String::String(char* iCharP,int iSize):data(0),size(0)
+String FilePath::File()
 {
-	this->size=iSize;
-	this->data=new char[this->size+1];
-	strncpy(this->data,iCharP,this->size);
-	this->data[this->size]='\0';
+	size_t tIdx=this->rfind('\\');
+	return (tIdx!=std::string::npos && ++tIdx<this->size()) ? this->substr(tIdx) : String();
+}
+String FilePath::Name()
+{
+	size_t tFirst=this->rfind('\\');
+	size_t tLast=this->rfind('.');
+
+	if(tFirst<tLast && tFirst!=std::string::npos && tLast!=std::string::npos && ++tFirst<this->size())
+		return String(*this,tFirst,tLast);
+
+	return String();
 }
 
-
-String::String(const char* iCharP):data(0),size(0)
+String FilePath::Path()
 {
-	if(iCharP)
+	size_t tLast=this->rfind('\\');
+
+	return tLast!=std::string::npos ? String(*this,0,tLast) : String();
+}
+
+String FilePath::Extension()
+{
+	size_t tLast=this->rfind('.');
+	return (tLast!=std::string::npos && ++tLast<this->size()) ? this->substr(tLast) : String();
+}
+
+String FilePath::PointedExtension()
+{
+	size_t tLast=this->rfind('.');
+	return (tLast!=std::string::npos) ? this->substr(tLast) : String();
+}
+
+String FilePath::PathUp(int iLevels)
+{
+	int tLevel=0;
+	size_t tIdx=-1;
+
+	while(true)
 	{
-		this->size=strlen(iCharP);
-		this->data=new char[this->size+1];
-		strcpy(this->data,iCharP);
-	}
-}
+		tIdx=this->rfind('\\',tIdx-1);
 
-String::String(const String& iString):data(0),size(0)
-{
-    if(iString.data)
-    {
-		this->size=iString.size;
-        this->data=new char[this->size+1];
-        strcpy(this->data,iString.data);
-    }
-}
-
-String::String(const wchar_t* iWchar):data(0),size(0)
-{
-	if(iWchar)
-	{
-		this->size=wcslen(iWchar);
-
-		if(!this->size)
-			return;
-
-		this->data=new char[this->size+1];
-
-		wcstombs(this->data,iWchar,this->size);
-	}
-}
-
-String::String(int number)
-{
-    char n[100];
-    sprintf(n,"%i",number);
-	this->size=strlen(n);
-    this->data=new char[this->size+1];
-    strcpy(this->data,n);
-}
-String::String(float scalar)
-{
-    char n[100];
-    sprintf(n,"%3.1f",scalar);
-	this->size=strlen(n);
-    this->data=new char[this->size+1];
-    strcpy(this->data,n);
-}
-
-String::~String()
-{
-	SAFEDELETEARRAY(this->data);
-	this->size=0;
-}
-
-
-String& String::operator=(const String& iString)
-{
-	SAFEDELETEARRAY(this->data);
-
-	if(iString.Buffer())
-	{
-		this->size=iString.Count();
-		this->data=new char[this->size+1];
-		strcpy(this->data,iString.Buffer());
+		if(std::string::npos!=tIdx && ++tLevel==iLevels)
+			return String(*this,0,tIdx);
 	}
 
-	return *this;
+	return String();
 }
 
-bool String::operator==(const char* iChar)
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////////File/////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+File::File():
+data(0)
+{}
+
+File::File(String iString):
+path(iString),
+	data(0)
+{}
+
+File::~File()
 {
-    return 0==strcmp(this->data,iChar);
+	if(this->data!=0)
+		this->Close();
 }
 
-bool String::operator==(const String& iString)
+bool File::IsOpen()
 {
-	return 0==strcmp(this->data,iString.Buffer());
+	return this->data ? true : false;
 }
 
-char String::operator[](int iIdx)
-{
-    return iIdx<this->size ? this->data[iIdx] : 0;
-}
-
-String operator+(String iStringA,const String& iStringB)
-{
-	return iStringA+=iStringB;
-}
-
-String& String::operator+=(const String& iString)
-{
-	if(this->size || iString.size)
-	{
-		char* tData=new char[this->size+iString.size+1];
-
-		if(this->size)
-			strcpy(tData,Buffer());
-
-		if(iString.size)
-			strcpy(&tData[this->size],iString.Buffer());
-
-		SAFEDELETEARRAY(this->data);
-
-		this->data=tData;
-		this->size=this->size+iString.size;
-	}
-
-	return *this;
-}
-
-
-
-/*
-String::operator float()const
-{
-    return (float)atof(this->data);
-}*/
-
-String::operator char*()const
+File::operator FILE* ()
 {
 	return this->data;
 }
-const int String::Count()const
-{
-	return this->size;
-}
-const char* String::Buffer()const
-{
-	return this->data;
-}
-//String::operator bool(){return Buf();}
 
-bool String::Contains(const char* iString)
+bool File::Open(const wchar_t* mode)
 {
-	return (!iString || !this->data) ? 0 : (strstr(this->data,iString) ? true : false);
-}
+	if(!this->path.size() || this->IsOpen())
+		return false;
 
+	this->data=fopen(StringUtils::ToChar(this->path).c_str(),StringUtils::ToChar(mode).c_str());
 
-bool String::Alloc(int iBytes)
-{
-	SAFEDELETE(this->data);
-	this->data=new char[iBytes+1];
-	this->data[iBytes]='\0';
+	if(!data)
+		return false;
+
+	int tell=ftell(this->data);
+
+	if(tell!=0)
+		DEBUG_BREAK();
 
 	return true;
 }
 
-bool String::Copy(const char* iChar)
+void File::Close()
 {
-	if(this->size==strlen(iChar))
+	this->data ? fclose(this->data),this->data=0 : 0;
+}
+
+bool File::Exist()
+{
+	return !this->path.empty() ? File::Exist(this->path.c_str()) : false;
+}
+
+int File::Size()
+{
+	int result=0;
+
+	bool tWasOpen=this->IsOpen();
+
+	bool tIsOpen=!tWasOpen ? this->Open() : true;
+
+	if(tIsOpen)
 	{
-		strcpy(this->data,iChar);
+		int curPos=ftell(this->data);
+		fseek(this->data,0,SEEK_END);
+		result=ftell(this->data);
+		fseek(this->data,0,curPos);
+	}
+
+	if(!tWasOpen)
+		this->Close();
+
+	return result;
+}
+
+bool File::Create()
+{
+	return File::Create(this->path.c_str());
+}
+
+bool File::Delete()
+{
+	return !this->path.empty() ? !::remove(StringUtils::ToChar(this->path).c_str()) : false;
+}
+
+int File::CountOccurrences(char iChar)
+{
+	int occurrences=0;
+
+	bool wasOpen=this->IsOpen();
+
+	if(!this->IsOpen())
+		this->Open();
+
+	if(this->IsOpen())
+	{
+		int oldPos=ftell(this->data);
+
+		fseek(this->data,0,SEEK_END);
+
+		int ___size=ftell(this->data);
+
+		int ___i=0;
+		while(___i < ___size)
+		{
+			fseek(this->data,___i,SEEK_SET);
+
+			char c=fgetc(this->data);
+
+			if(iChar==c)
+				occurrences++;
+
+			___i++;
+		}
+
+		fseek(this->data,oldPos,SEEK_SET);
+	}
+
+	if(!wasOpen)
+		this->Close();
+
+	return occurrences;
+}
+
+
+int File::Read(void* outData,int iSize)
+{
+	if(this->data)
+	{
+		return fread(outData,iSize,1,this->data);
+	}
+
+	return 0;
+}
+
+
+int File::Write(void* iData,int iSize,int iNum)
+{
+	if(this->data)
+		return fwrite(iData,iSize,iNum,this->data);
+
+	return 0;
+}
+
+//statics function
+
+
+bool File::Create(String iFilename)
+{
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),"w");
+	if(tFile)
+		fclose(tFile);
+	else return false;
+
+	return true;
+}
+bool File::Exist(String iFilename)
+{
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),"r");
+
+	if(tFile)
+	{
+		fclose(tFile);
+		return true;
+	}
+
+	return false;
+}
+bool File::Delete(String iFilename)
+{
+	return !iFilename.empty() ? !::remove(StringUtils::ToChar(iFilename).c_str()) : false;
+}
+
+int File::Size(String iFilename)
+{
+	if(iFilename.empty())
+		return -1;
+
+	int RetVal;
+
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),"r");
+
+	if(tFile)
+	{
+		fseek(tFile,0,SEEK_END);
+		RetVal=ftell(tFile);
+		fclose(tFile);
+	}
+	else
+		RetVal=-2;
+
+	return RetVal;
+}
+
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////////StringUtils///////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+void StringUtils::WriteWstring(FILE* iFile,String& iWstring)
+{
+	int nameCount=iWstring.size();
+
+	fwrite(&nameCount,sizeof(int),1,iFile);
+	fwrite(iWstring.c_str(),sizeof(wchar_t),nameCount,iFile);
+}
+
+void StringUtils::ReadWstring(FILE* iFile,String& iWstring)
+{
+	int nameCount=0;
+
+	fread(&nameCount,sizeof(int),1,iFile);
+
+	{
+		wchar_t* tNameBuf=new wchar_t[nameCount+1];
+		fread(tNameBuf,sizeof(wchar_t),nameCount,iFile);
+		tNameBuf[nameCount]='\0';
+
+		iWstring=tNameBuf;
+
+		SAFEDELETEARRAY(tNameBuf);
+	}
+}
+
+std::string StringUtils::ToChar(const String& iString)
+{
+	unsigned int tStrlen=iString.size()+1;
+	char* tNameBuf=new char[tStrlen];
+	wcstombs(tNameBuf,iString.c_str(),tStrlen);
+
+	std::string tReturnString(tNameBuf);
+
+	SAFEDELETEARRAY(tNameBuf);
+
+	return tReturnString;
+}
+
+std::string StringUtils::ToChar(const wchar_t* iString)
+{
+	if(iString)
+	{
+		size_t tStrlen=wcslen(iString)+1;
+		char* tNameBuf=new char[tStrlen];
+		wcstombs(tNameBuf,iString,tStrlen);
+
+		std::string tReturnString(tNameBuf);
+
+		SAFEDELETEARRAY(tNameBuf);
+
+		return tReturnString;
+	}
+
+	return std::string();
+}
+
+String StringUtils::ToWide(const char* iChars)
+{
+	unsigned int tStrlen=strlen(iChars)+1;
+	wchar_t* tNameBuf=new wchar_t[tStrlen];
+	mbstowcs(tNameBuf,iChars,tStrlen);
+
+	String tReturnString(tNameBuf);
+
+	SAFEDELETEARRAY(tNameBuf);
+
+	return tReturnString;
+}
+
+String StringUtils::ToWide(const std::string& iChars)
+{
+	unsigned int tStrlen=iChars.size()+1;
+	wchar_t* tNameBuf=new wchar_t[tStrlen];
+	mbstowcs(tNameBuf,iChars.c_str(),tStrlen);
+
+	String tReturnString(tNameBuf);
+
+	SAFEDELETEARRAY(tNameBuf);
+
+	return tReturnString;
+}
+
+String StringUtils::Int(int& iInt)
+{
+	String tString;
+
+	wchar_t tCharInt[100];
+	swprintf(tCharInt,100,L"%d",iInt);
+
+	tString=tCharInt;
+
+	return tString;
+}
+
+String StringUtils::Float(float& iFloat,int iBefore,int iAfter)
+{
+	String tString;
+
+	wchar_t tCharInt[100];
+	swprintf(tCharInt,100,L"%*.*f",iBefore,iAfter,iFloat);
+
+	tString=tCharInt;
+
+	return tString;
+}
+
+bool StringUtils::WriteWideFile(String iFilename,String iContent,String iMode)
+{
+	File tFileToWrite=iFilename;
+
+	if(tFileToWrite.Open(iMode.c_str()))
+	{
+		fwrite(iContent.c_str(),sizeof(wchar_t),iContent.size(),tFileToWrite);
+
+		tFileToWrite.Close();
+
 		return true;
 	}
 
@@ -185,98 +399,72 @@ bool String::Copy(const char* iChar)
 }
 
 
-
-String String::Random(int iCount)
+String ReadWideFile(String iFilename,String iMode)
 {
-	const char __an[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+	String tContent;
+	File tFile=iFilename;
 
-	String ret;
-
-	char*& __ret=ret.data;
-
-	__ret=new char[iCount+1];
-
-	unsigned int feed=*(unsigned int*)&__ret;
-	unsigned int anCount=sizeof(__an);
-	srand(feed);
-
-	for(int i=0;i<iCount;i++)
+	if(tFile.Open(iMode.c_str()))
 	{
-		__ret[i]=__an[std::rand() % anCount];
-	}
+		int tSize=tFile.Size();
 
-	__ret[iCount]='\0';
-	ret.size=iCount;
-
-	return ret;
-}
-
-
-String FilePath::File()
-{
-	char* last=strrchr(this->data,'\\');
-	if(last && last[1]!=0)
-		return (&last[1]);
-	return "";
-}
-String FilePath::Name()
-{
-	char* first=strrchr(this->data,'\\');
-	char* last=strrchr(this->data,'.');
-
-	if(first && last)
-	{
-		first++;
-		return String(first,last-first);
-	}
-
-	return "";
-}
-String FilePath::Fullpath()
-{
-	return String(this->data);
-}
-String FilePath::Path()
-{
-	char* last=strrchr(this->data,'\\');
-	if(last)
-		return String(this->data,last-this->data);
-	return "";
-}
-
-String FilePath::Extension()
-{
-	char* last=strrchr(this->data,'.');
-	if(last && last[1]!=0)
-		return String(&last[1]);
-	return "";
-}
-
-String FilePath::PointedExtension()
-{
-	char* last=strrchr(this->data,'.');
-	if(last)
-		return String(last);
-	return "";
-}
-
-String FilePath::PathUp(int iLevels)
-{
-	if(data)
-	{
-		int len=strlen(this->data);
-		int tLevel=0;
-
-		for(int i=len;i>0;i--)
+		if(tSize>0)
 		{
-			if(this->data[i]=='\\' && ++tLevel==iLevels)
-				return String(this->data,i);
+			wchar_t* tWideArray=new wchar_t[tSize+1];
+			fread(tWideArray,sizeof(wchar_t),tSize,tFile);
+			tWideArray[tSize]='\0';
+			tContent=tWideArray;
+			SAFEDELETEARRAY(tWideArray);
 		}
+
+		tFile.Close();
 	}
 
-	return "";
+	return tContent;
 }
 
+bool StringUtils::WriteCharFile(String iFilename,String iContent,String iMode)
+{
+	File tFileToWrite=iFilename;
+
+	std::string iCharContent=StringUtils::ToChar(iContent);
+
+	if(tFileToWrite.Open(iMode.c_str()))
+	{
+		fwrite(iCharContent.c_str(),sizeof(char),iCharContent.size(),tFileToWrite);
+
+		tFileToWrite.Close();
+
+		return true;
+	}
+
+	return false;
+}
+
+String StringUtils::ReadCharFile(String iFilename,String iMode)
+{
+	String tContent;
+
+	File tFile=iFilename;
+
+	if(tFile.Open(iMode.c_str()))
+	{
+		int tSize=tFile.Size();
+
+		if(tSize>0)
+		{
+			char* tCharArray=new char[tSize+1];
+			fread(tCharArray,sizeof(char),tSize,tFile.data);
+			tCharArray[tSize]='\0';
+			tContent=ToWide(tCharArray);
+			SAFEDELETEARRAY(tCharArray);
+		}
+
+		tFile.Close();
+	}
+
+	return tContent;
+}
 
 //---------------------------------
 
@@ -349,7 +537,7 @@ float Vector::dot(const float *a ,const float *b,int dim )
     return ret;
 }
 
-void Vector::print(float* v){/*printf("%g,%g,%g\n",v[0],v[1],v[2]);*/}
+void Vector::print(float* v){/*wprintf(L"%g,%g,%g\n",v[0],v[1],v[2]);*/}
 
 
 float Vector::length(const float *v,int dim )
@@ -450,10 +638,8 @@ float vec2::length(){return Vector::length(v,2);}
 void vec2::normalize(){Vector::normalize(v,v,2);}
 void vec2::make(float a,float b){Vector::make(v,2,a,b);}
 void vec2::negate(){Vector::negate(v,v,2);}
-String vec2::stringize(){char str[100];/*sprintf(str,"%g,%g",v[0],v[1]);*/String s(str);return s;}
 vec2::operator float* (){return v;}
 vec2::operator void* (){return v;}
-vec2::operator char* (){return stringize();}
 
 
 vec3::vec3():x(v[0]),y(v[1]),z(v[2]){Vector::make(v,3,0,0,0);}
@@ -483,15 +669,9 @@ vec3& vec3::normalize(){Vector::normalize(v,v,3);return *this;}
 vec3& vec3::make(float a,float b,float c){Vector::make(v,3,a,b,c);return *this;}
 //vec3& make(double a,double b,double c){VectorMathNamespace::make(v,3,(float)a,(float)b,(float)c);return *this;}
 vec3& vec3::negate(){Vector::negate(v,v,3);return *this;}
-String vec3::stringize(){
-	char str[100];
-	sprintf(str,"%g,%g,%g",v[0],v[1],v[2]);
 
-	return String(str);}
 vec3::operator float* (){return v;}
 vec3::operator void* (){return v;}
-vec3::operator char* ()
-{return (char*)stringize().Buffer();}
 bool vec3::iszero(){return (v[0]==0 && v[1]==0 && v[2]==0);}
 
 vec4::vec4():x(v[0]),y(v[1]),z(v[2]),w(v[3]){Vector::make(v,4,0,0,0,0);}
@@ -518,10 +698,8 @@ float vec4::dot(const vec4& a,const vec4& b){return Vector::dot(a.v,b.v,4);}
 void vec4::normalize(){Vector::normalize(v,v,4);}
 void vec4::make(float a,float b,float c,float d){Vector::make(v,4,a,b,c,d);}
 void vec4::negate(){Vector::negate(v,v,4);}
-String vec4::stringize(){char str[100];/*sprintf(str,"%g,%g,%g,%g",v[0],v[1],v[2],v[3]);*/String s(str);return s;}
 vec4::operator float* (){return v;}
 vec4::operator void* (){return v;}
-vec4::operator char* (){return stringize();}
 vec4::operator long unsigned int()
 {
 	long unsigned int i;
@@ -673,12 +851,12 @@ void Matrix::multiply(float* a,float* b)
 
 void Matrix::print(float* m)
 {
-    printf("%g,%g,%g,%g\n",m[0],m[4],m[8],m[12]);
-    printf("%g,%g,%g,%g\n",m[1],m[5],m[9],m[13]);
-    printf("%g,%g,%g,%g\n",m[2],m[6],m[10],m[14]);
-    printf("%g,%g,%g,%g\n",m[3],m[7],m[11],m[15]);
+    wprintf(L"%g,%g,%g,%g\n",m[0],m[4],m[8],m[12]);
+    wprintf(L"%g,%g,%g,%g\n",m[1],m[5],m[9],m[13]);
+    wprintf(L"%g,%g,%g,%g\n",m[2],m[6],m[10],m[14]);
+    wprintf(L"%g,%g,%g,%g\n",m[3],m[7],m[11],m[15]);
 
-	printf("\n");
+	wprintf(L"\n");
 }
 
 float* Matrix::traspose(float* b,float* a)
@@ -1274,11 +1452,11 @@ void printEqSys(int nrow,int ncol,float** eqsys)
 	for(int i=0;i<nrow;i++)
 		for(int j=0;j<ncol;j++)
 		{
-			printf("%3.2f ",eqsys[i][j]);
+			wprintf(L"%3.2f ",eqsys[i][j]);
 			if(j==ncol-1)
-				printf("\n");
+				wprintf(L"\n");
 			if(i==nrow-1 && j==ncol-1)
-				printf("\n");
+				wprintf(L"\n");
 		}
 }
 

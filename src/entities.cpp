@@ -20,7 +20,7 @@ ResourceNode::ResourceNode():
 
 ResourceNode::~ResourceNode()
 {
-	this->fileName="";
+	this->fileName;
 	this->selectedLeft=false;
 	this->selectedRight=false;
 	this->level=0;
@@ -28,9 +28,7 @@ ResourceNode::~ResourceNode()
 }
 
 ResourceNodeDir::ResourceNodeDir():
-	expanded(0),
-	SAFESTLIMPL(std::list<ResourceNodeDir*>,dirs),
-	SAFESTLIMPL(std::list<ResourceNode*>,files)
+	expanded(0)
 {}
 
 ResourceNodeDir::~ResourceNodeDir()
@@ -48,9 +46,6 @@ ResourceNodeDir::~ResourceNodeDir()
 
         SAFEDELETE(tResNodeDir);
     }
-
-	SAFESTLDEST(dirs);
-	SAFESTLDEST(files);
 }
 
 ///////////////////////////////////////////////
@@ -70,47 +65,39 @@ Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<Enti
 
 	tEntity->SetParent(iEntityParent);
 
-	printf("-------creating new entity-------\n");
+	wprintf(L"-------creating new entity-------\n");
 
 	fread(&childsSize,sizeof(int),1,iFile);//4
 
-	printf("childsize %d\n",childsSize);
+	wprintf(L"childsize %d\n",childsSize);
 
 	fread(tEntity->local,sizeof(float),16,iFile);//64
 	fread(tEntity->world,sizeof(float),16,iFile);//64
 
-	printf("local,world matrices\n");
+	wprintf(L"local,world matrices\n");
 
 	fread(&nameCount,sizeof(int),1,iFile);//4
 
-	printf("name count %d\n",nameCount);
+	wprintf(L"name count %d\n",nameCount);
 
-	{
-		char *tNameBuf=new char[nameCount+1];
-		fread(tNameBuf,nameCount,1,iFile);//variadic
-		tNameBuf[nameCount]='\0';
+	StringUtils::ReadWstring(iFile,tEntity->name);
 
-		tEntity->name=tNameBuf;
-
-		SAFEDELETEARRAY(tNameBuf);
-	}
-
-	printf("name: %s\n",tEntity->name.Buffer());
+	wprintf(L"name: %s\n",tEntity->name.c_str());
 
 	fread(tEntity->bbox.a,sizeof(float),3,iFile);//12
 	fread(tEntity->bbox.b,sizeof(float),3,iFile);//12
 
-	printf("bounding box\n");
+	wprintf(L"bounding box\n");
 
 	fread(&componentsSize,sizeof(int),1,iFile);//4
 
-	printf("componentsSize %d\n",componentsSize);
+	wprintf(L"componentsSize %d\n",componentsSize);
 
 	for(int i=0;i<componentsSize;i++)
 	{
 		fread(&componentCode,sizeof(unsigned char),1,iFile);//1
 
-		printf("componentsCode %d\n",componentCode);
+		wprintf(L"componentsCode %d\n",componentCode);
 
 		if(componentCode==Serialization::Script)
 		{
@@ -118,17 +105,9 @@ Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<Enti
 
 			fread(&nameCount,sizeof(int),1,iFile);//4
 
-			{
-				char *tNameBuf=new char[nameCount+1];
-				fread(tNameBuf,nameCount,1,iFile);//variadic
-				tNameBuf[nameCount]='\0';
+			StringUtils::ReadWstring(iFile,tScript->file);
 
-				tScript->script.path=tNameBuf;
-
-				SAFEDELETEARRAY(tNameBuf);
-			}
-
-			printf("componentName %s\n",tScript->script.path.Buffer());
+			wprintf(L"componentName %s\n",tScript->file.c_str());
 
 			iComponents.push_back(tScript);
 		}
@@ -140,7 +119,7 @@ Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<Enti
 			loadEntityRecursively(tEntity,iFile,iComponents);
 	}
 	else
-		printf("---loadEntityRecursively end---\n");
+		wprintf(L"---loadEntityRecursively end---\n");
 
 	return tEntity;
 }
@@ -157,15 +136,15 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 
 	if(iResDir->parent)
 	{
-		iCurrentDirectory+=iResDir->fileName.Buffer();
-		iCurrentDirectory+="\\";
+		iCurrentDirectory+=iResDir->fileName.c_str();
+		iCurrentDirectory+=L"\\";
 	}
 
 	//if node contains files, process them, later process other dir nodes
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		String	tVirtualFileName(iCurrentDirectory + (*tResFile)->fileName);
+		String	tVirtualFileName=iCurrentDirectory + (*tResFile)->fileName;
 
 		if(tVirtualFileName==iResourceName)
 		{
@@ -177,24 +156,23 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 	{
 		String t=gFindResource(iCurrentDirectory,iProjectDir,*tResNodeDir,iResourceName);
 
-		if(t!="")
-			return t;
+		return t;
 	}
 
-	return "";
+	return String();
 }
 
 void* Resource::Load(FilePath iResourceName)
 {
-    String tRootTrailingSlashes("\\");
+    String tRootTrailingSlashes(L"\\");
 
-	FilePath tResource=gFindResource(tRootTrailingSlashes,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
+	FilePath tResourcePath=gFindResource(tRootTrailingSlashes,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
 
-	if(tResource.File().Count())
+	if(!tResourcePath.File().empty())
     {
-        String tFileExtension=tResource.Extension();
+        String tFileExtension=tResourcePath.Extension();
 
-        if(tFileExtension=="engineScene")
+        if(tFileExtension==L"engineScene")
         {
 
         }
@@ -222,13 +200,13 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 	//assign the file name to the scene name
 	tScene->name=iSceneResource.Name();
 
-	printf("loading scene %s\n",tScene->name.Buffer());
+	wprintf(L"loading scene %s\n",tScene->name.c_str());
 
 	//barely load entities and components
 	if(!(tScene->entityRoot=loadEntityRecursively(tScene->entityRoot,resourceData,tComponents)))
-		printf("error loading scene %s\n",tScene->name.Buffer());
+		wprintf(L"error loading scene %s\n",tScene->name.c_str());
 	else
-		printf("approaching to load %d component(s)\n",tComponents.size());
+		wprintf(L"approaching to load %d component(s)\n",tComponents.size());
 
 	//eventually load needed resources
 	int tComponentIdx=0;
@@ -240,23 +218,23 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 		{
 			Script* tScript=dynamic_cast<Script*>(tComponent);
 
-			printf("component %d is a script\n",tComponentIdx);
+			wprintf(L"component %d is a script\n",tComponentIdx);
 
 			if(tScript)
 			{
-				String tLibFile="lib" + tScript->script.path.Name() + ".so";
+				String tLibFile=L"lib" + tScript->file.Name() + L".so";
 
-				printf("loading script %s\n",tLibFile.Buffer());
+				wprintf(L"loading script %s\n",tLibFile.c_str());
 
 				void *libhandle=0;
 				
 				#ifndef _MSC_VER
-					libhandle=dlopen(tLibFile.Buffer(), 1 /*RTLD_LAZY*/);
+					libhandle=dlopen(StringUtils::ToChar(tLibFile).c_str(), 1 /*RTLD_LAZY*/);
 				#endif
 
 				if(libhandle)
 				{
-					printf("approaching to load create script class\n");
+					wprintf(L"approaching to load create script class\n");
 
 					EntityScript* (*tCreateFunction)()=0;
 					
@@ -266,27 +244,27 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 
 					if(tCreateFunction)
 					{
-						printf("create the %s class\n",tLibFile.Buffer());
+						wprintf(L"create the %s class\n",tLibFile.c_str());
 
 						tScript->runtime=tCreateFunction();
 
 						if(tScript->runtime)
 						{
 							tScript->runtime->entity=tScript->entity;
-							printf("init the script class\n");
+							wprintf(L"init the script class\n");
 							tScript->runtime->init();
 						}
 						else
-							printf("error creating %s class\n",tLibFile.Buffer());
+							wprintf(L"error creating %s class\n",tLibFile.c_str());
 					}
 					else
-						printf("error loading create script class\n");
+						wprintf(L"error loading create script class\n");
 				}
 				else
-					printf("error loading script %s\n",tLibFile.Buffer());
+					wprintf(L"error loading script %s\n",tLibFile.c_str());
 			}
 			else
-				printf("error getting script pointer from EntityComponent\n");
+				wprintf(L"error getting script pointer from EntityComponent\n");
 		}
 	}
 
@@ -297,7 +275,7 @@ void* Resource::Load(FilePath iResourceName)
 {
     fseek(resourceData,resourceTableStart,SEEK_SET);
 
-    char            tFilePath[500];
+    wchar_t         tFilePath[500];
     unsigned int    tFileStart=0;
     unsigned int    tFileSize=0;
 
@@ -305,9 +283,9 @@ void* Resource::Load(FilePath iResourceName)
 
     while(ftell(resourceData)<resourceTableEnd)
     {
-        fscanf(resourceData,"%s",tFilePath);
-        fscanf(resourceData,"%u",&tFileStart);
-        fscanf(resourceData,"%u",&tFileSize);
+        fwscanf(resourceData,L"%s",tFilePath);
+        fwscanf(resourceData,L"%u",&tFileStart);
+        fwscanf(resourceData,L"%u",&tFileSize);
 
         if(iResourceName==String(tFilePath))
         {
@@ -320,7 +298,7 @@ void* Resource::Load(FilePath iResourceName)
     {
 		fseek(resourceData,resourceDataStart+tFileStart,SEEK_SET);
 
-		if(iResourceName.Extension()==String("engineScene"))
+		if(iResourceName.Extension()==String(L"engineScene"))
 		{
 			return LoadScene(iResourceName,resourceData);
 		}
@@ -354,13 +332,11 @@ Renderer3DBase::Renderer3DBase():
 	unlit_texture(0),
 	font(0),
 	shaded_texture(0),
-	picking(false),
-	SAFESTLIMPL(std::vector<Shader*>,shaders)
+	picking(false)
 {}
 
 Renderer3DBase::~Renderer3DBase()
 {
-	SAFESTLDEST(shaders);
 }
 
 ///////////////////////////////////////////////
@@ -534,247 +510,6 @@ void MatrixStack::SetMode(MatrixStack::matrixmode m)
 	mode=m;
 }
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-//////////////////////File/////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-File::File(String iString):path(iString),
-	data(0){}
-
-bool File::IsOpen()
-{
-	return this->data ? true : false;
-}
-
-//////////////////////File/////////////////////
-
-bool File::Open(const char* mode)
-{
-	if(!this->path.Count() || this->IsOpen())
-		return false;
-
-	this->data=fopen(path,mode);
-
-	if(!data)
-		return false;
-
-	int tell=ftell(this->data);
-
-	if(tell!=0)
-		DEBUG_BREAK();
-
-	return true;
-}
-
-void File::Close()
-{
-	this->data ? fclose(this->data),this->data=0 : 0;
-}
-
-bool File::Exist()
-{
-	if(!this->path.Count())
-		return false;
-
-	return File::Exist(this->path);
-}
-
-int File::Size()
-{
-	int result=0;
-
-	bool tWasOpen=this->IsOpen();
-
-	bool tIsOpen=!tWasOpen ? this->Open() : true;
-
-	if(tIsOpen)
-	{
-		int curPos=ftell(this->data);
-		fseek(this->data,0,SEEK_END);
-		result=ftell(this->data);
-		fseek(this->data,0,curPos);
-	}
-
-	if(!tWasOpen)
-		this->Close();
-
-	return result;
-}
-
-bool File::Create()
-{
-	return File::Create(this->path);
-}
-
-bool File::Delete()
-{
-	if(this->path.Count())
-		return !::remove(this->path);
-	return false;
-}
-
-int File::CountOccurrences(char iChar)
-{
-	int occurrences=0;
-
-	bool wasOpen=this->IsOpen();
-
-	if(!this->IsOpen())
-		this->Open();
-
-	if(this->IsOpen())
-	{
-		int oldPos=ftell(this->data);
-
-		fseek(this->data,0,SEEK_END);
-
-		int ___size=ftell(this->data);
-
-		int ___i=0;
-		while(___i < ___size)
-		{
-			fseek(this->data,___i,SEEK_SET);
-
-			char c=fgetc(this->data);
-
-			if(iChar==c)
-				occurrences++;
-
-			___i++;
-		}
-
-		fseek(this->data,oldPos,SEEK_SET);
-	}
-
-	if(!wasOpen)
-		this->Close();
-
-	return occurrences;
-}
-
-String File::All()
-{
-	String tS;
-
-	bool wasOpen=this->IsOpen();
-
-	if(!wasOpen)
-		this->Open();
-
-	if(this->IsOpen())
-	{
-		int tSize=this->Size();
-
-		if(tSize>0)
-		{
-			char* tT=new char[tSize+1];
-			fread(tT,tSize,1,this->data);
-			tT[tSize]='\0';
-			tS=tT;
-			SAFEDELETEARRAY(tT);
-		}
-	}
-
-
-	if(!wasOpen)
-		this->Close();
-
-	if(tS.Count()==0)
-		tS="";
-
-	return tS;
-}
-
-int File::Read(void* outData,int iSize)
-{
-	if(this->data)
-	{
-		return fread(outData,iSize,1,this->data);
-	}
-
-	return 0;
-}
-
-bool File::ReadW(wchar_t* outData,int iSize)
-{
-	if(this->data)
-	{
-		wchar_t* outValue=fgetws(outData,iSize*2,this->data);
-		outData[iSize]=L'\0';
-		return outValue ? true : false;
-	}
-
-	return 0;
-}
-
-int File::Write(void* iData,int iSize,int iNum)
-{
-	if(this->data)
-		return fwrite(iData,iSize,iNum,this->data);
-
-	return 0;
-}
-
-//statics function
-
-
-bool File::Create(const char* iFilename)
-{
-	FILE* tFile=fopen(iFilename,"w");
-	if(tFile)
-		fclose(tFile);
-	else return false;
-
-	return true;
-}
-bool File::Exist(const char* iFilename)
-{
-	FILE* tFile=fopen(iFilename,"r");
-
-	if(tFile)
-	{
-		fclose(tFile);
-		return true;
-	}
-
-	return false;
-}
-bool File::Delete(const char* iFilename)
-{
-	return !::remove(iFilename);
-}
-
-int File::Size(const char* iFilename)
-{
-	if(!iFilename)
-		return -1;
-
-	int RetVal;
-
-	FILE* tFile=fopen(iFilename,"r");
-
-	if(tFile)
-	{
-		fseek(tFile,0,SEEK_END);
-		RetVal=ftell(tFile);
-		fclose(tFile);
-	}
-	else
-		RetVal=-2;
-
-	return RetVal;
-}
-
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -783,17 +518,20 @@ int File::Size(const char* iFilename)
 
 Shader::Shader(){}
 
-Shader* Shader::Find(const char* name,bool exact)
+Shader* Shader::Find(const char* iNameToFind,bool iExact)
 {
 	for(size_t i=0;i<GetPool().size();i++)
 	{
 		Shader* element=GetPool()[i];
 
-		const char* programName=element->GetName();
+		if(element)
+		{
+			std::string tShaderName=StringUtils::ToChar(element->name);
 
-		if(element && programName)
-			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
-				return GetPool()[i];
+				if(iExact ? tShaderName==iNameToFind :  tShaderName.find(iNameToFind)!=std::string::npos)
+					return element;
+		}
+		
 	}
 
 	return 0;
@@ -822,7 +560,6 @@ bone(0),
 {}
 
 KeyCurve::KeyCurve():
-	SAFESTLIMPL(std::vector<Keyframe*>,frames),
 	channel(INVALID_CHANNEL),
 	start(-1),
 	end(-1)
@@ -830,32 +567,25 @@ KeyCurve::KeyCurve():
 
 KeyCurve::~KeyCurve()
 {
-	SAFESTLDEST(frames);
 }
 
 
 AnimClip::AnimClip():
-	SAFESTLIMPL(std::vector<KeyCurve*>,curves),
 	start(-1),
 	end(-1)
 {}
 
-AnimClip::~AnimClip()
-{
-	SAFESTLDEST(curves);
-}
+AnimClip::~AnimClip(){}
 
 Animation::Animation():
 	entity(0),
 	index(0),
 	start(-1),
-	end(-1),
-	SAFESTLIMPL(std::vector<AnimClip*>,clips)
+	end(-1)
 {}
 
 Animation::~Animation()
 {
-	SAFESTLDEST(clips);
 }
 
 void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
@@ -875,7 +605,7 @@ void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff
         case SCALEY:soff[1]	= val; break;
         case SCALEZ:soff[2]	= val; break;
         case INVALID_CHANNEL:
-            printf("copychannel: INVALID_CHANNEL selected\n");
+            wprintf(L"copychannel: INVALID_CHANNEL selected\n");
 	}
 }
 
@@ -894,21 +624,17 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 }
 
 AnimationController::AnimationController():
-	SAFESTLIMPL(std::vector<Animation*>,animations),
 	speed(1),
 	cursor(0),
 	play(false),
 	looped(true),
 	start(0),
 	end(0),
-	lastFrameTime(0),
+	frameTime(0),
 	resolutionFps(60)
 {}
 
-AnimationController::~AnimationController()
-{
-	SAFESTLDEST(animations);
-}
+AnimationController::~AnimationController(){}
 
 
 void AnimationController::add(Animation* anim)
@@ -931,7 +657,7 @@ void AnimationController::add(Animation* anim)
 void AnimationController::Stop()
 {
 	this->play=false;
-	this->lastFrameTime=0;
+	this->frameTime=0;
 }
 
 void AnimationController::Play()
@@ -1027,12 +753,15 @@ void AnimationController::update()
 	{
 		this->SetFrame(this->cursor);
 
-			float curDelta=this->lastFrameTime ? (Timer::instance->GetTime()-this->lastFrameTime)/1000.0f : 0;
-			this->cursor+=curDelta*this->speed;
-			this->lastFrameTime=Timer::instance->GetTime();
+		int		tCurrentTime=Timer::instance->GetTime();
 
-			if(this->cursor>this->end)
-				this->cursor=this->cursor-this->end;
+		float	tCurrentDelta=	this->frameTime ? (tCurrentTime-this->frameTime)/1000.0f : 0;
+
+		this->cursor+=tCurrentDelta*this->speed;
+		this->frameTime=tCurrentTime;
+
+		if(this->cursor>this->end)
+			this->cursor=this->cursor-this->end;
 	}
 }
 
@@ -1105,7 +834,6 @@ light_cast(0),
 
 
 Material::Material():
-	SAFESTLIMPL(std::vector<Texture*>,textures),
 	emissive(0.2f,0.2f,0.2f),
 	diffuse(0.2f,0.2f,0.2f),
 	normalmap(0.2f,0.2f,0.2f),
@@ -1126,10 +854,7 @@ Material::Material():
 	fshininess(0)
 {}
 
-Material::~Material()
-{
-	SAFESTLDEST(textures);
-}
+Material::~Material(){}
 
 void Material::update(){};
 
@@ -1151,14 +876,10 @@ Mesh::Mesh():
 	npolygons(0),
 	colors(NULL),
 	ncolors(0),
-	isCCW(true),
-	SAFESTLIMPL(std::vector<Material*>,materials)
+	isCCW(true)
 {}
 
-Mesh::~Mesh()
-{
-	SAFESTLDEST(materials);
-}
+Mesh::~Mesh(){}
 
 void Mesh::draw(Renderer3DBase* renderer3d)
 {
@@ -1324,14 +1045,9 @@ int TextureFile::GetBpp()
 
 
 
-TextureLayered::TextureLayered():
-	SAFESTLIMPL(std::vector<Texture*>,textures)
-{}
+TextureLayered::TextureLayered(){}
 
-TextureLayered::~TextureLayered()
-{
-	SAFESTLDEST(textures);
-}
+TextureLayered::~TextureLayered(){}
 
 TextureProcedural::TextureProcedural(){}
 
@@ -1352,9 +1068,7 @@ EntityScript::EntityScript():entity(0){}
 ///////////////////////////////////////////////
 
 Entity::Entity():
-	parent(0),
-	SAFESTLIMPL(std::vector<EntityComponent*>,components),
-	SAFESTLIMPL(std::list<Entity*>,childs)
+	parent(0)
 {}
 
 Entity::~Entity()
@@ -1366,9 +1080,6 @@ Entity::~Entity()
 
 	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
 		SAFEDELETE(*tEn);
-
-	SAFESTLDEST(components);
-	SAFESTLDEST(childs);
 }
 
 void Entity::SetParent(Entity* iParent)

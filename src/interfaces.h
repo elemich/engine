@@ -149,8 +149,8 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 
 	virtual void ScanDir(String,ResourceNodeDir*)=0;
 
-	const char* GetSceneExtension();
-	const char* GetEntityExtension();
+	String GetSceneExtension();
+	String GetEntityExtension();
 
 	virtual void Sleep(int iMilliseconds=1)=0;
 };
@@ -224,7 +224,7 @@ struct DLLBUILD StringEditor
 
 	struct DLLBUILD Cursor
 	{
-		char*           cursor;
+		const wchar_t*        cursor;
 		vec2			rowcol;
 		vec4			caret;
 
@@ -274,8 +274,8 @@ struct DLLBUILD Renderer2D
 
 	Renderer2D(Tab*);
 
-	virtual void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true)=0;
-	virtual void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true)=0;
+	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT)=0;
+	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT)=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
@@ -406,16 +406,6 @@ struct DLLBUILD ShaderOpenGL : Shader
 	void SetProjectionMatrix(float*);
 	void SetModelviewMatrix(float*);
 	void SetMatrices(float* view,float* mdl);
-
-	void SetName(const char*);
-	const char* GetName();
-
-	//char* name;
-	String name;
-	int   program;
-	unsigned int	  vbo;
-	unsigned int	  vao;
-	unsigned int	  ibo;
 };
 
 struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
@@ -514,14 +504,14 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 			((*tRect)->*func)(iTabContainer,iData);
 	}
 
-	GuiContainer* Container(const char* iText);
+	GuiContainer* Container(String iText);
 
 	GuiString* Text(String str);
 
-	GuiPropertyString* Property(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=3,unsigned int iValueParameter2=2);
+	GuiPropertyString* Property(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=3,unsigned int iValueParameter2=2);
 
 	GuiPropertyAnimationController* AnimationControllerProperty(AnimationController&);
-	GuiPropertySlider* SliderProperty(const char* iDescription,float& ref,float& imin,float& imax);
+	GuiPropertySlider* SliderProperty(String iDescription,float& ref,float& imin,float& imax);
 
 	GuiViewport* Viewport(vec3 pos=vec3(100,100,100),vec3 target=vec3(0,0,0),vec3 up=vec3(0,0,1),bool perspective=true);
 	GuiSceneViewer* SceneViewer();
@@ -547,8 +537,7 @@ struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 
 struct DLLBUILD GuiString : GuiRect
 {
-	std::string text;
-	std::wstring wText;
+	String text;
 	
 	vec4 textOffsets;
 	vec4 textFixed;
@@ -683,7 +672,7 @@ struct DLLBUILD GuiSlider : GuiRect
 	float& minimum;
 	float& maximum;
 
-	GuiSlider(float& iRef,float& iMin,float& iMax):referenceValue(iRef),minimum(iMin),maximum(iMax){this->name="GuiSlider";}
+	GuiSlider(float& iRef,float& iMin,float& iMax):referenceValue(iRef),minimum(iMin),maximum(iMax){this->name=L"GuiSlider";}
 
 	virtual void OnPaint(Tab*,void* data=0);
 	virtual void OnMouseMove(Tab*,void* data=0);
@@ -699,7 +688,7 @@ struct DLLBUILD GuiSlider : GuiRect
 
 struct DLLBUILD GuiProperty : GuiRect
 {
-	String description;
+	GuiString description;
 
 	GuiProperty();
 };
@@ -737,7 +726,7 @@ struct DLLBUILD GuiPropertyString : GuiProperty
 
 	GuiString value;
 
-	GuiPropertyString(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
+	GuiPropertyString(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
 
 	virtual void OnPaint(Tab*,void* data=0);
 	virtual void OnSize(Tab*,void* data=0);
@@ -749,7 +738,7 @@ struct DLLBUILD GuiPropertySlider : GuiProperty
 {
 	GuiSlider slider;
 
-	GuiPropertySlider(const char* iDescription,float& iRefVal,float& iMin,float& iMax);
+	GuiPropertySlider(String iDescription,float& iRefVal,float& iMin,float& iMax);
 
 	virtual void OnPaint(Tab*,void* data=0);
 };
@@ -822,7 +811,7 @@ struct DLLBUILD GuiPaper : GuiString
 {
 	GuiScriptViewer* scriptViewer;
 
-	unsigned int lineCount;
+	int lineCount;
 	bool lineNumbers;
 
 	StringEditor::Cursor cursor;
@@ -866,7 +855,7 @@ struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewe
 {
 	GuiCompilerViewer();
 
-	bool ParseCompilerOutputFile(wchar_t*);
+	bool ParseCompilerOutputFile(String);
 	void OnSize(Tab*,void* data=0);
 };
 
@@ -894,8 +883,8 @@ struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 	void UnselectNodes(EditorEntity*);
 	void ExpandUntil(EditorEntity* iTarget);
 
-	void Save(const char*);
-	void Load(const char*);
+	void Save(String);
+	void Load(String);
 };
 
 struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
@@ -991,7 +980,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	void OnDeactivate(Tab*,void* data=0);
 	void OnSize(Tab*,void* data=0);
 
-	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,const char* iExtension)
+	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,String iExtension)
 	{
 		if(iResourceNode->isDir)
 		{
@@ -1007,7 +996,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 				oResultArray.push_back(iResourceNode);
 	}
 
-	std::vector<ResourceNode*> findResources(const char* iExtension)
+	std::vector<ResourceNode*> findResources(String iExtension)
 	{
 		std::vector<ResourceNode*> oResultArray;
 
@@ -1051,11 +1040,11 @@ struct DLLBUILD DrawInstance
 	int		 code;
 	bool	 frame;
 	GuiRect* rect;
-	std::string name;
+	String	name;
 
 	bool remove;
 
-	DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,const char* iName="",bool iRemove=true);
+	DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iname,bool iRemove=true);
 };
 
 struct DLLBUILD Tab : TPoolVector<Tab>
@@ -1159,7 +1148,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
 
-	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,const char* iName="",bool iRemove=true);
+	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,String iName=L"",bool iRemove=true);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
@@ -1186,7 +1175,7 @@ struct DLLBUILD Splitter
 	int	 floatingTabTargetAnchorTabIndex;
 
 	const int   splitterSize;
-	char*		splitterCursor;
+	wchar_t*		splitterCursor;
 
 	Splitter();
 	~Splitter();
@@ -1239,7 +1228,7 @@ struct DLLBUILD MainContainer
 
 struct DLLBUILD Subsystem
 {
-	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false)=0;
+	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile=L"",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false)=0;
 	virtual unsigned int FindProcessId(String iProcessName)=0;
 	virtual unsigned int FindThreadId(unsigned int iProcessId,String iThreadName)=0;
 };
@@ -1264,7 +1253,7 @@ struct DLLBUILD Compiler
 		String includeLib;
 	};
 
-	SAFESTLDECL(std::vector<COMPILER>,compilers);
+	std::vector<COMPILER> compilers;
 
 	enum
 	{

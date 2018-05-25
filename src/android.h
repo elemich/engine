@@ -61,16 +61,6 @@ struct ShaderAndroid : Shader
 	void SetProjectionMatrix(float*);
 	void SetModelviewMatrix(float*);
 	void SetMatrices(float* view,float* mdl);
-
-	void SetName(const char*);
-	const char* GetName();
-
-	//char* name;
-	String name;
-	int   program;
-	unsigned int	  vbo;
-	unsigned int	  vao;
-	unsigned int	  ibo;
 };
 
 struct Renderer3DAndroid : Renderer3DBase

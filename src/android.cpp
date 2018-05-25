@@ -42,7 +42,7 @@ int asset_read(void* iFile,char* iBuffer,int iCount)
 
 int asset_write(void* iFile,const char* iBuffer,int iCount)
 {
-    printf("fwrite not implemented\n");
+    wprintf(L"fwrite not implemented\n");
     return 0;
 }
 
@@ -61,7 +61,7 @@ FILE* asset_open(const char* iFilename,const char* iMode)
 {
     if(0!=strstr(iMode,"w") || 0!=strstr(iMode,"W"))
     {
-        printf("error: trying to open asset in r mode\n");
+        wprintf(L"error: trying to open asset in r mode\n");
         return 0;
     }
 
@@ -83,11 +83,11 @@ jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
 
 	globalJvm = iJavaVM;
 
-	printf("Engine: JNI_OnLoad\n");
+	wprintf(L"Engine: JNI_OnLoad\n");
 
 	if (globalJvm->GetEnv((void**)&globalJniEnv, tJVer) != JNI_OK)
 	{
-		printf("Engine: JNI_OnLoad() failed to get the JVM\n");
+		wprintf(L"Engine: JNI_OnLoad() failed to get the JVM\n");
 		return -1;
 	}
 
@@ -96,7 +96,7 @@ jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
 
 	if(!tActivityClass)
 	{
-		printf("Engine: JNI_OnLoad() failed to get %s class reference through JVM\n",tJavaActivityPath);
+		wprintf(L"Engine: JNI_OnLoad() failed to get %s class reference through JVM\n",tJavaActivityPath);
 		return -1;
 	}
 
@@ -110,7 +110,7 @@ jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
 
 bool JniInit()
 {
-    printf("Engine: JniInit\n");
+    wprintf(L"Engine: JniInit\n");
 
 	jmethodID   pfAssetManagerFunction=NULL;
 	jmethodID   pfCurrentPathFunction=NULL;
@@ -127,7 +127,7 @@ bool JniInit()
 			current_dir = globalJniEnv->GetStringUTFChars((jstring)globalJniEnv->CallStaticObjectMethod(tEngineViewClass, pfCurrentPathFunction ), 0);
 		else
         {
-            printf("Engine: JniInit() failed to GetCurrentPath from JVM\n");
+            wprintf(L"Engine: JniInit() failed to GetCurrentPath from JVM\n");
             return false;
         }
 
@@ -143,7 +143,7 @@ bool JniInit()
 
             if(resourceData)
             {
-                printf("Resource: loading asset\n");
+                wprintf(L"Resource: loading asset\n");
 
                 fread(&resourceTableSize,sizeof(int),1,resourceData);
                 fread(&resourceDataSize,sizeof(int),1,resourceData);
@@ -153,38 +153,38 @@ bool JniInit()
                 resourceDataStart=resourceTableEnd;
                 resourceDataEnd=resourceDataStart + resourceDataSize;
 
-                printf("Resource: asset table size is %d\n",resourceTableSize);
-                printf("Resource: asset data size is %d\n",resourceDataSize);
+                wprintf(L"Resource: asset table size is %d\n",resourceTableSize);
+                wprintf(L"Resource: asset data size is %d\n",resourceDataSize);
 
                 {
-                    const char* tResource="\\pippo\\1.txt";
-                    const char* tResource2="\\pippo\\peppo\\2.txt";
+                    String tResource=L"\\pippo\\1.txt";
+                    String tResource2=L"\\pippo\\peppo\\2.txt";
 
                     char* tBuffer=(char*)Resource::Load(tResource);
                     char* tBuffer2=(char*)Resource::Load(tResource2);
 
                     if(tBuffer && tBuffer2)
                     {
-                        printf("resource %s %s found\n",tResource,tResource2);
+                        wprintf(L"resource %s %s found\n",tResource.c_str(),tResource2.c_str());
 
-                        printf("result %s %s \n",tBuffer,tBuffer2);
+                        wprintf(L"result %s %s \n",tBuffer,tBuffer2);
 
                         SAFEDELETE(tBuffer);
                         SAFEDELETE(tBuffer2);
                     }
                     else
-                        printf("resource %s not found\n",tResource);
+                        wprintf(L"resource %s not found\n",tResource.c_str());
 
 
                 }
             }
             else
-                printf("error opening asset file\n");
+                wprintf(L"error opening asset file\n");
 
         }
 		else
         {
-            printf("Engine: JniInit() failed to GetAssetManager from JVM\n");
+            wprintf(L"Engine: JniInit() failed to GetAssetManager from JVM\n");
             return false;
         }
 
@@ -210,7 +210,7 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobje
 	glEnable(GL_DEPTH_TEST);
 
 	//load scene
-	currentScene=(Scene*)Resource::Load("\\Scene.engineScene");
+	currentScene=(Scene*)Resource::Load(L"\\Scene.engineScene");
 }
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobject obj)
@@ -262,7 +262,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 
 	if(!shader_id)
 	{
-		printf("glCreateShader error for %d,%s\n",shader_type,shader_src);glCheckError();
+		wprintf(L"glCreateShader error for %d,%s\n",shader_type,shader_src);glCheckError();
 		__debugbreak();
 		return 0;
 	}
@@ -275,7 +275,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 	{
 		sprintf(message,"glCompileShader[%s] error:\n",name);
 		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
-		printf("simple_shader error: %s",message);
+		wprintf(L"simple_shader error: %s",message);
 		__debugbreak();
 	}
 
@@ -296,7 +296,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 	if(!program)
 	{
-		printf("glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
+		wprintf(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
 		__debugbreak();
 		return 0;
 	}
@@ -311,7 +311,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 	if (GL_FALSE==link_success)
 	{
-		printf("glLinkProgram error for %s\n",message);
+		wprintf(L"glLinkProgram error for %s\n",message);
 		__debugbreak();
 	}
 
@@ -320,7 +320,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 	//print infos
 	/*if(len && len<sizeof(message))
-		printf("%s",message);*/
+		wprintf(L"%s",message);*/
 
 
 	return program;
@@ -336,7 +336,7 @@ Shader* ShaderAndroid::Create(const char* name,const char* pix,const char* frag)
 	{
 		Shader* shader=new ShaderAndroid;
 
-		shader->SetName(name);
+		shader->name=StringUtils::ToWide(name);
 		shader->SetProgram(program);
 		shader->Use();
 		shader->init();
@@ -345,7 +345,7 @@ Shader* ShaderAndroid::Create(const char* name,const char* pix,const char* frag)
 	}
 	else
 
-		printf("error creating shader %s\n",name);
+		wprintf(L"error creating shader %s\n",name);
 
 	return 0;
 }
@@ -507,15 +507,6 @@ bool ShaderAndroid::SetMatrix4f(int slot,float* mtx)
 	return true;
 }
 
-void ShaderAndroid::SetName(const char* n)
-{
-	name=n;
-}
-const char* ShaderAndroid::GetName()
-{
-	return name;
-}
-
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -569,8 +560,8 @@ Renderer3DAndroid::Renderer3DAndroid()
 
 	glGenBuffers(1, &pixelBuffer);
 
-	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
-	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
+	wprintf(L"Status: Using GL %s\n", glGetString(GL_VERSION));
+	wprintf(L"Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	this->unlit=ShaderAndroid::Create("unlit",unlit_vert,unlit_frag);
 	this->unlit_color=ShaderAndroid::Create("unlit_color",unlit_color_vert,unlit_color_frag);

@@ -8,6 +8,7 @@
 //#pragma warning(disable:4996) //
 
 #define _CRT_SECURE_NO_WARNINGS
+#define UNICODE
 
 #include <windows.h>
 #include <windowsx.h>
@@ -52,9 +53,9 @@ struct DLLBUILD Renderer2DWin32;
 //#define RENDERER DirectXRenderer()
 #define RENDERER OpenGLRenderer
 
-#define WC_MAINAPPWINDOW "MainAppWindow 0.1"
-#define WC_CONTAINERWINDOW "ContainerWindow"
-#define WC_TABCONTAINERWINDOWCLASS "TabContainerWindowClass"
+#define WC_MAINAPPWINDOW L"MainAppWindow 0.1"
+#define WC_CONTAINERWINDOW L"ContainerWindow"
+#define WC_TABCONTAINERWINDOWCLASS L"TabContainerWindowClass"
 
 #define MAINMENU_ENTITIES_IMPORTENTITY 1
 
@@ -82,8 +83,8 @@ struct DLLBUILD Direct2D
 
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const wchar_t* text,int iLength,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	//static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
@@ -134,8 +135,8 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
 
-	void DrawText(const char* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
-	void DrawText(const wchar_t* iText,float iX,float iY, float iWw,float iH,unsigned int iColor=COLOR_TEXT,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT);
+	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
@@ -403,7 +404,7 @@ struct DLLBUILD IdeWin32 : Ide
 
 struct DLLBUILD SubsystemWin32 : Subsystem
 {
-	bool Execute(String iPath,String iCmdLine,String iOutputFile="",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false);
+	bool Execute(String iPath,String iCmdLine,String iOutputFile=L"",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false);
 	unsigned int FindProcessId(String iProcessName);
 	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
 };

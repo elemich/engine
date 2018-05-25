@@ -72,9 +72,6 @@ struct DLLBUILD Shader : TPoolVector<Shader>
 	virtual int GetProgram()=0;
 	virtual void SetProgram(int)=0;
 
-	virtual void SetName(const char*)=0;
-	virtual const char* GetName()=0;
-
 	virtual int GetUniform(int slot,char* var)=0;
 	virtual int GetAttrib(int slot,char* var)=0;
 
@@ -113,6 +110,12 @@ struct DLLBUILD Shader : TPoolVector<Shader>
 	virtual void SetMatrices(float* view,float* mdl)=0;
 
 	Shader();
+
+	String				name;
+	int					program;
+	unsigned int		vbo;
+	unsigned int		vao;
+	unsigned int		ibo;
 };
 
 namespace Serialization
@@ -253,8 +256,8 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 {
 	bool expanded;
 
-	SAFESTLDECL(std::list<ResourceNodeDir*>,dirs);
-	SAFESTLDECL(std::list<ResourceNode*>,files);
+	std::list<ResourceNodeDir*> dirs;
+	std::list<ResourceNode*> files;
 
 	ResourceNodeDir();
 	virtual ~ResourceNodeDir();
@@ -263,34 +266,6 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 struct DLLBUILD Resource
 {
 	static void* Load(FilePath iResourceName);
-};
-
-
-
-struct DLLBUILD File
-{
-	FilePath path;
-	FILE* data;
-
-	File(String iString=0);
-
-	bool Open(const char* mode="r");
-	void Close();
-	bool IsOpen();
-	bool Exist();
-	int Size();
-	bool Create();
-	int CountOccurrences(char);
-	int Read(void* outData,int iSize);
-	bool ReadW(wchar_t* outData,int iSize);
-	int Write(void* iData,int iSize,int iNum);
-	bool Delete();
-	String All();
-
-	static bool Create(const char* iFilename);
-	static bool Exist(const char* iFilename);
-	static bool Delete(const char* iFilename);
-	static int Size(const char* iFilename);
 };
 
 struct DLLBUILD Texture
@@ -315,7 +290,7 @@ struct DLLBUILD Texture
 
 struct DLLBUILD Material
 {
-	SAFESTLDECL(std::vector<Texture*>,textures);
+	std::vector<Texture*> textures;
 
 	EMaterial m_type;
 
@@ -380,8 +355,7 @@ struct DLLBUILD KeyCurve
 	KeyCurve();
 	~KeyCurve();
 
-
-	SAFESTLDECL(std::vector<Keyframe*>,frames);
+	std::vector<Keyframe*> frames;
 
 	EChannel		channel;
 	float			start;
@@ -394,7 +368,7 @@ struct DLLBUILD AnimClip
 	AnimClip();
 	~AnimClip();
 
-	SAFESTLDECL(std::vector<KeyCurve*>,curves);
+	std::vector<KeyCurve*> curves;
 
 	float start;
 	float end;
@@ -422,8 +396,8 @@ struct DLLBUILD Entity : EntityBase
 {
 	Entity*					parent;
 
-	SAFESTLDECL(std::vector<EntityComponent*>,components);
-	SAFESTLDECL(std::list<Entity*>,childs);
+	std::vector<EntityComponent*> components;
+	std::list<Entity*> childs;
 
 	mat4					local;
 	mat4					world;
@@ -487,7 +461,7 @@ struct DLLBUILD Animation : EntityComponent
 
 	Entity* entity;
 
-	SAFESTLDECL(std::vector<AnimClip*>,clips);
+	std::vector<AnimClip*> clips;
 
 	float	start;
 	float	end;
@@ -501,7 +475,7 @@ struct DLLBUILD Gizmo : EntityComponent
 
 struct DLLBUILD AnimationController : EntityComponent
 {
-	SAFESTLDECL(std::vector<Animation*>,animations);
+	std::vector<Animation*> animations;
 
 	float speed;
 	float cursor;
@@ -513,7 +487,7 @@ struct DLLBUILD AnimationController : EntityComponent
 
 	int resolutionFps;
 
-	int lastFrameTime;
+	int frameTime;
 
 	AnimationController();
 	~AnimationController();
@@ -590,14 +564,14 @@ struct DLLBUILD Mesh : EntityComponent
 
 	bool  isCCW;
 
-	SAFESTLDECL(std::vector<Material*>,materials);
+	std::vector<Material*> materials;
 
 	void draw(Renderer3DBase*);
 };
 
 struct DLLBUILD Script : EntityComponent , TPoolVector<Script>
 {
-	File script;
+	FilePath file;
 	EntityScript* runtime;
 	FilePath module;
 
@@ -666,7 +640,7 @@ struct DLLBUILD TextureFile : Texture
 
 struct DLLBUILD TextureLayered
 {
-	SAFESTLDECL(std::vector<Texture*>,textures);
+	std::vector<Texture*> textures;
 
 	TextureLayered();
 	~TextureLayered();
@@ -720,7 +694,7 @@ struct DLLBUILD Renderer3DBase
 	Shader* font;
 	Shader* shaded_texture;
 
-	SAFESTLDECL(std::vector<Shader*>,shaders);
+	std::vector<Shader*> shaders;
 };
 
 struct DLLBUILD Scene

@@ -174,7 +174,7 @@ void Direct2D::Init()
 {
 	if(!factory)
 	{
-		printf("Initializing Direct2D\n");
+		wprintf(L"Initializing Direct2D\n");
 
 		HRESULT res=S_OK;
 
@@ -274,7 +274,7 @@ void Direct2D::Init()
 
 			if(0)
 			{
-				printf("----------\n");
+				wprintf(L"----------\n");
 
 
 				char *prova=" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
@@ -284,11 +284,11 @@ void Direct2D::Init()
 				while(*t)
 				{
 					int width=charsWidth[(*t)-32];
-					printf("%c: %d\n",*t,width);
+					wprintf(L"%c: %d\n",*t,width);
 					t++;
 				}
 
-				printf("----------\n");
+				wprintf(L"----------\n");
 			}
 		}
 
@@ -303,12 +303,12 @@ void Direct2D::Init()
 
 void dump(unsigned char* t)
 {
-	printf("\n");
+	wprintf(L"\n");
 	for(int i=0;i<1600;i++)
 	{
-		printf("0x%x,",t[i]);
+		wprintf(L"0x%x,",t[i]);
 	}
-	printf("\n");
+	wprintf(L"\n");
 	system("pause");
 }
 
@@ -409,7 +409,7 @@ vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int i
 	if(!iText)
 		vec2(width,height);
 
-	float fontHeight=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
+	float fontHeight=height=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
 
 	wchar_t* t=(wchar_t*)iText;
 
@@ -455,44 +455,9 @@ float Direct2D::GetCharWidth(char iCharacter)
 }
 
 
-void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const wchar_t* iText,int iLength,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
+void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	if(!iText)
-		return;
-
-	/*if(iClip)
-		iRenderer->PushAxisAlignedClip(D2D1::RectF(x1,y1,x2,y2),D2D1_ANTIALIAS_MODE_ALIASED);*/
-
-	iRenderer->DrawText(iText,iLength,texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
-
-	/*if(iClip)
-		iRenderer->PopAxisAlignedClip();*/
-}
-
-void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const char* iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
-{
-	if(!iText)
-		return;
-
-	unsigned int tFinalTextLength=0;
-	wchar_t *tWcharTextOutput=0;
-
-	{
-		unsigned int tTextLength=strlen(iText);
-		unsigned int tCharSize=sizeof(const char);
-		tFinalTextLength=tCharSize*tTextLength;
-		tWcharTextOutput=new wchar_t[tFinalTextLength+1];
-		int tCharsWrited=mbstowcs(tWcharTextOutput,iText,tFinalTextLength);
-
-		if(tCharsWrited!=tFinalTextLength)
-			DEBUG_BREAK();
-
-		tWcharTextOutput[tFinalTextLength]='\0';//needed, see mbstowcs reference
-	}
-
-	Direct2D::DrawText(iRenderer,iBrush,tWcharTextOutput,tFinalTextLength,x1,y1,x2,y2,iAlignPosX,iAlignPosY,iClip);
-
-	SAFEDELETEARRAY(tWcharTextOutput);
+	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 }
 
 void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill)
@@ -574,13 +539,20 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 
 	return true;
 }
-void Renderer2DWin32::DrawText(const char* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
+void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor)
 {
-	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
+	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,left,top,right,bottom);
 }
-void Renderer2DWin32::DrawText(const wchar_t* iText,float iX,float iY, float iW,float iH,unsigned int iColor,float iAlignPosX,float iAlignPosY,bool iClip)
+void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor)
 {
-	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,iX,iY,iW,iH,iAlignPosX,iAlignPosY,iClip);
+	vec4 tRect(left,top,right-left,bottom-top);
+
+	vec2 tTextSize=this->MeasureText(iText.c_str());
+
+	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
+	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
+
+	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 }
 void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
 {
@@ -738,9 +710,9 @@ void MainContainerWin32::Init()
 	menuMain=CreateMenu();
 	menuEntities=CreateMenu();
 
-	InsertMenu(menuMain,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menuEntities,"Entities");
+	InsertMenu(menuMain,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menuEntities,L"Entities");
 	{
-		InsertMenu(menuEntities,0,MF_BYPOSITION|MF_STRING,MAINMENU_ENTITIES_IMPORTENTITY,"Import...");
+		InsertMenu(menuEntities,0,MF_BYPOSITION|MF_STRING,MAINMENU_ENTITIES_IMPORTENTITY,L"Import...");
 	}
 
 	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,menuMain,0,container);
@@ -795,7 +767,7 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 	{
 		/*case WM_PAINT:
 			//result=DefWindowProc(hwnd,msg,wparam,lparam);
-			printf("main painting\n");
+			wprintf(L"main painting\n");
 		break;*/
 		case WM_CREATE:
 		{
@@ -849,12 +821,12 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 					{
 						case MAINMENU_ENTITIES_IMPORTENTITY:
 						{
-							char charpretval[5000]={0};
+							wchar_t charpretval[5000]={0};
 
 							OPENFILENAME openfilename={0};
 							openfilename.lStructSize=sizeof(OPENFILENAME);
 							openfilename.hwndOwner=hwnd;
-							openfilename.lpstrFilter="Fbx File Format (*.fbx)\0*.fbx\0\0";
+							openfilename.lpstrFilter=L"Fbx File Format (*.fbx)\0*.fbx\0\0";
 							openfilename.nFilterIndex=1;
 							openfilename.lpstrFile=charpretval;
 							openfilename.nMaxFile=5000;
@@ -911,7 +883,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 			tc->OnGuiSize();
 		break;
 		case WM_DESTROY:
-			printf("window %p of TabContainer %p destroyed\n",hwnd,tc);
+			wprintf(L"window %p of TabContainer %p destroyed\n",hwnd,tc);
 		break;
 		case WM_WINDOWPOSCHANGED:
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
@@ -1170,8 +1142,8 @@ int IdeWin32::Initialize()
 		this->processThreadHandle=::GetCurrentThread();
 		this->processThreadId=(unsigned int)::GetCurrentThreadId();
 
-		printf("Engine: process id is %d\n",this->processId);
-		printf("Engine: process main thread id is %d\n",this->processThreadId);
+		wprintf(L"Engine: process id is %d\n",this->processId);
+		wprintf(L"Engine: process main thread id is %d\n",this->processThreadId);
 	}
 
 	result=CoInitialize(0);
@@ -1180,11 +1152,11 @@ int IdeWin32::Initialize()
 		DEBUG_BREAK();
 
 	{//projectFolder
-		char _pszDisplayName[MAX_PATH]="";
+		wchar_t _pszDisplayName[MAX_PATH]=L"";
 
 		BROWSEINFO bi={0};
 		bi.pszDisplayName=_pszDisplayName;
-		bi.lpszTitle="Select Project Directory";
+		bi.lpszTitle=L"Select Project Directory";
 
 		PIDLIST_ABSOLUTE tmpProjectFolder=SHBrowseForFolder(&bi);
 
@@ -1192,29 +1164,29 @@ int IdeWin32::Initialize()
 
 		if(tmpProjectFolder)
 		{
-			char path[MAX_PATH];
+			wchar_t path[MAX_PATH];
 
 			if(SHGetPathFromIDList(tmpProjectFolder,path))
 			{
 				this->folderProject=path;
-				printf("User project folder: %s\n",this->folderProject.Buffer());
+				wprintf(L"User project folder: %s\n",this->folderProject.c_str());
 			}
 		}
 	}
 
 	{//exeFolder
-		char ch[5000];
+		wchar_t ch[5000];
 		if(!GetModuleFileName(0,ch,5000))
 			DEBUG_BREAK();
 
 		this->pathExecutable=ch;
 
-		if(!SetDllDirectory(this->pathExecutable.Path().Buffer()))
-			printf("failed to add dll search path\n");
+		String pathExecutablePath=this->pathExecutable.Path();
 
+		if(!SetDllDirectory(pathExecutablePath.c_str()))
+			wprintf(L"failed to add dll search path\n");
 
-
-		printf("Application folder: %s\n",this->pathExecutable.Path().Buffer());
+		wprintf(L"Application folder: %s\n",pathExecutablePath.c_str());
 	}
 
 	this->subsystem=new SubsystemWin32;
@@ -1225,24 +1197,24 @@ int IdeWin32::Initialize()
 	this->debugger=new DebuggerWin32;
 
 	{//applicationDataFolder
-		char ch[5000];
+		wchar_t ch[5000];
 		if(S_OK!=SHGetFolderPath(0,CSIDL_APPDATA,0,SHGFP_TYPE_CURRENT,ch))
 			DEBUG_BREAK();
 
-		this->folderAppData=String(ch) + "\\EngineAppData";
+		this->folderAppData=String(ch) + L"\\EngineAppData";
 
-		if(!PathFileExists(this->folderAppData.Buffer()))
+		if(!PathFileExists(this->folderAppData.c_str()))
 		{
 			SECURITY_ATTRIBUTES sa;
-			CreateDirectory(this->folderAppData.Buffer(),&sa);
+			CreateDirectory(this->folderAppData.c_str(),&sa);
 		}
 		else
 		{
-			this->subsystem->Execute(this->folderAppData.Buffer(),"del /F /Q *.*");
-			this->subsystem->Execute(this->folderAppData.Buffer(),"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
+			this->subsystem->Execute(this->folderAppData,L"del /F /Q *.*");
+			this->subsystem->Execute(this->folderAppData,L"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
 		}
 
-		printf("Application data folder: %s\n",this->folderAppData.Buffer());
+		wprintf(L"Application data folder: %s\n",this->folderAppData.c_str());
 	}
 
 	Direct2D::Init();
@@ -1258,7 +1230,7 @@ int IdeWin32::Initialize()
 	this->mainAppWindow=mainAppWindowWin32;
 
 	if(!this->mainAppWindow)
-		printf("failed to create main window!\n");
+		wprintf(L"failed to create main window!\n");
 
 	mainAppWindowWin32->Init();
 
@@ -1284,10 +1256,9 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 	HANDLE			tHandle;
 	WIN32_FIND_DATA tData;
 
-	String tScanDir=iDirectory;
-	tScanDir+="\\*";
+	String tScanDir=iDirectory + L"\\*";
 
-	tHandle=FindFirstFile(tScanDir.Buffer(),&tData); //. dir
+	tHandle=FindFirstFile(tScanDir.c_str(),&tData); //. dir
 
 	if(!tHandle || INVALID_HANDLE_VALUE == tHandle)
 	{
@@ -1297,9 +1268,9 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 	else
 		FindNextFile(tHandle,&tData);
 
-	int tEngineExtensionCharSize=strlen(Ide::instance->GetEntityExtension());
+	int tEngineExtensionCharSize=Ide::instance->GetEntityExtension().size();
 
-	FILE* tFile;
+	File tFile;
 
 	bool tSelectedLeft;
 	bool tSelectedRight;
@@ -1320,60 +1291,61 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 		tCreateNode=false;
 
-		if(strstr(tData.cFileName,Ide::instance->GetEntityExtension()))
+		if(wcsstr(tData.cFileName,Ide::instance->GetEntityExtension().c_str()))
 		{
 			//if filename not exists delete it
 
-			String tOriginalFullFileName=iDirectory + "\\" + String(tData.cFileName,strlen(tData.cFileName)-tEngineExtensionCharSize);
-			String tEngineFileName=iDirectory + "\\" + String(tData.cFileName);
+			String tOriginalFullFileName=iDirectory + L"\\" + String(tData.cFileName,wcslen(tData.cFileName)-tEngineExtensionCharSize);
+			String tEngineFileName=iDirectory + L"\\" + String(tData.cFileName);
 
-			DWORD tAttr=GetFileAttributes(tOriginalFullFileName.Buffer());
+			DWORD tAttr=::GetFileAttributes(tOriginalFullFileName.c_str());
 
 			if(tAttr == INVALID_FILE_ATTRIBUTES)
 			{
-				File::Delete(tEngineFileName.Buffer());
+				File::Delete(tEngineFileName.c_str());
 				continue;
 			}
 
-			tFile=fopen(tEngineFileName.Buffer(),"r");
+			tFile=tEngineFileName;
 
-			if(tFile)
+			if(tFile.Open(L"r"))
 			{
 				fread(&tSelectedLeft,1,1,tFile);
 				fread(&tSelectedRight,1,1,tFile);
 				fread(&tIsDir,1,1,tFile);
 				fread(&tExpanded,1,1,tFile);
 
-				fclose(tFile);
+				tFile.Close();
 			}
 
 			tCreateNode=true;
-			tCreateNodeFilename=String(tData.cFileName,strlen(tData.cFileName)-tEngineExtensionCharSize);
+			tCreateNodeFilename=String(tData.cFileName,wcslen(tData.cFileName)-tEngineExtensionCharSize);
 		}
 		else
 		{
-			String engineFile = iDirectory + "\\" + String(tData.cFileName) + Ide::instance->GetEntityExtension();
+			String engineFile = iDirectory + L"\\" + String(tData.cFileName) + Ide::instance->GetEntityExtension();
 
-			if(!PathFileExists(engineFile.Buffer()))
+			if(!PathFileExists(engineFile.c_str()))
 			{
 				tSelectedLeft=false;
 				tSelectedRight=false;
 				tIsDir=(tData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 				tExpanded=false;
 
-				tFile=fopen(engineFile.Buffer(),"w");
+				tFile=engineFile;
 
-				if(tFile)
+				if(tFile.Open(L"w"))
 				{
 					fwrite(&_false,1,1,tFile);//selectedLeft
 					fwrite(&_false,1,1,tFile);//selectedRight
 					fwrite(tIsDir? &_true : &_false,1,1,tFile);//isDir
 					fwrite(&_false,1,1,tFile);//expanded
-					fclose(tFile);
+					
+					tFile.Close();
 				}
 
-				DWORD fileAttribute=GetFileAttributes(engineFile.Buffer());
-				SetFileAttributes(engineFile.Buffer(),FILE_ATTRIBUTE_HIDDEN|fileAttribute);
+				DWORD fileAttribute=GetFileAttributes(engineFile.c_str());
+				SetFileAttributes(engineFile.c_str(),FILE_ATTRIBUTE_HIDDEN|fileAttribute);
 
 				tCreateNode=true;
 				tCreateNodeFilename=tData.cFileName;
@@ -1395,7 +1367,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				dirNode->expanded=tExpanded;
 				dirNode->isDir=tIsDir;
 
-				this->ScanDir(iDirectory +"\\"+ tCreateNodeFilename,dirNode);
+				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
 			}
 			else
 			{
@@ -1546,7 +1518,7 @@ void glCheckError()
 		HGLRC currentContext=wglGetCurrentContext();
 		HDC currentContextDC=wglGetCurrentDC();
 
-		printf("OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC);
+		wprintf(L"OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC);
 
 		DEBUG_BREAK();
 	}
@@ -1565,7 +1537,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 
 	if(!shader_id)
 	{
-		printf("glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
+		wprintf(L"glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
 		DEBUG_BREAK();
 		return 0;
 	}
@@ -1578,7 +1550,7 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 	{
 		sprintf(message,"glCompileShader[%s] error:\n",name);
 		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
-		MessageBox(0,message,"Engine",MB_OK|MB_ICONEXCLAMATION);
+		MessageBoxA(0,message,"Engine",MB_OK|MB_ICONEXCLAMATION);
 		DEBUG_BREAK();
 	}
 
@@ -1599,7 +1571,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 	if(!program)
 	{
-		printf("glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
+		wprintf(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
 		DEBUG_BREAK();
 		return 0;
 	}
@@ -1614,7 +1586,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 	if (GL_FALSE==link_success)
 	{
-		printf("glLinkProgram error for %s\n",message);
+		wprintf(L"glLinkProgram error for %s\n",message);
 		DEBUG_BREAK();
 	}
 
@@ -1623,7 +1595,7 @@ int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 
 	//print infos
 	/*if(len && len<sizeof(message))
-		printf("%s",message);*/
+		wprintf(L"%s",message);*/
 
 
 	return program;
@@ -1645,7 +1617,7 @@ Shader* ShaderOpenGL::Create(const char* name,const char* pix,const char* frag)
 	{
 		Shader* shader=new ShaderOpenGL;
 
-		shader->SetName(name);
+		shader->name=StringUtils::ToWide(name);
 		shader->SetProgram(program);
 		shader->Use();
 		shader->init();
@@ -1654,7 +1626,7 @@ Shader* ShaderOpenGL::Create(const char* name,const char* pix,const char* frag)
 	}
 	else
 
-		printf("error creating shader %s\n",name);
+		wprintf(L"error creating shader %s\n",name);
 
 	return 0;
 }
@@ -1816,14 +1788,6 @@ bool ShaderOpenGL::SetMatrix4f(int slot,float* mtx)
 	return true;
 }
 
-void ShaderOpenGL::SetName(const char* n)
-{
-	name=n;
-}
-const char* ShaderOpenGL::GetName()
-{
-	return name.Buffer();
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1909,7 +1873,7 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 	for(int i=0;i<1;i++)
 	{
 		if(!hdc)
-			MessageBox(0,"Getting Device Context","GetDC",MB_OK|MB_ICONEXCLAMATION);
+			MessageBox(0,L"Getting Device Context",L"GetDC",MB_OK|MB_ICONEXCLAMATION);
 
 		PIXELFORMATDESCRIPTOR pfd={0};
 		pfd.nVersion=1;
@@ -2026,7 +1990,7 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 	UINT numFormats;
 
 	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
-		MessageBox(0,"wglChoosePixelFormatARB fails","Engine",MB_OK|MB_ICONEXCLAMATION);
+		MessageBox(0,L"wglChoosePixelFormatARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 
 	const int versionAttribList[] =
@@ -2037,11 +2001,11 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 	};
 
 	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
-		MessageBox(0,"wglCreateContextAttribsARB fails","Engine",MB_OK|MB_ICONEXCLAMATION);
+		MessageBox(0,L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 
 	if(hglrc)
-		printf("TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
+		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
 
 	if(!wglMakeCurrent(hdc,hglrc))
 		DEBUG_BREAK();
@@ -2075,8 +2039,8 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		glGenBuffers(1, &pixelBuffer);
 	}
 
-	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
-	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
+	wprintf(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)));
+	wprintf(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)));
 
 	this->unlit=ShaderOpenGL::Create("unlit",unlit_vert,unlit_frag);
 	this->unlit_color=ShaderOpenGL::Create("unlit_color",unlit_color_vert,unlit_color_frag);
@@ -3206,7 +3170,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	if(!this->windowDataWin32->hwnd)
 		DEBUG_BREAK();
 
-	printf("Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
+	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
 
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
@@ -3259,16 +3223,16 @@ int TabWin32::TrackTabMenuPopup()
 	#define TAB_MENU_COMMAND_SHAREDOPENGLWINDOW 7
 	#define TAB_MENU_COMMAND_ENTITYPROPERTIES 8*/
 
-	InsertMenu(root,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)create,"Viewers");
+	InsertMenu(root,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)create,L"Viewers");
 	{
-		InsertMenu(create,0,MF_BYPOSITION|MF_STRING,2,"Viewport");
-		InsertMenu(create,1,MF_BYPOSITION|MF_STRING,3,"Scene");
-		InsertMenu(create,2,MF_BYPOSITION|MF_STRING,4,"Entity");
-		InsertMenu(create,3,MF_BYPOSITION|MF_STRING,5,"Project");
+		InsertMenu(create,0,MF_BYPOSITION|MF_STRING,2,L"Viewport");
+		InsertMenu(create,1,MF_BYPOSITION|MF_STRING,3,L"Scene");
+		InsertMenu(create,2,MF_BYPOSITION|MF_STRING,4,L"Entity");
+		InsertMenu(create,3,MF_BYPOSITION|MF_STRING,5,L"Project");
 		//InsertMenu(create,4,MF_BYPOSITION|MF_STRING,6,"Script");
 	}
 	InsertMenu(root,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
-	InsertMenu(root,2,MF_BYPOSITION|MF_STRING,1,"Remove");
+	InsertMenu(root,2,MF_BYPOSITION|MF_STRING,1,L"Remove");
 
 	RECT rc;
 	GetWindowRect(windowDataWin32->hwnd,&rc);
@@ -3291,21 +3255,21 @@ int TabWin32::TrackGuiSceneViewerPopup(bool iSelected)
 
 	if(iSelected)
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
-		InsertMenu(menu,1,MF_BYPOSITION|MF_STRING,2,"Delete");
-		InsertMenu(menu,2,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,"Component");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,L"New Entity");
+		InsertMenu(menu,1,MF_BYPOSITION|MF_STRING,2,L"Delete");
+		InsertMenu(menu,2,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createComponent,L"Component");
 		{
-			InsertMenu(createComponent,0,MF_BYPOSITION|MF_STRING,3,"Light");
-			InsertMenu(createComponent,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createMesh,"Mesh");
+			InsertMenu(createComponent,0,MF_BYPOSITION|MF_STRING,3,L"Light");
+			InsertMenu(createComponent,1,MF_BYPOSITION|MF_POPUP,(UINT_PTR)createMesh,L"Mesh");
 			{
 			}
-			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,"Camera");
-			InsertMenu(createComponent,3,MF_BYPOSITION|MF_STRING,14,"Script");
+			InsertMenu(createComponent,2,MF_BYPOSITION|MF_STRING,5,L"Camera");
+			InsertMenu(createComponent,3,MF_BYPOSITION|MF_STRING,14,L"Script");
 		}
 	}
 	else
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,"New Entity");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,L"New Entity");
 	}
 
 	RECT rc;
@@ -3335,14 +3299,14 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 
 	if(iResourceNode)
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,"Delete");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,L"Delete");
 
-		if(iResourceNode->fileName.Extension() == &Ide::instance->GetSceneExtension()[1])
-			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,"Load");
+		if(iResourceNode->fileName.PointedExtension() == Ide::instance->GetSceneExtension())
+			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,L"Load");
 	}
 	else
 	{
-		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Create,"Create");
+		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Create,L"Create");
 	}
 
 	RECT rc;
@@ -3409,12 +3373,12 @@ void TabWin32::EndDraw()
 
 		if(result!=0)
 		{
-			printf("D2D1HwndRenderTarget::EndDraw error: %x\n",result);
+			wprintf(L"D2D1HwndRenderTarget::EndDraw error: %x\n",result);
 
 			result=renderer2DWin32->renderer->Flush();
 
 			if(result!=0)
-				printf("D2D1HwndRenderTarget::Flush error: %x\n",result);
+				wprintf(L"D2D1HwndRenderTarget::Flush error: %x\n",result);
 		}
 
 		this->isRender=false;
@@ -3469,9 +3433,9 @@ void TabWin32::OnGuiRMouseUp(void* data)
 					case 1:
 						if(this->GetPool().size()>1)
 						{
-							printf("total TabContainer before destroying: %d\n",this->GetPool().size());
+							wprintf(L"total TabContainer before destroying: %d\n",this->GetPool().size());
 							this->~TabWin32();
-							printf("total TabContainer after destroying: %d\n",this->GetPool().size());
+							wprintf(L"total TabContainer after destroying: %d\n",this->GetPool().size());
 						}
 					break;
 					case 2:
@@ -3524,13 +3488,16 @@ void TabWin32::DrawFrame()
 									Renderer2D::COLOR_GUI_BACKGROUND);
 
 	for(int i=0;i<(int)tabs.childs.size();i++)
-		this->renderer2D->DrawText(tabs.childs[i]->name.Buffer(),
+		this->renderer2D->DrawText(
+									tabs.childs[i]->name,
 									(float)i*TAB_WIDTH,
 									(float)CONTAINER_HEIGHT-TAB_HEIGHT,
 									(float)i*TAB_WIDTH + (float)TAB_WIDTH,
 									(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,
-									Renderer2D::COLOR_TEXT,
-									0.5f,0.5f);
+									vec2(0.5f,0.5f),
+									vec2(0.5f,0.5f),
+									Renderer2D::COLOR_TEXT
+								  );
 }
 
 
@@ -4028,7 +3995,7 @@ void SplitterWin32::CreateFloatingTab(Tab* tab)
 
 	EnableWindow(floatingTabHwnd,false);
 
-	printf("creating floating TabContainer %p\n",floatingTab);
+	wprintf(L"creating floating TabContainer %p\n",floatingTab);
 
 }
 
@@ -4036,7 +4003,7 @@ void SplitterWin32::DestroyFloatingTab()
 {
 	if(floatingTabRef)
 	{
-		printf("deleting floating TabContainer %p\n",this);
+		wprintf(L"deleting floating TabContainer %p\n",this);
 
 		floatingTab->~Tab();//remove floating window
 		floatingTabRef->mouseDown=false;
@@ -4121,7 +4088,7 @@ bool InitSplitter()
 
 bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
 {
-	if(iPath=="none")
+	if(iPath==L"none")
 		iPath=Ide::instance->folderProject;
 
 	STARTUPINFO si={0};
@@ -4132,7 +4099,7 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 	si.cb = sizeof(STARTUPINFO);
 	si.wShowWindow = true;
 
-	int tOutputFileSize=iOutputFile.Count();
+	int tOutputFileSize=iOutputFile.size();
 
 	if(tOutputFileSize && (iInput || iError || iOutput))
 	{
@@ -4142,7 +4109,7 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		sa.lpSecurityDescriptor = 0;
 		sa.bInheritHandle = !iNewConsole;
 
-		tFileOutput = CreateFile(iOutputFile.Buffer(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
+		tFileOutput = CreateFile(iOutputFile.c_str(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
 		if(!tFileOutput)
 			DEBUG_BREAK();
@@ -4153,11 +4120,11 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		si.hStdOutput = iOutput ? tFileOutput : GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
-	SetCurrentDirectory(iPath.Buffer());
+	SetCurrentDirectory(iPath.c_str());
 
-	String tCommandLine="cmd.exe /V /C " + iCmdLine;
+	String tCommandLine=L"cmd.exe /V /C " + iCmdLine;
 
-	if(!CreateProcess(0,(char*)tCommandLine.Buffer(),0,0,!iNewConsole,0,0,0,&si,&pi))
+	if(!CreateProcess(0,(wchar_t*)tCommandLine.c_str(),0,0,!iNewConsole,0,0,0,&si,&pi))
 		return false;
 
 	WaitForSingleObject( pi.hProcess, INFINITE );
@@ -4184,7 +4151,7 @@ unsigned int SubsystemWin32::FindProcessId(String iProcessName)
 	{
 		while(Process32Next(tSnapshot, &tProcess) == TRUE)
 		{
-			if(0==stricmp(tProcess.szExeFile,iProcessName.Buffer()))
+			if(iProcessName==tProcess.szExeFile)
 				return tProcess.th32ProcessID;
 		}
 	}
@@ -4209,16 +4176,16 @@ String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 	CompilerWin32*		icplr=(CompilerWin32*)Ide::instance->compiler;
 	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
 
-    String tOutputModule=iScript->module + "\\" + iScript->script.path.Name() + ".dll ";
-	String tScriptSource=Ide::instance->folderProject + "\\" + iScript->script.path.File();
-	String tIdeSourcePath=Ide::instance->compiler->ideSrcPath +  " ";
-	String tEngineLibrary=icplr->ideLibPath + "\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + " ";
-	String tKernelLib=" -lkernel32";
+    String tOutputModule=iScript->module + L"\\" + iScript->file.Name() + L".dll ";
+	String tScriptSource=Ide::instance->folderProject + L"\\" + iScript->file.File();
+	String tIdeSourcePath=Ide::instance->compiler->ideSrcPath +  L" ";
+	String tEngineLibrary=icplr->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
+	String tKernelLib=L" -lkernel32";
 
 	String tCompilerExecutableString;
 
 	if(iCompiler==Compiler::COMPILER_MS)
-		tCompilerExecutableString="vcvars32.bat && ";
+		tCompilerExecutableString=L"vcvars32.bat && ";
 
 	tCompilerExecutableString+=cplr.compilerFile;
 
@@ -4238,9 +4205,9 @@ String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 
 String gfCreateRandomString(int iCount)
 {
-	const char tSymbolsAlphabet[]={"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+	const wchar_t tSymbolsAlphabet[]={L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
 
-	char* tRandomString=new char[iCount+1];
+	wchar_t* tRandomString=new wchar_t[iCount+1];
 
 	unsigned int tFeed=*(unsigned int*)&tRandomString;
 	unsigned int tSymbol=sizeof(tSymbolsAlphabet);
@@ -4273,23 +4240,23 @@ String gfCreateRandomDir(String iDirWhere)
 	{
 		tRandomWorkingDirectoryName=gfCreateRandomString(8);
 
-		String tFullRandomDirName=iDirWhere + "\\" + tRandomWorkingDirectoryName;
+		String tFullRandomDirName=iDirWhere + L"\\" + tRandomWorkingDirectoryName;
 
-		DWORD res=::GetFileAttributes(tFullRandomDirName.Buffer());
+		DWORD res=::GetFileAttributes(tFullRandomDirName.c_str());
 
 		if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
 			break;
 	}
 
-	tRandomWorkingDirectory=iDirWhere + "\\" + tRandomWorkingDirectoryName;
+	tRandomWorkingDirectory=iDirWhere + L"\\" + tRandomWorkingDirectoryName;
 
-	if(!::CreateDirectory(tRandomWorkingDirectory.Buffer(),0))
+	if(!::CreateDirectory(tRandomWorkingDirectory.c_str(),0))
 	{
 		DWORD lastError=GetLastError();
 		DEBUG_BREAK();
 	}
 
-	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory.Buffer())))
+	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory.c_str())))
 		DEBUG_BREAK();
 
 	return tRandomWorkingDirectory;
@@ -4302,8 +4269,10 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	bool retVal;
 
-	String tSourceFileContent=iScript->script.All();;
-	File tCompilerTextOutput=Ide::instance->folderAppData + "\\error.output";
+	File tScriptFile(iScript->file);
+
+	String tSourceFileContent=StringUtils::ReadCharFile(iScript->file);
+	File tCompilerTextOutput=Ide::instance->folderAppData + L"\\error.output";
 
 
 	//delete error.output
@@ -4316,19 +4285,19 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//create random directory for the module if not exist yet
 
-	if(!iScript->module.Count())
+	if(iScript->module.empty())
 		iScript->module=gfCreateRandomDir(Ide::instance->folderAppData);
 
 	//append exports to source
 
-	if(iScript->script.Open("ab"))
+	if(tScriptFile.Open(L"ab"))
 	{
-		String tExporterClassDeclaration="\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + "_;}";
-		String tExporterDeleterDeclaration="\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+		String tExporterClassDeclaration=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + L"_;}";
+		String tExporterDeleterDeclaration=L"\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
 
-		iScript->script.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
-		iScript->script.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
-		iScript->script.Close();
+		tScriptFile.Write((void*)tExporterClassDeclaration.c_str(),sizeof(wchar_t),tExporterClassDeclaration.size());
+		tScriptFile.Write((void*)tExporterDeleterDeclaration.c_str(),sizeof(wchar_t),tExporterDeleterDeclaration.size());
+		tScriptFile.Close();
 	}
 
 	//compose the compiler command line
@@ -4339,54 +4308,40 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module.Buffer(),tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
+	bool tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
 	//unroll exports
 
-	if(iScript->script.Open("wb"))
+	if(tScriptFile.Open(L"wb"))
 	{
-		iScript->script.Write((void*)tSourceFileContent.Buffer(),tSourceFileContent.Count(),1);
-		iScript->script.Close();
+		tScriptFile.Write((void*)tSourceFileContent.c_str(),sizeof(wchar_t),tSourceFileContent.size());
+		tScriptFile.Close();
 	}
 
 	//convert compiler output to readable locale
 
-	wchar_t* tWideCharCompilationOutput=0;
-
-	if(tCompilerTextOutput.Open("rb"))
-	{
-		int size=tCompilerTextOutput.Size();
-
-		String tString=tCompilerTextOutput.All();
-
-		tWideCharCompilationOutput=new wchar_t[tString.Count()+1];
-		int nCharsWritten=MultiByteToWideChar(CP_OEMCP,MB_ERR_INVALID_CHARS,tString.Buffer(),tString.Count(),tWideCharCompilationOutput,tString.Count());
-		tWideCharCompilationOutput[nCharsWritten]=L'\0';
-
-		tCompilerTextOutput.Close();
-
-		if(!tCompilerTextOutput.Delete())
-			DEBUG_BREAK();
-	}
+	String tWideCharCompilationOutput=StringUtils::ReadCharFile(tCompilerTextOutput.path);
 
 	//extract and parse breakpoint line addresses
 
-	File tLineAddressesOutput=iScript->module + "\\laddrss.output";
+	File tLineAddressesOutput=iScript->module + L"\\laddrss.output";
 
-	String tSharedObjectFileName=iScript->script.path.Name() + ".dll";
-	String tSharedObjectSourceName=iScript->script.path.Name() + ".cpp";
+	String tScriptFileName=iScript->file.Name();
 
-	String tParseLineAddressesCommandLine="objdump --dwarf=decodedline " + tSharedObjectFileName + " | find \""+ tSharedObjectSourceName + "\" | find /V \":\"";
+	String tSharedObjectFileName=tScriptFileName + L".dll";
+	String tSharedObjectSourceName=tScriptFileName + L".cpp";
 
-	tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module.Buffer(),tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	String tParseLineAddressesCommandLine=L"objdump --dwarf=decodedline " + tSharedObjectFileName + L" | find \""+ tSharedObjectSourceName + L"\" | find /V \":\"";
+
+	tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
-	if(tLineAddressesOutput.Open("rb"))
+	if(tLineAddressesOutput.Open(L"rb"))
 	{
 		EditorScript* tEditorScript=(EditorScript*)iScript;
 
@@ -4450,21 +4405,19 @@ bool CompilerWin32::Compile(Script* iScript)
 		tabContainer->SetSelection(guiCompilerViewer);
 	*/
 
-	printf("%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->script.path.Buffer());
-
-	SAFEDELETEARRAY(tWideCharCompilationOutput);
+	wprintf(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.c_str());
 
 	return retVal;
 }
 
 bool CompilerWin32::LoadScript(Script* iScript)
 {
-	if(!iScript->module.Count())
+	if(!iScript->module.size())
 		return false;
 
 	HMODULE*		tModule=0;
 	EntityScript*	(*tCreateModuleClassFunction)()=0;
-	String          tModuleFile=iScript->module + "\\" + iScript->script.path.Name() + ".dll";
+	String          tModuleFile=iScript->module + L"\\" + iScript->file.Name() + L".dll";
 
 	tModule=this->ideScriptSourceModules.find(iScript)!=this->ideScriptSourceModules.end() ? this->ideScriptSourceModules[iScript] : 0;
 
@@ -4474,12 +4427,12 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		this->ideScriptSourceModules.insert(std::pair<Script*,HMODULE*>(iScript,tModule));
 	}
 
-	*tModule=(HMODULE)LoadLibrary(tModuleFile.Buffer());
+	*tModule=(HMODULE)LoadLibrary(tModuleFile.c_str());
 
 	if(!*tModule)
 	{
 		DWORD err=GetLastError();
-		printf("error(%d) loading module %s\n",err,tModuleFile.Buffer());
+		wprintf(L"error(%d) loading module %s\n",err,tModuleFile.c_str());
 		return false;
 	}
 
@@ -4496,7 +4449,7 @@ bool CompilerWin32::LoadScript(Script* iScript)
 	}
 	else
 	{
-		printf("error creating module %s\n",tModuleFile.Buffer());
+		wprintf(L"error creating module %s\n",tModuleFile.c_str());
 
 		SAFEDELETEARRAY(iScript->runtime);
 
@@ -4564,8 +4517,8 @@ void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDi
 
 	if(iResDir->parent)
 	{
-		iCurrentDirectory+=iResDir->fileName.Buffer();
-		iCurrentDirectory+="\\";
+		iCurrentDirectory+=iResDir->fileName.c_str();
+		iCurrentDirectory+=L"\\";
 	}
 
 	//if node contains files, process them, later process other dir nodes
@@ -4577,7 +4530,7 @@ void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDi
 		size_t	tDataFileSize;
 		String	tFinalFileName;
 
-		if(tDataFile.path.Extension()=="cpp")
+		if(tDataFile.path.Extension()==L"cpp")
         {
             //add sources to vector, later we'll build
             iCollectSources.push_back(tDataFile.path);
@@ -4585,9 +4538,6 @@ void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDi
         else
         {
             tDataFileSize=tDataFile.Size();
-
-            /*if(!tDataFileSize)
-                continue;*/
 
             if(tDataFile.Open())
             {
@@ -4606,13 +4556,9 @@ void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDi
             else
                 DEBUG_BREAK();
 
-            /*if(tDeleteResource)
-                File::Delete(tDataFile.path.Buffer());*/
-
             tFinalFileName=iCurrentDirectory + tDataFile.path.File();
 
-            fprintf(iTableFile.data,"%s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
-            //printf("adding to package: %s %d %d\n",tFinalFileName.Buffer(),tDataFileStart,tDataFileSize);
+            fwprintf(iTableFile.data,L"%s %d %d\n",tFinalFileName.c_str(),tDataFileStart,tDataFileSize);
         }
 	}
 
@@ -4620,77 +4566,62 @@ void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDi
 		gPackNonScriptResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
 }
 
-
-bool gfWriteFile(String iFilename,String iPath,String iContent)
-{
-    FILE* tFileToWrite=fopen(iPath + "\\" + iFilename,"w");
-
-	if(tFileToWrite)
-	{
-		fwrite(iContent.Buffer(),iContent.Count(),1,tFileToWrite);
-		fclose(tFileToWrite);
-	}
-
-	return true;
-}
-
-
 bool CompilerWin32::CreateAndroidTarget()
 {
-    String tApkName="Engine";
-    String tKeyName="EngineKey";
+    String tApkname=L"Engine";
+    String tKeyname=L"EngineKey";
 
-    String tAndroidSdkDir="C:\\Sdk\\android\\android-sdk";
-    String tAndroidPlatform="platforms\\android-27";
-    String tAndroidBuildTool="build-tools\\27.0.3";
-    String tAndroidDebugBridge="c:\\adb\\adb.exe";
+    String tAndroidSdkDir=L"C:\\Sdk\\android\\android-sdk";
+    String tAndroidPlatform=L"platforms\\android-27";
+    String tAndroidBuildTool=L"build-tools\\27.0.3";
+    String tAndroidDebugBridge=L"c:\\adb\\adb.exe";
 
-	String tAndroidOutputDirectory=Ide::instance->folderProject.PathUp(1) + "\\android";
-	String tAndroidProjectDirectory=tAndroidOutputDirectory + "\\project";
-	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + "\\jni";
-	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + "\\assets";
-    String tAndroidProjectResDirectory=tAndroidProjectDirectory + "\\res";
+	String tAndroidOutputDirectory=Ide::instance->folderProject.PathUp(1) + L"\\android";
+	String tAndroidProjectDirectory=tAndroidOutputDirectory + L"\\project";
+	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + L"\\jni";
+	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + L"\\assets";
+    String tAndroidProjectResDirectory=tAndroidProjectDirectory + L"\\res";
 
-	String tAndroidProjectLibsDirectory=tAndroidProjectDirectory + "\\libs\\armeabi-v7a";
+	String tAndroidProjectLibsDirectory=tAndroidProjectDirectory + L"\\libs\\armeabi-v7a";
 
 	std::vector<String>		        tSourcePaths;
 	std::vector<String>				tSourceFilesContent;
 	int								tPackFileSize=0;
 	int								tTableFileSize=0;
-	String							tResourceDirectory="\\";
+	String							tResourceDirectory=L"\\";
 
 	{
 		SECURITY_ATTRIBUTES sa={sizeof(SECURITY_ATTRIBUTES),0,false};
 
 		//create output directory
 
-		::CreateDirectory(tAndroidOutputDirectory.Buffer(),&sa);
+		::CreateDirectory(tAndroidOutputDirectory.c_str(),&sa);
 
 		//create android project directory
 
-		::CreateDirectory(tAndroidProjectDirectory.Buffer(),&sa);
+		::CreateDirectory(tAndroidProjectDirectory.c_str(),&sa);
 
 		//create android asset directory
 
-		::CreateDirectory(tAndroidProjectAssetDirectory.Buffer(),&sa);
+		::CreateDirectory(tAndroidProjectAssetDirectory.c_str(),&sa);
 
 		//create android jni project directory
 
-		::CreateDirectory(tAndroidProjectJniDirectory.Buffer(),&sa);
+		::CreateDirectory(tAndroidProjectJniDirectory.c_str(),&sa);
 
 		//create android res project directory
 
-		::CreateDirectory(tAndroidProjectResDirectory.Buffer(),&sa);
-		::CreateDirectory(tAndroidProjectResDirectory + "\\values",&sa);
+		::CreateDirectory(tAndroidProjectResDirectory.c_str(),&sa);
+		::CreateDirectory((tAndroidProjectResDirectory + L"\\values").c_str(),&sa);
 	}
 
 	//pack data and table
 
-	File tPackFile(tAndroidProjectAssetDirectory + "\\pack.pck");
-	File tTableFile(tAndroidProjectAssetDirectory + "\\ptbl.txt");
+	File tPackFile(tAndroidProjectAssetDirectory + L"\\pack.pck");
+	File tTableFile(tAndroidProjectAssetDirectory + L"\\ptbl.txt");
 
-	tPackFile.Open("wb");
-	tTableFile.Open("wb");
+	tPackFile.Open(L"wb");
+	tTableFile.Open(L"wb");
 
 	if(tPackFile.IsOpen() && tTableFile.IsOpen())
 	{
@@ -4704,117 +4635,112 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	//build sources
 
-	String tAndroidMk="LOCAL_PATH := $(call my-dir)\n\n";
+	String tAndroidMk=L"LOCAL_PATH := $(call my-dir)\n\n";
 
     for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++)
     {
-        tAndroidMk+="include $(CLEAR_VARS)\n"
-                    "DSTDIR := " + tAndroidProjectDirectory + "\n"
-                    "LOCAL_C_INCLUDES := " + Ide::instance->compiler->ideSrcPath + "\n"
+        tAndroidMk+=L"include $(CLEAR_VARS)\n"
+                    L"DSTDIR := " + tAndroidProjectDirectory + L"\n"
+                    L"LOCAL_C_INCLUDES := " + Ide::instance->compiler->ideSrcPath + L"\n"
                     //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
-                    "LOCAL_MODULE := " + FilePath(*si).Name() + "\n"
-                    "LOCAL_SRC_FILES := " + (*si) + "\n"
-                    "LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-                    "LOCAL_LDLIBS := -L" + Ide::instance->compiler->ideLibPath + " -lEngine -llog\n"
-                    "include $(BUILD_SHARED_LIBRARY)\n\n";
+                    L"LOCAL_MODULE := " + ((FilePath)(*si)).Name() + L"\n"
+                    L"LOCAL_SRC_FILES := " + (*si) + L"\n"
+                    L"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
+                    L"LOCAL_LDLIBS := -L" + Ide::instance->compiler->ideLibPath + L" -lEngine -llog\n"
+                    L"include $(BUILD_SHARED_LIBRARY)\n\n";
     }
 
-    gfWriteFile("Android.mk",tAndroidProjectJniDirectory,tAndroidMk);
+	StringUtils::WriteCharFile(tAndroidProjectJniDirectory + L"\\Android.mk",tAndroidMk);
+	
+	StringUtils::WriteCharFile(tAndroidProjectJniDirectory + L"\\Application.mk",L"APP_STL:=c++_static\nAPP_ABI:=armeabi-v7a\nAPP_CPPFLAGS := -frtti\nAPP_OPTIM := debug\n");
+	StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\project.properties",L"target=android-23\n");
+	StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\local.properties",L"sdk.dir=C:\\Sdk\\android\\android-sdk\n");
 
-	gfWriteFile("Application.mk",tAndroidProjectJniDirectory,"APP_STL:=c++_static\nAPP_ABI:=armeabi-v7a\nAPP_CPPFLAGS := -frtti\nAPP_OPTIM := debug\n");
-	gfWriteFile("project.properties",tAndroidProjectDirectory,"target=android-23\n");
-	gfWriteFile("local.properties",tAndroidProjectDirectory,"sdk.dir=C:\\Sdk\\android\\android-sdk\n");
+	String tStringsXml= L"<resources>\n"
+                        L"\t<string name=\"Engine_activity\">Engine</string>\n"
+                        L"</resources>\n";
 
-	String tStringsXml= "<resources>\n"
-                        "\t<string name=\"Engine_activity\">Engine</string>\n"
-                        "</resources>\n";
+    StringUtils::WriteCharFile(tAndroidProjectResDirectory + L"\\values\\strings.xml",tStringsXml);
 
-    gfWriteFile("strings.xml",tAndroidProjectResDirectory + "\\values",tStringsXml);
+	String tBuildXml=	L"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                        L"<project name=\"EngineActivity\" default=\"help\">\n\n"
+                        L"\t<property file=\"local.properties\" />\n"
+                        L"\t<property file=\"ant.properties\" />\n\n"
+                        L"\t<property environment=\"env\" />\n"
+                        L"\t<condition property=\"sdk.dir\" value=\"${env.ANDROID_HOME}\">\n"
+                        L"\t\t<isset property=\"env.ANDROID_HOME\" />\n"
+                        L"\t</condition>\n\n"
+                        L"\t<loadproperties srcFile=\"project.properties\" />\n\n"
+                        L"\t<import file=\"custom_rules.xml\" optional=\"true\" />\n\n"
+                        L"\t<import file=\"${sdk.dir}/tools/ant/build.xml\" />\n\n"
+                        L"</project>\n";
 
-	String tBuildXml=	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                        "<project name=\"EngineActivity\" default=\"help\">\n\n"
-                        "\t<property file=\"local.properties\" />\n"
-                        "\t<property file=\"ant.properties\" />\n\n"
-                        "\t<property environment=\"env\" />\n"
-                        "\t<condition property=\"sdk.dir\" value=\"${env.ANDROID_HOME}\">\n"
-                        "\t\t<isset property=\"env.ANDROID_HOME\" />\n"
-                        "\t</condition>\n\n"
-                        "\t<loadproperties srcFile=\"project.properties\" />\n\n"
-                        "\t<import file=\"custom_rules.xml\" optional=\"true\" />\n\n"
-                        "\t<import file=\"${sdk.dir}/tools/ant/build.xml\" />\n\n"
-                        "</project>\n";
+    StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\build.xml",tBuildXml);
 
-    gfWriteFile("build.xml",tAndroidProjectDirectory,tBuildXml);
+    String tManifestXml=    L"<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
+                            L"\tpackage=\"com.android.Engine\">\n\n"
+                            L"\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>\n"
+                            L"\t<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>\n\n"
+                            L"\t<application\n"
+                            L"\t\t\tandroid:label=\"@string/Engine_activity\"\n"
+                            L"\t\t\tandroid:debuggable=\"true\">\n\n"
+                            L"\t\t<activity android:name=\".EngineActivity\"\n"
+                            L"\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
+                            L"\t\t\tandroid:launchMode=\"singleTask\"\n"
+                            L"\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
+                            L"\t\t\t<intent-filter>\n"
+                            L"\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />\n"
+                            L"\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />\n"
+                            L"\t\t\t</intent-filter>\n\n"
+                            L"\t\t</activity>\n"
+                            L"\t</application>\n\n"
+                            L"\t<uses-feature android:glEsVersion=\"0x00020000\"/>\n"
+                            L"\t<uses-sdk android:minSdkVersion=\"15\"/>\n\n"
+                            L"</manifest>\n";
 
-    String tManifestXml=    "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
-                            "\tpackage=\"com.android.Engine\">\n\n"
-                            "\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>\n"
-                            "\t<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>\n\n"
-                            "\t<application\n"
-                            "\t\t\tandroid:label=\"@string/Engine_activity\"\n"
-                            "\t\t\tandroid:debuggable=\"true\">\n\n"
-                            "\t\t<activity android:name=\".EngineActivity\"\n"
-                            "\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
-                            "\t\t\tandroid:launchMode=\"singleTask\"\n"
-                            "\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
-                            "\t\t\t<intent-filter>\n"
-                            "\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />\n"
-                            "\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />\n"
-                            "\t\t\t</intent-filter>\n\n"
-                            "\t\t</activity>\n"
-                            "\t</application>\n\n"
-                            "\t<uses-feature android:glEsVersion=\"0x00020000\"/>\n"
-                            "\t<uses-sdk android:minSdkVersion=\"15\"/>\n\n"
-                            "</manifest>\n";
+    StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\AndroidManifest.xml",tManifestXml);
 
-    gfWriteFile("AndroidManifest.xml",tAndroidProjectDirectory,tManifestXml);
-
-	//append exports to source
+	//backup original source and append exports
 
 	for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++)
 	{
-		File tSourceFile(*si);
-		tSourceFilesContent.push_back(tSourceFile.All());
+		//backup
+		tSourceFilesContent.push_back(StringUtils::ReadCharFile(*si));
 
-		if(tSourceFile.Open("ab"))
-		{
-			String tExporterClassDeclaration="\n\nextern \"C\" __attribute__ ((dllexport)) EntityScript* Create(){return new " + tSourceFile.path.Name() + "_;}";
-			String tExporterDeleterDeclaration="\n\nextern \"C\" __attribute__ ((dllexport)) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
+		//append
+		StringUtils::WriteCharFile(
+									*si,
+									L"\n\nextern \"C\" __attribute__ ((dllexport)) EntityScript* Create(){return new " + ((FilePath)*si).Name() + L"_;}",
+									L"ab"
+									);
 
-			tSourceFile.Write((void*)tExporterClassDeclaration.Buffer(),tExporterClassDeclaration.Count(),1);
-			tSourceFile.Write((void*)tExporterDeleterDeclaration.Buffer(),tExporterDeleterDeclaration.Count(),1);
-			tSourceFile.Close();
-		}
+		StringUtils::WriteCharFile(
+									*si,
+									L"\n\nextern \"C\" __attribute__ ((dllexport)) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}",
+									L"ab"
+									);
 	}
 
 	//build the native code
 
-    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + "\\ndk-build-log.txt",true,true,true);
+    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
 
-	//unroll exports
+	//unroll exports (rewrite original script file)
 
 	int tSourceFilesContentIdx=0;
 	for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++,tSourceFilesContentIdx++)
-	{
-		File tSourceFile(*si); 
-
-		if(tSourceFile.Open("wb"))
-		{
-			tSourceFile.Write((void*)tSourceFilesContent[tSourceFilesContentIdx].Buffer(),tSourceFilesContent[tSourceFilesContentIdx].Count(),1);
-			tSourceFile.Close();
-		}
-	}
+		StringUtils::WriteCharFile(*si,tSourceFilesContent[tSourceFilesContentIdx],L"wb");
 	
 	//write asset
 
 	tPackFileSize=tPackFile.Size();
 	tTableFileSize=tTableFile.Size();
 
-	File tAssetFile(tAndroidProjectAssetDirectory + "\\asset.mp3");
+	File tAssetFile(tAndroidProjectAssetDirectory + L"\\asset.mp3");
 
-	tAssetFile.Open("wb");
-	tPackFile.Open("rb");
-	tTableFile.Open("rb");
+	tAssetFile.Open(L"wb");
+	tPackFile.Open(L"rb");
+	tTableFile.Open(L"rb");
 
 	if(tAssetFile.IsOpen() && tPackFile.IsOpen() && tTableFile.IsOpen())
 	{
@@ -4836,60 +4762,60 @@ bool CompilerWin32::CreateAndroidTarget()
 		tTableFile.Close();
 	}
 
-	//File::Delete(tPackFile.path.Buffer());
-	//File::Delete(tTableFile.path.Buffer());
+	//File::Delete(tPackFile.path.c_str());
+	//File::Delete(tTableFile.path.c_str());
 
 	//paths in the apk must have the / separator otherwise LoadLibrary will not find the native so lib
     //aapt add will register all file path, so call from current dir to avoid full path recording
 
-    String tBuildApk=   "@echo off\n"
-                        "set PLATFORM=" + tAndroidSdkDir + "\\" + tAndroidPlatform + "\n"
-                        "set BUILDTOOL=" + tAndroidSdkDir + "\\" + tAndroidBuildTool + "\n"
-                        "set LIBDIR=" + Ide::instance->compiler->ideLibPath + "\n"
-                        "set PROJDIR=" + tAndroidProjectDirectory + "\n"
-                        "set ADB=" + tAndroidDebugBridge + "\n"
-                        "set KEYSTORE=" + tKeyName + "\n"
-                        "SET APP_NAME=" + tApkName + "\n"
-                        "set PREVDIR=%cd%\n\n"
+    String tBuildApk=   L"@echo off\n"
+                        L"set PLATFORM=" + tAndroidSdkDir + L"\\" + tAndroidPlatform + L"\n"
+                        L"set BUILDTOOL=" + tAndroidSdkDir + L"\\" + tAndroidBuildTool + L"\n"
+                        L"set LIBDIR=" + Ide::instance->compiler->ideLibPath + L"\n"
+                        L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
+                        L"set ADB=" + tAndroidDebugBridge + L"\n"
+                        L"set KEYSTORE=" + tKeyname + L"\n"
+                        L"SET APP_name=L" + tApkname + L"\n"
+                        L"set PREVDIR=%cd%\n\n"
+						
+                        L"SET ANDROID_AAPT_ADD=%BUILDTOOL%\\aapt.exe add\n"
+                        L"SET ANDROID_AAPT_PACK=%BUILDTOOL%\\aapt.exe package -v -f -I %PLATFORM%\\android.jar\n\n"
+						
+                        L"if exist \"%PROJDIR%\\lib\" rmdir \"%PROJDIR%\\lib\" /S /Q\n"
+                        L"mkdir \"%PROJDIR%\\lib\"\n"
+                        L"mkdir \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
+						
+                        L"copy \"%LIBDIR%\\classes.dex\" \"%PROJDIR%\"\n"
+                        L"copy \"%LIBDIR%\\libengine.so\" \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
+						
+                        L"cd \"%PROJDIR%\"\n"
+						L"copy /Y libs\\armeabi-v7a\\*.so lib\\armeabi-v7a\n"
+                        L"call %ANDROID_AAPT_PACK% -M AndroidManifest.xml -A assets -S  res -F  %APP_NAME%.apk\n"
+                        L"call %ANDROID_AAPT_ADD% %APP_NAME%.apk classes.dex\n"
+						L"for %%f in (lib\\armeabi-v7a\\*.so) do (\n"
+						L"	call %ANDROID_AAPT_ADD% %APP_NAME%.apk lib/armeabi-v7a/%%~nxf\n"
+						L")\n\n"
+						
+                        L"if not exist \"%KEYSTORE%\" (\n"
+                        L"	call keytool -genkey -noprompt -alias emmegi -dname \"CN=emmegi.com, OU=emmegi, O=mg, L=SA, S=NA, C=IT\" -keystore %KEYSTORE% -storepass password -keypass password -validity 10000\n\n"
+						
+                        L"   if not exist \"%KEYSTORE%\" (\n"
+                        L"		echo key generation error\n"
+                        L"   ) else (\n"
+                        L"		echo key generated\n"
+                        L"   )\n"
+                        L") else (\n"
+                        L"	echo key already exists\n"
+                        L")\n\n"
+						
+                        L"echo signing key\n"
+                        L"call jarsigner -keystore %KEYSTORE% -signedjar %APP_NAME%.apk %APP_NAME%.apk emmegi -storepass password -keypass password\n\n"
+						
+                        L"call %ADB% install -r %APP_NAME%.apk\n";
 
-                        "SET ANDROID_AAPT_ADD=%BUILDTOOL%\\aapt.exe add\n"
-                        "SET ANDROID_AAPT_PACK=%BUILDTOOL%\\aapt.exe package -v -f -I %PLATFORM%\\android.jar\n\n"
+    StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\buildapk.bat",tBuildApk);
 
-                        "if exist \"%PROJDIR%\\lib\" rmdir \"%PROJDIR%\\lib\" /S /Q\n"
-                        "mkdir \"%PROJDIR%\\lib\"\n"
-                        "mkdir \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
-
-                        "copy \"%LIBDIR%\\classes.dex\" \"%PROJDIR%\"\n"
-                        "copy \"%LIBDIR%\\libengine.so\" \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
-
-                        "cd \"%PROJDIR%\"\n"
-						"copy /Y libs\\armeabi-v7a\\*.so lib\\armeabi-v7a\n"
-                        "call %ANDROID_AAPT_PACK% -M AndroidManifest.xml -A assets -S  res -F  %APP_NAME%.apk\n"
-                        "call %ANDROID_AAPT_ADD% %APP_NAME%.apk classes.dex\n"
-						"for %%f in (lib\\armeabi-v7a\\*.so) do (\n"
-						"	call %ANDROID_AAPT_ADD% %APP_NAME%.apk lib/armeabi-v7a/%%~nxf\n"
-						")\n\n"
-
-                        "if not exist \"%KEYSTORE%\" (\n"
-                        "	call keytool -genkey -noprompt -alias emmegi -dname \"CN=emmegi.com, OU=emmegi, O=mg, L=SA, S=NA, C=IT\" -keystore %KEYSTORE% -storepass password -keypass password -validity 10000\n\n"
-
-                        "   if not exist \"%KEYSTORE%\" (\n"
-                        "		echo key generation error\n"
-                        "   ) else (\n"
-                        "		echo key generated\n"
-                        "   )\n"
-                        ") else (\n"
-                        "	echo key already exists\n"
-                        ")\n\n"
-
-                        "echo signing key\n"
-                        "call jarsigner -keystore %KEYSTORE% -signedjar %APP_NAME%.apk %APP_NAME%.apk emmegi -storepass password -keypass password\n\n"
-
-                        "call %ADB% install -r %APP_NAME%.apk\n";
-
-    gfWriteFile("buildapk.bat",tAndroidProjectDirectory,tBuildApk);
-
-    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,"buildapk","apk-build-log.txt",true,true,true);
+    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
 
 
 	return true;
@@ -4901,35 +4827,35 @@ bool CompilerWin32::CreateAndroidTarget()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-const char* ExceptionString(unsigned int iCode)
+String ExceptionString(unsigned int iCode)
 {
 	switch(iCode)
 	{
-		case EXCEPTION_ACCESS_VIOLATION        : return "EXCEPTION_ACCESS_VIOLATION"		; break;
-		case EXCEPTION_DATATYPE_MISALIGNMENT   : return "EXCEPTION_DATATYPE_MISALIGNMENT";	; break;
-		case EXCEPTION_BREAKPOINT              : return "EXCEPTION_BREAKPOINT"  			; break;
-		case EXCEPTION_SINGLE_STEP             : return "EXCEPTION_SINGLE_STEP"  			; break;
-		case EXCEPTION_ARRAY_BOUNDS_EXCEEDED   : return "EXCEPTION_ARRAY_BOUNDS_EXCEEDED"  	; break;
-		case EXCEPTION_FLT_DENORMAL_OPERAND    : return "EXCEPTION_FLT_DENORMAL_OPERAND"  	; break;
-		case EXCEPTION_FLT_DIVIDE_BY_ZERO      : return "EXCEPTION_FLT_DIVIDE_BY_ZERO"  	; break;
-		case EXCEPTION_FLT_INEXACT_RESULT      : return "EXCEPTION_FLT_INEXACT_RESULT"  	; break;
-		case EXCEPTION_FLT_INVALID_OPERATION   : return "EXCEPTION_FLT_INVALID_OPERATION"  	; break;
-		case EXCEPTION_FLT_OVERFLOW            : return "EXCEPTION_FLT_OVERFLOW"  			; break;
-		case EXCEPTION_FLT_STACK_CHECK         : return "EXCEPTION_FLT_STACK_CHECK"  		; break;
-		case EXCEPTION_FLT_UNDERFLOW           : return "EXCEPTION_FLT_UNDERFLOW"  			; break;
-		case EXCEPTION_INT_DIVIDE_BY_ZERO      : return "EXCEPTION_INT_DIVIDE_BY_ZERO"  	; break;
-		case EXCEPTION_INT_OVERFLOW            : return "EXCEPTION_INT_OVERFLOW"  			; break;
-		case EXCEPTION_PRIV_INSTRUCTION        : return "EXCEPTION_PRIV_INSTRUCTION"  		; break;
-		case EXCEPTION_IN_PAGE_ERROR           : return "EXCEPTION_IN_PAGE_ERROR"  			; break;
-		case EXCEPTION_ILLEGAL_INSTRUCTION     : return "EXCEPTION_ILLEGAL_INSTRUCTION"  	; break;
-		case EXCEPTION_NONCONTINUABLE_EXCEPTION: return "EXCEPTION_NONCONTINUABLE_EXCEPTION"; break;
-		case EXCEPTION_STACK_OVERFLOW          : return "EXCEPTION_STACK_OVERFLOW"  		; break;
-		case EXCEPTION_INVALID_DISPOSITION     : return "EXCEPTION_INVALID_DISPOSITION"  	; break;
-		case EXCEPTION_GUARD_PAGE              : return "EXCEPTION_GUARD_PAGE"  			; break;
-		case EXCEPTION_INVALID_HANDLE          : return "EXCEPTION_INVALID_HANDLE"  		; break;
+		case EXCEPTION_ACCESS_VIOLATION        : return L"EXCEPTION_ACCESS_VIOLATION"		; break;
+		case EXCEPTION_DATATYPE_MISALIGNMENT   : return L"EXCEPTION_DATATYPE_MISALIGNMENT";	; break;
+		case EXCEPTION_BREAKPOINT              : return L"EXCEPTION_BREAKPOINT"  			; break;
+		case EXCEPTION_SINGLE_STEP             : return L"EXCEPTION_SINGLE_STEP"  			; break;
+		case EXCEPTION_ARRAY_BOUNDS_EXCEEDED   : return L"EXCEPTION_ARRAY_BOUNDS_EXCEEDED"  	; break;
+		case EXCEPTION_FLT_DENORMAL_OPERAND    : return L"EXCEPTION_FLT_DENORMAL_OPERAND"  	; break;
+		case EXCEPTION_FLT_DIVIDE_BY_ZERO      : return L"EXCEPTION_FLT_DIVIDE_BY_ZERO"  	; break;
+		case EXCEPTION_FLT_INEXACT_RESULT      : return L"EXCEPTION_FLT_INEXACT_RESULT"  	; break;
+		case EXCEPTION_FLT_INVALID_OPERATION   : return L"EXCEPTION_FLT_INVALID_OPERATION"  	; break;
+		case EXCEPTION_FLT_OVERFLOW            : return L"EXCEPTION_FLT_OVERFLOW"  			; break;
+		case EXCEPTION_FLT_STACK_CHECK         : return L"EXCEPTION_FLT_STACK_CHECK"  		; break;
+		case EXCEPTION_FLT_UNDERFLOW           : return L"EXCEPTION_FLT_UNDERFLOW"  			; break;
+		case EXCEPTION_INT_DIVIDE_BY_ZERO      : return L"EXCEPTION_INT_DIVIDE_BY_ZERO"  	; break;
+		case EXCEPTION_INT_OVERFLOW            : return L"EXCEPTION_INT_OVERFLOW"  			; break;
+		case EXCEPTION_PRIV_INSTRUCTION        : return L"EXCEPTION_PRIV_INSTRUCTION"  		; break;
+		case EXCEPTION_IN_PAGE_ERROR           : return L"EXCEPTION_IN_PAGE_ERROR"  			; break;
+		case EXCEPTION_ILLEGAL_INSTRUCTION     : return L"EXCEPTION_ILLEGAL_INSTRUCTION"  	; break;
+		case EXCEPTION_NONCONTINUABLE_EXCEPTION: return L"EXCEPTION_NONCONTINUABLE_EXCEPTION"; break;
+		case EXCEPTION_STACK_OVERFLOW          : return L"EXCEPTION_STACK_OVERFLOW"  		; break;
+		case EXCEPTION_INVALID_DISPOSITION     : return L"EXCEPTION_INVALID_DISPOSITION"  	; break;
+		case EXCEPTION_GUARD_PAGE              : return L"EXCEPTION_GUARD_PAGE"  			; break;
+		case EXCEPTION_INVALID_HANDLE          : return L"EXCEPTION_INVALID_HANDLE"  		; break;
 
 		default:
-			return "NONE";
+			return L"NONE";
 	}
 }
 
@@ -4937,7 +4863,7 @@ void DebuggerWin32::PrintThreadContext(void* iThreadContext)
 {
 	CONTEXT tc=*(CONTEXT*)iThreadContext;
 
-	printf("{\ncflags 0x%p\neflags 0x%p\ndr0 0x%p\ndr1 0x%p\ndr2 0x%p\ndr3 0x%p\ndr7 0x%p\n}\n",
+	wprintf(L"{\ncflags 0x%p\neflags 0x%p\ndr0 0x%p\ndr1 0x%p\ndr2 0x%p\ndr3 0x%p\ndr7 0x%p\n}\n",
 		tc.ContextFlags,
 		tc.EFlags,
 		tc.Dr0,
@@ -4958,7 +4884,7 @@ void DebuggerWin32::SuspendDebuggee()
 			tSuspended=SuspendThread(this->debuggeeThread);
 
 		if(tSuspended==(DWORD)0xffffffff)
-			printf("error suspending debuggee\n");
+			wprintf(L"error suspending debuggee\n");
 		else
 			this->threadSuspendend=true;
 	}
@@ -4974,7 +4900,7 @@ void DebuggerWin32::ResumeDebuggee()
 			tSuspended=ResumeThread(this->debuggeeThread);
 
 		if(tSuspended==(DWORD)0xffffffff)
-			printf("error resuming debuggee\n");
+			wprintf(L"error resuming debuggee\n");
 		else
 			this->threadSuspendend=false;
 	}
@@ -4982,7 +4908,7 @@ void DebuggerWin32::ResumeDebuggee()
 
 DWORD WINAPI debuggeeThreadFunc(LPVOID iDebuggerWin32)
 {
-	printf("debuggeeThreadFunc started\n");
+	wprintf(L"debuggeeThreadFunc started\n");
 
 	DebuggerWin32* tDebuggerWin32=(DebuggerWin32*)iDebuggerWin32;
 
@@ -5017,7 +4943,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 	{
 		exceptionInfo->ContextRecord->EFlags|=0x10000;
 		this->lastBreakedAddress=0;
-		printf("skipping breakpoint %p\n",exceptionInfo->ExceptionRecord->ExceptionAddress);
+		wprintf(L"skipping breakpoint %p\n",exceptionInfo->ExceptionRecord->ExceptionAddress);
 	}
 	else
 	{
@@ -5038,7 +4964,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 			while(this->breaked);
 		else
 		{
-			printf("%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			wprintf(L"%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;
@@ -5115,7 +5041,7 @@ void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
 		if(!SetThreadContext(this->debuggeeThread,this->threadContext))
 			DEBUG_BREAK();
 		else
-			printf("%s breakpoint on source 0x%p at line %d address 0x%p\n",iSet ? "adding" : "removing",iLineAddress.script,iLineAddress.line,iLineAddress.address);
+			wprintf(L"%s breakpoint on source 0x%p at line %d address 0x%p\n",iSet ? "adding" : "removing",iLineAddress.script,iLineAddress.line,iLineAddress.address);
 
 		this->ResumeDebuggee();
 	}
@@ -5135,7 +5061,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	tEditorScript->scriptViewer->GetRootRect()->tabContainer->SetDraw(2,0,tEditorScript->scriptViewer);
 
-	printf("breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
+	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }
 void DebuggerWin32::ContinueDebuggee()
 {
@@ -5143,7 +5069,7 @@ void DebuggerWin32::ContinueDebuggee()
 	this->currentBreakpoint->breaked=false;
 	this->currentBreakpoint=0;
 
-	printf("resuming\n");
+	wprintf(L"resuming\n");
 }
 
 DebuggerWin32::DebuggerWin32()
@@ -5154,7 +5080,7 @@ DebuggerWin32::DebuggerWin32()
 
 	this->debuggeeThread=CreateThread(0,0,debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
 
-	printf("Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
+	wprintf(L"Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
 }
 
 DebuggerWin32::~DebuggerWin32()
@@ -5264,7 +5190,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 /*
 BOOL DllMain(HINSTANCE,DWORD iReason,LPVOID)
 {
-    printf("DllMain\n");
+    wprintf(L"DllMain\n");
 
     switch(iReason)
     {

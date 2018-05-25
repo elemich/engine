@@ -20,13 +20,13 @@ Ide::Ide():
 	stringEditor(0)
 {}
 
-const char* Ide::GetSceneExtension()
+String Ide::GetSceneExtension()
 {
-	return ".engineScene";
+	return L".engineScene";
 }
-const char* Ide::GetEntityExtension()
+String Ide::GetEntityExtension()
 {
-	return ".engineEntity";
+	return L".engineEntity";
 }
 
 ///////////////////////////////////////////////
@@ -140,7 +140,7 @@ tabs(this),
 
 Tab::~Tab()
 {
-	printf("deleting TabContainer %p\n",this);
+	wprintf(L"deleting TabContainer %p\n",this);
 }
 
 GuiRect* Tab::GetSelected()
@@ -192,7 +192,7 @@ void Tab::Draw()
 	Ide::instance->stringEditor->Draw(this);
 }
 
-DrawInstance* Tab::SetDraw(int iNoneAllRect,bool iFrame,GuiRect* iRect,const char* iName,bool iRemove)
+DrawInstance* Tab::SetDraw(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iName,bool iRemove)
 {
 	DrawInstance* newInstance=new DrawInstance(iNoneAllRect,iFrame,iRect,iName,iRemove);
 	this->drawInstances.push_back(newInstance);
@@ -441,7 +441,7 @@ splitterSize(4)
 	floatingTabTargetAnchorPos=-1;
 	floatingTabTargetAnchorTabIndex=-1;
 
-	splitterCursor="IDC_ARROW";
+	splitterCursor=L"IDC_ARROW";
 }
 Splitter::~Splitter()
 {
@@ -475,7 +475,7 @@ void StringEditor::Bind(GuiString* iString,Cursor* iCursor)
 		this->cursor=new Cursor;
 
 	if(!this->cursor->cursor)
-		this->cursor->cursor=(char*)iString->text.c_str();
+		this->cursor->cursor=iString->text.c_str();
 
 	this->EditText(CARET_RECALC,0);
 }
@@ -496,7 +496,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 	{
 	case CARET_RECALC:
 		{
-			char*	pText=(char*)this->string->text.c_str();
+			const wchar_t*	pText=this->string->text.c_str();
 
 			bool tCarriageReturn=false;
 			int tCharWidth=0;
@@ -536,10 +536,10 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 		}
 		case CARET_CANCEL:
 		{
-			if(this->string->text.empty() || this->cursor->cursor==(char*)this->string->text.back())
+			if(this->string->text.empty() || this->cursor->cursor==&this->string->text.back())
 				return false;
 
-			std::string::iterator sIt=this->string->text.begin()+this->cursor->rowcol.y;
+			std::wstring::iterator sIt=this->string->text.begin()+this->cursor->rowcol.y;
 
 			if(sIt!=this->string->text.end())
 				this->string->text.erase(sIt);
@@ -556,7 +556,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
 				//find previous row length
-				char*			pText=this->cursor->cursor-1;
+				const wchar_t*	pText=this->cursor->cursor-1;
 				unsigned int	tRowCharsWidth=0;
 				unsigned int    tRowCharCount=0;
 
@@ -564,7 +564,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				{
 					tRowCharsWidth+=tab->renderer2D->GetCharWidth(*pText);
 
-					if(pText==(char*)this->string->text.c_str())
+					if(pText==this->string->text.c_str())
 						break;
 
 					pText--;
@@ -612,7 +612,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 			size_t tPosition=this->cursor->cursor-this->string->text.c_str();
 
 			this->string->text.insert(tPosition,1,tCharcode);
-			this->cursor->cursor=(char*)this->string->text.c_str()+tPosition+1;
+			this->cursor->cursor=this->string->text.c_str()+tPosition+1;
 
 			break;
 		}
@@ -625,7 +625,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
-				char*			pText=this->cursor->cursor;
+				const wchar_t*	pText=this->cursor->cursor;
 				unsigned int	tRowLenght=0;
 				unsigned int    tRowCharCount=0;
 
@@ -689,7 +689,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			//---find current rowhead
 
-			char* pText=this->cursor->cursor;
+			const wchar_t* pText=this->cursor->cursor;
 
 			//skip the tail of the current row if present
 			if(*pText=='\r' || *pText=='\n')
@@ -738,7 +738,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			//find current rowtail
 
-			char* pText=this->cursor->cursor;
+			const wchar_t* pText=this->cursor->cursor;
 
 			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
@@ -780,7 +780,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 	this->recalcBackground=true;
 
-	//printf("cursor: %d,col: %d\n",this->cursor->cursor-this->string->text.c_str(),this->cursor->rowcol.y);
+	//wprintf(L"cursor: %d,col: %d\n",this->cursor->cursor-this->string->text.c_str(),this->cursor->rowcol.y);
 }
 
 ///////////////////////////////////////////////
@@ -833,18 +833,7 @@ void Renderer3D::Unregister(GuiViewport* iViewport)
 
 Shader* Renderer3D::FindShader(const char* name,bool exact)
 {
-	for(size_t i=0;i<this->shaders.size();i++)
-	{
-		Shader* element=this->shaders[i];
-
-		const char* programName=element->GetName();
-
-		if(element && programName)
-			if(exact ? 0==strcmp(programName,name) :  0!=strstr(programName,name))
-				return this->shaders[i];
-	}
-
-	return 0;
+	return Shader::Find(name,exact);
 }
 
 void Renderer3D::SetMatrices(const float* view,const float* mdl)
@@ -862,7 +851,8 @@ void Renderer3D::SetMatrices(const float* view,const float* mdl)
 
 bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
 {
-    FILE *tFile=fopen(iFilename.Buffer(),"rb");
+    FILE *tFile=fopen(StringUtils::ToChar(iFilename).c_str(),"rb");
+	bool tReturn=false;
 
 	if(tFile)
 	{
@@ -881,8 +871,6 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
 
 		if(bmp_signature==(short int)sign1)
 		{
-
-            //@mic only for bitmap
             fseek(tFile,0x12,SEEK_SET);
             fread(&iTexture->m_width,2,1,tFile);
             fseek(tFile,0x16,SEEK_SET);
@@ -891,7 +879,6 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
             fread(&iTexture->m_bpp,2,1,tFile);
 
             rewind(tFile);
-
 
             fseek(tFile,0,SEEK_END);
             iTexture->m_bufsize=ftell(tFile)-54;
@@ -904,63 +891,56 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
 
             fclose(tFile);
 
-            return true;
-
+			return true;
 		}
-		else if(jpg_signature1==sign1 || jpg_signature3==sign1 || jpg_signature2==sign2  || jpg_signature3==sign2 )
+		else
 		{
 			fclose(tFile);
 
-            {
-                int ncomp;
+			std::string tCharFilename=StringUtils::ToChar(iFilename);
 
-                iTexture->m_buf=jpgd::decompress_jpeg_image_from_file(iFilename.Buffer(),&iTexture->m_width,&iTexture->m_height,&ncomp,4);
-
-                return iTexture->m_buf ? true : false;
-            }
-
-		}
-		else if(png_signature1==sign1 && png_signature2==sign2)
-		{
-			fclose(tFile);
-
+			if(jpg_signature1==sign1 || jpg_signature3==sign1 || jpg_signature2==sign2  || jpg_signature3==sign2 )
 			{
-			    std::vector<unsigned char> image;
-                unsigned long w, h;
-                int error=-1;
+				int ncomp;
 
-                {
-                    std::string filename=iFilename.Buffer();
-                    std::vector<unsigned char> buffer;
-                    loadFile(buffer, filename);
+				iTexture->m_buf=jpgd::decompress_jpeg_image_from_file(tCharFilename.c_str(),&iTexture->m_width,&iTexture->m_height,&ncomp,4);
 
-                    error = decodePNG(image, w, h, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size());
-                }
+				tReturn=iTexture->m_buf ? true : false;
+			}
+			else if(png_signature1==sign1 && png_signature2==sign2)
+			{
+				{
+					std::vector<unsigned char> image;
+					unsigned long w, h;
+					std::vector<unsigned char> buffer;
+					int error=-1;
 
-                if(!error)
-                {
-                    iTexture->m_bufsize=image.size();
-                    iTexture->m_buf=new unsigned char[iTexture->m_bufsize];
-                    memcpy(iTexture->m_buf,&image[0],iTexture->m_bufsize);
-                    iTexture->m_width=w;
-                    iTexture->m_height=h;
+					loadFile(buffer,tCharFilename);
 
-                    return true;
-                }
+					error = decodePNG(image, w, h, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size());
 
-                return false;
+					if(!error)
+					{
+						iTexture->m_bufsize=image.size();
+						iTexture->m_buf=new unsigned char[iTexture->m_bufsize];
+						memcpy(iTexture->m_buf,&image[0],iTexture->m_bufsize);
+						iTexture->m_width=w;
+						iTexture->m_height=h;
+
+						tReturn=true;
+					}
+
+					tReturn=false;
+				}
+			}
+			else if(655360==sign1 && 0==sign2)
+			{
+				tReturn=LoadTGA(tCharFilename.c_str(),iTexture->m_buf,iTexture->m_bufsize,iTexture->m_width,iTexture->m_height,iTexture->m_bpp);
 			}
 		}
-		else if(655360==sign1 && 0==sign2)
-		{
-			fclose(tFile);
-			return LoadTGA(iFilename.Buffer(),iTexture->m_buf,iTexture->m_bufsize,iTexture->m_width,iTexture->m_height,iTexture->m_bpp);
-		}
-
-		fclose(tFile);
 	}
 
-	return false;
+	return tReturn;
 
 }
 
@@ -1049,6 +1029,9 @@ void GuiRect::CalcRect()
 
 		tLeft += s.x!=1 ? (tRight-tLeft)*s.x : 0;
 		tTop += s.y!=1 ? (tBottom-tTop)*s.y : 0;
+
+		tRight = s.z!=1 ? tLeft + (tRight-tLeft)*s.z : tRight;
+		tBottom = s.w!=1 ? tTop + (tBottom-tTop)*s.w : tBottom;
 
 		float tWidth=tRight-tLeft;
 		float tHeight=tBottom-tTop;
@@ -1324,7 +1307,7 @@ GuiString* GuiRect::Text(String str)
 {
 	GuiString* label=new GuiString;
 	label->parent=this;
-	label->text=str.Buffer();
+	label->text=str.c_str();
 	this->childs.push_back(label);
 	return label;
 }
@@ -1345,7 +1328,7 @@ void GuiRect::AppendAsProperty(GuiRect* iProperty)
 }
 	
 
-GuiContainer* GuiRect::Container(const char* iText)
+GuiContainer* GuiRect::Container(String iText)
 {
 	GuiContainer* tContainer=new GuiContainer;
 
@@ -1357,7 +1340,7 @@ GuiContainer* GuiRect::Container(const char* iText)
 	return tContainer;
 }
 
-GuiPropertyString* GuiRect::Property(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2,unsigned int iValueParameter1,unsigned int iValueParameter2)
+GuiPropertyString* GuiRect::Property(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2,unsigned int iValueParameter1,unsigned int iValueParameter2)
 {
 	GuiPropertyString* tPropertyString=new GuiPropertyString(iDescription,iValuePointer1,iValueType,iValuePointer2,iValueParameter1,iValueParameter2);
 	this->AppendAsProperty(tPropertyString);
@@ -1366,7 +1349,7 @@ GuiPropertyString* GuiRect::Property(const char* iDescription,void* iValuePointe
 
 
 
-GuiPropertySlider* GuiRect::SliderProperty(const char* iDescription,float& ref,float& imin,float& imax)
+GuiPropertySlider* GuiRect::SliderProperty(String iDescription,float& ref,float& imin,float& imax)
 {
 	GuiPropertySlider* tGuiPropertySlider=new GuiPropertySlider(iDescription,ref,imin,imax);
 	this->AppendAsProperty(tGuiPropertySlider);
@@ -1457,46 +1440,45 @@ template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int co
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Compiler::Compiler():
-	SAFESTLIMPL(std::vector<COMPILER>,compilers)
+Compiler::Compiler()
 {
-	ideSrcPath=Ide::instance->pathExecutable.PathUp(5) + "\\src";
+	ideSrcPath=Ide::instance->pathExecutable.PathUp(5) + L"\\src";
 	ideLibPath=Ide::instance->pathExecutable.Path();
 
-	COMPILER msCompiler={"ms",
-						 "vc2010",
-						 "cl.exe ",
-						 "linker.exe ",
-						 " /nologo /MDd /ZI /EHsc ",
-						 " /link /MANIFEST:NO /DLL /NOENTRY ",
-						 " /OUT:",
-						 "enginelibMS",
-						 ".lib ",
-						 " /I"
+	COMPILER msCompiler={L"ms",
+						 L"vc2010",
+						 L"cl.exe ",
+						 L"linker.exe ",
+						 L" /nologo /MDd /ZI /EHsc ",
+						 L" /link /MANIFEST:NO /DLL /NOENTRY ",
+						 L" /OUT:",
+						 L"enginelibMS",
+						 L".lib ",
+						 L" /I"
 						};
 
-	COMPILER mingwCompiler={"mingw",
-							"i686-w64-mingw32",
-							"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
-							"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
-							" -O0 -g -shared ",
-							"",
-							" -o ",
-							"enginelibMingW",
-							".dll ",
-							" -I"
+	COMPILER mingwCompiler={L"mingw",
+							L"i686-w64-mingw32",
+							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
+							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
+							L" -O0 -g -shared ",
+							L"",
+							L" -o ",
+							L"enginelibMingW",
+							L".dll ",
+							L" -I"
 						   };
 
-	COMPILER llvmCompiler={"llvm",
-						   "5.0.0 32bit",
-						   "c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
-						   "c:\\sdk\\llvm32\\bin\\lld-link.exe ",
-						   " /nologo /MDd /ZI /EHsc ",
-						   " /link /MANIFEST:NO /DLL /NOENTRY ",
-						   " /OUT:",
-						   "enginelibLLVM",
-						   ".lib ",
-						   " /I"
+	COMPILER llvmCompiler={L"llvm",
+						   L"5.0.0 32bit",
+						   L"c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
+						   L"c:\\sdk\\llvm32\\bin\\lld-link.exe ",
+						   L" /nologo /MDd /ZI /EHsc ",
+						   L" /link /MANIFEST:NO /DLL /NOENTRY ",
+						   L" /OUT:",
+						   L"enginelibLLVM",
+						   L".lib ",
+						   L" /I"
 						  };
 
 	compilers.push_back(msCompiler);
@@ -1505,10 +1487,7 @@ Compiler::Compiler():
 }
 
 
-Compiler::~Compiler()
-{
-	SAFESTLDEST(compilers);
-}
+Compiler::~Compiler(){}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1531,7 +1510,7 @@ EditorEntity::EditorEntity():
 	expanded(false),
 	level(0)
 {
-	this->properties.name="EntityRootProperties";
+	this->properties.name=L"EntityRootProperties";
 }
 
 void EditorEntity::SetParent(Entity* iParent)
@@ -1560,7 +1539,7 @@ void EditorEntity::SetLevel(EditorEntity* iEntity)
 
 GuiRootRect::GuiRootRect(Tab* t):tabContainer(t)
 {
-	this->name="RootRect";
+	this->name=L"RootRect";
 	//this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);
 
 }
@@ -1582,7 +1561,7 @@ void GuiRootRect::OnSize(Tab* tab)
 
 GuiContainer::GuiContainer():state(false)
 {
-	this->name="GuiContainer";
+	this->name=L"GuiContainer";
 	this->fixed.make(0,0,0,20);
 	this->textOffsets.make(20,0,0,0);
 }
@@ -1678,7 +1657,7 @@ GuiString::GuiString():
 	textSpot(0.0f,0.5f)
 {
 	this->fixed.make(0,0,0,20);
-	this->name="GuiString";
+	this->name=L"GuiString";
 }
 
 void GuiString::CalcTextRect(Tab* iTabContainer)
@@ -1701,9 +1680,6 @@ void GuiString::CalcTextRect(Tab* iTabContainer)
 
 	if(!this->text.empty())
 		tTextSize=iTabContainer->renderer2D->MeasureText(this->text.c_str());
-
-	if(!this->wText.empty())
-		tTextSize=iTabContainer->renderer2D->MeasureText(this->wText.c_str());
 
 	float tLeft=tEdges.x + (tRect.z*this->textAlign.x) - (tTextSize.x * this->textSpot.x);
 	float tTop=tEdges.y + (tRect.w*this->textAlign.y) - (tTextSize.y * this->textSpot.y);
@@ -1732,25 +1708,13 @@ void GuiString::OnSize(Tab* iTabContainer,void* data)
 
 void GuiString::DrawTheText(Tab* tabContainer)
 {
-	if(!this->text.empty())
-		tabContainer->renderer2D->DrawText(
-												this->text.c_str(),
-												this->textEdges.x,
-												this->textEdges.y,
-												this->textEdges.z,
-												this->textEdges.w,
-												Renderer2D::COLOR_TEXT
-											);
-
-	if(!this->wText.empty())
-		tabContainer->renderer2D->DrawText(
-												this->wText.c_str(),
-												this->textEdges.x,
-												this->textEdges.y,
-												this->textEdges.z,
-												this->textEdges.w,
-												Renderer2D::COLOR_TEXT
-											);
+	tabContainer->renderer2D->DrawText(
+											this->text,
+											this->textEdges.x,
+											this->textEdges.y,
+											this->textEdges.z,
+											this->textEdges.w
+										);
 }
 
 void GuiString::OnPaint(Tab* tabContainer,void* data)
@@ -1903,7 +1867,7 @@ void GuiButtonFunc::OnLMouseUp(Tab* tab,void* data)
 
 GuiButtonBool::GuiButtonBool(bool& iBool):referenceValue(iBool),updateMode(-1)
 {
-	this->name="Button";
+	this->name=L"Button";
 }
 
 void GuiButtonBool::OnLMouseUp(Tab* tab,void* data)
@@ -1982,40 +1946,42 @@ void GuiScrollRect::OnSize(Tab* tabContainer,void* data)
 
 GuiProperty::GuiProperty()
 {
+	this->description.SetParent(this);
+	this->description.scalars.make(1,1,0.5f,1);
 }
 
-GuiPropertyString::GuiPropertyString(const char* iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2,unsigned int iValueParameter1,unsigned int iValueParameter2):
+GuiPropertyString::GuiPropertyString(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2,unsigned int iValueParameter1,unsigned int iValueParameter2):
 	valuePointer1(iValuePointer1),
 	valuePointer2(iValuePointer2),
 	valueType(iValueType),
 	valueParameter1(iValueParameter1),
 	valueParameter2(iValueParameter2)
 {
-
-	this->name="PropertyString";
-	this->description=iDescription;
+	this->description.text=iDescription;
 	this->fixed.make(0,0,0,20);
 	this->value.SetParent(this);
-	this->value.scalars.make(0.5f,0,0,0);
+	this->value.SetEdges(&this->description.edges.z);
 
 	switch(this->valueType)
 	{
-		case STRING: this->name+="STRING"; break;
-		case BOOL: this->name+="BOOL"; break;
-		case BOOLPTR: this->name+="BOOLPTR"; break;
-		case INT: this->name+="INT"; break;
-		case FLOAT: this->name+="FLOAT"; break;
-		case VEC2: this->name+="VEC2"; break;
-		case VEC3: this->name+="VEC3"; break;
-		case VEC4: this->name+="VEC4"; break;
-		case PTR: this->name+="PTR"; break;
-		case MAT4POS: this->name+="MAT4POS"; break;
-		case ENTITYVECSIZE: this->name+="ENTITYVECSIZE"; break;
-		case ANIMATIONVECSIZE: this->name+="ANIMATIONVECSIZE"; break;
-		case ISBONECOMPONENT: this->name+="ISBONECOMPONENT"; break;
-		case FLOAT2MINUSFLOAT1: this->name+="FLOAT2MINUSFLOAT1"; break;
-		case VEC32MINUSVEC31: this->name+="VEC32MINUSVEC31"; break;
+		case STRING: this->name+=L"STRING"; break;
+		case BOOL: this->name+=L"BOOL"; break;
+		case BOOLPTR: this->name+=L"BOOLPTR"; break;
+		case INT: this->name+=L"INT"; break;
+		case FLOAT: this->name+=L"FLOAT"; break;
+		case VEC2: this->name+=L"VEC2"; break;
+		case VEC3: this->name+=L"VEC3"; break;
+		case VEC4: this->name+=L"VEC4"; break;
+		case PTR: this->name+=L"PTR"; break;
+		case MAT4POS: this->name+=L"MAT4POS"; break;
+		case ENTITYVECSIZE: this->name+=L"ENTITYVECSIZE"; break;
+		case ANIMATIONVECSIZE: this->name+=L"ANIMATIONVECSIZE"; break;
+		case ISBONECOMPONENT: this->name+=L"ISBONECOMPONENT"; break;
+		case FLOAT2MINUSFLOAT1: this->name+=L"FLOAT2MINUSFLOAT1"; break;
+		case VEC32MINUSVEC31: this->name+=L"VEC32MINUSVEC31"; break;
 	}
+
+	this->name+=L" PropertyString";
 }
 
 void GuiPropertyString::RefreshReference(Tab* iTabContainer)
@@ -2028,29 +1994,29 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		{
 			String& tString=*(String*)this->valuePointer1;
 
-			this->value.text=tString.Buffer();
+			this->value.text=tString;
 		}
 		break;
 	case GuiPropertyString::BOOL:
 		{
 			bool& tBool=*(bool*)this->valuePointer1;
 
-			this->value.text=tBool ? "True" : "False";
+			this->value.text=tBool ? L"True" : L"False";
 		}
 		break;
 	case GuiPropertyString::BOOLPTR:
 		{
 			void* pRef=*(void**)this->valuePointer1;
 
-			this->value.text=pRef ? "True" : "False";
+			this->value.text=pRef ? L"True" : L"False";
 		}
 		break;
 	case GuiPropertyString::INT:
 		{
 			int& tInt=*(int*)this->valuePointer1;
 
-			char tCharInt[ctMaxTmpArraySize];
-			sprintf(tCharInt,"%d",tInt);
+			wchar_t tCharInt[ctMaxTmpArraySize];
+			swprintf(tCharInt,L"%d",tInt);
 
 			this->value.text=tCharInt;
 		}
@@ -2061,8 +2027,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 
 			//https://stackoverflow.com/questions/16413609/printf-variable-number-of-decimals-in-float
 
-			char tCharFloat[ctMaxTmpArraySize];
-			sprintf(tCharFloat,"%*.*f",this->valueParameter1,this->valueParameter2,tFloat);
+			wchar_t tCharFloat[ctMaxTmpArraySize];
+			swprintf(tCharFloat,L"%*.*f",this->valueParameter1,this->valueParameter2,tFloat);
 
 			this->value.text=tCharFloat;
 		}
@@ -2071,8 +2037,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		{
 			vec2& tVec2=*(vec2*)this->valuePointer1;
 
-			char tCharVec2[ctMaxTmpArraySize];
-			sprintf(tCharVec2,"%*.*f , %*.*f",this->valueParameter1,this->valueParameter2,tVec2.x,this->valueParameter1,this->valueParameter2,tVec2.y);
+			wchar_t tCharVec2[ctMaxTmpArraySize];
+			swprintf(tCharVec2,L"%*.*f , %*.*f",this->valueParameter1,this->valueParameter2,tVec2.x,this->valueParameter1,this->valueParameter2,tVec2.y);
 
 			this->value.text=tCharVec2;
 		}
@@ -2081,8 +2047,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		{
 			vec3& tVec3=*(vec3*)this->valuePointer1;
 
-			char tCharVec3[ctMaxTmpArraySize];
-			sprintf(tCharVec3,"%*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tVec3.x,
+			wchar_t tCharVec3[ctMaxTmpArraySize];
+			swprintf(tCharVec3,L"%*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tVec3.x,
 				this->valueParameter1,this->valueParameter2,tVec3.y,
 				this->valueParameter1,this->valueParameter2,tVec3.z);
 
@@ -2093,8 +2059,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		{
 			vec4& tVec4=*(vec4*)this->valuePointer1;
 
-			char tCharVec4[ctMaxTmpArraySize];
-			sprintf(tCharVec4,"%*.*f , %*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tVec4.x,
+			wchar_t tCharVec4[ctMaxTmpArraySize];
+			swprintf(tCharVec4,L"%*.*f , %*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tVec4.x,
 				this->valueParameter1,this->valueParameter2,tVec4.y,
 				this->valueParameter1,this->valueParameter2,tVec4.z,
 				this->valueParameter1,this->valueParameter2,tVec4.w);
@@ -2104,8 +2070,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		break;
 	case GuiPropertyString::PTR:
 		{
-			char tCharPointer[ctMaxTmpArraySize];
-			sprintf(tCharPointer,"0x%p",this->valuePointer1);
+			wchar_t tCharPointer[ctMaxTmpArraySize];
+			swprintf(tCharPointer,L"0x%p",this->valuePointer1);
 
 			this->value.text=tCharPointer;
 		}
@@ -2116,8 +2082,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 
 			vec3 tPosition=tMat4.position();
 
-			char tCharVec3[ctMaxTmpArraySize];
-			sprintf(tCharVec3,"%*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tPosition.x,
+			wchar_t tCharVec3[ctMaxTmpArraySize];
+			swprintf(tCharVec3,L"%*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tPosition.x,
 				this->valueParameter1,this->valueParameter2,tPosition.y,
 				this->valueParameter1,this->valueParameter2,tPosition.z);
 
@@ -2130,8 +2096,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 
 			size_t tCount=tEntityVec.size();
 
-			char tCharVecSize[10];
-			sprintf(tCharVecSize,"%d",tCount);
+			wchar_t tCharVecSize[10];
+			swprintf(tCharVecSize,L"%d",tCount);
 
 			this->value.text=tCharVecSize;
 		}
@@ -2142,8 +2108,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 
 			size_t tCount=tAnimationVec.size();
 
-			char tCharVecSize[10];
-			sprintf(tCharVecSize,"%d",tCharVecSize);
+			wchar_t tCharVecSize[10];
+			swprintf(tCharVecSize,L"%d",tCharVecSize);
 
 			this->value.text=tCharVecSize;
 		}
@@ -2152,7 +2118,7 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		{
 			Entity* tEntity=(Entity*)this->valueParameter1;
 
-			this->value.text="Error";
+			this->value.text=L"Error";
 		}
 		break;
 	case GuiPropertyString::FLOAT2MINUSFLOAT1:
@@ -2160,8 +2126,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 			float& a=*(float*)this->valueParameter1;
 			float& b=*(float*)this->valueParameter2;
 
-			char tCharFloatMinusOp[20];
-			sprintf(tCharFloatMinusOp,"%*.*d",this->valueParameter1,this->valueParameter2,b-a);
+			wchar_t tCharFloatMinusOp[20];
+			swprintf(tCharFloatMinusOp,L"%*.*d",this->valueParameter1,this->valueParameter2,b-a);
 
 			this->value.text=tCharFloatMinusOp;
 		}
@@ -2173,8 +2139,8 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 
 			vec3 tVecResult=b-a;
 
-			char tCharVec3[ctMaxTmpArraySize];
-			sprintf(tCharVec3,"%*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tVecResult.x,
+			wchar_t tCharVec3[ctMaxTmpArraySize];
+			swprintf(tCharVec3,L"%*.*f , %*.*f , %*.*f",	this->valueParameter1,this->valueParameter2,tVecResult.x,
 				this->valueParameter1,this->valueParameter2,tVecResult.y,
 				this->valueParameter1,this->valueParameter2,tVecResult.z);
 
@@ -2182,7 +2148,7 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		}
 		break;
 	default:
-		iTabContainer->renderer2D->DrawText("valueType error",this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
+		iTabContainer->renderer2D->DrawText(String(L"valueType error"),this->rect.x+this->rect.z/2.0f,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
 	}
 }
 
@@ -2199,8 +2165,16 @@ void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
 
 	this->DrawBackground(tabContainer);
 
-	if(description.Buffer())
-		tabContainer->renderer2D->DrawText(description.Buffer(),this->rect.x,this->rect.y,this->rect.x+this->rect.z/2.0f,this->rect.y+this->rect.w);
+	/*tabContainer->renderer2D->DrawText(
+										this->description,
+										this->rect.x,
+										this->rect.y,
+										this->rect.x+this->rect.z/2.0f,
+										this->rect.y+this->rect.w,
+										vec2(0,0.5f),
+										vec2(0,0.5f),
+										Renderer2D::COLOR_TEXT
+										);*/
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
 
@@ -2237,13 +2211,15 @@ void GuiSlider::OnPaint(Tab* tabContainer,void* data)
 
 	tabContainer->renderer2D->DrawRectangle(this->rect.x+10,this->rect.y+this->rect.w/4.0f-2,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w/4.0f+2,0x000000);
 
-	String smin(this->minimum);
-	String smax(this->maximum);
-	String value(this->referenceValue);
+	float tMinimum=this->minimum;
 
-	tabContainer->renderer2D->DrawText(smin.Buffer(),this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,Renderer2D::COLOR_TEXT,0,0.75);
-	tabContainer->renderer2D->DrawText(smax.Buffer(),this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,Renderer2D::COLOR_TEXT,1,0.75);
-	tabContainer->renderer2D->DrawText(value.Buffer(),this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,Renderer2D::COLOR_TEXT,0.5f,0.75);
+	String smin(StringUtils::Float(this->minimum));
+	String smax(StringUtils::Float(this->maximum));
+	String value(StringUtils::Float(this->referenceValue));
+
+	tabContainer->renderer2D->DrawText(smin,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
+	tabContainer->renderer2D->DrawText(smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
+	tabContainer->renderer2D->DrawText(value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
 
 	float tip=(this->rect.x+10) + ((referenceValue)/(maximum-minimum))*(this->rect.z-20);
 
@@ -2294,10 +2270,10 @@ void GuiSlider::OnSize(Tab* tabContainer,void* data)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiPropertySlider::GuiPropertySlider(const char* iDescription,float& iRefVal,float& iMin,float& iMax):slider(iRefVal,iMin,iMax)
+GuiPropertySlider::GuiPropertySlider(String iDescription,float& iRefVal,float& iMin,float& iMax):slider(iRefVal,iMin,iMax)
 {
-	this->description=iDescription;
-	this->name="PropertySlider";
+	this->description.text=iDescription;
+	this->name=L"PropertySlider";
 	this->fixed.make(0,0,0,25);//Set(0,0,0,-1,0,0,0,25,0,0,1,-1);
 	//this->slider.Set(this,0,0,-1,0,0,0,0,0.5f,0,0.5f,1);
 	this->slider.SetParent(this);
@@ -2310,10 +2286,10 @@ void GuiPropertySlider::OnPaint(Tab* tabContainer,void* data)
 
 	this->DrawBackground(tabContainer);
 
-	if(description.Buffer())
+	if(description.text.c_str())
 	{
-		String s=description + " " + String(this->slider.referenceValue);
-		tabContainer->renderer2D->DrawText(s.Buffer(),this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
+		String s=description.text + L" " + StringUtils::Float(this->slider.referenceValue);
+		tabContainer->renderer2D->DrawText(s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
 	}
 
 	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
@@ -2334,7 +2310,7 @@ GuiAnimationController::GuiAnimationController(AnimationController& iAnimationCo
 	play(this->animationController.play),
 	stop(this->animationController.play)
 {
-	this->name="GuiAnimationController";
+	this->name=L"GuiAnimationController";
 
 	this->fixed.make(0,0,0,41);//Set(0,0,0,-1,0,0,0,41,0,0,1,-1);
 
@@ -2390,9 +2366,9 @@ void GuiAnimationController::OnButtonPressed(Tab* tabContainer,GuiButtonBool* iB
 GuiPropertyAnimationController::GuiPropertyAnimationController(AnimationController& iAnimationController)
 	:guiAnimationController(iAnimationController)
 {
-	this->name="GuiPropertyAnimationController";
+	this->name=L"GuiPropertyAnimationController";
 	this->fixed.w=this->guiAnimationController.rect.w;//Set(0,0,0,-1,0,0,0,this->guiAnimationController.rect.w,0,0,1,-1);
-	this->description="Controller";
+	this->description.text=L"Controller";
 	this->guiAnimationController.SetParent(this);
 	/*this->guiAnimationController.alignPos.x=0.5f;
 	this->guiAnimationController.alignRect.x=0.5f;*/
@@ -2423,7 +2399,7 @@ GuiViewport::GuiViewport():
 	pickedEntity(0),
 	playStopButton(0)
 {
-	this->name="ViewportViewer";
+	this->name=L"ViewportViewer";
 
 	this->playStopButton=new GuiButtonFunc;
 
@@ -2431,7 +2407,7 @@ GuiViewport::GuiViewport():
 	this->playStopButton->param=this;
 	this->playStopButton->colorHovering=Renderer2D::COLOR_GUI_BACKGROUND+30;
 	this->playStopButton->colorPressing=Renderer2D::COLOR_GUI_BACKGROUND+90;
-	this->playStopButton->text="Run";
+	this->playStopButton->text=L"Run";
 	this->playStopButton->SetEdges(0,&this->edges.y);
 	this->playStopButton->fixed.make(0,0,0,20);
 	//this->playStopButton->alignRect.make(1,-1);
@@ -2560,7 +2536,7 @@ GuiScrollBar::GuiScrollBar(unsigned int iScrollbarType):
 	scrollerRatio(1)
 {
 	this->fixed.make(0,0,this->scrollbarType==SCROLLBAR_VERTICAL ? GuiScrollBar::SCROLLBAR_TICK : 0,this->scrollbarType==SCROLLBAR_HORIZONTAL ? GuiScrollBar::SCROLLBAR_TICK : 0);
-	this->name="ScrollBar";
+	this->name=L"ScrollBar";
 }
 GuiScrollBar::~GuiScrollBar()
 {
@@ -2763,16 +2739,16 @@ void GuiScrollBar::OnPaint(Tab* tabContainer,void* data)
 GuiSceneViewer::GuiSceneViewer():entityRoot((EditorEntity*&)scene.entityRoot)
 {
 	this->entityRoot=new EditorEntity;
-	this->entityRoot->name="SceneRootEntity";
+	this->entityRoot->name=L"SceneRootEntity";
 	this->entityRoot->expanded=true;
 
-	this->name="SceneViewer";
-	this->scene.name="Scene";
+	this->name=L"SceneViewer";
+	this->scene.name=L"Scene";
 }
 
 GuiSceneViewer::~GuiSceneViewer()
 {
-	printf("destroying treeview %p\n",this);
+	wprintf(L"destroying treeview %p\n",this);
 }
 
 void GuiSceneViewer::OnMouseWheel(Tab* tabContainer,void* data)
@@ -2808,7 +2784,7 @@ void GuiSceneViewer::OnRMouseUp(Tab* tabContainer,void* data)
 		{
 			EditorEntity* tNewEntity=new EditorEntity;
 
-			tNewEntity->name="EntityPippo";
+			tNewEntity->name=L"EntityPippo";
 
 			tNewEntity->SetParent(tEditorEntity ? tEditorEntity : this->entityRoot);
 			tNewEntity->bbox.a.make(-1,-1,-1);
@@ -3020,7 +2996,7 @@ void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2& iFromP
 			xCursor+=ROW_ADVANCE;
 		}
 
-		tabContainer->renderer2D->DrawText(node->name.Buffer(),xCursor,relativeY,xCursor+this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,Renderer2D::COLOR_TEXT,-1,0.5);
+		tabContainer->renderer2D->DrawText(node->name,xCursor,relativeY,xCursor+this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
 	}
 	else if(iFromPosition.y>drawFromY)
 		return;
@@ -3063,8 +3039,8 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		{
 			if(InputManager::keyboardInput.IsPressed('S'))
 			{
-				String tSaveFile=Ide::instance->folderProject + "\\" + this->scene.name + Ide::instance->GetSceneExtension();
-				this->Save(tSaveFile.Buffer());
+				String tSaveFile=Ide::instance->folderProject + L"\\" + this->scene.name + Ide::instance->GetSceneExtension();
+				this->Save(tSaveFile.c_str());
 			}
 		}
 	}
@@ -3072,23 +3048,18 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 	GuiScrollRect::OnKeyDown(tabContainer,data);
 }
 
-
-
-
-
 void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 {
 	int childsSize=iEntity->childs.size();
 	int componentsSize=iEntity->components.size();
-	int nameCount=iEntity->name.Count();
+	int nameCount=iEntity->name.size();
 
 	fwrite(&childsSize,sizeof(int),1,iFile);//4
 
 	fwrite(iEntity->local,sizeof(float),16,iFile);//64
 	fwrite(iEntity->world,sizeof(float),16,iFile);//64
 
-	fwrite(&nameCount,sizeof(int),1,iFile);//4
-	fwrite(iEntity->name.Buffer(),iEntity->name.Count(),1,iFile);//variadic
+	StringUtils::WriteWstring(iFile,iEntity->name);
 
 	fwrite(iEntity->bbox.a,sizeof(float),3,iFile);//12
 	fwrite(iEntity->bbox.b,sizeof(float),3,iFile);//12
@@ -3103,10 +3074,7 @@ void saveEntityRecursively(Entity* iEntity,FILE* iFile)
 
 			fwrite(&Serialization::Script,sizeof(unsigned char),1,iFile);//1
 
-			nameCount=tScript->script.path.Count();
-
-			fwrite(&nameCount,sizeof(int),1,iFile);//4
-			fwrite(tScript->script.path.Buffer(),tScript->script.path.Count(),1,iFile);//variadic
+			StringUtils::WriteWstring(iFile,tScript->file);
 		}
 		else
 			fwrite(&Serialization::Unknown,sizeof(unsigned char),1,iFile);//1
@@ -3135,17 +3103,7 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 	fread(tEditorEntity->local,sizeof(float),16,iFile);//64
 	fread(tEditorEntity->world,sizeof(float),16,iFile);//64
 
-	fread(&nameCount,sizeof(int),1,iFile);//4
-
-	{
-		char *tNameBuf=new char[nameCount+1];
-		fread(tNameBuf,nameCount,1,iFile);//variadic
-		tNameBuf[nameCount]='\0';
-
-		tEditorEntity->name=tNameBuf;
-
-		SAFEDELETEARRAY(tNameBuf);
-	}
+	StringUtils::ReadWstring(iFile,tEditorEntity->name);
 
 	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);//12
 	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);//12
@@ -3162,18 +3120,7 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 		if(componentCode==Serialization::Script)
 		{
 			EditorScript* tScript=tEditorEntity->CreateComponent<EditorScript>();
-
-			fread(&nameCount,sizeof(int),1,iFile);//4
-
-			{
-				char *tNameBuf=new char[nameCount+1];
-				fread(tNameBuf,nameCount,1,iFile);//variadic
-				tNameBuf[nameCount]='\0';
-
-				tScript->script.path=tNameBuf;
-
-				SAFEDELETEARRAY(tNameBuf);
-			}
+			StringUtils::ReadWstring(iFile,tScript->file);
 		}
 	}
 
@@ -3186,45 +3133,46 @@ EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFil
 	return tEditorEntity;
 }
 
-void GuiSceneViewer::Save(const char* iFilename)
+void GuiSceneViewer::Save(String iFilename)
 {
-	FILE* file=fopen(iFilename,"wb");
-	if(!file)
-		return;
+	File tScriptFile(iFilename);
 
-	saveEntityRecursively(this->entityRoot,file);
-
-	fclose(file);
+	if(tScriptFile.Open(L"wb"))
+	{
+		saveEntityRecursively(this->entityRoot,tScriptFile);
+		tScriptFile.Close();
+	}
 }
 
-void GuiSceneViewer::Load(const char* iFilename)
+void GuiSceneViewer::Load(String iFilename)
 {
-	FILE* file=fopen(iFilename,"rb");
-	if(!file)
-		return;
+	File tScriptFile(iFilename);
 
-	for(std::list<Entity*>::iterator i=this->entityRoot->childs.begin();i!=this->entityRoot->childs.end();)
-		i=this->entityRoot->childs.erase(i);
-
-	EditorEntity* tEntity=loadEntityRecursively(0,file);
-
-	std::list<Entity*> tChildsCopy=tEntity->childs;
-
-	for(std::list<Entity*>::iterator i=tChildsCopy.begin();i!=tChildsCopy.end();i++)
-		(*i)->SetParent(this->entityRoot);
-
-	SAFEDELETE(tEntity);
-
-	if(this->active)
+	if(tScriptFile.Open(L"rb"))
 	{
-		Tab* tab=this->GetRootRect()->tabContainer;
+		for(std::list<Entity*>::iterator i=this->entityRoot->childs.begin();i!=this->entityRoot->childs.end();)
+			i=this->entityRoot->childs.erase(i);
 
-		this->UpdateNodes(this->entityRoot);
-		this->OnSize(tab);
-		tab->SetDraw(2,0,this);
+		EditorEntity* tEntity=loadEntityRecursively(0,tScriptFile);
+
+		std::list<Entity*> tChildsCopy=tEntity->childs;
+
+		for(std::list<Entity*>::iterator i=tChildsCopy.begin();i!=tChildsCopy.end();i++)
+			(*i)->SetParent(this->entityRoot);
+
+		SAFEDELETE(tEntity);
+
+		if(this->active)
+		{
+			Tab* tab=this->GetRootRect()->tabContainer;
+
+			this->UpdateNodes(this->entityRoot);
+			this->OnSize(tab);
+			tab->SetDraw(2,0,this);
+		}
+
+		tScriptFile.Close();
 	}
-
-	fclose(file);
 }
 
 ///////////////////////////////////////////////
@@ -3236,12 +3184,12 @@ void GuiSceneViewer::Load(const char* iFilename)
 GuiEntityViewer::GuiEntityViewer():
 entity(0),tabContainer(0)
 {
-	this->name="EntityViewer";
+	this->name=L"EntityViewer";
 };
 
 GuiEntityViewer::~GuiEntityViewer()
 {
-	printf("destroying properties %p\n",this);
+	wprintf(L"destroying properties %p\n",this);
 }
 
 void GuiEntityViewer::OnEntitySelected(Tab* iTabContainer,void* iData)
@@ -3368,7 +3316,7 @@ GuiProjectViewer::GuiProjectViewer():
 	splitterLeft(0),
 	splitterRight(0)
 {
-	this->name="ProjectViewer";
+	this->name=L"ProjectViewer";
 
 	this->dirViewer.projectViewer=this;
 	this->fileViewer.projectViewer=this;
@@ -3400,7 +3348,7 @@ GuiProjectViewer::GuiProjectViewer():
 
 GuiProjectViewer::~GuiProjectViewer()
 {
-	printf("destroying resources %p\n",this);
+	wprintf(L"destroying resources %p\n",this);
 }
 
 
@@ -3563,7 +3511,7 @@ void GuiProjectViewer::DirViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* n
 
 		xCursor+=ROW_ADVANCE;
 
-		tabContainer->renderer2D->DrawText(node->fileName.Buffer(),xCursor,relativeY,this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,Renderer2D::COLOR_TEXT,-1,0.5f);
+		tabContainer->renderer2D->DrawText(node->fileName,xCursor,relativeY,this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
 
 
 	}
@@ -3746,7 +3694,7 @@ void GuiProjectViewer::FileViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* 
 
 			xCursor+=ROW_ADVANCE;
 
-			tabContainer->renderer2D->DrawText(node->fileName.Buffer(),xCursor,relativeY,xCursor+this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,Renderer2D::COLOR_TEXT,-1,0.5f);
+			tabContainer->renderer2D->DrawText(node->fileName,xCursor,relativeY,xCursor+this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
 		}
 		else if(pos.y>drawFromHeight)
 			return;
@@ -3770,7 +3718,7 @@ void GuiProjectViewer::FileViewer::DrawNodes(Tab* tabContainer,ResourceNodeDir* 
 
 			xCursor+=ROW_ADVANCE;
 
-			tabContainer->renderer2D->DrawText(node->fileName.Buffer(),xCursor,relativeY,xCursor+rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,Renderer2D::COLOR_TEXT,-1,0.5f);
+			tabContainer->renderer2D->DrawText(node->fileName,xCursor,relativeY,xCursor+rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
 		}
 		else if(pos.y>drawFromHeight)
 			return;
@@ -3908,7 +3856,7 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
 			{
 				ResourceNodeDir* parentDirectory=(ResourceNodeDir*)tHoveredResourceNode->parent;
 
-				String tFileNameBase=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
+				String tFileNameBase=tHoveredResourceNode->parent->fileName + L"\\" + tHoveredResourceNode->fileName;
                 String tFileNameBaseExtended=tFileNameBase + Ide::instance->GetEntityExtension();
 
 				//first remove from the list
@@ -3917,29 +3865,29 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
                 {
                     parentDirectory->dirs.remove((ResourceNodeDir*)tHoveredResourceNode);
 
-                    Ide::instance->subsystem->Execute(parentDirectory->fileName.Buffer(),"rd /S /Q " + tHoveredResourceNode->fileName);
+                    Ide::instance->subsystem->Execute(parentDirectory->fileName.c_str(),L"rd /S /Q " + tHoveredResourceNode->fileName);
                 }
 				else
                 {
                     parentDirectory->files.remove(tHoveredResourceNode);
 
-                    File::Delete(tFileNameBase.Buffer());
-                    File::Delete(tFileNameBaseExtended.Buffer());
+                    File::Delete(tFileNameBase.c_str());
+                    File::Delete(tFileNameBaseExtended.c_str());
                 }
 
 				SAFEDELETE(tHoveredResourceNode);
 			}
 		break;
 		case 3://load
-			if(tHoveredResourceNode->fileName.Extension() == &Ide::instance->GetSceneExtension()[1])
+			if(tHoveredResourceNode->fileName.PointedExtension() == Ide::instance->GetSceneExtension())
 			{
 				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::GetPool().front();
 
 				if(tGuiSceneViewer)
 				{
-					String tHoveredNodeFilename=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
+					String tHoveredNodeFilename=tHoveredResourceNode->parent->fileName + L"\\" + tHoveredResourceNode->fileName;
 
-					tGuiSceneViewer->Load(tHoveredNodeFilename.Buffer());
+					tGuiSceneViewer->Load(tHoveredNodeFilename.c_str());
 					tGuiSceneViewer->GetRootRect()->tabContainer->SetDraw(2,0,tGuiSceneViewer);
 				}
 			}
@@ -3987,7 +3935,7 @@ void GuiProjectViewer::FileViewer::OnDLMouseDown(Tab* iTabContainer,void* data)
 			if(!tHoveredResourceNode->isDir)
 			{
 				String tExtension=tHoveredResourceNode->fileName.Extension();
-				String tFilename=tHoveredResourceNode->parent->fileName + "\\" + tHoveredResourceNode->fileName;
+				String tFilename=tHoveredResourceNode->parent->fileName + L"\\" + tHoveredResourceNode->fileName;
 
 				if(tExtension == &Ide::instance->GetSceneExtension()[1])
 				{
@@ -3997,13 +3945,13 @@ void GuiProjectViewer::FileViewer::OnDLMouseDown(Tab* iTabContainer,void* data)
 					drawTask->Block(true);
 
 					GuiSceneViewer* guiSceneViewer=iTabContainer->parentWindowContainer->SpawnViewer<GuiSceneViewer>();
-					guiSceneViewer->Load(tFilename.Buffer());
+					guiSceneViewer->Load(tFilename);
 
 					drawTask->Block(false);
 
 					//guiSceneViewer->GetRootRect()->tabContainer->SetDraw(2,0,guiSceneViewer);
 				}
-				else if(tExtension=="cpp")
+				else if(tExtension==L"cpp")
 				{
 					/*GuiScriptViewer* guiScriptViewer=tabContainer->parentWindowContainer->SpawnViewer<GuiScriptViewer>();
 					guiScriptViewer->Open(tFilename);
@@ -4063,7 +4011,7 @@ GuiImage::~GuiImage()
 ///////////////////////////////////////////////
 
 
-DrawInstance::DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,const char* iName,bool iRemove):code(iNoneAllRect),frame(iFrame),rect(iRect),name(iName),remove(iRemove){}
+DrawInstance::DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iName,bool iRemove):code(iNoneAllRect),frame(iFrame),rect(iRect),name(iName),remove(iRemove){}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4081,10 +4029,18 @@ void GuiPaper::DrawLineNumbers(Tab* tabContainer)
 {
 	float tTextHeight=tabContainer->renderer2D->GetFontHeight();
 	float tRowY=this->rect.y;
+	float tRowW=0;
+
+	String tLastLine=StringUtils::Int(this->lineCount);
+
+	vec2 tLastLineTextRect=tabContainer->renderer2D->MeasureText(tLastLine.c_str());
+
+	tRowW=tLastLineTextRect.x;
 
 	for(int i=0;i<this->lineCount;i++)
 	{
-		tabContainer->renderer2D->DrawText(String(i+1).Buffer(),this->rect.x,tRowY,this->rect.x + this->rect.z,tRowY + tTextHeight);
+		int tInteger=i+1;
+		tabContainer->renderer2D->DrawText(StringUtils::Int(tInteger),this->rect.x,tRowY,this->rect.x + tRowW,tRowY + tTextHeight,vec2(0,0.5f),vec2(0,0.5f));
 		tRowY+=tTextHeight;
 	}
 }
@@ -4176,11 +4132,11 @@ GuiScriptViewer::GuiScriptViewer():
 	script(0),
 	lineNumbers(true)
 {
-	this->name="ScriptViewer";
+	this->name=L"ScriptViewer";
 
 	this->paper=this->Create<GuiPaper>();
 	this->paper->scriptViewer=this;
-	this->paper->name="ScriptSource";
+	this->paper->name=L"ScriptSource";
 	this->paper->SetClip(this);
 	this->paper->textOffsets.make(20,0,0,0);
 }
@@ -4190,29 +4146,12 @@ void GuiScriptViewer::Open(Script* iScript)
 	this->script=(EditorScript*)iScript;
 	this->paper->cursor=StringEditor::Cursor();
 
-	if(!iScript->script.IsOpen())
-	{
-		if(iScript->script.Open())
-		{
-			int size=iScript->script.Size();
+	this->paper->text=StringUtils::ReadCharFile(iScript->file);
 
-			if(size>0)
-			{
-				char* buf=new char[size+1];
-				iScript->script.Read(buf,size);
-				buf[size]='\0';
-				this->paper->text=buf;
-				delete [] buf;
-			}
+	this->paper->cursor.cursor=this->paper->text.c_str();
+	this->paper->cursor.rowcol.make(0,0);
 
-			iScript->script.Close();
-		}
-
-		this->paper->cursor.cursor=(char*)this->paper->text.c_str();
-		this->paper->cursor.rowcol.make(0,0);
-
-		Ide::instance->stringEditor->Bind(this->paper,&this->paper->cursor);
-	}
+	Ide::instance->stringEditor->Bind(this->paper,&this->paper->cursor);
 
 	this->script->scriptViewer=this;
 }
@@ -4221,14 +4160,13 @@ bool GuiScriptViewer::Save()
 {
 	if(this->script)
 	{
-		if(!File::Exist(this->script->script.path.Buffer()))
-			File::Create(this->script->script.path.Buffer());
+		File tScriptFile(this->script->file);
 
-		if(this->script->script.Open("wb"))
+		if(tScriptFile.Open(L"wb"))
 		{
-			this->script->script.Write((void*)this->paper->text.c_str(),this->paper->text.size(),1);
+			tScriptFile.Write((void*)this->paper->text.c_str(),sizeof(wchar_t),this->paper->text.size());
 
-			this->script->script.Close();
+			tScriptFile.Close();
 
 			return true;
 		}
@@ -4342,7 +4280,7 @@ void GuiScriptViewer::OnSize(Tab* tabContainer,void* data)
 
 int GuiScriptViewer::CountScriptLines()
 {
-	char* t=(char*)this->paper->text.c_str();
+	const wchar_t* t=this->paper->text.c_str();
 
 	int tLinesCount=!(*t) ? 0 : 1;
 
@@ -4363,11 +4301,11 @@ int GuiScriptViewer::CountScriptLines()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiCompilerViewer::GuiCompilerViewer(){this->name="Compiler";}
+GuiCompilerViewer::GuiCompilerViewer(){this->name=L"Compiler";}
 
-wchar_t* nthOccurrenceInLine(wchar_t* iStr,char iChar,int iNth)
+const wchar_t* nthOccurrenceInLine(const wchar_t* iStr,char iChar,int iNth)
 {
-	wchar_t* str=iStr;
+	const wchar_t* str=iStr;
 	int occurr=0;
 
 	char c=*str;
@@ -4387,7 +4325,7 @@ wchar_t* nthOccurrenceInLine(wchar_t* iStr,char iChar,int iNth)
 }
 
 
-bool GuiCompilerViewer::ParseCompilerOutputFile(wchar_t* fileBuffer)
+bool GuiCompilerViewer::ParseCompilerOutputFile(String iFileBuffer)
 {
 	bool bReturnValue=true;
 
@@ -4399,18 +4337,20 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(wchar_t* fileBuffer)
 
 	const int MESSAHE_ROW_HEIGHT=20;
 
+	const wchar_t* fileBuffer=iFileBuffer.c_str();
+
 	if(fileBuffer)
 	{
-		wchar_t* LineBegin=fileBuffer;
-		wchar_t* FileEnd=LineBegin;
+		const wchar_t* LineBegin=fileBuffer;
+		const wchar_t* FileEnd=LineBegin;
 		while(*FileEnd++);
 
 		while(LineBegin!=FileEnd-1)
 		{
-			wchar_t* LineEnd=wcschr(LineBegin,'\n');
+			const wchar_t* LineEnd=wcschr(LineBegin,'\n');
 
-			wchar_t* compileError=wcsstr(LineBegin,L"error C");
-			wchar_t* linkError=wcsstr(LineBegin,L"error LNK");
+			const wchar_t* compileError=wcsstr(LineBegin,L"error C");
+			const wchar_t* linkError=wcsstr(LineBegin,L"error LNK");
 
 			compileError!=0 && LineEnd < compileError ? compileError=0 : 0;
 			linkError!=0 && LineEnd < linkError ? linkError=0 : 0;
@@ -4427,23 +4367,23 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(wchar_t* fileBuffer)
 
 			if(simpleMessage)
 			{
-				tCompilerMessageRow->wText=std::wstring(LineBegin,LineEnd-LineBegin);
+				tCompilerMessageRow->text=String(LineBegin,LineEnd-LineBegin);
 			}
 			else
 			{
 				bReturnValue=false;
 
-				wchar_t* FileEnd=nthOccurrenceInLine(LineBegin,':', compileError ? 2 : 1);//the first : should be the volume drive
+				const wchar_t* FileEnd=nthOccurrenceInLine(LineBegin,':', compileError ? 2 : 1);//the first : should be the volume drive
 
 				if(FileEnd)
 					FileEnd+=2;
 
-				wchar_t* ErrorEnd=nthOccurrenceInLine(FileEnd,':',1);
+				const wchar_t* ErrorEnd=nthOccurrenceInLine(FileEnd,':',1);
 
 				if(ErrorEnd)
 					ErrorEnd+=2;
 
-				tCompilerMessageRow->wText=/*std::wstring(LineBegin,FileEnd-LineBegin)*/std::wstring(FileEnd,ErrorEnd-FileEnd).append(std::wstring(ErrorEnd,LineEnd-ErrorEnd));
+				tCompilerMessageRow->text=String(FileEnd,ErrorEnd-FileEnd)+String(ErrorEnd,LineEnd-ErrorEnd);
 				tCompilerMessageRow->colorBackground=0xff0000;
 			}
 
@@ -4492,17 +4432,17 @@ void EditorEntity::OnPropertiesCreate()
 {
 	std::vector<GuiRect*> lvl(2);
 
-	this->container=this->properties.Container("Entity");
+	this->container=this->properties.Container(L"Entity");
 
 	lvl[0]=this->container;
-	lvl[0]->Property("Name",&this->name,GuiPropertyString::STRING);
-	lvl[0]->Property("Ptr",this,GuiPropertyString::PTR);
-	lvl[0]->Property("Position",&this->world,GuiPropertyString::MAT4POS);
-	lvl[1]=lvl[0]->Container("AABB");
-	lvl[1]->Property("Min",this->bbox.a,GuiPropertyString::VEC3);
-	lvl[1]->Property("Max",this->bbox.b,GuiPropertyString::VEC3);
-	lvl[1]->Property("Volume",this->bbox.a,GuiPropertyString::VEC3,this->bbox.b);
-	lvl[0]->Property("ChildNum",&this->childs,GuiPropertyString::ENTITYVECSIZE);
+	lvl[0]->Property(L"Name",&this->name,GuiPropertyString::STRING);
+	lvl[0]->Property(L"Ptr",this,GuiPropertyString::PTR);
+	lvl[0]->Property(L"Position",&this->world,GuiPropertyString::MAT4POS);
+	lvl[1]=lvl[0]->Container(L"AABB");
+	lvl[1]->Property(L"Min",this->bbox.a,GuiPropertyString::VEC3);
+	lvl[1]->Property(L"Max",this->bbox.b,GuiPropertyString::VEC3);
+	lvl[1]->Property(L"Volume",this->bbox.a,GuiPropertyString::VEC3,this->bbox.b);
+	lvl[0]->Property(L"ChildNum",&this->childs,GuiPropertyString::ENTITYVECSIZE);
 }
 
 void EditorEntity::OnPropertiesUpdate(Tab* tab)
@@ -4519,13 +4459,13 @@ void EditorMesh::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Mesh");
+	this->container=tEditorEntity->properties.Container(L"Mesh");
 
-	this->container->Property("Controlpoints",&this->ncontrolpoints,GuiPropertyString::INT);
-	this->container->Property("Normals",&this->nnormals,GuiPropertyString::INT);
-	this->container->Property("Polygons",&this->npolygons,GuiPropertyString::INT);
-	this->container->Property("Texcoord",&this->ntexcoord,GuiPropertyString::INT);
-	this->container->Property("Vertexindices",&this->nvertexindices,GuiPropertyString::INT);
+	this->container->Property(L"Controlpoints",&this->ncontrolpoints,GuiPropertyString::INT);
+	this->container->Property(L"Normals",&this->nnormals,GuiPropertyString::INT);
+	this->container->Property(L"Polygons",&this->npolygons,GuiPropertyString::INT);
+	this->container->Property(L"Texcoord",&this->ntexcoord,GuiPropertyString::INT);
+	this->container->Property(L"Vertexindices",&this->nvertexindices,GuiPropertyString::INT);
 }
 
 void EditorMesh::OnPropertiesUpdate(Tab* tab)
@@ -4536,10 +4476,10 @@ void EditorSkin::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Skin");
+	this->container=tEditorEntity->properties.Container(L"Skin");
 
-	this->container->Property("Clusters",&this->nclusters,GuiPropertyString::INT);
-	this->container->Property("Textures",&this->ntextures,GuiPropertyString::INT);
+	this->container->Property(L"Clusters",&this->nclusters,GuiPropertyString::INT);
+	this->container->Property(L"Textures",&this->ntextures,GuiPropertyString::INT);
 }
 void EditorSkin::OnPropertiesUpdate(Tab* tab)
 {
@@ -4548,7 +4488,7 @@ void EditorRoot::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Root");
+	this->container=tEditorEntity->properties.Container(L"Root");
 }
 void EditorRoot::OnPropertiesUpdate(Tab* tab)
 {
@@ -4557,7 +4497,7 @@ void EditorSkeleton::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Skeleton");
+	this->container=tEditorEntity->properties.Container(L"Skeleton");
 }
 void EditorSkeleton::OnPropertiesUpdate(Tab* tab)
 {
@@ -4566,7 +4506,7 @@ void EditorGizmo::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Gizmo");
+	this->container=tEditorEntity->properties.Container(L"Gizmo");
 }
 void EditorGizmo::OnPropertiesUpdate(Tab* tab)
 {
@@ -4575,12 +4515,12 @@ void EditorAnimation::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Animation");
+	this->container=tEditorEntity->properties.Container(L"Animation");
 
-	this->container->Property("IsBone",this,GuiPropertyString::ISBONECOMPONENT);
-	this->container->Property("Duration",&this->start,GuiPropertyString::FLOAT2MINUSFLOAT1,&this->end);
-	this->container->Property("Begin",&this->start,GuiPropertyString::FLOAT);
-	this->container->Property("End",&this->end,GuiPropertyString::FLOAT);
+	this->container->Property(L"IsBone",this,GuiPropertyString::ISBONECOMPONENT);
+	this->container->Property(L"Duration",&this->start,GuiPropertyString::FLOAT2MINUSFLOAT1,&this->end);
+	this->container->Property(L"Begin",&this->start,GuiPropertyString::FLOAT);
+	this->container->Property(L"End",&this->end,GuiPropertyString::FLOAT);
 }
 void EditorAnimation::OnPropertiesUpdate(Tab* tab)
 {
@@ -4589,15 +4529,15 @@ void EditorAnimationController::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("AnimationController");
+	this->container=tEditorEntity->properties.Container(L"AnimationController");
 
-	this->container->name="EditorAnimationControllerProperties";
-	this->container->text="AnimationController";
-	this->container->Property("Number of nodes",&this->animations,GuiPropertyString::ANIMATIONVECSIZE);
-	this->container->SliderProperty("Velocity",this->speed,this->start,this->end);
-	this->container->Property("Duration",&this->start,GuiPropertyString::FLOAT2MINUSFLOAT1,&this->end);
-	this->container->Property("Begin",&this->start,GuiPropertyString::FLOAT);
-	this->container->Property("End",&this->end,GuiPropertyString::FLOAT);
+	this->container->name=L"EditorAnimationControllerProperties";
+	this->container->text=L"AnimationController";
+	this->container->Property(L"Number of nodes",&this->animations,GuiPropertyString::ANIMATIONVECSIZE);
+	this->container->SliderProperty(L"Velocity",this->speed,this->start,this->end);
+	this->container->Property(L"Duration",&this->start,GuiPropertyString::FLOAT2MINUSFLOAT1,&this->end);
+	this->container->Property(L"Begin",&this->start,GuiPropertyString::FLOAT);
+	this->container->Property(L"End",&this->end,GuiPropertyString::FLOAT);
 	guiPropertyAnimationController=this->container->AnimationControllerProperty(*this);
 }
 
@@ -4615,7 +4555,7 @@ void EditorBone::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Bone");
+	this->container=tEditorEntity->properties.Container(L"Bone");
 }
 void EditorBone::OnPropertiesUpdate(Tab* tab)
 {
@@ -4624,7 +4564,7 @@ void EditorLight::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Light");
+	this->container=tEditorEntity->properties.Container(L"Light");
 }
 void EditorLight::OnPropertiesUpdate(Tab* tab)
 {
@@ -4665,12 +4605,12 @@ void launchStopScriptEditorCallback(void* iData)
 	if(editorScript->runtime)
 	{
 		if(Ide::instance->compiler->UnloadScript(editorScript))
-			editorScript->buttonLaunch->text="Launch";
+			editorScript->buttonLaunch->text=L"Launch";
 	}
 	else
 	{
 		if(Ide::instance->compiler->LoadScript(editorScript))
-			editorScript->buttonLaunch->text="Stop";
+			editorScript->buttonLaunch->text=L"Stop";
 	}
 
 	editorScript->container->GetRootRect()->tabContainer->SetDraw(2,0,editorScript->buttonLaunch);
@@ -4685,18 +4625,18 @@ void EditorScript::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Script");
+	this->container=tEditorEntity->properties.Container(L"Script");
 
-	GuiProperty* tFile=container->Property("File",&this->Script::script.path,GuiPropertyString::STRING);
-	GuiProperty* tRunning=container->Property("Running",&this->Script::runtime,GuiPropertyString::BOOLPTR);
+	GuiProperty* tFile=container->Property(L"File",&this->Script::file,GuiPropertyString::STRING);
+	GuiProperty* tRunning=container->Property(L"Running",&this->Script::runtime,GuiPropertyString::BOOLPTR);
 
 	GuiButtonFunc* buttonEdit=new GuiButtonFunc;
-	buttonEdit->name="EditorScript Edit Button";
+	buttonEdit->name=L"EditorScript Edit Button";
 	buttonEdit->func=editScriptEditorCallback;
 	buttonEdit->param=this;
 	buttonEdit->colorHovering=Renderer2D::COLOR_GUI_BACKGROUND+30;
 	buttonEdit->colorPressing=Renderer2D::COLOR_GUI_BACKGROUND+90;
-	buttonEdit->text="Edit";
+	buttonEdit->text=L"Edit";
 	buttonEdit->fixed.make(0,0,0,20);
 	container->AppendAsProperty(buttonEdit);
 
@@ -4705,7 +4645,7 @@ void EditorScript::OnPropertiesCreate()
 	buttonCompile->param=this;
 	buttonCompile->colorHovering=Renderer2D::COLOR_GUI_BACKGROUND+30;
 	buttonCompile->colorPressing=Renderer2D::COLOR_GUI_BACKGROUND+90;
-	buttonCompile->text="Compile";
+	buttonCompile->text=L"Compile";
 	buttonCompile->fixed.make(0,0,0,20);
 	container->AppendAsProperty(buttonCompile);
 
@@ -4714,7 +4654,7 @@ void EditorScript::OnPropertiesCreate()
 	this->buttonLaunch->param=this;
 	this->buttonLaunch->colorHovering=Renderer2D::COLOR_GUI_BACKGROUND+30;
 	this->buttonLaunch->colorPressing=Renderer2D::COLOR_GUI_BACKGROUND+90;
-	this->buttonLaunch->text="Launch";
+	this->buttonLaunch->text=L"Launch";
 	this->buttonLaunch->fixed.make(0,0,0,20);
 	container->AppendAsProperty(this->buttonLaunch);
 }
@@ -4724,22 +4664,19 @@ void EditorScript::OnPropertiesUpdate(Tab* tab)
 
 void EditorScript::OnResourcesCreate()
 {
-	String tFileNamePath=Ide::instance->folderProject + "\\" + this->entity->name;
-	this->script.path=tFileNamePath + ".cpp";
+	String tFileNamePath=Ide::instance->folderProject + L"\\" + this->entity->name;
+	this->file=tFileNamePath + L".cpp";
 
-	if(!File::Exist(this->script.path.Buffer()))
+	if(!File::Exist(this->file))
 	{
-		if(!File::Create(this->script.path.Buffer()))
+		if(!File::Create(this->file))
 			DEBUG_BREAK();
 
-		if(this->script.Open("wb"))
-		{
-			String content="#include \"entities.h\"\n\nstruct " + this->entity->name + "_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
-			int contantCount=content.Count();
-
-			this->script.Write((void*)content.Buffer(),contantCount,1);
-			this->script.Close();
-		}
+		StringUtils::WriteCharFile(
+									this->file,
+									L"#include \"entities.h\"\n\nstruct " + this->entity->name + L"_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n",
+									L"wb"
+								   );
 	}
 }
 
@@ -4747,11 +4684,13 @@ void EditorCamera::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container("Camera");
+	this->container=tEditorEntity->properties.Container(L"Camera");
 }
 void EditorCamera::OnPropertiesUpdate(Tab* tab)
 {
 }
+
+
 
 
 ///////////////////////////////////////////////
