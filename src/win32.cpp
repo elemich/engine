@@ -725,13 +725,13 @@ void MainContainerWin32::Init()
 	TabWin32* tabContainer3=container->CreateTabContainer(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408));
 	TabWin32* tabContainer4=container->CreateTabContainer(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top);
 
-	GuiSceneViewer* scene=tabContainer1->tabs.SceneViewer();
-	GuiViewport* viewport=tabContainer4->tabs.Viewport();
+	GuiSceneViewer* scene=tabContainer1->rects.SceneViewer();
+	GuiViewport* viewport=tabContainer4->rects.Viewport();
 
 	viewport->rootEntity=scene->entityRoot;
 
-	tabContainer3->tabs.ProjectViewer();
-	tabContainer2->tabs.EntityViewer();
+	tabContainer3->rects.ProjectViewer();
+	tabContainer2->rects.EntityViewer();
 
 	Tab::BroadcastToPoolSelecteds(&GuiRect::OnSize);
 	Tab::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
@@ -2039,8 +2039,8 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		glGenBuffers(1, &pixelBuffer);
 	}
 
-	wprintf(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)));
-	wprintf(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	wprintf(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)).c_str());
+	wprintf(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str());
 
 	this->unlit=ShaderOpenGL::Create("unlit",unlit_vert,unlit_frag);
 	this->unlit_color=ShaderOpenGL::Create("unlit_color",unlit_color_vert,unlit_color_frag);
@@ -2999,7 +2999,7 @@ void Renderer3DOpenGL::Render()
 	{
 		if(tabContainerWin32->BeginDraw())
 		{
-			(*vport)->OnPaint(this->tabContainer);
+			(*vport)->OnPaint(GuiMsg(this->tabContainer,*vport));
 			tabContainerWin32->EndDraw();
 		}
 	}
@@ -3419,9 +3419,9 @@ void TabWin32::OnGuiRMouseUp(void* data)
 
 	if(y<=Tab::CONTAINER_HEIGHT)
 	{
-		int tabNumberHasChanged=this->tabs.childs.size();
+		int tabNumberHasChanged=this->rects.childs.size();
 
-		for(int i=0;i<(int)tabs.childs.size();i++)
+		for(int i=0;i<(int)rects.childs.size();i++)
 		{
 			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
 			{
@@ -3439,20 +3439,20 @@ void TabWin32::OnGuiRMouseUp(void* data)
 						}
 					break;
 					case 2:
-						this->tabs.Viewport();
-						this->selected=this->tabs.childs.size()-1;
+						this->rects.Viewport();
+						this->selected=this->rects.childs.size()-1;
 					break;
 					case 3:
-						this->tabs.SceneViewer();
-						this->selected=this->tabs.childs.size()-1;
+						this->rects.SceneViewer();
+						this->selected=this->rects.childs.size()-1;
 					break;
 					case 4:
-						this->tabs.EntityViewer();
-						this->selected=this->tabs.childs.size()-1;
+						this->rects.EntityViewer();
+						this->selected=this->rects.childs.size()-1;
 					break;
 					case 5:
-						this->tabs.ProjectViewer();
-						this->selected=this->tabs.childs.size()-1;
+						this->rects.ProjectViewer();
+						this->selected=this->rects.childs.size()-1;
 					break;
 					case 6:
 						/*this->tabs.ScriptViewer();
@@ -3464,7 +3464,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 			}
 		}
 
-		if(tabNumberHasChanged!=this->tabs.childs.size())
+		if(tabNumberHasChanged!=this->rects.childs.size())
 			this->SetDraw(0,true);
 	}
 	else
@@ -3487,15 +3487,15 @@ void TabWin32::DrawFrame()
 									(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),
 									Renderer2D::COLOR_GUI_BACKGROUND);
 
-	for(int i=0;i<(int)tabs.childs.size();i++)
+	for(int i=0;i<(int)rects.childs.size();i++)
 		this->renderer2D->DrawText(
-									tabs.childs[i]->name,
+									rects.childs[i]->name,
 									(float)i*TAB_WIDTH,
 									(float)CONTAINER_HEIGHT-TAB_HEIGHT,
 									(float)i*TAB_WIDTH + (float)TAB_WIDTH,
 									(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,
-									vec2(0.5f,0.5f),
-									vec2(0.5f,0.5f),
+									vec2(0,0.5f),
+									vec2(0,0.5f),
 									Renderer2D::COLOR_TEXT
 								  );
 }
@@ -3675,7 +3675,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 					HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
 					HWND& floatingTabHwnd=floatingTabWin32->windowDataWin32->hwnd;
 
-					if(1==(int)floatingTabRef->tabs.childs.size())
+					if(1==(int)floatingTabRef->rects.childs.size())
 					{
 						newTabContainer=floatingTabRefWin32;
 
@@ -3721,12 +3721,12 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 
 						newTabContainer=this->currentTabContainerWin32->editorWindowContainerWin32->CreateTabContainer((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
 
-						GuiRect* reparentTab=floatingTabRef->tabs.childs[floatingTabRefTabIdx];
+						GuiRect* reparentTab=floatingTabRef->rects.childs[floatingTabRefTabIdx];
 						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
 						floatingTabRef->OnGuiActivate();
-						reparentTab->SetParent(&newTabContainer->tabs);
+						reparentTab->SetParent(&newTabContainer->rects);
 
-						newTabContainer->selected=newTabContainer->tabs.childs.size()-1;
+						newTabContainer->selected=newTabContainer->rects.childs.size()-1;
 
 						SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
 
@@ -3981,7 +3981,7 @@ void SplitterWin32::CreateFloatingTab(Tab* tab)
 
 	floatingTabRef=tab;
 	floatingTabRefTabIdx=tab->selected;
-	floatingTabRefTabCount=(int)tab->tabs.childs.size();
+	floatingTabRefTabCount=(int)tab->rects.childs.size();
 
 	HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
 	HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
@@ -4388,7 +4388,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		if(!tabContainer)
 			DEBUG_BREAK();
 
-		guiCompilerViewer=tabContainer->tabs.CompilerViewer();
+		guiCompilerViewer=tabContainer->rects.CompilerViewer();
 
 		tabContainer->SetDraw(0,true,0);
 	}
@@ -5169,14 +5169,10 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 
 			if(renderer2DWin32->tabContainer->BeginDraw())
 			{
-				bool tSelfClip=this->string->BeginSelfClip(renderer2DWin32->tabContainer);
-
 				if(this->blinking)
 					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+renderer2DWin32->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
 				else
 					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w));
-
-				this->string->EndSelfClip(renderer2DWin32->tabContainer,tSelfClip);
 
 				renderer2DWin32->tabContainer->EndDraw();
 			}

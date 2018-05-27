@@ -112,10 +112,12 @@ unsigned char Tab::rawFile[]={0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x
 
 
 
-GuiRect* Tab::focusedGlobal=0;
+GuiRect* Tab::focused=0;
+GuiRect* Tab::pressed=0;
+GuiRect* Tab::hovered=0;
 
 Tab::Tab(float x,float y,float w,float h):
-tabs(this),
+rects(this),
 	windowData(0),
 	parentWindowContainer(0),
 	selected(0),
@@ -134,8 +136,7 @@ tabs(this),
 	iconDown(0),
 	iconFolder(0),
 	iconFile(0),
-	threadRender(0),
-	focused(0)
+	threadRender(0)
 {}
 
 Tab::~Tab()
@@ -145,7 +146,7 @@ Tab::~Tab()
 
 GuiRect* Tab::GetSelected()
 {
-	return selected<tabs.childs.size() ? tabs.childs[selected] : 0;
+	return selected<rects.childs.size() ? rects.childs[selected] : 0;
 }
 
 void Tab::Draw()
@@ -170,7 +171,7 @@ void Tab::Draw()
 				switch(tDrawInstance->code)
 				{
 				case 1:this->OnGuiPaint();break;
-				case 2:tDrawInstance->rect->OnPaint(this);break;
+				case 2:tDrawInstance->rect->OnPaint(GuiMsg(this,tDrawInstance->rect,0));break;
 				}
 
 				this->EndDraw();
@@ -199,31 +200,31 @@ DrawInstance* Tab::SetDraw(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iN
 	return newInstance;
 }
 
-void Tab::BroadcastToSelected(void (GuiRect::*func)(Tab*,void*),void* data)
+void Tab::BroadcastToSelected(void (GuiRect::*iFunc)(const GuiMsg&),void* iData)
 {
 	GuiRect* selectedTab=this->GetSelected();
 
 	if(selectedTab)
-		(selectedTab->*func)(this,data);
+		(selectedTab->*iFunc)(GuiMsg(this,selectedTab,0,iFunc,iData));
 }
 
-void Tab::BroadcastToAll(void (GuiRect::*func)(Tab*,void*),void* data)
+void Tab::BroadcastToAll(void (GuiRect::*iFunc)(const GuiMsg&),void* iData)
 {
-	(this->tabs.*func)(this,data);
+	(this->rects.*iFunc)(GuiMsg(this,&this->rects,0,iFunc,iData));
 }
 
 
-template<class C> void Tab::BroadcastToSelected(void (GuiRect::*func)(Tab*,void*),void* data)
+template<class C> void Tab::BroadcastToSelected(void (GuiRect::*iFunc)(const GuiMsg&),void* iData)
 {
 	GuiRect* selectedTab=this->GetSelected();
 
 	if(selectedTab)
-		selectedTab->BroadcastTo<C>(func,data);
+		selectedTab->BroadcastTo<C>(iFunc,iData);
 }
 
-template<class C> void Tab::BroadcastToAll(void (GuiRect::*func)(Tab*,void*),void* data)
+template<class C> void Tab::BroadcastToAll(void (GuiRect::*iFunc)(const GuiMsg&),void* iData)
 {
-	this->tabs.BroadcastTo<C>(func,data);
+	this->rects.BroadcastTo<C>(iFunc,iData);
 }
 
 
@@ -231,9 +232,9 @@ void Tab::SetSelection(GuiRect* iRect)
 {
 	this->BroadcastToSelected(&GuiRect::OnDeactivate);
 
-	for(size_t i=0;i<this->tabs.childs.size();i++)
+	for(size_t i=0;i<this->rects.childs.size();i++)
 	{
-		if(iRect==this->tabs.childs[i])
+		if(iRect==this->rects.childs[i])
 		{
 			this->selected=i;
 			break;
@@ -251,11 +252,11 @@ void Tab::OnGuiSize(void* data)
 {
 	this->windowData->OnSize();
 
-	this->tabs.rect.make(0.0f,(float)Tab::CONTAINER_HEIGHT,this->windowData->width,this->windowData->height-Tab::CONTAINER_HEIGHT);
-	this->tabs.edges.x=0;
-	this->tabs.edges.y=(float)Tab::CONTAINER_HEIGHT;
-	this->tabs.edges.z=this->windowData->width;
-	this->tabs.edges.w=this->windowData->height;
+	this->rects.rect.make(0.0f,(float)Tab::CONTAINER_HEIGHT,this->windowData->width,this->windowData->height-Tab::CONTAINER_HEIGHT);
+	this->rects.edges.x=0;
+	this->rects.edges.y=(float)Tab::CONTAINER_HEIGHT;
+	this->rects.edges.z=this->windowData->width;
+	this->rects.edges.w=this->windowData->height;
 
 	this->BroadcastToSelected(&GuiRect::OnSize,data);
 
@@ -268,11 +269,11 @@ void Tab::OnWindowPosChanging(void* data)
 
 	this->windowData->OnWindowPosChanging();
 
-	this->tabs.rect.make(0,Tab::CONTAINER_HEIGHT,this->windowData->width,this->windowData->height-Tab::CONTAINER_HEIGHT);
-	this->tabs.edges.x=0;
-	this->tabs.edges.y=(float)Tab::CONTAINER_HEIGHT;
-	this->tabs.edges.z=this->windowData->width;
-	this->tabs.edges.w=this->windowData->height;
+	this->rects.rect.make(0,Tab::CONTAINER_HEIGHT,this->windowData->width,this->windowData->height-Tab::CONTAINER_HEIGHT);
+	this->rects.edges.x=0;
+	this->rects.edges.y=(float)Tab::CONTAINER_HEIGHT;
+	this->rects.edges.z=this->windowData->width;
+	this->rects.edges.w=this->windowData->height;
 
 	this->BroadcastToSelected(&GuiRect::OnSize,data);
 }
@@ -316,7 +317,7 @@ void Tab::OnGuiLMouseDown(void* data)
 	{
 		int tPreviousTabSelected=selected;
 
-		for(int i=0;i<(int)tabs.childs.size();i++)
+		for(int i=0;i<(int)rects.childs.size();i++)
 		{
 			bool tMouseContained=x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT;
 
@@ -325,7 +326,7 @@ void Tab::OnGuiLMouseDown(void* data)
 
 				mouseDown=true;
 
-				this->SetSelection(tabs.childs[i]);
+				this->SetSelection(rects.childs[i]);
 
 				break;
 			}
@@ -410,18 +411,18 @@ void Tab::OnGuiRecreateTarget(void* data)
 
 void Tab::SetFocus(GuiRect* iFocusedRect)
 {
-	if(this->GetFocus() && this->GetFocus()!=iFocusedRect)
-		this->GetFocus()->OnExitFocus(this,this->GetFocus());
+	if(Tab::focused)
+		Tab::focused->OnExitFocus(GuiMsg(Tab::focused->GetRootRect()->tabContainer,Tab::focused,0,&GuiRect::OnExitFocus,Tab::focused));
 
-	this->focusedGlobal=this->focused=iFocusedRect;
+	Tab::focused=iFocusedRect;
 
-	if(this->focusedGlobal)
-		this->focusedGlobal->OnEnterFocus(this,this->focusedGlobal);
+	if(Tab::focused)
+		Tab::focused->OnEnterFocus(GuiMsg(Tab::focused->GetRootRect()->tabContainer,Tab::focused,0,&GuiRect::OnEnterFocus,Tab::focused));
 }
 
 GuiRect* Tab::GetFocus()
 {
-	return this->focusedGlobal;
+	return Tab::focused;
 }
 
 
@@ -475,7 +476,7 @@ void StringEditor::Bind(GuiString* iString,Cursor* iCursor)
 		this->cursor=new Cursor;
 
 	if(!this->cursor->cursor)
-		this->cursor->cursor=iString->text.c_str();
+		this->cursor->cursor=iString->text->c_str();
 
 	this->EditText(CARET_RECALC,0);
 }
@@ -496,7 +497,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 	{
 	case CARET_RECALC:
 		{
-			const wchar_t*	pText=this->string->text.c_str();
+			const wchar_t*	pText=this->string->text->c_str();
 
 			bool tCarriageReturn=false;
 			int tCharWidth=0;
@@ -536,19 +537,19 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 		}
 		case CARET_CANCEL:
 		{
-			if(this->string->text.empty() || this->cursor->cursor==&this->string->text.back())
+			if(this->string->text->empty() || this->cursor->cursor==&this->string->text->back())
 				return false;
 
-			std::wstring::iterator sIt=this->string->text.begin()+this->cursor->rowcol.y;
+			std::wstring::iterator sIt=this->string->text->begin()+this->cursor->rowcol.y;
 
-			if(sIt!=this->string->text.end())
-				this->string->text.erase(sIt);
+			if(sIt!=this->string->text->end())
+				this->string->text->erase(sIt);
 
 			break;
 		}
 		case CARET_BACKSPACE:
 		{
-			if(this->cursor->cursor==this->string->text.c_str())
+			if(this->cursor->cursor==this->string->text->c_str())
 				return false;
 
 			char tCharCode=*(--this->cursor->cursor);
@@ -564,7 +565,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				{
 					tRowCharsWidth+=tab->renderer2D->GetCharWidth(*pText);
 
-					if(pText==this->string->text.c_str())
+					if(pText==this->string->text->c_str())
 						break;
 
 					pText--;
@@ -585,7 +586,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				this->cursor->rowcol.y--;
 			}
 
-			this->string->text.erase(this->cursor->cursor-this->string->text.c_str(),1);
+			this->string->text->erase(this->cursor->cursor-this->string->text->c_str(),1);
 
 			break;
 		}
@@ -609,16 +610,16 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				this->cursor->rowcol.y++;
 			}
 
-			size_t tPosition=this->cursor->cursor-this->string->text.c_str();
+			size_t tPosition=this->cursor->cursor-this->string->text->c_str();
 
-			this->string->text.insert(tPosition,1,tCharcode);
-			this->cursor->cursor=this->string->text.c_str()+tPosition+1;
+			this->string->text->insert(tPosition,1,tCharcode);
+			this->cursor->cursor=this->string->text->c_str()+tPosition+1;
 
 			break;
 		}
 		case CARET_ARROWLEFT:
 		{
-			if(this->cursor->cursor==this->string->text.c_str())
+			if(this->cursor->cursor==this->string->text->c_str())
 				return false;
 
 			char tCharCode=*(--this->cursor->cursor);
@@ -638,7 +639,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 					tRowLenght+=tab->renderer2D->GetCharWidth(*pText);
 
-					if(pText==this->string->text.c_str())
+					if(pText==this->string->text->c_str())
 						break;
 
 					pText--;
@@ -696,22 +697,22 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				pText--;
 
 			//find the last upper row or the head of the current row
-			while( pText!=this->string->text.c_str() && *pText!='\r' &&  *pText!='\n' )
+			while( pText!=this->string->text->c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
 			//return if no previous row exists
-			if(pText==this->string->text.c_str())
+			if(pText==this->string->text->c_str())
 				return false;
 
 			//go to the upper row pre-carriage char
 			pText--;
 
 			//find the last upper superior row or the head of the upper row
-			while( pText!=this->string->text.c_str() && *pText!='\r' &&  *pText!='\n' )
+			while( pText!=this->string->text->c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
 			//go to the upper superior row pre-carriage char
-			if(pText!=this->string->text.c_str())
+			if(pText!=this->string->text->c_str())
 				pText++;
 
 			//finally found the upper matching position
@@ -776,11 +777,11 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 	}
 
 	if(tMustResize)
-		this->string->OnSize(this->tab);
+		this->string->OnSize(GuiMsg(this->tab,0,this->string,&GuiRect::OnSize,0));
 
 	this->recalcBackground=true;
 
-	//wprintf(L"cursor: %d,col: %d\n",this->cursor->cursor-this->string->text.c_str(),this->cursor->rowcol.y);
+	//wprintf(L"cursor: %d,col: %d\n",this->cursor->cursor-this->string->text->c_str(),this->cursor->rowcol.y);
 }
 
 ///////////////////////////////////////////////
@@ -944,6 +945,19 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
 
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////////////GuiMsg/////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+GuiMsg::GuiMsg(Tab* iTab,GuiRect* iSender,GuiRect* iTarget,void (GuiRect::*iFunction)(const GuiMsg&),void* iData):
+	tab(iTab),
+	sender(iSender),
+	target(iTarget),
+	func(iFunction),
+	data(iData)
+{}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -961,9 +975,9 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 	hovering(false),
 	checked(false),
 	active(false),
-	clip(0),
 	scalars(1,1,1,1),
-	minimums(0,0)
+	minimums(0,0),
+	userData(0)
 {
 	this->SetEdges();
 	this->SetParent(iParent);
@@ -984,64 +998,57 @@ void GuiRect::SetParent(GuiRect* iParent)
 		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
 
 	if(this->parent)
-	{
-		/*
-		std::vector<GuiRect*>::reverse_iterator tLastRectIterator=iParent->childs.rbegin();
-
-		int tIterTries=0;
-		while(tIterTries++<2 && tLastRectIterator!=iParent->childs.rend() && dynamic_cast<GuiScrollBar*>(*tLastRectIterator))
-			tLastRectIterator++;
-
-		this->parent->childs.insert(tLastRectIterator.base(),this);
-		*/
-
 		this->parent->childs.push_back(this);
-
-		if(this->parent->clip)
-			this->SetClip(this->parent->clip);
-	}
 
 	this->active=iParent ? iParent->active : 0;
 }
 
 void GuiRect::CalcRect()
 {
+	Edges &re=this->refedges;
+	vec4  &o=this->offsets;
+	vec4  &s=this->scalars;
+	vec4  &e=this->edges;
+	vec4  &r=this->rect;
+	vec4  &f=this->fixed;
+	vec2  &m=this->minimums;
+
+	float tLeft=0;
+	float tTop=0;
+	float tRight=0;
+	float tBottom=0;
+
 	if(this->parent)
 	{
-		Edges &re=this->refedges;
-		vec4  &o=this->offsets;
-		vec4  &s=this->scalars;
-		vec4  &e=this->edges;
-		vec4  &r=this->rect;
-		vec4  &f=this->fixed;
-		vec2  &m=this->minimums;
-
-		Edges &pre=this->parent->refedges;
-		vec4  &po=this->parent->offsets;
-		vec4  &ps=this->parent->scalars;
 		vec4  &pe=this->parent->edges;
-		vec4  &pf=this->parent->fixed;
 
-		float tLeft= (re.left ? *re.left : (f.x ? f.x : pe.x)) + (o.x);
-		float tTop= (re.top ? *re.top : (f.y ? f.y : pe.y)) + (o.y);
-		float tRight= (re.right ? *re.right : (f.z ? tLeft+f.z : pe.z)) + (o.z);
-		float tBottom= (re.bottom ? *re.bottom : (f.w ? tTop+f.w : pe.w)) + (o.w);
-
-		tLeft += s.x!=1 ? (tRight-tLeft)*s.x : 0;
-		tTop += s.y!=1 ? (tBottom-tTop)*s.y : 0;
-
-		tRight = s.z!=1 ? tLeft + (tRight-tLeft)*s.z : tRight;
-		tBottom = s.w!=1 ? tTop + (tBottom-tTop)*s.w : tBottom;
-
-		float tWidth=tRight-tLeft;
-		float tHeight=tBottom-tTop;
-
-		tWidth=(tWidth<m.x) ? m.x : tWidth;
-		tHeight=(tHeight<m.y) ? m.y : tHeight;
-
-		e.make(tLeft,tTop,tLeft+tWidth,tTop+tHeight);
-		r.make(tLeft,tTop,tWidth,tHeight);
+		tLeft= (re.left ? *re.left : (f.x ? f.x : pe.x)) + (o.x);
+		tTop= (re.top ? *re.top : (f.y ? f.y : pe.y)) + (o.y);
+		tRight= (re.right ? *re.right : (f.z ? tLeft+f.z : pe.z)) + (o.z);
+		tBottom= (re.bottom ? *re.bottom : (f.w ? tTop+f.w : pe.w)) + (o.w);
 	}
+	else
+	{
+		tLeft= (re.left ? *re.left : (f.x ? f.x : 0)) + (o.x);
+		tTop= (re.top ? *re.top : (f.y ? f.y : 0)) + (o.y);
+		tRight= (re.right ? *re.right : (f.z ? tLeft+f.z : 0)) + (o.z);
+		tBottom= (re.bottom ? *re.bottom : (f.w ? tTop+f.w : 0)) + (o.w);
+	}
+
+	tLeft += s.x!=1 ? (tRight-tLeft)*s.x : 0;
+	tTop += s.y!=1 ? (tBottom-tTop)*s.y : 0;
+
+	tRight = s.z!=1 ? tLeft + (tRight-tLeft)*s.z : tRight;
+	tBottom = s.w!=1 ? tTop + (tBottom-tTop)*s.w : tBottom;
+
+	float tWidth=tRight-tLeft;
+	float tHeight=tBottom-tTop;
+
+	tWidth=(tWidth<m.x) ? m.x : tWidth;
+	tHeight=(tHeight<m.y) ? m.y : tHeight;
+
+	e.make(tLeft,tTop,tLeft+tWidth,tTop+tHeight);
+	r.make(tLeft,tTop,tWidth,tHeight);
 }
 
 
@@ -1054,60 +1061,63 @@ void GuiRect::SetEdges(float* iLeft,float* iTop,float* iRight,float* iBottom)
 	this->refedges.bottom=iBottom;
 }
 
-bool GuiRect::_contains(vec4& quad,vec2 point)
+bool GuiRect::Contains(vec4& quad,vec2 point)
 {
 	return (point.x>quad.x && point.x<(quad.x+quad.z) && point.y>quad.y && point.y<(quad.y+quad.w));
 }
 
-void GuiRect::BroadcastToChilds(void (GuiRect::*func)(Tab*,void*),Tab* tabContainer,void* data)
+void GuiRect::BroadcastToChilds(void (GuiRect::*func)(const GuiMsg&),const GuiMsg& iMsg)
 {
 	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
-		((*tRect)->*func)(tabContainer,data);
+		((*tRect)->*func)(iMsg);
 }
 
-void GuiRect::BroadcastToRoot(void (GuiRect::*func)(Tab*,void*),void* data)
+void GuiRect::BroadcastToRoot(void (GuiRect::*func)(const GuiMsg&),const GuiMsg& iMsg)
 {
 	GuiRootRect* root=dynamic_cast<GuiRootRect*>(this->GetRoot());
 
 	if(root)
-		(root->*func)(root->tabContainer,data);
+		(root->*func)(iMsg);
 }
 
 
 
 
-void GuiRect::OnEntitiesChange(Tab* tabContainer,void* data)
+void GuiRect::OnEntitiesChange(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnEntitiesChange,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnEntitiesChange,iMsg);
 }
 
-void GuiRect::DrawBackground(Tab* tabContainer)
+void GuiRect::DrawBackground(Tab* iTab)
 {
-	unsigned int tCurrentColor=this->pressing ? this->colorPressing : (this->hovering ? this->colorHovering : this->colorBackground);
+	unsigned int tCurrentColor=this->checked ? this->colorChecked : (this->pressing ? this->colorPressing : (this->hovering ? this->colorHovering : this->colorBackground) );
 
-	tabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w,tCurrentColor);
+	iTab->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w,tCurrentColor);
 }
 
 
-void GuiRect::OnPaint(Tab* tabContainer,void* data)
+void GuiRect::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
-	this->DrawBackground(tabContainer);
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
+	this->DrawBackground(iMsg.tab);
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
 
-void GuiRect::OnSize(Tab* tabContainer,void* data)
+void GuiRect::OnSize(const GuiMsg& iMsg)
 {
 	this->CalcRect();
-	this->BroadcastToChilds(&GuiRect::OnSize,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
+
+	if(!this->childs.empty())
+	{
+		GuiRect* tLastChild=this->childs.back();
+
+		this->rect.w=tLastChild->rect.y+tLastChild->rect.w-this->rect.y;
+		this->edges.w=tLastChild->edges.w;
+	}
 }
 
-void GuiRect::OnLMouseDown(Tab* tabContainer,void* data)
+void GuiRect::OnLMouseDown(const GuiMsg& iMsg)
 {
 	bool wasPressing=this->pressing;
 	
@@ -1117,180 +1127,131 @@ void GuiRect::OnLMouseDown(Tab* tabContainer,void* data)
 	{
 		this->checked=!this->checked;
 
-		tabContainer->SetFocus(this);
+		iMsg.tab->SetFocus(this);
 
 		if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-			tabContainer->SetDraw(2,0,this);
+			iMsg.tab->SetDraw(2,0,this);
 	}
 
-	this->BroadcastToChilds(&GuiRect::OnLMouseDown,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnLMouseDown,iMsg);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		tabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 }
 
-void GuiRect::OnDLMouseDown(Tab* tabContainer,void* data)
+void GuiRect::OnDLMouseDown(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnDLMouseDown,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnDLMouseDown,iMsg);
 }
 
-void GuiRect::OnLMouseUp(Tab* tabContainer,void* data)
+void GuiRect::OnLMouseUp(const GuiMsg& iMsg)
 {
 	bool wasPressing=this->pressing;
 
 	this->pressing = false;
 
-	this->BroadcastToChilds(&GuiRect::OnLMouseUp,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnLMouseUp,iMsg);
 
 	if(wasPressing!=this->pressing && this->colorPressing!=this->colorBackground)
-		tabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 }
 
-void GuiRect::OnRMouseUp(Tab* tabContainer,void* data)
+void GuiRect::OnRMouseUp(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnRMouseUp,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnRMouseUp,iMsg);
 }
 
-void GuiRect::OnMouseMove(Tab* tabContainer,void* data)
+void GuiRect::OnMouseMove(const GuiMsg& iMsg)
 {
-	vec2 mpos=*(vec2*)data;
-
-	mpos.y=!this->clip ? mpos.y : mpos.y+this->clip->vScrollbar.scrollerPosition*this->clip->contentHeight;
+	vec2 mpos=*(vec2*)iMsg.data;
 
 	bool _oldHover=this->hovering;
-	bool _curHover=_contains(this->rect,mpos);
+	bool _curHover=this->Contains(this->rect,mpos);
 
 	if(parent && _curHover)
 		parent->hovering=false;
 
 	this->hovering=_curHover;
 
-	this->BroadcastToChilds(&GuiRect::OnMouseMove,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnMouseMove,iMsg);
 
 	if(_oldHover!=this->hovering && this->colorBackground!=this->colorHovering)
-		tabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 }
 
-void GuiRect::OnUpdate(Tab* tabContainer,void* data)
+void GuiRect::OnUpdate(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnUpdate,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnUpdate,iMsg);
 }
 
-void GuiRect::OnReparent(Tab* tabContainer,void* data)
+void GuiRect::OnReparent(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnReparent,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnReparent,iMsg);
 }
 
-void GuiRect::OnSelected(Tab* tabContainer,void* data)
+void GuiRect::OnSelected(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnSelected,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnSelected,iMsg);
 }
 
-void GuiRect::OnRender(Tab* tabContainer,void* data)
+void GuiRect::OnRender(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnRender,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnRender,iMsg);
 }
 
-void GuiRect::OnMouseWheel(Tab* tabContainer,void* data)
+void GuiRect::OnMouseWheel(const GuiMsg& iMsg)
 {
-	if(this->clip && this->_contains(this->rect,vec2(tabContainer->mousex,tabContainer->mousey)))
-	{
-		this->clip->vScrollbar.Scroll(tabContainer,*(float*)data);
-		//tabContainer->SetDraw(2,0,this->clip->parent);
-	}
-
-	this->BroadcastToChilds(&GuiRect::OnMouseWheel,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnMouseWheel,iMsg);
 }
 
-void GuiRect::OnActivate(Tab* tabContainer,void* data)
+void GuiRect::OnActivate(const GuiMsg& iMsg)
 {
 	this->active=true;
-	this->BroadcastToChilds(&GuiRect::OnActivate,tabContainer);
+	this->BroadcastToChilds(&GuiRect::OnActivate,iMsg);
 }
-void GuiRect::OnDeactivate(Tab* tabContainer,void* data)
+void GuiRect::OnDeactivate(const GuiMsg& iMsg)
 {
 	this->active=false;
-	this->BroadcastToChilds(&GuiRect::OnDeactivate,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnDeactivate,iMsg);
 }
-void GuiRect::OnEntitySelected(Tab* tabContainer,void* data)
+void GuiRect::OnEntitySelected(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnEntitySelected,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnEntitySelected,iMsg);
 }
 
-void GuiRect::OnExpandos(Tab* tabContainer,void* data)
+void GuiRect::OnExpandos(const GuiMsg& iMsg)
 {
 	if(this->parent)
-		this->parent->OnExpandos(tabContainer,data);
+		this->parent->OnExpandos(iMsg);
 }
 
-void GuiRect::OnKeyDown(Tab* tabContainer,void* data)
+void GuiRect::OnKeyDown(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnKeyDown,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnKeyDown,iMsg);
 }
 
-void GuiRect::OnKeyUp(Tab* tabContainer,void* data)
+void GuiRect::OnKeyUp(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnKeyDown,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnKeyDown,iMsg);
 }
 
-void GuiRect::OnMouseEnter(Tab* tabContainer,void* data)
+void GuiRect::OnMouseEnter(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnMouseEnter,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnMouseEnter,iMsg);
 }
-void GuiRect::OnMouseExit(Tab* tabContainer,void* data)
+void GuiRect::OnMouseExit(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnMouseExit,tabContainer,data);
-}
-
-void GuiRect::OnEnterFocus(Tab* tabContainer,void* data)
-{
-	this->BroadcastToChilds(&GuiRect::OnEnterFocus,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnMouseExit,iMsg);
 }
 
-void GuiRect::OnExitFocus(Tab* tabContainer,void* data)
+void GuiRect::OnEnterFocus(const GuiMsg& iMsg)
 {
-	this->BroadcastToChilds(&GuiRect::OnExitFocus,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnEnterFocus,iMsg);
 }
 
-void GuiRect::SetClip(GuiScrollRect* scrollRect)
+void GuiRect::OnExitFocus(const GuiMsg& iMsg)
 {
-	this->clip=scrollRect;
-
-	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
-		(*tRect)->SetClip(scrollRect);
-}
-
-void GuiRect::SelfRenderEnd(Tab* tabContainer,bool& isSelfRender)
-{
-	if(isSelfRender)
-		tabContainer->EndDraw();
-}
-
-bool GuiRect::BeginSelfClip(Tab* tabContainer)
-{
-	bool clipped=false;
-
-	if(this->clip && !this->clip->isClipped)
-	{
-		tabContainer->renderer2D->PushScissor(this->clip->rect.x,this->clip->rect.y,this->clip->rect.x+this->clip->rect.z,this->clip->rect.y+this->clip->rect.w);
-		tabContainer->renderer2D->Translate(0,-this->clip->vScrollbar.scrollerPosition*this->clip->contentHeight);
-
-		clipped=this->clip->isClipped=true;
-	}
-
-	return clipped;
-}
-
-void GuiRect::EndSelfClip(Tab* tabContainer,bool& isSelfClip)
-{
-	tabContainer->renderer2D->DrawRectangle(this->rect.x+1,this->rect.y+1,this->rect.x+this->rect.z-1,this->rect.y+this->rect.w-1,0xffffff,false);
-
-	if(isSelfClip)
-	{
-		tabContainer->renderer2D->Identity();
-		tabContainer->renderer2D->PopScissor();
-		this->clip->isClipped=false;
-	}
+	this->BroadcastToChilds(&GuiRect::OnExitFocus,iMsg);
 }
 
 GuiRect* GuiRect::GetRoot()
@@ -1421,6 +1382,16 @@ void GuiRect::DestroyChilds()
 	this->childs.clear();
 }
 
+void* GuiRect::SetUserData(void* iData)
+{
+	return this->userData=iData;
+}
+
+void* GuiRect::GetUserData()
+{
+	return userData;
+}
+
 template<class GuiRectDerived> GuiRectDerived* GuiRect::Create(int sibIdx,int container,float ix, float iy, float iw,float ih,float iAlignPosX,float iAlignPosY,float iAlignRectX,float iAlignRectY)
 {
 	GuiRectDerived* guirectderived=new GuiRectDerived;
@@ -1495,7 +1466,7 @@ Compiler::~Compiler(){}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-EditorProperties::EditorProperties():container(0)
+IdeViewerProperties::IdeViewerProperties():container(0)
 {
 }
 
@@ -1510,7 +1481,14 @@ EditorEntity::EditorEntity():
 	expanded(false),
 	level(0)
 {
-	this->properties.name=L"EntityRootProperties";
+	this->entityViewerRootPropertyRect.name=L"EntityRootProperties";
+	this->sceneViewerPropertyRect.SetStringMode(this->Entity::name,true);
+
+	this->entityViewerRootPropertyRect.SetUserData(this);
+	this->sceneViewerPropertyRect.SetUserData(this);
+	this->sceneViewerPropertyRect.colorHovering=Renderer2D::COLOR_GUI_BACKGROUND+30;
+	this->sceneViewerPropertyRect.colorPressing=Renderer2D::COLOR_GUI_BACKGROUND+90;
+	this->sceneViewerPropertyRect.colorChecked=Renderer2D::COLOR_TEXT_SELECTED;
 }
 
 void EditorEntity::SetParent(Entity* iParent)
@@ -1548,7 +1526,7 @@ GuiRootRect::~GuiRootRect()
 {
 }
 
-void GuiRootRect::OnSize(Tab* tab)
+void GuiRootRect::OnSize(const GuiMsg&)
 {
 	DEBUG_BREAK();
 }
@@ -1584,47 +1562,43 @@ void GuiContainer::AppendAsProperty(GuiRect* iProperty)
 	GuiString::AppendAsProperty(iProperty);
 }
 
-void GuiContainer::BroadcastToChilds(void (GuiRect::*iFunction)(Tab*,void*),Tab* iTabContainer,void* iData)
+void GuiContainer::BroadcastToChilds(void (GuiRect::*iFunction)(const GuiMsg&),const GuiMsg& iMsg)
 {
 	if(this->state)
-		GuiString::BroadcastToChilds(iFunction,iTabContainer,iData);
+		GuiString::BroadcastToChilds(iFunction,iMsg);
 }
 
-void GuiContainer::OnSize(Tab* iTabContainer,void* iData)
+void GuiContainer::OnSize(const GuiMsg& iMsg)
 {
-	GuiString::OnSize(iTabContainer,iData);
+	this->textOffsets.x=this->childs.size() ? ROW_ADVANCE : 0;
+	GuiString::OnSize(iMsg);
 	this->CalcContainerRect();
 }
 
-void GuiContainer::OnPaint(Tab* iTabContainer,void* data)
+void GuiContainer::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(iTabContainer);
+	this->DrawBackground(iMsg.tab);
 
-	this->DrawBackground(iTabContainer);
+	if(this->childs.size())
+		iMsg.tab->renderer2D->DrawBitmap(
+												this->state ?
+												iMsg.tab->iconDown :
+												iMsg.tab->iconRight,
+												this->rect.x,
+												this->rect.y,
+												this->rect.x+Tab::CONTAINER_ICON_WH,
+												this->rect.y+Tab::CONTAINER_ICON_WH
+											);
 
-	iTabContainer->renderer2D->DrawBitmap(
-											this->state ?
-											iTabContainer->iconDown :
-											iTabContainer->iconRight,
-											this->rect.x,
-											this->rect.y,
-											this->rect.x+Tab::CONTAINER_ICON_WH,
-											this->rect.y+Tab::CONTAINER_ICON_WH
-										);
+	this->DrawTheText(iMsg.tab);
 
-	this->DrawTheText(iTabContainer);
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,iTabContainer,data);
-
-	this->EndSelfClip(iTabContainer,selfClip);
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-void GuiContainer::OnLMouseDown(Tab* iTabContainer,void* iData)
+void GuiContainer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	vec2 tMousePosition=*(vec2*)iData;
+	vec2 tMousePosition=*(vec2*)iMsg.data;
 	bool tContainerButtonPressed=0;
-
-	tMousePosition.y=!this->clip ? tMousePosition.y : tMousePosition.y+this->clip->vScrollbar.scrollerPosition*this->clip->contentHeight;
 
 	tContainerButtonPressed=(	
 								tMousePosition.x > this->rect.x && 
@@ -1638,12 +1612,12 @@ void GuiContainer::OnLMouseDown(Tab* iTabContainer,void* iData)
 
 	if(tContainerButtonPressed)
 	{
-		iTabContainer->BroadcastToSelected(&GuiRect::OnSize);
-		this->OnExpandos(iTabContainer,this);
-		iTabContainer->SetDraw(1,false);
+		iMsg.tab->BroadcastToSelected(&GuiRect::OnSize);
+		this->OnExpandos(iMsg);
+		iMsg.tab->SetDraw(1,false);
 	}
 
-	GuiString::OnLMouseDown(iTabContainer,iData);
+	GuiString::OnLMouseDown(iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -1651,6 +1625,43 @@ void GuiContainer::OnLMouseDown(Tab* iTabContainer,void* iData)
 ///////////////////GuiString///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+
+GuiString::GuiStringBase::GuiStringBase():_______text(new String),________dtor(true){};
+GuiString::GuiStringBase::~GuiStringBase()
+{
+	if(________dtor)
+	{
+		SAFEDELETE(this->_______text);
+		________dtor=false;
+	}
+}
+
+void GuiString::GuiStringBase::SetStringMode(String& iString,bool isReference)
+{
+	if(this->________dtor)
+		SAFEDELETE(this->_______text);
+
+	isReference ? 
+		this->________dtor=false,
+		this->_______text=&iString
+		:
+	this->_______text=new String,
+		this->________dtor=true,
+		this->_______text->assign(iString)
+		;
+}
+GuiString::GuiStringBase::operator String&()
+{
+	return *this->_______text;
+}
+String& GuiString::GuiStringBase::operator=(const String& iString)
+{
+	return *this->_______text=iString;
+}
+String* GuiString::GuiStringBase::operator->()
+{
+	return this->_______text;
+}
 
 GuiString::GuiString():
 	textAlign(0.0f,0.5f),
@@ -1660,7 +1671,13 @@ GuiString::GuiString():
 	this->name=L"GuiString";
 }
 
-void GuiString::CalcTextRect(Tab* iTabContainer)
+
+void GuiString::SetStringMode(String& iString,bool isReference)
+{
+	this->text.SetStringMode(iString,isReference);
+}
+
+void GuiString::CalcTextRect(Tab* iTab)
 {
 	vec4 tEdges(
 					this->edges.x + this->textOffsets.x,
@@ -1676,10 +1693,7 @@ void GuiString::CalcTextRect(Tab* iTabContainer)
 					tEdges.w-tEdges.y
 			);
 
-	vec2 tTextSize;
-
-	if(!this->text.empty())
-		tTextSize=iTabContainer->renderer2D->MeasureText(this->text.c_str());
+	vec2 tTextSize=iTab->renderer2D->MeasureText(this->text->c_str());
 
 	float tLeft=tEdges.x + (tRect.z*this->textAlign.x) - (tTextSize.x * this->textSpot.x);
 	float tTop=tEdges.y + (tRect.w*this->textAlign.y) - (tTextSize.y * this->textSpot.y);
@@ -1699,16 +1713,16 @@ void GuiString::CalcTextRect(Tab* iTabContainer)
 						);
 }
 
-void GuiString::OnSize(Tab* iTabContainer,void* data)
+void GuiString::OnSize(const GuiMsg& iMsg)
 {
 	this->CalcRect();
-	this->CalcTextRect(iTabContainer);
-	this->BroadcastToChilds(&GuiRect::OnSize,iTabContainer,data);
+	this->CalcTextRect(iMsg.tab);
+	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
 }
 
-void GuiString::DrawTheText(Tab* tabContainer)
+void GuiString::DrawTheText(Tab* iTab)
 {
-	tabContainer->renderer2D->DrawText(
+	iTab->renderer2D->DrawText(
 											this->text,
 											this->textEdges.x,
 											this->textEdges.y,
@@ -1717,20 +1731,14 @@ void GuiString::DrawTheText(Tab* tabContainer)
 										);
 }
 
-void GuiString::OnPaint(Tab* tabContainer,void* data)
+void GuiString::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
-	this->DrawBackground(tabContainer);
-
-	this->DrawTheText(tabContainer);
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
+	this->DrawBackground(iMsg.tab);
+	this->DrawTheText(iMsg.tab);
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-bool GuiString::ParseKeyInput(Tab* iTab,void* iData)
+bool GuiString::ParseKeyInput(const GuiMsg& iMsg)
 {
 	StringEditor&	stringEditor=*Ide::instance->stringEditor;
 
@@ -1742,9 +1750,9 @@ bool GuiString::ParseKeyInput(Tab* iTab,void* iData)
 		void*			tCaretParameter=0;
 		char			tCharcode;
 
-		if(iData)
+		if(iMsg.data)
 		{
-			tCharcode=*(int*)iData;
+			tCharcode=*(int*)iMsg.data;
 
 			switch(tCharcode)
 			{
@@ -1788,26 +1796,26 @@ bool GuiString::ParseKeyInput(Tab* iTab,void* iData)
 	return tRedraw;
 }
 
-void GuiString::OnKeyDown(Tab* iTabContainer,void* iData)
+void GuiString::OnKeyDown(const GuiMsg& iMsg)
 {
-	if(this==iTabContainer->focused)
+	if(this==Tab::GetFocus())
 	{
-		bool tRedraw=this->ParseKeyInput(iTabContainer,iData);
+		bool tRedraw=this->ParseKeyInput(iMsg);
 
 		if(tRedraw)
-			iTabContainer->SetDraw(2,0,this);
+			iMsg.tab->SetDraw(2,0,this);
 	}
 
-	GuiRect::OnKeyDown(iTabContainer,iData);
+	GuiRect::OnKeyDown(iMsg);
 }
 
 
-void GuiString::OnLMouseDown(Tab* iTabContainer,void* iData)
+void GuiString::OnLMouseDown(const GuiMsg& iMsg)
 {
 	if(this->hovering)
-		iTabContainer->SetFocus(this);
+		Tab::SetFocus(this);
 
-	GuiRect::OnLMouseDown(iTabContainer,iData);
+	GuiRect::OnLMouseDown(iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -1821,20 +1829,18 @@ GuiButton::GuiButton()
 	this->textAlign.make(0.5f,0.5f);
 	this->textSpot.make(0.5f,0.5f);
 }
-void GuiButton::OnLMouseUp(Tab* tab,void* data)
+void GuiButton::OnLMouseUp(const GuiMsg& iMsg)
 {
-	GuiString::OnLMouseUp(tab);
+	GuiString::OnLMouseUp(iMsg);
 
 	if(this->hovering)
 	{
 		if(this->parent)
-			this->parent->OnButtonPressed(tab,this);
+		{
+			GuiMsg tMsg(iMsg.tab,this,0,&GuiRect::OnButtonPressed,this);
+			this->parent->OnButtonPressed(tMsg);
+		}	
 	}
-}
-
-void GuiButton::OnPaint(Tab* tab,void* data)
-{
-	GuiString::OnPaint(tab);
 }
 
 ///////////////////////////////////////////////
@@ -1848,9 +1854,9 @@ GuiButtonFunc::GuiButtonFunc(void (*iFunc)(void*),void* iParam):func(iFunc),para
 
 }
 
-void GuiButtonFunc::OnLMouseUp(Tab* tab,void* data)
+void GuiButtonFunc::OnLMouseUp(const GuiMsg& iMsg)
 {
-	GuiString::OnLMouseUp(tab);
+	GuiString::OnLMouseUp(iMsg);
 
 	if(this->hovering)
 	{
@@ -1870,9 +1876,9 @@ GuiButtonBool::GuiButtonBool(bool& iBool):referenceValue(iBool),updateMode(-1)
 	this->name=L"Button";
 }
 
-void GuiButtonBool::OnLMouseUp(Tab* tab,void* data)
+void GuiButtonBool::OnLMouseUp(const GuiMsg& iMsg)
 {
-	GuiString::OnLMouseUp(tab);
+	GuiString::OnLMouseUp(iMsg);
 
 	if(this->hovering)
 	{
@@ -1884,7 +1890,7 @@ void GuiButtonBool::OnLMouseUp(Tab* tab,void* data)
 		}
 
 		if(this->parent)
-			this->parent->OnButtonPressed(tab,this);
+			this->parent->OnButtonPressed(GuiMsg(iMsg.tab,this,0,&GuiRect::OnButtonPressed,this));
 	}
 }
 
@@ -1897,27 +1903,72 @@ void GuiButtonBool::OnLMouseUp(Tab* tab,void* data)
 GuiScrollRect::GuiScrollRect():
 contentHeight(0),
 contentWidth(0),
-isClipped(false),
 hScrollbar(GuiScrollBar::SCROLLBAR_HORIZONTAL),
 vScrollbar(GuiScrollBar::SCROLLBAR_VERTICAL)
 {
 	this->vScrollbar.guiRect=this;
-	this->vScrollbar.SetParent(this);
-	this->vScrollbar.SetEdges(&this->edges.z);
+	this->vScrollbar.SetEdges(&this->edges.z,&this->edges.y,0,&this->edges.w);
 
 	this->hScrollbar.guiRect=this;
-	this->hScrollbar.SetParent(this);
-	this->hScrollbar.SetEdges(0,&this->edges.w);
+	this->hScrollbar.SetEdges(&this->edges.x,&this->edges.w,&this->edges.z,0);
 }
 
 GuiScrollRect::~GuiScrollRect()
 {
 }
 
+vec2 GuiScrollRect::GetClippedMouse(vec2& iMpos)
+{
+	vec2 tMpos(iMpos);
 
-void GuiScrollRect::OnSize(Tab* tabContainer,void* data)
+	tMpos.x=tMpos.x+this->hScrollbar.scrollerPosition*this->contentWidth;
+	tMpos.y=tMpos.y+this->vScrollbar.scrollerPosition*this->contentHeight;
+
+	return tMpos;
+}
+
+void GuiScrollRect::OnLMouseDown(const GuiMsg& iMsg)
+{
+	vec2 tMpos=this->GetClippedMouse(*(vec2*)iMsg.data);
+
+	this->GuiRect::BroadcastToChilds(&GuiRect::OnLMouseDown,GuiMsg(iMsg.tab,this,0,&GuiRect::OnLMouseDown,tMpos));
+
+	this->vScrollbar.OnLMouseDown(iMsg);
+	this->hScrollbar.OnLMouseDown(iMsg);
+}
+
+void GuiScrollRect::OnMouseMove(const GuiMsg& iMsg)
+{
+	vec2 tMpos=this->GetClippedMouse(*(vec2*)iMsg.data);
+
+	this->GuiRect::BroadcastToChilds(&GuiRect::OnMouseMove,GuiMsg(iMsg.tab,this,0,&GuiRect::OnMouseMove,tMpos));
+
+	this->vScrollbar.OnMouseMove(iMsg);
+	this->hScrollbar.OnMouseMove(iMsg);
+}
+
+void GuiScrollRect::OnMouseWheel(const GuiMsg& iMsg)
+{
+	if(this->vScrollbar.IsVisible() && this->Contains(this->rect,vec2(iMsg.tab->mousex,iMsg.tab->mousey)))
+		this->vScrollbar.Scroll(iMsg.tab,*(float*)iMsg.tab);
+
+	this->BroadcastToChilds(&GuiRect::OnMouseWheel,iMsg);
+}
+
+void GuiScrollRect::BroadcastToChilds(void (GuiRect::*iFunction)(const GuiMsg&),const GuiMsg& iMsg)
+{
+	GuiRect::BroadcastToChilds(iFunction,iMsg);
+
+	(this->vScrollbar.*iFunction)(iMsg);
+	(this->hScrollbar.*iFunction)(iMsg);
+}
+
+void GuiScrollRect::OnSize(const GuiMsg& iMsg)
 {
 	this->CalcRect();
+
+	this->contentHeight=(!this->childs.empty() ? this->childs.back()->edges.w : this->edges.w) - this->edges.y;
+	this->contentWidth=this->rect.z;
 
 	this->vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
 	this->hScrollbar.SetScrollerRatio(this->contentWidth,this->rect.z);
@@ -1934,9 +1985,41 @@ void GuiScrollRect::OnSize(Tab* tabContainer,void* data)
 		this->edges.w-=GuiScrollBar::SCROLLBAR_TICK;
 	}
 
-	this->BroadcastToChilds(&GuiRect::OnSize,tabContainer,data);
+	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
 }
 
+
+void GuiScrollRect::BeginSelfClip(Tab* tabContainer)
+{
+	if(this->vScrollbar.IsVisible())
+	{
+		vec4& tClipEdges=this->edges;
+
+		tabContainer->renderer2D->PushScissor(tClipEdges.x,tClipEdges.y,tClipEdges.z,tClipEdges.w);
+		tabContainer->renderer2D->Translate(0,-this->vScrollbar.scrollerPosition*this->contentHeight);
+	}
+}
+
+void GuiScrollRect::EndSelfClip(Tab* tabContainer)
+{
+	tabContainer->renderer2D->DrawRectangle(this->rect.x+1,this->rect.y+1,this->rect.x+this->rect.z-1,this->rect.y+this->rect.w-1,0xffffff,false);
+
+	if(this->vScrollbar.IsVisible())
+	{
+		tabContainer->renderer2D->Identity();
+		tabContainer->renderer2D->PopScissor();
+	}
+}
+
+void GuiScrollRect::OnPaint(const GuiMsg& iMsg)
+{
+	this->BeginSelfClip(iMsg.tab);
+	this->GuiRect::DrawBackground(iMsg.tab);
+	this->GuiRect::BroadcastToChilds(&GuiRect::OnPaint,iMsg);
+	this->EndSelfClip(iMsg.tab);
+	this->vScrollbar.OnPaint(iMsg);
+	this->hScrollbar.OnPaint(iMsg);
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -2152,18 +2235,16 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 	}
 }
 
-void GuiPropertyString::OnSize(Tab* iTabContainer,void* iData)
+void GuiPropertyString::OnSize(const GuiMsg& iMsg)
 {
-	this->RefreshReference(iTabContainer);
+	this->RefreshReference(iMsg.tab);
 
-	GuiProperty::OnSize(iTabContainer,iData);
+	GuiProperty::OnSize(iMsg);
 }
 
-void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
+void GuiPropertyString::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
-	this->DrawBackground(tabContainer);
+	this->DrawBackground(iMsg.tab);
 
 	/*tabContainer->renderer2D->DrawText(
 										this->description,
@@ -2176,10 +2257,7 @@ void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
 										Renderer2D::COLOR_TEXT
 										);*/
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -2192,24 +2270,16 @@ void GuiPropertyString::OnPaint(Tab* tabContainer,void* data)
 
 void GuiSlider::DrawSliderTip(Tab* tabContainer,void* data)
 {
-
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
 	float tip=(this->rect.x+10) + ((referenceValue)/(maximum-minimum))*(this->rect.z-20);
 	tabContainer->renderer2D->DrawRectangle(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5,Renderer2D::COLOR_TEXT);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
 }
 
 
-void GuiSlider::OnPaint(Tab* tabContainer,void* data)
+void GuiSlider::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
+	this->DrawBackground(iMsg.tab);
 
-	this->DrawBackground(tabContainer);
-
-	tabContainer->renderer2D->DrawRectangle(this->rect.x+10,this->rect.y+this->rect.w/4.0f-2,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w/4.0f+2,0x000000);
+	iMsg.tab->renderer2D->DrawRectangle(this->edges.x+10,this->edges.w/4.0f-2,this->edges.z-10,this->edges.w/4.0f+2,0x000000);
 
 	float tMinimum=this->minimum;
 
@@ -2217,27 +2287,24 @@ void GuiSlider::OnPaint(Tab* tabContainer,void* data)
 	String smax(StringUtils::Float(this->maximum));
 	String value(StringUtils::Float(this->referenceValue));
 
-	tabContainer->renderer2D->DrawText(smin,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
-	tabContainer->renderer2D->DrawText(smax,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
-	tabContainer->renderer2D->DrawText(value,this->rect.x+10,this->rect.y,this->rect.x+this->rect.z-10,this->rect.y+this->rect.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
+	iMsg.tab->renderer2D->DrawText(smin,this->edges.x+10,this->edges.y,this->edges.z-10,this->edges.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
+	iMsg.tab->renderer2D->DrawText(smax,this->edges.x+10,this->edges.y,this->edges.z-10,this->edges.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
+	iMsg.tab->renderer2D->DrawText(value,this->edges.x+10,this->edges.y,this->edges.z-10,this->edges.w,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
 
 	float tip=(this->rect.x+10) + ((referenceValue)/(maximum-minimum))*(this->rect.z-20);
 
-	tabContainer->renderer2D->DrawRectangle(tip-5,this->rect.y+this->rect.w/4.0f-5,tip+5,this->rect.y+this->rect.w/4.0f+5,Renderer2D::COLOR_TEXT);
+	iMsg.tab->renderer2D->DrawRectangle(tip-5,this->edges.w/4.0f-5,tip+5,this->edges.w/4.0f+5,Renderer2D::COLOR_TEXT);
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-void GuiSlider::OnMouseMove(Tab* tabContainer,void* data)
+void GuiSlider::OnMouseMove(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseMove(tabContainer,data);
+	GuiRect::OnMouseMove(iMsg);
 
 	if(this->pressing)
 	{
-		vec2& mpos=*(vec2*)data;
+		vec2& mpos=*(vec2*)iMsg.data;
 
 		if(mpos.x > this->rect.x && mpos.x < this->rect.x+this->rect.z)
 		{
@@ -2250,18 +2317,18 @@ void GuiSlider::OnMouseMove(Tab* tabContainer,void* data)
 			if(referenceValue!=cursor)
 			{
 				referenceValue=cursor;
-				tabContainer->SetDraw(2,0,this);
+				iMsg.tab->SetDraw(2,0,this);
 			}
 		}
 	}
 }
 
-void GuiSlider::OnSize(Tab* tabContainer,void* data)
+void GuiSlider::OnSize(const GuiMsg& iMsg)
 {
 	/*float oldRatio=maximum/minimum;
 	float value=this->referenceValue ? *this->referenceValue : 0;*/
 
-	GuiRect::OnSize(tabContainer);
+	GuiRect::OnSize(iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -2280,22 +2347,18 @@ GuiPropertySlider::GuiPropertySlider(String iDescription,float& iRefVal,float& i
 	this->slider.scalars.make(0.5f,1,0.5f,1);
 }
 
-void GuiPropertySlider::OnPaint(Tab* tabContainer,void* data)
+void GuiPropertySlider::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
+	this->DrawBackground(iMsg.tab);
 
-	this->DrawBackground(tabContainer);
-
-	if(description.text.c_str())
+	if(description.text->c_str())
 	{
-		String s=description.text + L" " + StringUtils::Float(this->slider.referenceValue);
-		tabContainer->renderer2D->DrawText(s,this->rect.x,this->rect.y,this->rect.x+rect.z/2.0f,this->rect.y+this->rect.w);
+		String s=description.text;
+		s+ L" " + StringUtils::Float(this->slider.referenceValue);
+		iMsg.tab->renderer2D->DrawText(s,this->edges.x,this->edges.y,this->edges.z/2.0f,this->edges.w);
 	}
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -2335,25 +2398,25 @@ GuiAnimationController::GuiAnimationController(AnimationController& iAnimationCo
 	this->stop.updateMode=0;//set 0 onlyif 1
 }
 
-void GuiAnimationController::OnMouseMove(Tab* tab,void* data)
+void GuiAnimationController::OnMouseMove(const GuiMsg& iMsg)
 {
 	float value=this->slider.referenceValue;
 
-	GuiRect::OnMouseMove(tab,data);
+	GuiRect::OnMouseMove(iMsg);
 
 	if(value!=this->slider.referenceValue && this->slider.pressing)
 	{
 		this->animationController.SetFrame(this->slider.referenceValue);
-		tab->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 	}
 }
 
-void GuiAnimationController::OnButtonPressed(Tab* tabContainer,GuiButtonBool* iButton)
+void GuiAnimationController::OnButtonPressed(const GuiMsg& iMsg)
 {
-	if(iButton==&this->play)
+	if(iMsg.data==&this->play)
 		this->animationController.Play();
 
-	if(iButton==&this->stop)
+	if(iMsg.data==&this->stop)
 		this->animationController.Stop();
 }
 
@@ -2420,47 +2483,41 @@ GuiViewport::~GuiViewport()
 	SAFEDELETEARRAY(this->renderBuffer);
 }
 
-void GuiViewport::OnSize(Tab* tabContainer,void* data)
+void GuiViewport::OnSize(const GuiMsg& iMsg)
 {
-	GuiRect::OnSize(tabContainer,data);
+	GuiRect::OnSize(iMsg);
 }
 
-void GuiViewport::OnPaint(Tab* tabContainer,void* data)
+void GuiViewport::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
-	tabContainer->renderer3D->Render(this,false);
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	iMsg.tab->renderer3D->Render(this,false);
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-void GuiViewport::OnMouseWheel(Tab* tabContainer,void* data)
+void GuiViewport::OnMouseWheel(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseWheel(tabContainer);
+	GuiRect::OnMouseWheel(iMsg);
 
-	float factor=*(float*)data;
+	float factor=*(float*)iMsg.data;
 
 	this->view*=mat4().translate(0,0,factor*10);
 }
 
-void GuiViewport::OnLMouseUp(Tab* tabContainer,void* data)
+void GuiViewport::OnLMouseUp(const GuiMsg& iMsg)
 {
 	if(this->hovering/* && this->pickedEntity*/)
 		Tab::BroadcastToPool(&Tab::OnGuiEntitySelected,(void*)this->pickedEntity);
 
-	GuiRect::OnLMouseUp(tabContainer,data);
+	GuiRect::OnLMouseUp(iMsg);
 }
 
-void GuiViewport::OnMouseMove(Tab* tabContainer,void* data)
+void GuiViewport::OnMouseMove(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseMove(tabContainer,data);
+	GuiRect::OnMouseMove(iMsg);
 
 	if(this->hovering)
 	{
-		vec2 &mpos=*(vec2*)data;
+		vec2 &mpos=*(vec2*)iMsg.data;
 
 		if(InputManager::keyboardInput.IsPressed(0x01/*VK_LBUTTON*/))
 		{
@@ -2506,20 +2563,20 @@ void GuiViewport::OnMouseMove(Tab* tabContainer,void* data)
 }
 
 
-void GuiViewport::OnActivate(Tab* tabContainer,void* data)
+void GuiViewport::OnActivate(const GuiMsg& iMsg)
 {
-	GuiRect::OnActivate(tabContainer);
-	tabContainer->renderer3D->Register(this);
+	GuiRect::OnActivate(iMsg);
+	iMsg.tab->renderer3D->Register(this);
 }
-void GuiViewport::OnDeactivate(Tab* tabContainer,void* data)
+void GuiViewport::OnDeactivate(const GuiMsg& iMsg)
 {
-	GuiRect::OnDeactivate(tabContainer);
-	tabContainer->renderer3D->Unregister(this);
+	GuiRect::OnDeactivate(iMsg);
+	iMsg.tab->renderer3D->Unregister(this);
 }
 
-void GuiViewport::OnReparent(Tab* tabContainer,void* data)
+void GuiViewport::OnReparent(const GuiMsg& iMsg)
 {
-	GuiRect::OnReparent(tabContainer);
+	GuiRect::OnReparent(iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -2626,27 +2683,27 @@ float GuiScrollBar::GetContainerEnd()
 			this->edges.z-SCROLLBAR_TIP_SIZE;
 }
 
-void GuiScrollBar::OnLMouseUp(Tab* tabContainer,void* data)
+void GuiScrollBar::OnLMouseUp(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseUp(tabContainer);
+	GuiRect::OnLMouseUp(iMsg);
 
 	this->scrollerPressed=-1;
 }
 
-void GuiScrollBar::OnLMouseDown(Tab* tabContainer,void* data)
+void GuiScrollBar::OnLMouseDown(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseDown(tabContainer,data);
+	GuiRect::OnLMouseDown(iMsg);
 
 	if(!this->hovering || scrollerRatio==1.0f)
 		return;
 
-	vec2& mpos=*(vec2*)data;
+	vec2& mpos=*(vec2*)iMsg.data;
 
 	float& tTreshold=this->scrollbarType==SCROLLBAR_VERTICAL ? mpos.y : mpos.x;
 
 	if(tTreshold<this->GetContainerBegin())
 	{
-		this->Scroll(tabContainer,1);
+		this->Scroll(iMsg.tab,1);
 	}
 	else if(tTreshold<this->GetContainerEnd())
 	{
@@ -2659,23 +2716,20 @@ void GuiScrollBar::OnLMouseDown(Tab* tabContainer,void* data)
 	}
 	else
 	{
-		this->Scroll(tabContainer,-1);
+		this->Scroll(iMsg.tab,-1);
 	}
 
-	if(this->parent)
-		tabContainer->SetDraw(2,0,this->parent);
+	iMsg.tab->SetDraw(2,0,this);
+	iMsg.tab->SetDraw(2,0,this->guiRect);
 }
 
-void GuiScrollBar::OnMouseMove(Tab* tabContainer,void* data)
+void GuiScrollBar::OnMouseMove(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseMove(tabContainer,data);
+	GuiRect::OnMouseMove(iMsg);
 
-	if(this->hovering)
+	if(this->hovering && (this->scrollerRatio<1.0f && this->scrollerPressed>=0))
 	{
-		if(this->scrollerRatio==1.0f || this->scrollerPressed<0)
-			return;
-
-		vec2& mpos=*(vec2*)data;
+		vec2& mpos=*(vec2*)iMsg.data;
 
 		float& tTreshold=this->scrollbarType==SCROLLBAR_VERTICAL ? mpos.y : mpos.x;
 
@@ -2685,49 +2739,44 @@ void GuiScrollBar::OnMouseMove(Tab* tabContainer,void* data)
 
 			this->SetScrollerPosition(mouseContainerTreshold-this->scrollerPressed);
 
-			if(this->parent)
-				tabContainer->SetDraw(2,0,this->parent);
+			iMsg.tab->SetDraw(2,0,this);
+			iMsg.tab->SetDraw(2,0,this->guiRect);
 		}
 	}
 }
 
 
-void GuiScrollBar::OnPaint(Tab* tabContainer,void* data)
+void GuiScrollBar::OnPaint(const GuiMsg& iMsg)
 {
 	if(this->scrollerRatio==1.0f)
 		return;
 
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
 	if(this->scrollbarType==SCROLLBAR_VERTICAL)
 	{
-		tabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE,Renderer2D::COLOR_GUI_BACKGROUND);
-		tabContainer->renderer2D->DrawRectangle(this->rect.x,this->edges.w-SCROLLBAR_TIP_SIZE,this->rect.x+SCROLLBAR_TICK,this->edges.w,Renderer2D::COLOR_GUI_BACKGROUND);
+		iMsg.tab->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE,Renderer2D::COLOR_GUI_BACKGROUND);
+		iMsg.tab->renderer2D->DrawRectangle(this->rect.x,this->edges.w-SCROLLBAR_TIP_SIZE,this->rect.x+SCROLLBAR_TICK,this->edges.w,Renderer2D::COLOR_GUI_BACKGROUND);
 
-		tabContainer->renderer2D->DrawBitmap(tabContainer->iconUp,this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE);
-		tabContainer->renderer2D->DrawBitmap(tabContainer->iconDown,this->rect.x,this->edges.w-SCROLLBAR_TIP_SIZE,this->rect.x+SCROLLBAR_TICK,this->edges.w);
+		iMsg.tab->renderer2D->DrawBitmap(iMsg.tab->iconUp,this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE);
+		iMsg.tab->renderer2D->DrawBitmap(iMsg.tab->iconDown,this->rect.x,this->edges.w-SCROLLBAR_TIP_SIZE,this->rect.x+SCROLLBAR_TICK,this->edges.w);
 
-		tabContainer->renderer2D->DrawRectangle(this->rect.x,this->GetContainerBegin(),this->rect.x+SCROLLBAR_TICK,this->GetContainerEnd(),Renderer2D::COLOR_GUI_BACKGROUND);
+		iMsg.tab->renderer2D->DrawRectangle(this->rect.x,this->GetContainerBegin(),this->rect.x+SCROLLBAR_TICK,this->GetContainerEnd(),Renderer2D::COLOR_GUI_BACKGROUND);
 
-		tabContainer->renderer2D->DrawRectangle(this->rect.x,this->GetScrollerBegin(),this->rect.x+SCROLLBAR_TICK,this->GetScrollerEnd(),0x00000000);
+		iMsg.tab->renderer2D->DrawRectangle(this->rect.x,this->GetScrollerBegin(),this->rect.x+SCROLLBAR_TICK,this->GetScrollerEnd(),0x00000000);
 	}
 	else
 	{
-		tabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE,Renderer2D::COLOR_GUI_BACKGROUND);
-		tabContainer->renderer2D->DrawRectangle(this->edges.z-SCROLLBAR_TIP_SIZE,this->rect.y,this->edges.z,this->edges.w,Renderer2D::COLOR_GUI_BACKGROUND);
+		iMsg.tab->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE,Renderer2D::COLOR_GUI_BACKGROUND);
+		iMsg.tab->renderer2D->DrawRectangle(this->edges.z-SCROLLBAR_TIP_SIZE,this->rect.y,this->edges.z,this->edges.w,Renderer2D::COLOR_GUI_BACKGROUND);
 
-		tabContainer->renderer2D->DrawBitmap(tabContainer->iconLeft,this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE);
-		tabContainer->renderer2D->DrawBitmap(tabContainer->iconRight,this->edges.z-SCROLLBAR_TIP_SIZE,this->rect.y,this->edges.z,this->rect.y+this->rect.w);
+		iMsg.tab->renderer2D->DrawBitmap(iMsg.tab->iconLeft,this->rect.x,this->rect.y,this->rect.x+SCROLLBAR_TICK,this->rect.y+SCROLLBAR_TIP_SIZE);
+		iMsg.tab->renderer2D->DrawBitmap(iMsg.tab->iconRight,this->edges.z-SCROLLBAR_TIP_SIZE,this->rect.y,this->edges.z,this->rect.y+this->rect.w);
 
-		tabContainer->renderer2D->DrawRectangle(this->GetContainerBegin(),this->rect.y,this->GetContainerEnd(),this->rect.y+SCROLLBAR_TICK,Renderer2D::COLOR_GUI_BACKGROUND);
+		iMsg.tab->renderer2D->DrawRectangle(this->GetContainerBegin(),this->rect.y,this->GetContainerEnd(),this->rect.y+SCROLLBAR_TICK,Renderer2D::COLOR_GUI_BACKGROUND);
 
-		tabContainer->renderer2D->DrawRectangle(this->GetScrollerBegin(),this->rect.y,this->GetScrollerEnd(),this->rect.y+SCROLLBAR_TICK,0x00000000);
+		iMsg.tab->renderer2D->DrawRectangle(this->GetScrollerBegin(),this->rect.y,this->GetScrollerEnd(),this->rect.y+SCROLLBAR_TICK,0x00000000);
 	}
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -2742,6 +2791,8 @@ GuiSceneViewer::GuiSceneViewer():entityRoot((EditorEntity*&)scene.entityRoot)
 	this->entityRoot->name=L"SceneRootEntity";
 	this->entityRoot->expanded=true;
 
+	this->entityRoot->sceneViewerPropertyRect.SetParent(this);
+
 	this->name=L"SceneViewer";
 	this->scene.name=L"Scene";
 }
@@ -2751,32 +2802,19 @@ GuiSceneViewer::~GuiSceneViewer()
 	wprintf(L"destroying treeview %p\n",this);
 }
 
-void GuiSceneViewer::OnMouseWheel(Tab* tabContainer,void* data)
+void GuiSceneViewer::OnRMouseUp(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseWheel(tabContainer,data);
+	GuiRect::OnRMouseUp(iMsg);
 
-	if(this->hovering)
-	{
-		float wheelFactor=*(float*)data;
-
-		this->vScrollbar.Scroll(tabContainer,wheelFactor);
-
-		//tabContainer->SetDraw(2,0,this);
-	}
-}
-
-void GuiSceneViewer::OnRMouseUp(Tab* tabContainer,void* data)
-{
-	GuiRect::OnRMouseUp(tabContainer,data);
-
-	vec2& mpos=*(vec2*)data;
+	vec2& mpos=*(vec2*)iMsg.data;
 
 	vec2 tDrawCanvas(-GuiRect::ROW_ADVANCE,-GuiRect::ROW_HEIGHT);
 
-	bool tEntityExpanded=false;
-	EditorEntity* tEditorEntity = this->GetHoveredRow(this->entityRoot,mpos,tDrawCanvas,tEntityExpanded);
+	GuiContainer*	tSelectedRect=dynamic_cast<GuiContainer*>(iMsg.tab->GetFocus());
 
-	int tChosedMenuIndex=tabContainer->TrackGuiSceneViewerPopup(tEditorEntity ? true : false);
+	EditorEntity* tEditorEntity=tSelectedRect ? (EditorEntity*)tSelectedRect->GetUserData() : 0;
+
+	int tChosedMenuIndex=iMsg.tab->TrackGuiSceneViewerPopup(tSelectedRect ? true : false);
 
 	switch(tChosedMenuIndex)
 	{
@@ -2792,7 +2830,11 @@ void GuiSceneViewer::OnRMouseUp(Tab* tabContainer,void* data)
 
 			tNewEntity->OnPropertiesCreate();
 
-			this->UpdateNodes(this->entityRoot);
+			tEditorEntity	? 
+								tEditorEntity->sceneViewerPropertyRect.AppendAsProperty(&tNewEntity->sceneViewerPropertyRect) 
+							: 
+								this->entityRoot->sceneViewerPropertyRect.AppendAsProperty(&tNewEntity->sceneViewerPropertyRect)
+							;
 		}
 		break;
 	case 2:tEditorEntity->parent->childs.erase(std::find(tEditorEntity->parent->childs.begin(),tEditorEntity->parent->childs.end(),tEditorEntity));break;
@@ -2802,51 +2844,41 @@ void GuiSceneViewer::OnRMouseUp(Tab* tabContainer,void* data)
 	case 14:tEditorEntity->CreateComponent<EditorScript>();break;
 	}
 
-	this->OnSize(tabContainer);
-	tabContainer->SetDraw(2,0,this);
+	this->OnSize(iMsg);
+	iMsg.tab->SetDraw(2,0,this);
 }
 
-void GuiSceneViewer::OnRecreateTarget(Tab* tabContainer,void* data)
+void GuiSceneViewer::OnEntitiesChange(const GuiMsg& iMsg)
 {
-	GuiRect::OnRecreateTarget(tabContainer);
-}
-
-void GuiSceneViewer::OnEntitiesChange(Tab* tabContainer,void* data)
-{
-	EditorEntity* entity=(EditorEntity*)data;
+	EditorEntity* entity=(EditorEntity*)iMsg.data;
 
 	if(entity)
 		entity->SetParent(this->entityRoot);
-
-	this->contentHeight=-(float)ROW_HEIGHT+this->UpdateNodes(this->entityRoot);
 
 	vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
 
 	if(this->active)
 	{
-		this->OnSize(tabContainer);
-		tabContainer->SetDraw(2,0,this);
+		this->OnSize(iMsg);
+		iMsg.tab->SetDraw(2,0,this);
 	}
 
-	GuiRect::OnEntitiesChange(tabContainer,data);
+	GuiRect::OnEntitiesChange(iMsg);
 }
 
-void GuiSceneViewer::OnEntitySelected(Tab* tabContainer,void* data)
+void GuiSceneViewer::OnEntitySelected(const GuiMsg& iMsg)
 {
-	GuiRect::OnEntitySelected(tabContainer,data);
+	GuiRect::OnEntitySelected(iMsg);
 
-	EditorEntity* entity=(EditorEntity*)data;
+	EditorEntity* entity=(EditorEntity*)iMsg.data;
 
-	if(entity)
+	/*if(entity)
 	{
 		if(this->selection.end()==std::find(this->selection.begin(),this->selection.end(),entity))
 		{
-			this->UnselectNodes(this->entityRoot);
-			this->ExpandUntil(entity);
 			this->selection.clear();
 			this->selection.push_back(entity);
 
-			this->UpdateNodes(this->entityRoot);
 			this->OnSize(tabContainer);
 
 			entity->selected=true;
@@ -2855,185 +2887,36 @@ void GuiSceneViewer::OnEntitySelected(Tab* tabContainer,void* data)
 
 			tabContainer->SetDraw(2,0,this);
 		}
-	}
+	}*/
 }
 
-void GuiSceneViewer::ExpandUntil(EditorEntity* iTarget)
+void GuiSceneViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	iTarget->expanded=true;
+	bool tWasHovering=this->Contains(this->rect,(vec2&)*(vec2*)iMsg.data);
 
-	if(iTarget->parent)
-		GuiSceneViewer::ExpandUntil((EditorEntity*)iTarget->parent);
-}
+	GuiScrollRect::OnLMouseDown(iMsg);
 
-void GuiSceneViewer::UnselectNodes(EditorEntity* node)
-{
-	node->selected=false;
-
-	for(std::vector<EntityComponent*>::iterator i=node->components.begin();i!=node->components.end();)
-		(*i)->is<EditorGizmo>() ? i=node->components.erase(i) : i++ ;
-
-	for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-		this->UnselectNodes((EditorEntity*)*nCh);
-}
-
-EditorEntity* GuiSceneViewer::GetHoveredRow(EditorEntity* iEntityNode,vec2& iMousePos,vec2& iFramePos,bool& oExpandos)
-{
-	float tDrawFromHeight=this->vScrollbar.scrollerPosition*this->contentHeight;
-
-	if(iFramePos.y+ROW_HEIGHT>=tDrawFromHeight && iFramePos.y<=tDrawFromHeight+this->rect.w)
+	if(tWasHovering)
 	{
-		float tRelativeY=this->rect.y+iFramePos.y-tDrawFromHeight;
+		GuiContainer*	tSelectedRect=dynamic_cast<GuiContainer*>(iMsg.tab->GetFocus());
 
-		float tCursor=this->rect.x+iFramePos.x+ROW_ADVANCE*iEntityNode->level;
+		if(tSelectedRect==&this->entityRoot->sceneViewerPropertyRect)
+			return;
 
-		oExpandos= iEntityNode->childs.size() && (iMousePos.x>tCursor && iMousePos.x<tCursor+ROW_ADVANCE);
-
-		if(iMousePos.y>tRelativeY && iMousePos.y<tRelativeY+GuiSceneViewer::ROW_HEIGHT)
-			return iEntityNode;
-	}
-
-	iFramePos.y+=ROW_HEIGHT;
-
-	if(iEntityNode->expanded)
-	{
-		for(std::list<Entity*>::iterator nCh=iEntityNode->childs.begin();nCh!=iEntityNode->childs.end();nCh++)
-		{
-			EditorEntity* tHoveredEntity=this->GetHoveredRow((EditorEntity*)*nCh,iMousePos,iFramePos,oExpandos);
-			if(tHoveredEntity)
-				return tHoveredEntity;
-		}
-	}
-
-	return 0;
-}
-
-void GuiSceneViewer::OnLMouseDown(Tab* tabContainer,void* iData)
-{
-	if(this->hovering)
-	{
-		vec2& tMousePos=*(vec2*)iData;
+		EditorEntity* tEditorEntity=tSelectedRect ? (EditorEntity*)tSelectedRect->GetUserData() : 0;
 
 		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
 			this->selection.clear();
 
-		vec2 tShiftedDrawCanvas(-ROW_ADVANCE,-ROW_HEIGHT);
-
-		bool tEntityExpandosPressed=false;
-		EditorEntity* tEditorEntity=this->GetHoveredRow(this->entityRoot,tMousePos,tShiftedDrawCanvas,tEntityExpandosPressed);
-
-		if(tEditorEntity)
-		{
-			if(!tEntityExpandosPressed)
-			{
-				this->UnselectNodes(this->entityRoot);
-
-				if(!tEditorEntity->selected)
-					tEditorEntity->selected=true;
-			}
-			else
-			{
-				tEditorEntity->expanded=!tEditorEntity->expanded;
-
-				this->UpdateNodes(this->entityRoot);
-				this->OnSize(tabContainer);
-			}
-
-			this->selection.push_back(tEditorEntity);
-
-			Tab::BroadcastToPool(&Tab::OnGuiEntitySelected,tEditorEntity);
-		}
-		else
-			this->UnselectNodes(this->entityRoot);
-
+		Tab::BroadcastToPool(&Tab::OnGuiEntitySelected,tEditorEntity);
 		
-
-		tabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 	}
-
-	GuiRect::OnLMouseDown(tabContainer,iData);
 }
 
-
-int GuiSceneViewer::UpdateNodes(EditorEntity* node)
+void GuiSceneViewer::OnKeyDown(const GuiMsg& iMsg)
 {
-	if(!node)
-		return 0;
-
-	if(node==this->entityRoot)
-		this->contentHeight=0;
-	else
-		this->contentHeight += ROW_HEIGHT;
-
-	if(node->expanded)
-	{
-		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-			this->UpdateNodes((EditorEntity*)*nCh);
-	}
-
-	return this->contentHeight;
-}
-
-void GuiSceneViewer::DrawNodes(Tab* tabContainer,EditorEntity* node,vec2& iFromPosition)
-{
-	if(!node)
-		return;
-
-	float drawFromY=this->vScrollbar.scrollerPosition*this->contentHeight;
-
-	if(iFromPosition.y+ROW_HEIGHT>=drawFromY && iFromPosition.y<=drawFromY+this->rect.w)
-	{
-		float relativeY=this->rect.y+iFromPosition.y-drawFromY;
-
-		if(node->selected)
-			tabContainer->renderer2D->DrawRectangle(0,(float)relativeY,(float)this->rect.z,(float)relativeY+GuiSceneViewer::ROW_HEIGHT,Renderer2D::COLOR_TAB_SELECTED);
-
-		float xCursor=this->rect.x+iFromPosition.x+ROW_ADVANCE*node->level;
-
-		if(node->childs.size())
-		{
-			tabContainer->renderer2D->DrawBitmap(node->expanded ? tabContainer->iconDown : tabContainer->iconRight,xCursor,relativeY,xCursor+Tab::CONTAINER_ICON_WH,relativeY+GuiSceneViewer::ROW_HEIGHT);
-			xCursor+=ROW_ADVANCE;
-		}
-
-		tabContainer->renderer2D->DrawText(node->name,xCursor,relativeY,xCursor+this->rect.z,relativeY+GuiSceneViewer::ROW_HEIGHT,vec2(0,0.5f),vec2(0,0.5f),Renderer2D::COLOR_TEXT);
-	}
-	else if(iFromPosition.y>drawFromY)
-		return;
-
-	iFromPosition.y+=ROW_HEIGHT;
-
-	if(node->expanded)
-	{
-		for(std::list<Entity*>::iterator nCh=node->childs.begin();nCh!=node->childs.end();nCh++)
-			this->DrawNodes(tabContainer,(EditorEntity*)*nCh,iFromPosition);
-	}
-
-}
-
-
-void GuiSceneViewer::OnPaint(Tab* tabContainer,void* data)
-{
-	bool selfClip=this->BeginSelfClip(tabContainer);
-
-	this->DrawBackground(tabContainer);
-
-	tabContainer->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
-
-	vec2 tDrawCanvas(-ROW_ADVANCE,-ROW_HEIGHT);
-
-	this->DrawNodes(tabContainer,this->entityRoot,tDrawCanvas);
-
-	tabContainer->renderer2D->PopScissor();
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-}
-
-void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
-{
-	if(this==tabContainer->GetFocus())
+	if(this==iMsg.tab->GetFocus())
 	{
 		if(InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/) && !InputManager::keyboardInput.IsPressed(0x12/*VK_ALT*/))
 		{
@@ -3045,7 +2928,7 @@ void GuiSceneViewer::OnKeyDown(Tab* tabContainer,void* data)
 		}
 	}
 
-	GuiScrollRect::OnKeyDown(tabContainer,data);
+	GuiScrollRect::OnKeyDown(iMsg);
 }
 
 void saveEntityRecursively(Entity* iEntity,FILE* iFile)
@@ -3166,8 +3049,7 @@ void GuiSceneViewer::Load(String iFilename)
 		{
 			Tab* tab=this->GetRootRect()->tabContainer;
 
-			this->UpdateNodes(this->entityRoot);
-			this->OnSize(tab);
+			this->OnSize(GuiMsg(tab,this,0,&GuiRect::OnSize,0));
 			tab->SetDraw(2,0,this);
 		}
 
@@ -3192,114 +3074,61 @@ GuiEntityViewer::~GuiEntityViewer()
 	wprintf(L"destroying properties %p\n",this);
 }
 
-void GuiEntityViewer::OnEntitySelected(Tab* iTabContainer,void* iData)
+void GuiEntityViewer::OnEntitySelected(const GuiMsg& iMsg)
 {
-	EditorEntity* iEntity=(EditorEntity*)iData;
+	EditorEntity* iEntity=(EditorEntity*)iMsg.data;
+
+	GuiMsg tMsg(iMsg.tab,this);
 
 	if(this->entity!=iEntity)
 	{
 		if(this->entity)
 		{
-			this->BroadcastToChilds(&GuiRect::OnDeactivate,iTabContainer);
-			this->entity->properties.SetParent(0);
-			this->entity->properties.SetClip(0);
+			this->BroadcastToChilds(&GuiRect::OnDeactivate,tMsg);
+			this->entity->entityViewerRootPropertyRect.SetParent(0);
 			this->entity=0;
-			this->vScrollbar.SetParent(0);
-			this->hScrollbar.SetParent(0);
 		}
 
 		if(iEntity)
 		{
 			this->entity=iEntity;
-			this->entity->properties.SetParent(this);
+			this->entity->entityViewerRootPropertyRect.SetParent(this);
 
-			this->vScrollbar.SetParent(this);
-			this->hScrollbar.SetParent(this);
-			this->entity->properties.SetClip(this);
-
-			this->CalcNodesHeight(&iEntity->properties);
 			this->vScrollbar.SetScrollerPosition(0);
 			this->hScrollbar.SetScrollerPosition(0);
 
-			this->OnSize(iTabContainer);
-			this->entity->properties.OnActivate(iTabContainer);
+			this->OnSize(GuiMsg(iMsg.tab,this));
+			this->entity->entityViewerRootPropertyRect.OnActivate(tMsg);
 		}
 		else
 		{
-			this->CalcNodesHeight(&iEntity->properties);
-			this->OnSize(iTabContainer);
+			this->OnSize(tMsg);
 		}
-
-		iTabContainer->SetDraw(2,0,this);
+		
+		iMsg.tab->SetDraw(2,0,this);
 	}
 	else
 	{
-		this->CalcNodesHeight(&iEntity->properties);
-		this->OnSize(iTabContainer);
+		this->OnSize(tMsg);
 
-		iTabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 	}
 
-	GuiRect::OnEntitySelected(iTabContainer);
+	GuiRect::OnEntitySelected(iMsg);
 }
 
-void GuiEntityViewer::OnExpandos(Tab* iTabContainer,void* data)
+void GuiEntityViewer::OnExpandos(const GuiMsg& iMsg)
 {
-	this->CalcNodesHeight(&this->entity->properties);
-	this->OnSize(iTabContainer);
+	this->OnSize(iMsg);
 }
 
-void GuiEntityViewer::OnPaint(Tab* iTabContainer,void* data)
+void GuiEntityViewer::OnActivate(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(iTabContainer);
+	tabContainer=iMsg.tab;
 
-	iTabContainer->renderer2D->DrawRectangle(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w,Renderer2D::COLOR_GUI_BACKGROUND);
-
-	if(this->entity)
-		this->entity->properties.OnPaint(iTabContainer);
-
-	this->vScrollbar.OnPaint(iTabContainer);
-	this->hScrollbar.OnPaint(iTabContainer);
-
-	this->EndSelfClip(iTabContainer,selfClip);
+	GuiRect::OnActivate(iMsg);
 }
 
-void GuiEntityViewer::OnActivate(Tab* iTabContainer,void* data)
-{
-	tabContainer=iTabContainer;
-
-	GuiRect::OnActivate(tabContainer);
-}
-
-
-void GuiEntityViewer::OnMouseWheel(Tab* tabContainer,void* data)
-{
-	GuiScrollRect::OnMouseWheel(tabContainer,data);
-}
-
-bool GuiEntityViewer::ProcessMouseInput(vec2&,vec2&,GuiRect* node)
-{
-	return false;
-}
-void GuiEntityViewer::DrawNodes(Tab*,GuiRect* node,vec2&)
-{
-
-}
-int GuiEntityViewer::CalcNodesHeight(GuiRect* node)
-{
-	if(!node || !this->entity)
-		return 0;
-
-	this->contentHeight=0;
-
-	for(std::vector<GuiRect*>::iterator nCh=this->entity->properties.childs.begin();nCh!=this->entity->properties.childs.end();nCh++)
-	{
-		GuiRect* prop=(*nCh);
-		this->contentHeight+=prop->rect.w;
-	}
-
-	return this->contentHeight;
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3353,7 +3182,7 @@ GuiProjectViewer::~GuiProjectViewer()
 
 
 
-void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnActivate(const GuiMsg& iMsg)
 {
 	if(!this->active)
 	{
@@ -3362,13 +3191,13 @@ void GuiProjectViewer::OnActivate(Tab* tabContainer,void* data)
 		this->dirViewer.CalcNodesHeight(this->projectDirectory);
 		this->fileViewer.CalcNodesHeight(this->projectDirectory);
 
-		this->OnSize(tabContainer,data);
+		this->OnSize(GuiMsg(iMsg.tab,this));
 	}
 
-	GuiRect::OnActivate(tabContainer);
+	GuiRect::OnActivate(iMsg);
 }
 
-void GuiProjectViewer::OnDeactivate(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnDeactivate(const GuiMsg& iMsg)
 {
 	if(this->active)
 	{
@@ -3376,17 +3205,17 @@ void GuiProjectViewer::OnDeactivate(Tab* tabContainer,void* data)
 		this->projectDirectory->dirs.erase(this->projectDirectory->dirs.begin(),this->projectDirectory->dirs.end());
 	}
 
-	GuiRect::OnDeactivate(tabContainer);
+	GuiRect::OnDeactivate(iMsg);
 }
 
 
-void GuiProjectViewer::OnLMouseDown(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseDown(tabContainer,data);
+	GuiRect::OnLMouseDown(iMsg);
 
 	if(this->hovering)
 	{
-		vec2& mpos=*(vec2*)data;
+		vec2& mpos=*(vec2*)iMsg.data;
 
 		if(mpos.x>this->dirViewer.edges.z && mpos.x<this->fileViewer.edges.x)
 		{
@@ -3399,9 +3228,9 @@ void GuiProjectViewer::OnLMouseDown(Tab* tabContainer,void* data)
 	}
 }
 
-void GuiProjectViewer::OnLMouseUp(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnLMouseUp(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseUp(tabContainer);
+	GuiRect::OnLMouseUp(iMsg);
 
 	if(this->pressing || this->splitterLeftActive || this->splitterRightActive)
 	{
@@ -3410,71 +3239,66 @@ void GuiProjectViewer::OnLMouseUp(Tab* tabContainer,void* data)
 	}
 }
 
-void GuiProjectViewer::OnMouseMove(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnMouseMove(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseMove(tabContainer,data);
+	GuiRect::OnMouseMove(iMsg);
 
 	if(this->hovering || this->splitterLeftActive || this->splitterRightActive)
 	{
-		tabContainer->SetCursor(1);
+		iMsg.tab->SetCursor(1);
 
 		if(this->pressing)
 		{
-			vec2& mpos=*(vec2*)data;
+			vec2& mpos=*(vec2*)iMsg.data;
 
 			if(this->splitterLeftActive)
 			{
 				this->splitterLeft=mpos.x;
 
-				this->dirViewer.OnSize(tabContainer);
-				this->fileViewer.OnSize(tabContainer);
+				this->dirViewer.OnSize(iMsg);
+				this->fileViewer.OnSize(iMsg);
 			}
 			if(this->splitterRightActive)
 			{
 				this->splitterRight=mpos.x;
 
-				this->fileViewer.OnSize(tabContainer);
-				this->resViewer.OnSize(tabContainer);
+				this->fileViewer.OnSize(iMsg);
+				this->resViewer.OnSize(iMsg);
 			}
 
-			tabContainer->SetDraw(1,0,0);
+			iMsg.tab->SetDraw(1,0,0);
 		}
 	}
 }
 
-void GuiProjectViewer::OnReparent(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnReparent(const GuiMsg& iMsg)
 {
-	GuiRect::OnReparent(tabContainer);
+	GuiRect::OnReparent(iMsg);
 
-	tabContainer->OnGuiSize();
-	tabContainer->OnGuiRecreateTarget();
+	iMsg.tab->OnGuiSize();
+	iMsg.tab->OnGuiRecreateTarget();
 }
 
 
-void GuiProjectViewer::OnPaint(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
+	iMsg.tab->renderer2D->DrawRectangle(this->rect,Renderer2D::COLOR_MAIN_BACKGROUND,true);
 
-	tabContainer->renderer2D->DrawRectangle(this->rect,Renderer2D::COLOR_MAIN_BACKGROUND,true);
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-void GuiProjectViewer::OnSize(Tab* tabContainer,void* data)
+void GuiProjectViewer::OnSize(const GuiMsg& iMsg)
 {
-	GuiRect::OnSize(tabContainer);
+	GuiRect::OnSize(iMsg);
 
 	float tPanelsSizeWidth=this->rect.z/3.0f - 2*4;
 
 	this->splitterLeft=tPanelsSizeWidth;
 	this->splitterRight=tPanelsSizeWidth*2;
 
-	this->dirViewer.OnSize(tabContainer);
-	this->fileViewer.OnSize(tabContainer);
-	this->resViewer.OnSize(tabContainer);
+	this->dirViewer.OnSize(iMsg);
+	this->fileViewer.OnSize(iMsg);
+	this->resViewer.OnSize(iMsg);
 }
 
 
@@ -3597,14 +3421,14 @@ ResourceNodeDir* GuiProjectViewer::DirViewer::GetHoveredRow(ResourceNodeDir* iRe
 	return 0;
 }
 
-void GuiProjectViewer::DirViewer::OnLMouseDown(Tab* iTabContainer,void* iData)
+void GuiProjectViewer::DirViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseDown(iTabContainer,iData);
+	GuiRect::OnLMouseDown(iMsg);
 
 	if(!this->hovering)
 		return;
 
-	vec2& tMousePos=*(vec2*)iData;
+	vec2& tMousePos=*(vec2*)iMsg.data;
 
 	vec2 tDrawCanvas(0,0);
 
@@ -3624,14 +3448,14 @@ void GuiProjectViewer::DirViewer::OnLMouseDown(Tab* iTabContainer,void* iData)
 				tResourceNodeDir->selectedLeft=true;
 
 			this->CalcNodesHeight(this->rootResource);
-			this->OnSize(iTabContainer);
+			this->OnSize(iMsg);
 
 			tFileViewer.rootResource=tResourceNodeDir;
 
 			tFileViewer.CalcNodesHeight(tFileViewer.rootResource);
-			tFileViewer.OnSize(iTabContainer);
+			tFileViewer.OnSize(iMsg);
 
-			iTabContainer->SetDraw(2,0,&tFileViewer);
+			iMsg.tab->SetDraw(2,0,&tFileViewer);
 		}
 		else
 			tResourceNodeDir->expanded=!tResourceNodeDir->expanded;
@@ -3641,29 +3465,24 @@ void GuiProjectViewer::DirViewer::OnLMouseDown(Tab* iTabContainer,void* iData)
 
 		this->selectedDirs.push_back(tResourceNodeDir);
 
-		iTabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 	}
 }
 
-void GuiProjectViewer::DirViewer::OnPaint(Tab* tabContainer,void* data)
+void GuiProjectViewer::DirViewer::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
+	this->DrawBackground(iMsg.tab);
 
-	this->DrawBackground(tabContainer);
-
-	tabContainer->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
+	iMsg.tab->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
 
 	vec2 tDrawCanvas(0,0);
 
 	bool terminated=false;
-	this->DrawNodes(tabContainer,this->rootResource,tDrawCanvas,terminated);
+	this->DrawNodes(iMsg.tab,this->rootResource,tDrawCanvas,terminated);
 
-	tabContainer->renderer2D->PopScissor();
+	iMsg.tab->renderer2D->PopScissor();
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
-
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
 
@@ -3795,11 +3614,11 @@ ResourceNode* GuiProjectViewer::FileViewer::GetHoveredRow(ResourceNodeDir* iReso
 
 	return 0;
 }
-void GuiProjectViewer::FileViewer::OnLMouseDown(Tab* tabContainer,void* data)
+void GuiProjectViewer::FileViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
 	if(this->hovering)
 	{
-		vec2& mpos=*(vec2*)data;
+		vec2& mpos=*(vec2*)iMsg.data;
 
 		if(!InputManager::keyboardInput.IsPressed(0x11/*VK_CONTROL*/))
 			this->selectedFiles.clear();
@@ -3819,7 +3638,7 @@ void GuiProjectViewer::FileViewer::OnLMouseDown(Tab* tabContainer,void* data)
 			if(exp)
 			{
 				this->CalcNodesHeight(this->rootResource);
-				this->OnSize(tabContainer);
+				this->OnSize(iMsg);
 			}
 
 			this->selectedFiles.push_back(node);
@@ -3831,23 +3650,23 @@ void GuiProjectViewer::FileViewer::OnLMouseDown(Tab* tabContainer,void* data)
 			this->UnselectNodes(this->rootResource);
 		}
 
-		tabContainer->SetDraw(2,0,this);
+		iMsg.tab->SetDraw(2,0,this);
 	}
 
-	GuiRect::OnLMouseDown(tabContainer,data);
+	GuiRect::OnLMouseDown(iMsg);
 }
-void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
+void GuiProjectViewer::FileViewer::OnRMouseUp(const GuiMsg& iMsg)
 {
-	GuiRect::OnRMouseUp(tabContainer,data);
+	GuiRect::OnRMouseUp(iMsg);
 
-	vec2& mpos=*(vec2*)data;
+	vec2& mpos=*(vec2*)iMsg.data;
 
 	vec2 tDrawCanvas(0,0);
 
 	bool tHoveredResourceNodeExpandedPressed=false;
 	ResourceNode* tHoveredResourceNode=this->GetHoveredRow(this->rootResource,mpos,tDrawCanvas,tHoveredResourceNodeExpandedPressed);
 
-	int menuResult=tabContainer->TrackProjectFileViewerPopup(tHoveredResourceNode);
+	int menuResult=iMsg.tab->TrackProjectFileViewerPopup(tHoveredResourceNode);
 
 	switch(menuResult)
 	{
@@ -3894,36 +3713,32 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(Tab* tabContainer,void* data)
 		break;
 	}
 
-	this->OnSize(tabContainer);
-	tabContainer->SetDraw(2,0,this);
+	this->OnSize(iMsg);
+	iMsg.tab->SetDraw(2,0,this);
 }
 
 
 
-void GuiProjectViewer::FileViewer::OnPaint(Tab* tabContainer,void* data)
+void GuiProjectViewer::FileViewer::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
+	this->DrawBackground(iMsg.tab);
 
-	this->DrawBackground(tabContainer);
-
-	tabContainer->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
+	iMsg.tab->renderer2D->PushScissor(this->rect.x,this->rect.y,this->rect.x+this->rect.z,this->rect.y+this->rect.w);
 
 	vec2 tDrawCanvas(0,0);
 
-	this->DrawNodes(tabContainer,this->rootResource,tDrawCanvas);
+	this->DrawNodes(iMsg.tab,this->rootResource,tDrawCanvas);
 
-	tabContainer->renderer2D->PopScissor();
+	iMsg.tab->renderer2D->PopScissor();
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-void GuiProjectViewer::FileViewer::OnDLMouseDown(Tab* iTabContainer,void* data)
+void GuiProjectViewer::FileViewer::OnDLMouseDown(const GuiMsg& iMsg)
 {
-	if(this==iTabContainer->GetFocus())
+	if(this==iMsg.tab->GetFocus())
 	{
-		vec2& mpos=*(vec2*)data;
+		vec2& mpos=*(vec2*)iMsg.data;
 
 		vec2 tDrawCanvas(0,0);
 
@@ -3944,7 +3759,7 @@ void GuiProjectViewer::FileViewer::OnDLMouseDown(Tab* iTabContainer,void* data)
 
 					drawTask->Block(true);
 
-					GuiSceneViewer* guiSceneViewer=iTabContainer->parentWindowContainer->SpawnViewer<GuiSceneViewer>();
+					GuiSceneViewer* guiSceneViewer=iMsg.tab->parentWindowContainer->SpawnViewer<GuiSceneViewer>();
 					guiSceneViewer->Load(tFilename);
 
 					drawTask->Block(false);
@@ -3970,20 +3785,20 @@ void GuiProjectViewer::FileViewer::OnDLMouseDown(Tab* iTabContainer,void* data)
 					tResourceNodeDir->selectedLeft=true;
 
 				tDirViewer.CalcNodesHeight(tDirViewer.rootResource);
-				tDirViewer.OnSize(iTabContainer);
+				tDirViewer.OnSize(iMsg);
 
 				this->rootResource=tResourceNodeDir;
 
 				this->CalcNodesHeight(this->rootResource);
-				this->OnSize(iTabContainer);
+				this->OnSize(iMsg);
 
-				iTabContainer->SetDraw(2,0,&tDirViewer);
-				iTabContainer->SetDraw(2,0,this);
+				iMsg.tab->SetDraw(2,0,&tDirViewer);
+				iMsg.tab->SetDraw(2,0,this);
 			}
 		}
 	}
 
-	GuiRect::OnDLMouseDown(iTabContainer,data);
+	GuiRect::OnDLMouseDown(iMsg);
 }
 
 ///////////////////////////////////////////////
@@ -4064,35 +3879,29 @@ void GuiPaper::DrawBreakpoints(Tab* tabContainer)
 	}
 }
 
-void GuiPaper::OnPaint(Tab* tabContainer,void* data)
+void GuiPaper::OnPaint(const GuiMsg& iMsg)
 {
-	bool selfClip=this->BeginSelfClip(tabContainer);
+	this->DrawBackground(iMsg.tab);
 
-	this->DrawBackground(tabContainer);
-
-	this->DrawBreakpoints(tabContainer);
+	this->DrawBreakpoints(iMsg.tab);
 
 	if(this->lineNumbers)
-		this->DrawLineNumbers(tabContainer);
+		this->DrawLineNumbers(iMsg.tab);
 
-	this->DrawTheText(tabContainer);
+	this->DrawTheText(iMsg.tab);
 
-	this->BroadcastToChilds(&GuiRect::OnPaint,tabContainer,data);
-
-	this->EndSelfClip(tabContainer,selfClip);
+	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
-void GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
+void GuiPaper::OnLMouseDown(const GuiMsg& iMsg)
 {
-	GuiString::OnLMouseDown(tabContainer,iData);
+	GuiString::OnLMouseDown(iMsg);
 
-	vec2 tMpos=*(vec2*)iData;
-
-	tMpos.y=!this->clip ? tMpos.y : tMpos.y+this->clip->vScrollbar.scrollerPosition*this->clip->contentHeight;
+	vec2 tMpos=*(vec2*)iMsg.data;
 
 	if(tMpos.x < this->textOffsets.x)
 	{
-		unsigned int tBreakOnLine=(tMpos.y-this->rect.y)/tabContainer->renderer2D->GetFontHeight() + 1;
+		unsigned int tBreakOnLine=(tMpos.y-this->rect.y)/iMsg.tab->renderer2D->GetFontHeight() + 1;
 
 		EditorScript* tEditorScript=(EditorScript*)this->scriptViewer->script;
 
@@ -4114,7 +3923,7 @@ void GuiPaper::OnLMouseDown(Tab* tabContainer,void* iData)
 
 				Ide::instance->debugger->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
 
-				tabContainer->SetDraw(2,false,this->scriptViewer);
+				iMsg.tab->SetDraw(2,false,this->scriptViewer);
 
 				break;
 			}
@@ -4137,7 +3946,6 @@ GuiScriptViewer::GuiScriptViewer():
 	this->paper=this->Create<GuiPaper>();
 	this->paper->scriptViewer=this;
 	this->paper->name=L"ScriptSource";
-	this->paper->SetClip(this);
 	this->paper->textOffsets.make(20,0,0,0);
 }
 
@@ -4148,7 +3956,7 @@ void GuiScriptViewer::Open(Script* iScript)
 
 	this->paper->text=StringUtils::ReadCharFile(iScript->file);
 
-	this->paper->cursor.cursor=this->paper->text.c_str();
+	this->paper->cursor.cursor=this->paper->text->c_str();
 	this->paper->cursor.rowcol.make(0,0);
 
 	Ide::instance->stringEditor->Bind(this->paper,&this->paper->cursor);
@@ -4164,7 +3972,7 @@ bool GuiScriptViewer::Save()
 
 		if(tScriptFile.Open(L"wb"))
 		{
-			tScriptFile.Write((void*)this->paper->text.c_str(),sizeof(wchar_t),this->paper->text.size());
+			tScriptFile.Write((void*)this->paper->text->c_str(),sizeof(wchar_t),this->paper->text->size());
 
 			tScriptFile.Close();
 
@@ -4198,7 +4006,7 @@ bool GuiScriptViewer::Compile()
 
 
 
-void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
+void GuiScriptViewer::OnKeyDown(const GuiMsg& iMsg)
 {
 	if(this->script)
 	{
@@ -4209,48 +4017,48 @@ void GuiScriptViewer::OnKeyDown(Tab* tabContainer,void* iData)
 		}
 		else
 		{
-			bool tRedraw=this->paper->ParseKeyInput(tabContainer,iData);
+			bool tRedraw=this->paper->ParseKeyInput(iMsg);
 
 			if(tRedraw)
-				tabContainer->SetDraw(2,0,this);
+				iMsg.tab->SetDraw(2,0,this);
 		}
 	}
 
-	GuiRect::OnKeyDown(tabContainer,iData);
+	GuiRect::OnKeyDown(iMsg);
 }
 
-void GuiScriptViewer::OnKeyUp(Tab* tabContainer,void* data)
+void GuiScriptViewer::OnKeyUp(const GuiMsg& iMsg)
 {
-	GuiRect::OnKeyUp(tabContainer,data);
+	GuiRect::OnKeyUp(iMsg);
 }
 
-void GuiScriptViewer::OnLMouseDown(Tab* tabContainer,void* iData)
+void GuiScriptViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseDown(tabContainer,iData);
+	GuiRect::OnLMouseDown(iMsg);
 
-	vec2 tMpos=*(vec2*)iData;
+	vec2 tMpos=*(vec2*)iMsg.data;
 
-	tabContainer->SetFocus(this->paper);
+	iMsg.tab->SetFocus(this->paper);
 
 	Ide::instance->stringEditor->Bind(this->paper,&this->paper->cursor);
 	Ide::instance->stringEditor->Enable(true);
 }
 
-void GuiScriptViewer::OnDeactivate(Tab* tabContainer,void* data)
+void GuiScriptViewer::OnDeactivate(const GuiMsg& iMsg)
 {
-	tabContainer->SetFocus(0);
+	iMsg.tab->SetFocus(0);
 	Ide::instance->stringEditor->Enable(false);
 
-	GuiRect::OnDeactivate(tabContainer,data);
+	GuiRect::OnDeactivate(iMsg);
 }
 
-void GuiScriptViewer::OnMouseMove(Tab* tabContainer,void* data)
+void GuiScriptViewer::OnMouseMove(const GuiMsg& iMsg)
 {
-	GuiRect::OnMouseMove(tabContainer,data);
+	GuiRect::OnMouseMove(iMsg);
 
 	if(this->hovering)
 	{
-		vec2 tMpos=*(vec2*)data;
+		vec2 tMpos=*(vec2*)iMsg.data;
 
 		if(tMpos.x < this->paper->textOffsets.x)
 		{
@@ -4263,24 +4071,24 @@ void GuiScriptViewer::OnMouseMove(Tab* tabContainer,void* data)
 	}
 }
 
-void GuiScriptViewer::OnSize(Tab* tabContainer,void* data)
+void GuiScriptViewer::OnSize(const GuiMsg& iMsg)
 {
-	if(!this->paper->text.empty())
+	if(!this->paper->text->empty())
 	{
 		this->paper->lineCount=this->CountScriptLines()-1;
 
-		float tFontHeight=tabContainer->renderer2D->GetFontHeight();
+		float tFontHeight=iMsg.tab->renderer2D->GetFontHeight();
 
 		this->contentHeight=this->paper->lineCount * tFontHeight;
 	}
 
-	GuiScrollRect::OnSize(tabContainer,data);
+	GuiScrollRect::OnSize(iMsg);
 }
 
 
 int GuiScriptViewer::CountScriptLines()
 {
-	const wchar_t* t=this->paper->text.c_str();
+	const wchar_t* t=this->paper->text->c_str();
 
 	int tLinesCount=!(*t) ? 0 : 1;
 
@@ -4397,16 +4205,13 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(String iFileBuffer)
 		this->vScrollbar.SetParent(this);
 
 		this->contentHeight=messagesGlue->childs.size()*MESSAHE_ROW_HEIGHT;
-
-		messagesGlue->SetClip(this);
-
 	}
 
 	return bReturnValue;
 }
 
 
-void GuiCompilerViewer::OnSize(Tab* tabContainer,void* data)
+void GuiCompilerViewer::OnSize(const GuiMsg& iMsg)
 {
 	this->vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
 
@@ -4414,7 +4219,7 @@ void GuiCompilerViewer::OnSize(Tab* tabContainer,void* data)
 		//we don't need the GuiScrollRect::width cause the newly GuiRect::offset
 		this->vScrollbar.IsVisible() ? this->childs[0]->offsets.z=-GuiScrollBar::SCROLLBAR_TICK : this->childs[0]->offsets.z=0;
 
-	GuiRect::OnSize(tabContainer,data);
+	GuiRect::OnSize(iMsg);
 
 	this->rect.z=this->rect.z;
 }
@@ -4430,26 +4235,28 @@ void GuiCompilerViewer::OnSize(Tab* tabContainer,void* data)
 
 void EditorEntity::OnPropertiesCreate()
 {
-	std::vector<GuiRect*> lvl(2);
+	//fill entityViewer properties
 
-	this->container=this->properties.Container(L"Entity");
+	std::vector<GuiRect*> tRootLevel(2);
 
-	lvl[0]=this->container;
-	lvl[0]->Property(L"Name",&this->name,GuiPropertyString::STRING);
-	lvl[0]->Property(L"Ptr",this,GuiPropertyString::PTR);
-	lvl[0]->Property(L"Position",&this->world,GuiPropertyString::MAT4POS);
-	lvl[1]=lvl[0]->Container(L"AABB");
-	lvl[1]->Property(L"Min",this->bbox.a,GuiPropertyString::VEC3);
-	lvl[1]->Property(L"Max",this->bbox.b,GuiPropertyString::VEC3);
-	lvl[1]->Property(L"Volume",this->bbox.a,GuiPropertyString::VEC3,this->bbox.b);
-	lvl[0]->Property(L"ChildNum",&this->childs,GuiPropertyString::ENTITYVECSIZE);
+	this->container=this->entityViewerRootPropertyRect.Container(L"Entity");
+
+	tRootLevel[0]=this->container;
+	tRootLevel[0]->Property(L"Name",&this->name,GuiPropertyString::STRING);
+	tRootLevel[0]->Property(L"Ptr",this,GuiPropertyString::PTR);
+	tRootLevel[0]->Property(L"Position",&this->world,GuiPropertyString::MAT4POS);
+	tRootLevel[1]=tRootLevel[0]->Container(L"AABB");
+	tRootLevel[1]->Property(L"Min",this->bbox.a,GuiPropertyString::VEC3);
+	tRootLevel[1]->Property(L"Max",this->bbox.b,GuiPropertyString::VEC3);
+	tRootLevel[1]->Property(L"Volume",this->bbox.a,GuiPropertyString::VEC3,this->bbox.b);
+	tRootLevel[0]->Property(L"ChildNum",&this->childs,GuiPropertyString::ENTITYVECSIZE);
 }
 
 void EditorEntity::OnPropertiesUpdate(Tab* tab)
 {
 	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 	{
-		EditorProperties* componentProperties=dynamic_cast<EditorProperties*>(*it);
+		IdeViewerProperties* componentProperties=dynamic_cast<IdeViewerProperties*>(*it);
 		if(componentProperties)
 			componentProperties->OnPropertiesUpdate(tab);
 	}
@@ -4459,7 +4266,7 @@ void EditorMesh::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Mesh");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Mesh");
 
 	this->container->Property(L"Controlpoints",&this->ncontrolpoints,GuiPropertyString::INT);
 	this->container->Property(L"Normals",&this->nnormals,GuiPropertyString::INT);
@@ -4476,7 +4283,7 @@ void EditorSkin::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Skin");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Skin");
 
 	this->container->Property(L"Clusters",&this->nclusters,GuiPropertyString::INT);
 	this->container->Property(L"Textures",&this->ntextures,GuiPropertyString::INT);
@@ -4488,7 +4295,7 @@ void EditorRoot::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Root");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Root");
 }
 void EditorRoot::OnPropertiesUpdate(Tab* tab)
 {
@@ -4497,7 +4304,7 @@ void EditorSkeleton::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Skeleton");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Skeleton");
 }
 void EditorSkeleton::OnPropertiesUpdate(Tab* tab)
 {
@@ -4506,7 +4313,7 @@ void EditorGizmo::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Gizmo");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Gizmo");
 }
 void EditorGizmo::OnPropertiesUpdate(Tab* tab)
 {
@@ -4515,7 +4322,7 @@ void EditorAnimation::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Animation");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Animation");
 
 	this->container->Property(L"IsBone",this,GuiPropertyString::ISBONECOMPONENT);
 	this->container->Property(L"Duration",&this->start,GuiPropertyString::FLOAT2MINUSFLOAT1,&this->end);
@@ -4529,7 +4336,7 @@ void EditorAnimationController::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"AnimationController");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"AnimationController");
 
 	this->container->name=L"EditorAnimationControllerProperties";
 	this->container->text=L"AnimationController";
@@ -4555,7 +4362,7 @@ void EditorBone::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Bone");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Bone");
 }
 void EditorBone::OnPropertiesUpdate(Tab* tab)
 {
@@ -4564,7 +4371,7 @@ void EditorLight::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Light");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Light");
 }
 void EditorLight::OnPropertiesUpdate(Tab* tab)
 {
@@ -4580,7 +4387,7 @@ void editScriptEditorCallback(void* iData)
 		DEBUG_BREAK();
 
 	if(GuiScriptViewer::GetPool().empty())
-		tabContainer->tabs.ScriptViewer();
+		tabContainer->rects.ScriptViewer();
 
 	GuiScriptViewer* guiScriptViewer=GuiScriptViewer::GetPool().front();
 
@@ -4625,7 +4432,7 @@ void EditorScript::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Script");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Script");
 
 	GuiProperty* tFile=container->Property(L"File",&this->Script::file,GuiPropertyString::STRING);
 	GuiProperty* tRunning=container->Property(L"Running",&this->Script::runtime,GuiPropertyString::BOOLPTR);
@@ -4684,7 +4491,7 @@ void EditorCamera::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->properties.Container(L"Camera");
+	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Camera");
 }
 void EditorCamera::OnPropertiesUpdate(Tab* tab)
 {

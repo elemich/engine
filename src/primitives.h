@@ -122,7 +122,6 @@ public:
 template <typename T> std::vector<T*>* TPoolVector<T>::_pool=new std::vector<T*>;
 
 typedef std::wstring String;
-//typedef std::wstring FilePath;
 
 namespace StringUtils
 {
