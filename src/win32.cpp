@@ -2114,7 +2114,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -2257,7 +2257,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -2332,7 +2332,7 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2668,7 +2668,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
 
 
-	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2743,7 +2743,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
 
 
-	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2826,7 +2826,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2862,7 +2862,7 @@ void Renderer3DOpenGL::draw(Entity* iEntity)
 void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 {
 	vec4 tCanvas=viewport->rect;
-	vec2 tMouse(tabContainerWin32->mousex,tabContainerWin32->mousey);
+	vec2 tMouse(tabContainerWin32->mouse);
 
 	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)viewport->renderBitmap;
 	unsigned char*& rBuffer=(unsigned char*&)viewport->renderBuffer;
@@ -3070,7 +3070,7 @@ void OpenGLRenderer::OnGuiLMouseDown()
 	float calcRatioX=ratio*tan(45*PI/180.0f);
 	float calcRatioY=-1;
 
-	/ *vec3 ndc(2.0f * tabContainer->mousex / this->width -1.0f,-2.0f * (tabContainer->mousey-TabContainer::CONTAINER_HEIGHT) / this->height + 1.0f,0);
+	/ *vec3 ndc(2.0f * tabContainer->mouse.x / this->width -1.0f,-2.0f * (tabContainer->mouse.y-TabContainer::CONTAINER_HEIGHT) / this->height + 1.0f,0);
 	mat4 viewInv=MatrixStack::view.inverse();
 	rayStart=viewInv.transform(ndc.x*calcRatioX,ndc.y*calcRatioY,-1);
 	rayEnd=viewInv.transform(ndc.x*calcRatioX*this->RendererViewportInterface_farPlane,ndc.y*calcRatioY*this->RendererViewportInterface_farPlane,-this->RendererViewportInterface_farPlane+1);* /
@@ -3373,6 +3373,8 @@ void TabWin32::EndDraw()
 
 		if(result!=0)
 		{
+			DEBUG_BREAK();
+
 			wprintf(L"D2D1HwndRenderTarget::EndDraw error: %x\n",result);
 
 			result=renderer2DWin32->renderer->Flush();
@@ -3395,8 +3397,8 @@ void TabWin32::OnGuiMouseMove(void* data)
 {
 
 
-	this->mousex=(float)LOWORD(this->windowDataWin32->lparam);
-	this->mousey=(float)HIWORD(this->windowDataWin32->lparam);
+	this->mouse.x=(float)LOWORD(this->windowDataWin32->lparam);
+	this->mouse.y=(float)HIWORD(this->windowDataWin32->lparam);
 
 	Tab::OnGuiMouseMove(data);
 }
@@ -3406,7 +3408,7 @@ void TabWin32::OnGuiMouseWheel(void* data)
 {
 	float factor=GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)<0 ? -1.0f : 0);
 
-	if(this->mousey>Tab::CONTAINER_HEIGHT)
+	if(this->mouse.y>Tab::CONTAINER_HEIGHT)
 		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
 }
 
@@ -3414,8 +3416,8 @@ void TabWin32::OnGuiMouseWheel(void* data)
 
 void TabWin32::OnGuiRMouseUp(void* data)
 {
-	float &x=this->mousex;
-	float &y=this->mousey;
+	float &x=this->mouse.x;
+	float &y=this->mouse.y;
 
 	if(y<=Tab::CONTAINER_HEIGHT)
 	{
@@ -3469,7 +3471,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnRMouseUp,vec2(this->mousex,this->mousey));
+		this->BroadcastToSelected(&GuiRect::OnRMouseUp,this->mouse);
 	}
 
 }

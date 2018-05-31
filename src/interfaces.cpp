@@ -171,7 +171,13 @@ void Tab::Draw()
 				switch(tDrawInstance->code)
 				{
 				case 1:this->OnGuiPaint();break;
-				case 2:tDrawInstance->rect->OnPaint(GuiMsg(this,tDrawInstance->rect,0));break;
+				case 2:
+					{
+						tDrawInstance->rect->BeginSelfClip(this);
+						tDrawInstance->rect->OnPaint(GuiMsg(this,tDrawInstance->rect,0));
+						tDrawInstance->rect->EndSelfClip(this);
+					}
+				break;
 				}
 
 				this->EndDraw();
@@ -289,14 +295,14 @@ void Tab::OnGuiMouseMove(void* data)
 	mousey=tmy;*/
 
 	//if(mousey>TabContainer::CONTAINER_HEIGHT)
-	this->BroadcastToSelected(&GuiRect::OnMouseMove,vec2(this->mousex,this->mousey));
+	this->BroadcastToSelected(&GuiRect::OnMouseMove,this->mouse);
 }
 
 void Tab::OnGuiLMouseUp(void* data)
 {
 	mouseDown=false;
 
-	this->BroadcastToSelected(&GuiRect::OnLMouseUp,vec2(this->mousex,this->mousey));
+	this->BroadcastToSelected(&GuiRect::OnLMouseUp,this->mouse);
 }
 
 void Tab::OnGuiMouseWheel(void* data)
@@ -309,8 +315,8 @@ void Tab::OnGuiLMouseDown(void* data)
 	//this->OnGuiMouseMove();
 
 
-	float &x=this->mousex;
-	float &y=this->mousey;
+	float &x=this->mouse.x;
+	float &y=this->mouse.y;
 
 
 	if(y<=CONTAINER_HEIGHT)
@@ -334,14 +340,14 @@ void Tab::OnGuiLMouseDown(void* data)
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnLMouseDown,vec2(this->mousex,this->mousey));
+		this->BroadcastToSelected(&GuiRect::OnLMouseDown,this->mouse);
 	}
 }
 
 void Tab::OnGuiDLMouseDown(void* data)
 {
-	if(this->mousey>CONTAINER_HEIGHT)
-		this->BroadcastToSelected(&GuiRect::OnDLMouseDown,vec2(this->mousex,this->mousey));
+	if(this->mouse.y>CONTAINER_HEIGHT)
+		this->BroadcastToSelected(&GuiRect::OnDLMouseDown,this->mouse);
 }
 
 
@@ -977,7 +983,8 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih,vec2 _al
 	active(false),
 	scalars(1,1,1,1),
 	minimums(0,0),
-	userData(0)
+	userData(0),
+	clip(0)
 {
 	this->SetEdges();
 	this->SetParent(iParent);
@@ -998,7 +1005,20 @@ void GuiRect::SetParent(GuiRect* iParent)
 		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
 
 	if(this->parent)
+	{
 		this->parent->childs.push_back(this);
+
+		GuiScrollRect* tScrollRectParent=dynamic_cast<GuiScrollRect*>(iParent);
+
+		GuiScrollRect* tScrollRectClip=tScrollRectParent ? tScrollRectParent : (iParent->clip ? iParent->clip : 0);
+
+		if(tScrollRectClip)
+			this->SetClip(tScrollRectClip);
+	}
+	else
+	{
+		this->SetClip(0);
+	}
 
 	this->active=iParent ? iParent->active : 0;
 }
@@ -1051,7 +1071,25 @@ void GuiRect::CalcRect()
 	r.make(tLeft,tTop,tWidth,tHeight);
 }
 
+void GuiRect::SetClip(GuiScrollRect* iScrollingRect)
+{
+	this->clip=iScrollingRect;
 
+	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+		(*tRect)->SetClip(iScrollingRect);
+}
+
+void GuiRect::BeginSelfClip(Tab* iTab)
+{
+	if(this->clip)
+		this->clip->BeginSelfClip(iTab);
+}
+
+void GuiRect::EndSelfClip(Tab* iTab)
+{
+	if(this->clip)
+		this->clip->EndSelfClip(iTab);
+}
 
 void GuiRect::SetEdges(float* iLeft,float* iTop,float* iRight,float* iBottom)
 {
@@ -1903,6 +1941,7 @@ void GuiButtonBool::OnLMouseUp(const GuiMsg& iMsg)
 GuiScrollRect::GuiScrollRect():
 contentHeight(0),
 contentWidth(0),
+clipped(false),
 hScrollbar(GuiScrollBar::SCROLLBAR_HORIZONTAL),
 vScrollbar(GuiScrollBar::SCROLLBAR_VERTICAL)
 {
@@ -1949,8 +1988,8 @@ void GuiScrollRect::OnMouseMove(const GuiMsg& iMsg)
 
 void GuiScrollRect::OnMouseWheel(const GuiMsg& iMsg)
 {
-	if(this->vScrollbar.IsVisible() && this->Contains(this->rect,vec2(iMsg.tab->mousex,iMsg.tab->mousey)))
-		this->vScrollbar.Scroll(iMsg.tab,*(float*)iMsg.tab);
+	if(this->vScrollbar.IsVisible() && this->Contains(this->rect,iMsg.tab->mouse))
+		this->vScrollbar.Scroll(iMsg.tab,*(float*)iMsg.data);
 
 	this->BroadcastToChilds(&GuiRect::OnMouseWheel,iMsg);
 }
@@ -1991,23 +2030,27 @@ void GuiScrollRect::OnSize(const GuiMsg& iMsg)
 
 void GuiScrollRect::BeginSelfClip(Tab* tabContainer)
 {
-	if(this->vScrollbar.IsVisible())
+	if(this->vScrollbar.IsVisible() && !this->clipped)
 	{
 		vec4& tClipEdges=this->edges;
 
 		tabContainer->renderer2D->PushScissor(tClipEdges.x,tClipEdges.y,tClipEdges.z,tClipEdges.w);
 		tabContainer->renderer2D->Translate(0,-this->vScrollbar.scrollerPosition*this->contentHeight);
+
+		this->clipped=true;
 	}
 }
 
-void GuiScrollRect::EndSelfClip(Tab* tabContainer)
+void GuiScrollRect::EndSelfClip(Tab* iTab)
 {
-	tabContainer->renderer2D->DrawRectangle(this->rect.x+1,this->rect.y+1,this->rect.x+this->rect.z-1,this->rect.y+this->rect.w-1,0xffffff,false);
+	iTab->renderer2D->DrawRectangle(this->rect.x+1,this->rect.y+1,this->rect.x+this->rect.z-1,this->rect.y+this->rect.w-1,0xffffff,false);
 
-	if(this->vScrollbar.IsVisible())
+	if(this->vScrollbar.IsVisible() && this->clipped)
 	{
-		tabContainer->renderer2D->Identity();
-		tabContainer->renderer2D->PopScissor();
+		iTab->renderer2D->Identity();
+		iTab->renderer2D->PopScissor();
+
+		this->clipped=false;
 	}
 }
 
@@ -2805,10 +2848,6 @@ GuiSceneViewer::~GuiSceneViewer()
 void GuiSceneViewer::OnRMouseUp(const GuiMsg& iMsg)
 {
 	GuiRect::OnRMouseUp(iMsg);
-
-	vec2& mpos=*(vec2*)iMsg.data;
-
-	vec2 tDrawCanvas(-GuiRect::ROW_ADVANCE,-GuiRect::ROW_HEIGHT);
 
 	GuiContainer*	tSelectedRect=dynamic_cast<GuiContainer*>(iMsg.tab->GetFocus());
 

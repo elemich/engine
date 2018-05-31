@@ -450,6 +450,8 @@ private:
 	void* userData;
 public:
 
+	GuiScrollRect* clip;
+
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
 	~GuiRect();
 
@@ -491,7 +493,11 @@ public:
 	virtual void DrawBackground(Tab*);
 
 	virtual GuiRect* GetRoot();
-	GuiRootRect* GetRootRect();
+	virtual GuiRootRect* GetRootRect();
+
+	virtual void SetClip(GuiScrollRect*);
+	virtual void BeginSelfClip(Tab*);
+	virtual void EndSelfClip(Tab*);
 
 	bool Contains(vec4& quad,vec2);
 
@@ -685,6 +691,8 @@ struct DLLBUILD GuiScrollRect : GuiRect
 
 	GuiScrollBar	vScrollbar;
 	GuiScrollBar	hScrollbar;
+
+	bool clipped;
 
 	vec2 GetClippedMouse(vec2&);
 
@@ -1090,11 +1098,11 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	static unsigned char rawFile[];
 
 	GuiRootRect	rects;
-private:
+
 	static GuiRect* focused;
 	static GuiRect* hovered;
 	static GuiRect* pressed;
-public:
+
 	Splitter* splitterContainer;
 
 	Renderer2D *renderer2D;
@@ -1118,7 +1126,7 @@ public:
 
 	Task*	 taskDraw;
 
-	float mousex,mousey;
+	vec2 mouse;
 
 	unsigned int lastFrameTime;
 
