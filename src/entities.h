@@ -237,31 +237,7 @@ static const char *EnumEntityNames[ENTITY_MAX]=
 };
 
 
-struct DLLBUILD ResourceNode
-{
-	ResourceNode* parent;
 
-	FilePath fileName;
-
-	bool selectedLeft;
-	bool selectedRight;
-	int level;
-	bool isDir;
-
-	ResourceNode();
-	virtual ~ResourceNode();
-};
-
-struct DLLBUILD ResourceNodeDir : ResourceNode
-{
-	bool expanded;
-
-	std::list<ResourceNodeDir*> dirs;
-	std::list<ResourceNode*> files;
-
-	ResourceNodeDir();
-	virtual ~ResourceNodeDir();
-};
 
 struct DLLBUILD Resource
 {

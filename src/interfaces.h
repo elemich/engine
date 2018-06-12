@@ -11,6 +11,7 @@ struct DLLBUILD Renderer3D;
 struct DLLBUILD GuiRect;
 struct DLLBUILD GuiRootRect;
 struct DLLBUILD GuiContainer;
+template<typename T> struct DLLBUILD GuiContainerRow;
 struct DLLBUILD GuiString;
 struct DLLBUILD GuiButton;
 struct DLLBUILD GuiImage;
@@ -43,6 +44,7 @@ struct DLLBUILD Subsystem;
 struct DLLBUILD Debugger;
 struct DLLBUILD StringEditor;
 struct DLLBUILD EditorScript;
+struct DLLBUILD ResourceNode;
 
 //entity forward declaration
 
@@ -263,8 +265,6 @@ struct DLLBUILD Renderer2D
 	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
 	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
 	static const unsigned int COLOR_TEXT=0xFFFFFF;
-	static const unsigned int COLOR_TEXT_SELECTED=0x0000ff;
-	static const unsigned int COLOR_TEXT_HOVERED=0x0000f1;
 
 	unsigned int	colorBackgroud;
 	unsigned int	colorText;
@@ -276,7 +276,7 @@ struct DLLBUILD Renderer2D
 
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT)=0;
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT)=0;
-	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
 
@@ -424,6 +424,11 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	static const int ROW_HEIGHT=20;
 	static const int ROW_ADVANCE=ROW_HEIGHT;
 
+	static const int COLOR_BACKGROUNDO=Renderer2D::COLOR_GUI_BACKGROUND;
+	static const int COLOR_HOVERED=0xb845d8;
+	static const int COLOR_PRESSED=0x6c45d8;
+	static const int COLOR_CHECKED=0x45d8b0;
+
 	String name;
 
 	struct Edges{float *left,*top,*right,*bottom;};
@@ -436,7 +441,6 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	vec4 rect;
 
 	unsigned int colorBackground;
-	unsigned int colorForeground;
 	unsigned int colorHovering;
 	unsigned int colorPressing;
 	unsigned int colorChecked;
@@ -461,7 +465,7 @@ public:
 
 	void CalcRect();
 
-	virtual void AppendAsProperty(GuiRect* iProperty);
+	virtual void Insert(GuiRect* iProperty);
 
 	virtual void OnRecreateTarget(const GuiMsg&){}
 	virtual void OnPaint(const GuiMsg&);
@@ -496,10 +500,12 @@ public:
 	virtual GuiRootRect* GetRootRect();
 
 	virtual void SetClip(GuiScrollRect*);
-	virtual void BeginSelfClip(Tab*);
-	virtual void EndSelfClip(Tab*);
+	virtual void BeginClip(Tab*);
+	virtual void EndClip(Tab*);
 
 	bool Contains(vec4& quad,vec2);
+
+	unsigned int GetColor();
 
 	virtual void BroadcastToChilds(void (GuiRect::*func)(const GuiMsg&),const GuiMsg&);
 	virtual void BroadcastToRoot(void (GuiRect::*func)(const GuiMsg&),const GuiMsg&);
@@ -516,6 +522,7 @@ public:
 	}
 
 	GuiContainer* Container(String iText);
+	template<typename T> GuiContainerRow<T>* ContainerRow(T);
 
 	GuiString* Text(String str);
 
@@ -577,6 +584,8 @@ struct DLLBUILD GuiString : GuiRect
 	vec2 textSpot;
 	vec2 textAlign;
 
+	vec4 textClipEdges;
+
 	GuiString();
 
 	void SetStringMode(String&,bool isReference);
@@ -599,7 +608,8 @@ struct DLLBUILD GuiContainer : GuiString
 	GuiContainer();
 
 	void CalcContainerRect();
-	void AppendAsProperty(GuiRect* iProperty);
+	void CalcTextRect(Tab*);
+	void Insert(GuiRect* iProperty);
 
 	void BroadcastToChilds(void (GuiRect::*iFunction)(const GuiMsg&),const GuiMsg&);
 	
@@ -607,6 +617,23 @@ struct DLLBUILD GuiContainer : GuiString
 	void OnSize(const GuiMsg&);
 	void OnPaint(const GuiMsg&);
 };
+
+template<typename TPointer> struct DLLBUILD GuiContainerRow : GuiContainer
+{
+	TPointer rowData;
+
+	GuiContainerRow();
+
+	void UnselectAll(GuiRect*);
+	void CalcTextRect(Tab*);
+	void DrawBackground(const GuiMsg&);
+	void OnPaint(const GuiMsg&);
+	void OnSize(const GuiMsg&);
+	void OnMouseMove(const GuiMsg&);
+	void OnLMouseUp(const GuiMsg&);
+	vec4 GetRowRectangle();
+};
+
 
 struct DLLBUILD GuiButton : GuiString
 {
@@ -704,8 +731,8 @@ struct DLLBUILD GuiScrollRect : GuiRect
 	virtual void OnMouseMove(const GuiMsg&);
 	virtual void OnMouseWheel(const GuiMsg&);
 
-	virtual void BeginSelfClip(Tab*);
-	virtual void EndSelfClip(Tab*);
+	virtual void BeginClip(Tab*);
+	virtual void EndClip(Tab*);
 };
 
 struct DLLBUILD GuiSlider : GuiRect
@@ -904,6 +931,34 @@ struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewe
 	void OnSize(const GuiMsg&);
 };
 
+struct DLLBUILD ResourceNode
+{
+	ResourceNode* parent;
+
+	FilePath fileName;
+
+	bool selectedLeft;
+	bool selectedRight;
+	int level;
+	bool isDir;
+
+	ResourceNode();
+	virtual ~ResourceNode();
+};
+
+struct DLLBUILD ResourceNodeDir : ResourceNode
+{
+	bool expanded;
+
+	std::list<ResourceNodeDir*> dirs;
+	std::list<ResourceNode*> files;
+
+	GuiContainerRow<ResourceNodeDir*> directoryViewerRow;
+
+	ResourceNodeDir();
+	virtual ~ResourceNodeDir();
+};
+
 struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 {
 	Scene						scene;
@@ -950,33 +1005,25 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	{
 		GuiProjectViewer* projectViewer;
 
-		ResourceNodeDir* rootResource;
+		ResourceNodeDir* projectDirectory;
 
-		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&,bool& terminated);
-		ResourceNodeDir* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
-		int CalcNodesHeight(ResourceNodeDir*);
-		void UnselectNodes(ResourceNodeDir*);
 		std::vector<ResourceNodeDir*> selectedDirs;
 
 		void OnLMouseDown(const GuiMsg&);
-		void OnPaint(const GuiMsg&);
 	};
 
 	struct DLLBUILD FileViewer : GuiScrollRect
 	{
 		GuiProjectViewer* projectViewer;
 
-		ResourceNodeDir* rootResource;
+		ResourceNodeDir* currentDirectory;
+
 		std::vector<ResourceNodeDir*> selectedDirs;
 		std::vector<ResourceNode*> selectedFiles;
 
-		void DrawNodes(Tab*,ResourceNodeDir* node,vec2&);
-		ResourceNode* GetHoveredRow(ResourceNodeDir* node,vec2& mpos,vec2& pos,bool& oExpandos);
-		int CalcNodesHeight(ResourceNodeDir*);
-		void UnselectNodes(ResourceNodeDir*);
+		void SetDirectory(ResourceNodeDir*);
 
 		void OnLMouseDown(const GuiMsg&);
-		void OnPaint(const GuiMsg&);
 		void OnRMouseUp(const GuiMsg&);
 		void OnDLMouseDown(const GuiMsg&);
 	};
@@ -1324,8 +1371,8 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 	bool					expanded;
 	int						level;
 
-	GuiRect					entityViewerRootPropertyRect;
-	GuiContainer			sceneViewerPropertyRect;
+	GuiContainer					entityViewerRootPropertyRect;
+	GuiContainerRow<EditorEntity*>	sceneViewerPropertyRect;
 
 	EditorEntity();
 

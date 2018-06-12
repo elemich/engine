@@ -86,7 +86,7 @@ struct DLLBUILD Direct2D
 	//static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
-	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true);
+	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float op=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 
 	static void PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h);
@@ -137,7 +137,7 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 
 	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT);
 	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT);
-	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true);
+	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
 

@@ -4,49 +4,7 @@
 
 #include <cstdlib>
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////ResourceNode/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-ResourceNode::ResourceNode():
-	parent(0),
-	level(0),
-	isDir(0),
-	selectedLeft(0),
-	selectedRight(0)
-{}
-
-ResourceNode::~ResourceNode()
-{
-	this->fileName;
-	this->selectedLeft=false;
-	this->selectedRight=false;
-	this->level=0;
-	this->isDir=false;
-}
-
-ResourceNodeDir::ResourceNodeDir():
-	expanded(0)
-{}
-
-ResourceNodeDir::~ResourceNodeDir()
-{
-    for(std::list<ResourceNode*>::iterator nCh=this->files.begin();nCh!=this->files.end();nCh++)
-	{
-		ResourceNode* tResNode=*nCh;
-
-		SAFEDELETE(tResNode);
-	}
-
-    for(std::list<ResourceNodeDir*>::iterator nCh=this->dirs.begin();nCh!=this->dirs.end();nCh++)
-    {
-        ResourceNodeDir* tResNodeDir=*nCh;
-
-        SAFEDELETE(tResNodeDir);
-    }
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -126,62 +84,8 @@ Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<Enti
 
 
 
-#ifdef EDITORBUILD
 
-ResourceNodeDir rootProjectDirectory;
-
-String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeDir* iResDir,String& iResourceName)
-{
-	//store current dir
-
-	if(iResDir->parent)
-	{
-		iCurrentDirectory+=iResDir->fileName.c_str();
-		iCurrentDirectory+=L"\\";
-	}
-
-	//if node contains files, process them, later process other dir nodes
-
-	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
-	{
-		String	tVirtualFileName=iCurrentDirectory + (*tResFile)->fileName;
-
-		if(tVirtualFileName==iResourceName)
-		{
-			return iProjectDir + iCurrentDirectory + (*tResFile)->fileName;
-		}
-	}
-
-	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
-	{
-		String t=gFindResource(iCurrentDirectory,iProjectDir,*tResNodeDir,iResourceName);
-
-		return t;
-	}
-
-	return String();
-}
-
-void* Resource::Load(FilePath iResourceName)
-{
-    String tRootTrailingSlashes(L"\\");
-
-	FilePath tResourcePath=gFindResource(tRootTrailingSlashes,rootProjectDirectory.fileName,&rootProjectDirectory,iResourceName);
-
-	if(!tResourcePath.File().empty())
-    {
-        String tFileExtension=tResourcePath.Extension();
-
-        if(tFileExtension==L"engineScene")
-        {
-
-        }
-    }
-
-    return 0;
-}
-
-#else
+#ifndef EDITORBUILD
 
 FILE*        resourceData=0;
 unsigned int resourceDataSize=0;

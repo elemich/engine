@@ -457,11 +457,12 @@ float Direct2D::GetCharWidth(char iCharacter)
 
 void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_CLIP,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 }
 
-void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill)
+void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill,float op)
 {
+	brush->SetOpacity(op);
 	fill ? renderer->FillRectangle(D2D1::RectF(x,y,w,h),brush) : renderer->DrawRectangle(D2D1::RectF(x,y,w,h),brush);
 }
 
@@ -554,9 +555,9 @@ void Renderer2DWin32::DrawText(const String& iText,float left,float top, float r
 
 	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 }
-void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill)
+void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill,float op)
 {
-	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill);
+	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill,op);
 }
 void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
 {
@@ -1366,6 +1367,12 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				dirNode->selectedRight=tSelectedRight;
 				dirNode->expanded=tExpanded;
 				dirNode->isDir=tIsDir;
+
+				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)dirNode->parent;
+
+				dirNode->directoryViewerRow.SetStringMode(dirNode->fileName,true);
+				dirNode->directoryViewerRow.rowData=dirNode;
+				dirNodeParent->directoryViewerRow.Insert(&dirNode->directoryViewerRow);
 
 				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
 			}

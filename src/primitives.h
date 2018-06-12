@@ -211,6 +211,13 @@ namespace Vector
 	DLLBUILD void print(float* v);
 };
 
+struct DLLBUILD  edges : TNumberedVectorInterface<float*,4>
+{
+	float &left,&top,&right,&bottom;
+
+	edges();
+};
+
 struct DLLBUILD  vec2 : TNumberedVectorInterface<float,2>
 {
 	float &x,&y;
