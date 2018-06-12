@@ -1010,6 +1010,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		std::vector<ResourceNodeDir*> selectedDirs;
 
 		void OnLMouseDown(const GuiMsg&);
+		void OnMouseMove(const GuiMsg&);
 	};
 
 	struct DLLBUILD FileViewer : GuiScrollRect

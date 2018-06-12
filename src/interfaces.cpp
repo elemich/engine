@@ -3610,9 +3610,10 @@ GuiProjectViewer::GuiProjectViewer():
 
 	dirViewer.selectedDirs.push_back(this->projectDirectory);
 
-	projectDirectory->directoryViewerRow.SetStringMode(projectDirectory->fileName,true);
-	projectDirectory->directoryViewerRow.offsets.make(-20,0,0,0);
-	projectDirectory->directoryViewerRow.state=true;
+	this->projectDirectory->directoryViewerRow.SetStringMode(this->projectDirectory->fileName,true);
+	this->projectDirectory->directoryViewerRow.offsets.make(-20,0,0,0);
+	this->projectDirectory->directoryViewerRow.state=true;
+	this->projectDirectory->directoryViewerRow.rowData=this->projectDirectory;
 
 	projectDirectory->directoryViewerRow.SetParent(&this->dirViewer);
 }
@@ -3757,13 +3758,16 @@ void GuiProjectViewer::OnSize(const GuiMsg& iMsg)
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-
+void GuiProjectViewer::DirViewer::OnMouseMove(const GuiMsg& iMsg)
+{
+	GuiScrollRect::OnMouseMove(iMsg);
+}
 
 void GuiProjectViewer::DirViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	GuiRect::OnLMouseDown(iMsg);
+	GuiScrollRect::OnLMouseDown(iMsg);
 
-	if(this->hovering)
+	if(this->Contains(this->edges,*(vec2*)iMsg.data))
 	{
 		GuiContainerRow<ResourceNodeDir*>* tDirectoryRowPressed=dynamic_cast< GuiContainerRow<ResourceNodeDir*>* >(Tab::focused);
 
@@ -3853,10 +3857,11 @@ void GuiProjectViewer::FileViewer::OnLMouseDown(const GuiMsg& iMsg)
 		iMsg.tab->SetDraw(2,0,this);
 	}*/
 
-	GuiRect::OnLMouseDown(iMsg);
+	GuiScrollRect::OnLMouseDown(iMsg);
 }
 void GuiProjectViewer::FileViewer::OnRMouseUp(const GuiMsg& iMsg)
 {
+	GuiScrollRect::OnRMouseUp(iMsg);
 	/*GuiRect::OnRMouseUp(iMsg);
 
 	vec2& mpos=*(vec2*)iMsg.data;
@@ -3921,6 +3926,7 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(const GuiMsg& iMsg)
 
 void GuiProjectViewer::FileViewer::OnDLMouseDown(const GuiMsg& iMsg)
 {
+	GuiScrollRect::OnDLMouseDown(iMsg);
 	/*if(this==iMsg.tab->GetFocus())
 	{
 		vec2& mpos=*(vec2*)iMsg.data;
