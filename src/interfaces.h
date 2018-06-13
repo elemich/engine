@@ -569,6 +569,8 @@ struct DLLBUILD GuiString : GuiRect
 	
 		void SetStringMode(String&,bool isReference);
 
+		String& Text();
+
 		operator String&();
 		String& operator=(const String& iString);
 		String* operator->();
@@ -1010,7 +1012,6 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		std::vector<ResourceNodeDir*> selectedDirs;
 
 		void OnLMouseDown(const GuiMsg&);
-		void OnMouseMove(const GuiMsg&);
 	};
 
 	struct DLLBUILD FileViewer : GuiScrollRect
@@ -1147,9 +1148,9 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	GuiRootRect	rects;
 
-	static GuiRect* focused;
-	static GuiRect* hovered;
-	static GuiRect* pressed;
+	GuiRect* focused;
+	GuiRect* hovered;
+	GuiRect* pressed;
 
 	Splitter* splitterContainer;
 
@@ -1237,8 +1238,12 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	virtual void SetCursor(int)=0;
 
-	static void SetFocus(GuiRect*);
-	static GuiRect* GetFocus();
+	void SetFocus(GuiRect*);
+	void SetHover(GuiRect*);
+	void SetPressed(GuiRect*);
+	GuiRect* GetFocus();
+	GuiRect* GetHover();
+	GuiRect* GetPressed();
 };
 
 struct DLLBUILD Splitter

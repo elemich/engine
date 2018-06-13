@@ -208,11 +208,6 @@ unsigned char Tab::rawFile[]={0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x
 
 
 
-
-GuiRect* Tab::focused=0;
-GuiRect* Tab::pressed=0;
-GuiRect* Tab::hovered=0;
-
 Tab::Tab(float x,float y,float w,float h):
 rects(this),
 	windowData(0),
@@ -233,7 +228,10 @@ rects(this),
 	iconDown(0),
 	iconFolder(0),
 	iconFile(0),
-	threadRender(0)
+	threadRender(0),
+	focused(0),
+	pressed(0),
+	hovered(0)
 {}
 
 Tab::~Tab()
@@ -270,6 +268,9 @@ void Tab::Draw()
 				case 1:this->OnGuiPaint();break;
 				case 2:tDrawInstance->rect->OnPaint(GuiMsg(this,0,0));break;
 				}
+
+				/*static unsigned int a=0;
+				printf("draw %d %0xp\n",a++,tDrawInstance->rect);*/
 
 				this->EndDraw();
 			}
@@ -386,7 +387,20 @@ void Tab::OnGuiMouseMove(void* data)
 	mousey=tmy;*/
 
 	//if(mousey>TabContainer::CONTAINER_HEIGHT)
+
+	GuiRect* tOldHover=this->GetHover();
+	
 	this->BroadcastToSelected(&GuiRect::OnMouseMove,this->mouse);
+
+	GuiRect* tNewHover=this->GetHover();
+
+	if(tOldHover!=tNewHover)
+	{
+		if(tOldHover)
+			this->SetDraw(2,0,tOldHover);
+		if(tNewHover)
+			this->SetDraw(2,0,tNewHover);
+	}
 }
 
 void Tab::OnGuiLMouseUp(void* data)
@@ -517,10 +531,44 @@ void Tab::SetFocus(GuiRect* iFocusedRect)
 		Tab::focused->OnEnterFocus(GuiMsg(Tab::focused->GetRootRect()->tabContainer,Tab::focused,0,&GuiRect::OnEnterFocus,Tab::focused));
 }
 
+void Tab::SetHover(GuiRect* iHoveredRect)
+{
+	if(iHoveredRect==Tab::hovered)
+		return;
+
+	if(Tab::hovered)
+		Tab::hovered->hovering=false;
+
+	Tab::hovered=iHoveredRect;
+}
+
+void Tab::SetPressed(GuiRect* iPressedRect)
+{
+	if(Tab::pressed)
+		Tab::pressed->pressing=false;
+
+	Tab::pressed=iPressedRect;
+
+	if(Tab::pressed)
+		Tab::pressed->pressing=true;
+}
+
 GuiRect* Tab::GetFocus()
 {
 	return Tab::focused;
 }
+
+GuiRect* Tab::GetPressed()
+{
+	return Tab::pressed;
+}
+
+GuiRect* Tab::GetHover()
+{
+	return Tab::hovered;
+}
+
+
 
 
 ///////////////////////////////////////////////
@@ -1318,17 +1366,12 @@ void GuiRect::OnMouseMove(const GuiMsg& iMsg)
 	vec2 mpos=*(vec2*)iMsg.data;
 
 	bool tWasHovering=this->hovering;
-	bool _curHover=this->Contains(this->edges,mpos);
+	this->hovering=this->Contains(this->edges,mpos);
 
-	if(parent && _curHover)
-		parent->hovering=false;
-
-	this->hovering=_curHover;
+	if(this->hovering)
+		iMsg.tab->SetHover(this);
 
 	this->BroadcastToChilds(&GuiRect::OnMouseMove,iMsg);
-
-	if(tWasHovering!=this->hovering)
-		iMsg.tab->SetDraw(2,0,this);
 }
 
 void GuiRect::OnUpdate(const GuiMsg& iMsg)
@@ -1817,33 +1860,34 @@ template<typename T> void GuiContainerRow<T>::UnselectAll(GuiRect* iRect)
 template<typename T> void GuiContainerRow<T>::OnLMouseUp(const GuiMsg& iMsg)
 {
 	bool tWasPressing=this->pressing;
-	bool tWasChecked=this->checked;
 
-	if(this->hovering && this->pressing)
+	GuiRect::OnLMouseUp(iMsg);
+
+	if(tWasPressing)
 	{	
 		GuiRect* tRoot=this;
 
-		while(tRoot)
+		bool tCancelOldSelection=!InputManager::keyboardInput.IsPressed(/*VK_CONTROL*/0x11);
+
+		if(tCancelOldSelection)
 		{
-			GuiContainerRow* tRectParentRow=dynamic_cast<GuiContainerRow*>(tRoot->parent);
+			while(tRoot)
+			{
+				GuiContainerRow* tRectParentRow=dynamic_cast<GuiContainerRow*>(tRoot->parent);
 
-			if(!tRectParentRow)
-				break; 
+				if(!tRectParentRow)
+					break; 
 
-			tRoot=tRoot->parent;
-		}
+				tRoot=tRoot->parent;
+			}
 
-		if(!InputManager::keyboardInput.IsPressed(/*VK_CONTROL*/0x11))
 			this->UnselectAll(tRoot);
 
-		this->checked=!tWasChecked;
-		this->pressing=false;
+			this->checked=true;
+		}
+		
+		iMsg.tab->SetDraw(2,0,tRoot);
 	}
-
-	this->BroadcastToChilds(&GuiRect::OnLMouseUp,iMsg);
-
-	if(tWasPressing!=this->pressing || tWasChecked!=this->checked)
-		iMsg.tab->SetDraw(2,0,this);
 }
 
 
@@ -1868,17 +1912,12 @@ template<typename T> void GuiContainerRow<T>::OnMouseMove(const GuiMsg& iMsg)
 	vec4 tRowRectangle=GetRowRectangle();
 
 	bool tWasHovering=this->hovering;
-	bool _curHover=this->Contains(tRowRectangle,mpos);
+	this->hovering=this->Contains(tRowRectangle,mpos);
 
-	if(parent && _curHover)
-		parent->hovering=false;
-
-	this->hovering=_curHover;
+	if(this->hovering)
+		iMsg.tab->SetHover(this);
 
 	this->BroadcastToChilds(&GuiRect::OnMouseMove,iMsg);
-
-	if(tWasHovering!=this->hovering)
-		iMsg.tab->SetDraw(2,0,this);
 }
 
 template<typename T> void GuiContainerRow<T>::CalcTextRect(Tab* iTab)
@@ -2061,7 +2100,10 @@ GuiString::GuiStringBase::~GuiStringBase()
 		________dtor=false;
 	}
 }
-
+String& GuiString::GuiStringBase::Text()
+{
+	return *this->_______text;
+}
 void GuiString::GuiStringBase::SetStringMode(String& iString,bool isReference)
 {
 	if(this->________dtor)
@@ -2226,7 +2268,7 @@ bool GuiString::ParseKeyInput(const GuiMsg& iMsg)
 
 void GuiString::OnKeyDown(const GuiMsg& iMsg)
 {
-	if(this==Tab::GetFocus())
+	if(this==iMsg.tab->GetFocus())
 	{
 		bool tRedraw=this->ParseKeyInput(iMsg);
 
@@ -2241,7 +2283,7 @@ void GuiString::OnKeyDown(const GuiMsg& iMsg)
 void GuiString::OnLMouseDown(const GuiMsg& iMsg)
 {
 	if(this->hovering)
-		Tab::SetFocus(this);
+		iMsg.tab->SetFocus(this);
 
 	GuiRect::OnLMouseDown(iMsg);
 }
@@ -3754,14 +3796,10 @@ void GuiProjectViewer::OnSize(const GuiMsg& iMsg)
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
-///////////////GuiProjectViewer::GuiProjectDirViewer/////////////////
+///////////////GuiProjectViewer::DirViewer/////////////////
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-void GuiProjectViewer::DirViewer::OnMouseMove(const GuiMsg& iMsg)
-{
-	GuiScrollRect::OnMouseMove(iMsg);
-}
 
 void GuiProjectViewer::DirViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
@@ -3769,7 +3807,7 @@ void GuiProjectViewer::DirViewer::OnLMouseDown(const GuiMsg& iMsg)
 
 	if(this->Contains(this->edges,*(vec2*)iMsg.data))
 	{
-		GuiContainerRow<ResourceNodeDir*>* tDirectoryRowPressed=dynamic_cast< GuiContainerRow<ResourceNodeDir*>* >(Tab::focused);
+		GuiContainerRow<ResourceNodeDir*>* tDirectoryRowPressed=dynamic_cast< GuiContainerRow<ResourceNodeDir*>* >(iMsg.tab->GetFocus());
 
 		if(tDirectoryRowPressed)
 		{
@@ -3786,7 +3824,7 @@ void GuiProjectViewer::DirViewer::OnLMouseDown(const GuiMsg& iMsg)
 
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
-///////////////GuiProjectViewer::GuiProjectDirViewer/////////////////
+///////////////GuiProjectViewer::FileViewer/////////////////
 /////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
@@ -3820,106 +3858,69 @@ void GuiProjectViewer::FileViewer::SetDirectory(ResourceNodeDir* iResourceNodeDi
 
 void GuiProjectViewer::FileViewer::OnLMouseDown(const GuiMsg& iMsg)
 {
-	/*if(this->hovering)
-	{
-		vec2& mpos=*(vec2*)iMsg.data;
-
-		if(!InputManager::keyboardInput.IsPressed(0x11/ *VK_CONTROL* /))
-			this->selectedFiles.clear();
-
-		vec2 tDrawCanvas(0,0);
-
-		bool exp=false;
-		ResourceNode* node=this->GetHoveredRow(this->rootResource,mpos,tDrawCanvas,exp);
-
-		if(node)
-		{
-			this->UnselectNodes(this->rootResource);
-
-			if(!node->selectedRight)
-				node->selectedRight=true;
-
-			if(exp)
-			{
-				this->CalcNodesHeight(this->rootResource);
-				this->OnSize(iMsg);
-			}
-
-			this->selectedFiles.push_back(node);
-
-			//TabContainer::BroadcastToPool(&TabContainer::OnGuiEntitySelected,this->selection[0]);
-		}
-		else
-		{
-			this->UnselectNodes(this->rootResource);
-		}
-
-		iMsg.tab->SetDraw(2,0,this);
-	}*/
-
 	GuiScrollRect::OnLMouseDown(iMsg);
 }
 void GuiProjectViewer::FileViewer::OnRMouseUp(const GuiMsg& iMsg)
 {
 	GuiScrollRect::OnRMouseUp(iMsg);
-	/*GuiRect::OnRMouseUp(iMsg);
 
-	vec2& mpos=*(vec2*)iMsg.data;
-
-	vec2 tDrawCanvas(0,0);
-
-	bool tHoveredResourceNodeExpandedPressed=false;
-	ResourceNode* tHoveredResourceNode=this->GetHoveredRow(this->rootResource,mpos,tDrawCanvas,tHoveredResourceNodeExpandedPressed);
-
-	int menuResult=iMsg.tab->TrackProjectFileViewerPopup(tHoveredResourceNode);
-
-	switch(menuResult)
+	if(this->Contains(this->edges,*(vec2*)iMsg.data))
 	{
-		case 1:
-			if(tHoveredResourceNode && tHoveredResourceNode->parent)
+		GuiContainerRow<ResourceNode*>* tHovered=dynamic_cast< GuiContainerRow<ResourceNode*>* >(iMsg.tab->GetHover());
+
+		if(tHovered)
+		{
+			int menuResult=iMsg.tab->TrackProjectFileViewerPopup(tHovered->rowData);
+
+			switch(menuResult)
 			{
-				ResourceNodeDir* parentDirectory=(ResourceNodeDir*)tHoveredResourceNode->parent;
-
-				String tFileNameBase=tHoveredResourceNode->parent->fileName + L"\\" + tHoveredResourceNode->fileName;
-                String tFileNameBaseExtended=tFileNameBase + Ide::instance->GetEntityExtension();
-
-				//first remove from the list
-
-				if(tHoveredResourceNode->isDir)
-                {
-                    parentDirectory->dirs.remove((ResourceNodeDir*)tHoveredResourceNode);
-
-                    Ide::instance->subsystem->Execute(parentDirectory->fileName.c_str(),L"rd /S /Q " + tHoveredResourceNode->fileName);
-                }
-				else
-                {
-                    parentDirectory->files.remove(tHoveredResourceNode);
-
-                    File::Delete(tFileNameBase.c_str());
-                    File::Delete(tFileNameBaseExtended.c_str());
-                }
-
-				SAFEDELETE(tHoveredResourceNode);
-			}
-		break;
-		case 3://load
-			if(tHoveredResourceNode->fileName.PointedExtension() == Ide::instance->GetSceneExtension())
-			{
-				GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::GetPool().front();
-
-				if(tGuiSceneViewer)
+			case 1:
+				if(tHovered->rowData && tHovered->rowData->parent)
 				{
-					String tHoveredNodeFilename=tHoveredResourceNode->parent->fileName + L"\\" + tHoveredResourceNode->fileName;
+					ResourceNodeDir* parentDirectory=(ResourceNodeDir*)tHovered->rowData->parent;
 
-					tGuiSceneViewer->Load(tHoveredNodeFilename.c_str());
-					tGuiSceneViewer->GetRootRect()->tabContainer->SetDraw(2,0,tGuiSceneViewer);
+					String tFileNameBase=tHovered->rowData->parent->fileName + L"\\" + tHovered->rowData->fileName;
+					String tFileNameBaseExtended=tFileNameBase + Ide::instance->GetEntityExtension();
+
+					//first remove from the list
+
+					if(tHovered->rowData->isDir)
+					{
+						parentDirectory->dirs.remove((ResourceNodeDir*)tHovered->rowData);
+
+						Ide::instance->subsystem->Execute(parentDirectory->fileName.c_str(),L"rd /S /Q " + tHovered->rowData->fileName);
+					}
+					else
+					{
+						parentDirectory->files.remove(tHovered->rowData);
+
+						File::Delete(tFileNameBase.c_str());
+						File::Delete(tFileNameBaseExtended.c_str());
+					}
+
+					SAFEDELETE(tHovered->rowData);
 				}
-			}
-		break;
-	}
+				break;
+			case 3://load
+				if(tHovered->rowData->fileName.PointedExtension() == Ide::instance->GetSceneExtension())
+				{
+					GuiSceneViewer* tGuiSceneViewer=GuiSceneViewer::GetPool().front();
 
-	this->OnSize(iMsg);
-	iMsg.tab->SetDraw(2,0,this);*/
+					if(tGuiSceneViewer)
+					{
+						String tHoveredNodeFilename=tHovered->rowData->parent->fileName + L"\\" + tHovered->rowData->fileName;
+
+						tGuiSceneViewer->Load(tHoveredNodeFilename.c_str());
+						tGuiSceneViewer->GetRootRect()->tabContainer->SetDraw(2,0,tGuiSceneViewer);
+					}
+				}
+				break;
+			}
+
+			this->OnSize(iMsg);
+			iMsg.tab->SetDraw(2,0,this);
+		}
+	}
 }
 
 
