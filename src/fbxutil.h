@@ -1,9 +1,24 @@
 #ifndef __FBXUTIL__HEADER__
 #define __FBXUTIL__HEADER__
 
-struct EditorEntity;
+#include "interfaces.h"
 
-/*extern "C" __declspec(dllexport) */EditorEntity* ImportFbxScene(char* iFileName);
+struct DLLBUILD Fbx : PluginSystem::Plugin
+{
+	int MenuFbx;
+	int MenuActionImport;
+	int MenuActionExport;
 
+	Fbx();
+
+	void Load();
+	void Unload();
+	void OnMenuPressed(int);
+
+	EditorEntity* Import(char* iFileName);
+};
+
+extern "C" DLLBUILD PluginSystem::Plugin* GetPlugin(PluginSystem*);
+extern "C" DLLBUILD void DestroyPlugin();
 
 #endif __FBXUTIL__HEADER__

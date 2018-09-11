@@ -3,7 +3,7 @@
 //int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 int main()
 {
-	Ide *app = new IdeWin32;
+	Ide* app = new IdeWin32;;
 
 	app->Initialize();
 

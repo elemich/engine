@@ -13,15 +13,12 @@
     <Filter Include="Makefiles">
       <UniqueIdentifier>{f58d3918-0949-41de-a0d9-cda4a0dfa009}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Plugins">
+      <UniqueIdentifier>{cc9487c7-84e5-415f-a8b8-cd99d51acc1c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\entities.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fbxutil.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fbxutil_fbx.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="src\imgjpg.cpp">
@@ -36,27 +33,33 @@
     <ClCompile Include="src\interfaces.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
     <ClCompile Include="src\primitives.cpp">
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="src\shaders.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="src\android.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
     <ClCompile Include="src\win32.cpp">
       <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\EngineAndroid.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IdeAndroid.cpp">
+      <Filter>Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fbxutil_fbx.cpp">
+      <Filter>Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fbxutil.cpp">
+      <Filter>Plugins</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\entities.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\fbxutil.h">
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="src\imgjpg.h">
@@ -74,11 +77,17 @@
     <ClInclude Include="src\primitives.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="src\android.h">
-      <Filter>Android</Filter>
-    </ClInclude>
     <ClInclude Include="src\win32.h">
       <Filter>Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EngineAndroid.h">
+      <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IdeAndroid.h">
+      <Filter>Plugins</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fbxutil.h">
+      <Filter>Plugins</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

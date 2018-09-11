@@ -657,7 +657,7 @@ void AnimationController::update()
 	{
 		this->SetFrame(this->cursor);
 
-		int		tCurrentTime=Timer::instance->GetTime();
+		int		tCurrentTime=Timer::GetInstance()->GetTime();
 
 		float	tCurrentDelta=	this->frameTime ? (tCurrentTime-this->frameTime)/1000.0f : 0;
 

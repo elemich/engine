@@ -30,18 +30,43 @@ interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
 	
 win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\win32.cpp
-	
-fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
- @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\fbxutil.cpp
-
-enginelibMS.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj
- @link.exe $(LKOPT) /DLL /OUT:enginelibMS.dll $** $(WIN32LIBD) $(OPENGLLIB)
  
-engineMS.exe: enginelibMS.dll $(DIRSRC)\main.cpp
+#FBXPLUGIN BEGIN
+ 
+fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+ @cl.exe /DFBXSDK_SHARED $(CLOPT) $(CLDLL) $(DIRSRC)\fbxutil.cpp
+ 
+fbxplugin.dll: enginelibMS.lib fbxutil.obj
+ echo fbxplugin.dll
+ @link.exe $(LKOPT) /DLL /OUT:fbxplugin.dll enginelibMS.lib fbxutil.obj libfbxsdk.lib $(WIN32LIBD)
+ @move /Y fbxplugin.dll $(MAKEDIR)\plugins
+ @move /Y fbxplugin.lib $(MAKEDIR)\plugins
+ 
+#FBXPLUGIN END
+
+#ANDROIDPLUGIN BEGIN
+
+android.obj: $(DIRSRC)\IdeAndroid.cpp $(DIRSRC)\IdeAndroid.h
+ @cl.exe $(CLOPT) $(CLDLL) $(CLDLL) /Foandroid.obj $(DIRSRC)\IdeAndroid.cpp
+ 
+androidplugin.dll: enginelibMS.lib android.obj
+ echo androidplugin.dll
+ @link.exe $(LKOPT) /DLL /OUT:androidplugin.dll enginelibMS.lib android.obj libfbxsdk.lib $(WIN32LIBD)
+ @move /Y androidplugin.dll $(MAKEDIR)\plugins
+ @move /Y androidplugin.lib $(MAKEDIR)\plugins
+ 
+#ANDROIDPLUGIN END
+	
+enginelibMS.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj fbxutil.obj
+ echo enginelibMS.dll
+ @link.exe $(LKOPT) /DLL /OUT:enginelibMS.dll primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj $(WIN32LIBD) $(OPENGLLIB)
+ 
+engineMS.exe: enginelibMS.dll fbxplugin.dll androidplugin.dll $(DIRSRC)\main.cpp
  @cl.exe $(CLOPT) $(DIRSRC)\main.cpp /link $(LKOPT) /OUT:engineMS.exe enginelibMS.lib
-# @copy /Y *.exe ..
-# @copy /Y *.dll ..
-# @copy /Y *.pdb ..
+ 
+
+
+
 
 
  

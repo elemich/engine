@@ -27,10 +27,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\android.cpp" />
+    <ClCompile Include="src\EngineAndroid.cpp" />
     <ClCompile Include="src\entities.cpp" />
     <ClCompile Include="src\fbxutil.cpp" />
     <ClCompile Include="src\fbxutil_fbx.cpp" />
+    <ClCompile Include="src\IdeAndroid.cpp" />
     <ClCompile Include="src\imgjpg.cpp" />
     <ClCompile Include="src\imgpng.cpp" />
     <ClCompile Include="src\imgtga.cpp" />
@@ -41,9 +42,10 @@
     <ClCompile Include="src\win32.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\android.h" />
+    <ClInclude Include="src\EngineAndroid.h" />
     <ClInclude Include="src\entities.h" />
     <ClInclude Include="src\fbxutil.h" />
+    <ClInclude Include="src\IdeAndroid.h" />
     <ClInclude Include="src\imgjpg.h" />
     <ClInclude Include="src\imgpng.h" />
     <ClInclude Include="src\imgtga.h" />

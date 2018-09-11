@@ -1382,9 +1382,18 @@ void mat4::zero(){memset(this->v,0,sizeof(float[16]));}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Timer::Timer():renderFps(60){}
+Timer* _________timer=0;
+
+Timer::Timer():renderFps(60)
+{
+	_________timer=this->Instance();
+}
 
 void Timer::update(){};
+
+DLLBUILD Timer* GetTimer(){return _________timer;}
+
+Timer* Timer::GetInstance(){return GetTimer();}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1513,8 +1522,12 @@ void eqSolve(float* result,int nrow,int ncol,float** _eqsys)
 }
 
 
-Thread::Thread(){}
-Thread::~Thread(){}
+Thread::Thread():exit(false){}
+Thread::~Thread()
+{
+	for(std::list<Task*>::iterator it=this->tasks.begin();it!=this->tasks.end();it++)
+		delete *it;
+}
 
 Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 {

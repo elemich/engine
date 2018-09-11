@@ -80,13 +80,16 @@ template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 
 template <typename T> struct DLLBUILD  TStaticInstance
 {
+private:
 	static T* instance;
-
+public:
 	TStaticInstance()
 	{
 		if(!instance)
 			instance=(T*)this;
 	}
+
+	T* Instance(){return this->instance;}
 };
 
 template <typename T> T* TStaticInstance<T>::instance=0;
@@ -125,24 +128,24 @@ typedef std::wstring String;
 
 namespace StringUtils
 {
-	void WriteWstring(FILE* iFile,String& iWstring);
-	void ReadWstring(FILE* iFile,String& iWstring);
+	void DLLBUILD WriteWstring(FILE* iFile,String& iWstring);
+	void DLLBUILD ReadWstring(FILE* iFile,String& iWstring);
 
-	std::string ToChar(const String&);
-	std::string ToChar(const wchar_t*);
-	String ToWide(const char*);
-	String ToWide(const std::string&);
+	std::string DLLBUILD ToChar(const String&);
+	std::string DLLBUILD ToChar(const wchar_t*);
+	String DLLBUILD ToWide(const char*);
+	String DLLBUILD ToWide(const std::string&);
 
-	String Int(int&);
-	String Float(float&,int iBefore=3,int iAfter=1);
+	String DLLBUILD Int(int&);
+	String DLLBUILD Float(float&,int iBefore=3,int iAfter=1);
 
-	bool WriteCharFile(String iFilename,String iContent,String iMode=L"w");
-	String ReadCharFile(String iFilename,String iMode=L"r");
-	bool WriteWideFile(String iFilename,String iContent,String iMode=L"w");
-	String ReadWideFile(String iFilename,String iMode=L"r");
+	bool DLLBUILD WriteCharFile(String iFilename,String iContent,String iMode=L"w");
+	String DLLBUILD ReadCharFile(String iFilename,String iMode=L"r");
+	bool DLLBUILD WriteWideFile(String iFilename,String iContent,String iMode=L"w");
+	String DLLBUILD ReadWideFile(String iFilename,String iMode=L"r");
 }
 
-struct FilePath : String
+struct DLLBUILD FilePath : String
 {
 	FilePath();
 	FilePath(const String&);
@@ -493,6 +496,8 @@ struct DLLBUILD  Timer : TStaticInstance<Timer>
 
 	virtual unsigned int GetTime()=0;
 	virtual void update();
+
+	static Timer* GetInstance();
 };
 
 struct DLLBUILD  Task
@@ -513,6 +518,7 @@ struct DLLBUILD  Thread  : TPoolVector<Thread>
 	std::list<Task*> tasks;
 	Task* executing;
 	unsigned int sleep;
+	bool exit;
 
 	Thread();
 	~Thread();

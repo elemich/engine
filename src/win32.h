@@ -290,7 +290,7 @@ struct DLLBUILD TabWin32 : Tab
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
-	TabWin32(float x,float y,float w,float h,HWND parent);
+	TabWin32(float x,float y,float w,float h,HWND parent,bool child=true,bool overlapped=false);
 	~TabWin32();
 
 	operator TabWin32& (){return *this;}
@@ -364,14 +364,15 @@ struct DLLBUILD ContainerWin32 : Container
 	SplitterWin32*& splitterContainerWin32;
 
 	TabWin32* CreateTabContainer(float x,float y,float w,float h);
+	TabWin32* CreateModalTabContainer(float w,float h);
+	void DestroyTabContainer(Tab*);
 };
 
-struct DLLBUILD MainContainerWin32 : MainContainer
+struct DLLBUILD MainAppWindowWin32 : MainAppWindow
 {
 	static LRESULT CALLBACK MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
-	HMENU menuMain;
-	HMENU menuEntities;
+	HWND mainMenu;
 
 	void Init();
 
@@ -418,7 +419,7 @@ struct DLLBUILD CompilerWin32 : Compiler
 	String Compose(unsigned int iCompiler,Script*);
 	bool LoadScript(Script*);
 	bool UnloadScript(Script*);
-	bool CreateAndroidTarget();
+	
 };
 
 struct DLLBUILD DebuggerWin32 : Debugger
@@ -456,6 +457,16 @@ struct DLLBUILD StringEditorWin32 : StringEditor
 	~StringEditorWin32();
 
 	void Draw(Tab*);
+};
+
+struct DLLBUILD PluginSystemWin32 : PluginSystem
+{
+	std::vector<HMODULE> tPluginDlls;
+
+	void ScanPluginsDirectory();
+
+	PluginSystemWin32();
+	~PluginSystemWin32();
 };
 
 

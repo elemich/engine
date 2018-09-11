@@ -609,6 +609,8 @@ struct DLLBUILD TextureFile : Texture
 	int GetHeight();
 	int GetBpp();
 
+	int load(char*){return 0;}
+
 	FilePath filename;
 };
 

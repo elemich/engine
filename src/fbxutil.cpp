@@ -1,6 +1,56 @@
 #include "fbxutil.h"
 
-//#pragma message (LOCATION " mesh needs other polygons type ?")	
+#include "win32.h"
+
+Fbx* allocatedPlugin=0;
+
+Fbx::Fbx()
+{
+	this->name=L"FbxPlugin";
+}
+
+void Fbx::Load()
+{
+	if(!this->loaded)
+	{
+		this->MenuFbx=this->Menu(L"Plugins\\Fbx",true);
+		this->MenuActionImport=this->Menu(L"Plugins\\Fbx\\Import",false);
+		this->MenuActionExport=this->Menu(L"Plugins\\Fbx\\Export",false);
+
+		this->loaded=true;
+	}
+}
+
+void Fbx::Unload()
+{
+	if(this->loaded)
+	{
+
+
+	}
+}
+
+void Fbx::OnMenuPressed(int iIdx)
+{
+	if(iIdx==MenuActionImport)
+		wprintf(L"fbx import pressed\n");
+	else if(iIdx==MenuActionExport)
+		wprintf(L"fbx export pressed\n");
+}
+
+PluginSystem::Plugin* GetPlugin(PluginSystem* tPluginSystem)
+{
+	allocatedPlugin=new Fbx;
+	return allocatedPlugin;
+}
+void DestroyPlugin()
+{
+	if(allocatedPlugin)
+	{
+		delete allocatedPlugin;
+		allocatedPlugin=0;
+	}
+}
 
 #include <map>
 
@@ -9,7 +59,7 @@
 
 #include <windows.h>
 
-#include "interfaces.h"
+
 
 FbxManager* fbxManager=0;
 const char* sceneFilename=0;
@@ -148,7 +198,7 @@ EditorEntity* acquireNodeStructure(FbxNode* fbxNode,EditorEntity* parent)
 		int i=0;
 		while(++bPtr!=end)i++;
 
-		entity->name=std::string(begin,i).c_str();
+		entity->name=StringUtils::ToWide(std::string(begin,i));
 
 		mapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(fbxNode,entity));
 	
@@ -163,8 +213,8 @@ EditorEntity* acquireNodeStructure(FbxNode* fbxNode,EditorEntity* parent)
 	if(entity)
 	{
 		
-		if(parent && !entity->name.Count())
-			entity->name=fbxNode->GetName();
+		if(parent && !entity->name.size())
+			entity->name=StringUtils::ToWide(fbxNode->GetName());
 
 		entity->local=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
 
@@ -377,7 +427,7 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 
 
 
-EditorEntity* ImportFbxScene(char* fname)
+EditorEntity* Fbx::Import(char* fname)
 {
 	rootNode=0;
 
@@ -763,9 +813,9 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 		const char* name=fbxfiletexture->GetName();
 
 		TextureFile* texture=new TextureFile;
-		texture->filename=fbxfiletexture->GetFileName();
+		texture->filename=StringUtils::ToWide(fbxfiletexture->GetFileName());
 
-		if(texture->load(texture->filename))
+		if(texture->load((char*)fbxfiletexture->GetFileName()))
 		{
 			printf("extracting texture %s %d,%d:%d\n",name,texture->GetWidth(),texture->GetHeight(),texture->GetBpp());
 		}
@@ -899,15 +949,25 @@ void GetSceneDetails(FbxScene* lScene)
 }
 
 /*
-BOOL WINAPI DllMain(
-	_In_ HINSTANCE hinstDLL,
-	_In_ DWORD     fdwReason,
-	_In_ LPVOID    lpvReserved
-	)
+BOOL WINAPI DllMain(HINSTANCE,DWORD fdwReason,LPVOID)
 {
-	if(fdwReason==DLL_PROCESS_ATTACH)
+	switch(fdwReason)
 	{
-		printf("fbximporter loaded\n");
-		return TRUE;
+		case DLL_PROCESS_ATTACH:
+			wprintf(L"fbximporter loaded\n");
+			return TRUE;
+		break;
+
+		default:
+			wprintf(L"fbximporter DllMain error\n");
 	}
+
+	return 1;
 }*/
+
+/*
+int main()
+{
+
+}*/
+

@@ -98,3 +98,5 @@ struct Renderer3DAndroid : Renderer3DBase
 	void draw(Gizmo*);
 	void draw(Script*);
 };
+
+

@@ -10,7 +10,6 @@
 	#include "fbxutil.h"
 #endif
 
-
 void ___saferelease(IUnknown* iPtr)
 {
 	if(0!=iPtr)
@@ -19,7 +18,6 @@ void ___saferelease(IUnknown* iPtr)
 		iPtr=0;
 	}
 }
-
 
 bool KeyboardInput::IsPressed(unsigned int iCharCode)
 {
@@ -94,7 +92,7 @@ DWORD WINAPI threadFunc(LPVOID data)
 
 	while(true)
 	{
-		TimerWin32::instance->update();
+		Ide::GetInstance()->timer->update();
 
 		for(std::list<Task*>::iterator taskIter=pThread->tasks.begin();taskIter!=pThread->tasks.end();)
 		{
@@ -125,6 +123,9 @@ DWORD WINAPI threadFunc(LPVOID data)
 		}
 
 		::Sleep(pThread->sleep);
+
+		if(pThread->exit)
+			break;
 	}
 
 
@@ -142,7 +143,10 @@ ThreadWin32::ThreadWin32()
 
 ThreadWin32::~ThreadWin32()
 {
-	TerminateThread((HANDLE)handle,0);
+	this->exit=true;
+
+	WaitForSingleObject(this->handle,INFINITE);
+	CloseHandle(this->handle);
 }
 
 ///////////////////////////////////////////////
@@ -650,8 +654,42 @@ ContainerWin32::ContainerWin32():
 TabWin32* ContainerWin32::CreateTabContainer(float x,float y,float w,float h)
 {
 	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd);
-	this->tabContainers.push_back(result);
 	return result;
+}
+
+TabWin32* ContainerWin32::CreateModalTabContainer(float w,float h)
+{
+	EnableWindow(this->windowDataWin32->hwnd,false);
+
+	RECT rect;
+	GetWindowRect(this->windowDataWin32->hwnd,&rect);
+
+	float x=rect.left+((rect.right-rect.left)/2.0f)-w/2.0f;
+	float y=rect.top+((rect.bottom-rect.top)/2.0f)-h/2.0f;
+
+	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd,false,false);
+
+	DWORD tLong=(DWORD)GetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE);
+
+	tLong ^= WS_CAPTION;
+
+	SetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE,(LONG)tLong);
+
+	SetParent(result->windowDataWin32->hwnd,0);
+
+	Tab::BroadcastToPoolSelecteds(&GuiRect::OnSize);
+	Tab::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
+
+	return result;
+}
+
+void ContainerWin32::DestroyTabContainer(Tab* tTab)
+{
+	DestroyWindow(((TabWin32*)tTab)->windowDataWin32->hwnd);
+
+	tTab->destroy=true;
+
+	EnableWindow(this->windowDataWin32->hwnd,true);
 }
 
 void ContainerWin32::OnSizing()
@@ -702,21 +740,37 @@ void ContainerWin32::OnSize()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-void MainContainerWin32::Init()
+void MainAppWindowWin32::Init()
 {
 	ContainerWin32* container=new ContainerWin32;
 
 	this->containers.push_back(container);
 
-	menuMain=CreateMenu();
-	menuEntities=CreateMenu();
+	HMENU menuMain=CreateMenu();
+	::InsertMenu(menuMain,0,MF_BYPOSITION,0,0);
 
-	InsertMenu(menuMain,0,MF_BYPOSITION|MF_POPUP,(UINT_PTR)menuEntities,L"Entities");
+	if(menuMain)
 	{
-		InsertMenu(menuEntities,0,MF_BYPOSITION|MF_STRING,MAINMENU_ENTITIES_IMPORTENTITY,L"Import...");
+		MENUINFO mi={0};
+
+		mi.cbSize=sizeof(MENUINFO);
+		mi.fMask=MIM_STYLE|MIM_APPLYTOSUBMENUS;
+		mi.dwStyle=MNS_NOTIFYBYPOS;
+
+		SetMenuInfo(menuMain,&mi);
 	}
 
 	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,menuMain,0,container);
+
+
+	this->MenuFile=this->Menu(L"File",true);
+	this->MenuActionExit=this->Menu(L"File\\Exit",false);
+	this->MenuBuild=this->Menu(L"Build",true);
+	this->MenuActionBuildPC=this->Menu(L"Build\\PC",false);
+	this->MenuPlugins=this->Menu(L"Plugins",true);
+	this->MenuActionConfigurePlugin=this->Menu(L"Plugins\\Configure",false);
+	this->MenuInfo=this->Menu(L"?",true);
+	this->MenuActionProgramInfo=this->Menu(L"?\\Info",false);
 
 	RECT rc;
 	GetClientRect(container->windowDataWin32->hwnd,&rc);
@@ -742,7 +796,7 @@ void MainContainerWin32::Init()
 
 
 
-ContainerWin32* MainContainerWin32::CreateContainer()
+ContainerWin32* MainAppWindowWin32::CreateContainer()
 {
 	ContainerWin32* rootContainer=(ContainerWin32*)this->containers[0];
 	ContainerWin32* container=new ContainerWin32;
@@ -754,8 +808,7 @@ ContainerWin32* MainContainerWin32::CreateContainer()
 	return container;
 }
 
-
-LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+LRESULT CALLBACK MainAppWindowWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 	ContainerWin32* mainw=(ContainerWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
@@ -811,40 +864,54 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 		case WM_KEYDOWN:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			break;
-		case WM_COMMAND:
+		break;
+		case WM_MENUCOMMAND:
+		{
+			int itemIdx=wparam;
+			HMENU hMenu=(HMENU)lparam;
+
+			MENUITEMINFO mii={0};
+			mii.cbSize=sizeof(MENUITEMINFO);
+			mii.fMask=MIIM_DATA|MIIM_ID;
+
+			if(GetMenuItemInfo(hMenu,itemIdx,true,&mii))
 			{
-				if(!HIWORD(wparam))//menu notification
+				MenuInterface* tMenuInterface=(MenuInterface*)mii.dwItemData;
+
+				if(tMenuInterface)
+					tMenuInterface->OnMenuPressed(mii.wID);
+			}
+		}
+		break;
+		/*case WM_COMMAND:
+			{
+				bool isMenuCommand=!HIWORD(wparam);
+				
+				if(isMenuCommand)
 				{
-					SetFocus(hwnd);
+					int menuId=LOWORD(wparam);
+					
+					HMENU tMenu=LoadMenu(GetModuleHandle(0),MAKEINTRESOURCE(menuId));
 
-					switch(LOWORD(wparam))
+					DWORD le=GetLastError();
+
+					if(tMenu)
 					{
-						case MAINMENU_ENTITIES_IMPORTENTITY:
+						MENUITEMINFO mii={0};
+						mii.cbSize=sizeof(MENUITEMINFO);
+						mii.fMask=MIIM_DATA;
+
+						if(GetMenuItemInfo(tMenu,menuId,false,&mii))
 						{
-							wchar_t charpretval[5000]={0};
+							MenuInterface* tMenuInterface=(MenuInterface*)mii.dwItemData;
 
-							OPENFILENAME openfilename={0};
-							openfilename.lStructSize=sizeof(OPENFILENAME);
-							openfilename.hwndOwner=hwnd;
-							openfilename.lpstrFilter=L"Fbx File Format (*.fbx)\0*.fbx\0\0";
-							openfilename.nFilterIndex=1;
-							openfilename.lpstrFile=charpretval;
-							openfilename.nMaxFile=5000;
-
-							if(GetOpenFileName(&openfilename) && openfilename.lpstrFile!=0)
-							{
-#ifdef USEFBX
-								EditorEntity* importedEntities=ImportFbxScene(openfilename.lpstrFile);
-								Tab::BroadcastToPool(&Tab::OnEntitiesChange,importedEntities);
-#endif
-							}
+							if(tMenuInterface)
+								tMenuInterface->OnMenuPressed(menuId);
 						}
-						break;
 					}
 				}
 			}
-		break;
+		break;*/
 		default:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 	}
@@ -883,9 +950,6 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnGuiSize();
 		break;
-		case WM_DESTROY:
-			wprintf(L"window %p of TabContainer %p destroyed\n",hwnd,tc);
-		break;
 		case WM_WINDOWPOSCHANGED:
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnWindowPosChanging();
@@ -897,7 +961,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 				InputManager::mouseInput.left=true;
 
 				unsigned int tOldTime=InputManager::mouseInput.lastLeft;
-				InputManager::mouseInput.lastLeft=Timer::instance->GetTime();
+				InputManager::mouseInput.lastLeft=Ide::GetInstance()->timer->GetTime();
 
 				if(tc->windowDataWin32->hwnd!=::GetFocus())
 					::SetFocus(tc->windowDataWin32->hwnd);
@@ -974,7 +1038,12 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		tc->windowDataWin32->msg=0;
 		tc->windowDataWin32->wparam;
 		tc->windowDataWin32->lparam=0;
+
+		if(tc->destroy)
+			SAFEDELETE(tc);
 	}
+
+	
 
 	return result;
 }
@@ -1129,8 +1198,8 @@ IdeWin32::IdeWin32():
 processThreadHandle(0),
 processHandle(0)
 {
-	this->timerMain=new TimerWin32;
-	this->mainAppWindow=new MainContainerWin32;
+	this->timer=new TimerWin32;
+	this->mainAppWindow=new MainAppWindowWin32;
 }
 
 int IdeWin32::Initialize()
@@ -1226,7 +1295,7 @@ int IdeWin32::Initialize()
 
 	this->stringEditor=new StringEditorWin32;
 
-	MainContainerWin32* mainAppWindowWin32=new MainContainerWin32;
+	MainAppWindowWin32* mainAppWindowWin32=new MainAppWindowWin32;
 
 	this->mainAppWindow=mainAppWindowWin32;
 
@@ -1235,7 +1304,10 @@ int IdeWin32::Initialize()
 
 	mainAppWindowWin32->Init();
 
-	
+	this->pluginSystem=new PluginSystemWin32;
+
+	this->pluginSystem->ScanPluginsDirectory();
+
 
 	return error;
 }
@@ -1269,7 +1341,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 	else
 		FindNextFile(tHandle,&tData);
 
-	int tEngineExtensionCharSize=Ide::instance->GetEntityExtension().size();
+	int tEngineExtensionCharSize=Ide::GetInstance()->GetEntityExtension().size();
 
 	File tFile;
 
@@ -1292,7 +1364,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 		tCreateNode=false;
 
-		if(wcsstr(tData.cFileName,Ide::instance->GetEntityExtension().c_str()))
+		if(wcsstr(tData.cFileName,Ide::GetInstance()->GetEntityExtension().c_str()))
 		{
 			//if filename not exists delete it
 
@@ -1324,7 +1396,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 		}
 		else
 		{
-			String engineFile = iDirectory + L"\\" + String(tData.cFileName) + Ide::instance->GetEntityExtension();
+			String engineFile = iDirectory + L"\\" + String(tData.cFileName) + Ide::GetInstance()->GetEntityExtension();
 
 			if(!PathFileExists(engineFile.c_str()))
 			{
@@ -3006,7 +3078,7 @@ void Renderer3DOpenGL::Render()
 	{
 		if(tabContainerWin32->BeginDraw())
 		{
-			(*vport)->OnPaint(GuiMsg(this->tabContainer,*vport));
+			(*vport)->OnPaint(GuiEvent(this->tabContainer,*vport));
 			tabContainerWin32->EndDraw();
 		}
 	}
@@ -3164,7 +3236,7 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 ///////////////////////////////////////////////
 
 
-TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
+TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool child,bool overlapped)
 	:Tab(iX,iY,iW,iH),
 	windowDataWin32((WindowDataWin32*&)windowData),
 	editorWindowContainerWin32((ContainerWin32*&)parentWindowContainer),
@@ -3172,7 +3244,12 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 {
 	windowData=new WindowDataWin32;
 
-	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,WS_CHILD|WS_VISIBLE|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
+	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
+
+	if(child)
+		tStyle=tStyle|WS_CHILD;
+
+	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
 
 	if(!this->windowDataWin32->hwnd)
 		DEBUG_BREAK();
@@ -3212,6 +3289,8 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow)
 	SAFEDELETE(tCreateOpenGLContext);
 
 	this->taskDraw=this->threadRender->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
+
+	ShowWindow(this->windowDataWin32->hwnd,true);
 }
 
 
@@ -3308,7 +3387,7 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	{
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,L"Delete");
 
-		if(iResourceNode->fileName.PointedExtension() == Ide::instance->GetSceneExtension())
+		if(iResourceNode->fileName.PointedExtension() == Ide::GetInstance()->GetSceneExtension())
 			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,L"Load");
 	}
 	else
@@ -3329,15 +3408,16 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 
 TabWin32::~TabWin32()
 {
-	if(this->renderer3D)
-		delete this->renderer3D;
+	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)0);
+
+	ThreadWin32* tThreadWin32=(ThreadWin32*)this->threadRender;
+
+	SAFEDELETE(tThreadWin32);
 
 	if(!this->windowDataWin32->FindAndGrowSibling())
 		this->windowDataWin32->UnlinkSibling();
 
-	this->parentWindowContainer->tabContainers.erase(std::find(parentWindowContainer->tabContainers.begin(),parentWindowContainer->tabContainers.end(),this));
-
-	DestroyWindow(this->windowDataWin32->hwnd);
+	
 }
 
 bool TabWin32::BeginDraw()
@@ -4055,7 +4135,7 @@ bool InitSplitter()
 		wc.cbSize=sizeof(WNDCLASSEX);
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
-		wc.lpfnWndProc=MainContainerWin32::MainWindowProcedure;
+		wc.lpfnWndProc=MainAppWindowWin32::MainWindowProcedure;
 		wc.hbrBackground=CreateSolidBrush(Renderer2D::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
@@ -4098,7 +4178,7 @@ bool InitSplitter()
 bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
 {
 	if(iPath==L"none")
-		iPath=Ide::instance->folderProject;
+		iPath=Ide::GetInstance()->folderProject;
 
 	STARTUPINFO si={0};
 	PROCESS_INFORMATION pi={0};
@@ -4182,12 +4262,12 @@ unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThread
 
 String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
 {
-	CompilerWin32*		icplr=(CompilerWin32*)Ide::instance->compiler;
+	CompilerWin32*		icplr=(CompilerWin32*)Ide::GetInstance()->compiler;
 	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
 
     String tOutputModule=iScript->module + L"\\" + iScript->file.Name() + L".dll ";
-	String tScriptSource=Ide::instance->folderProject + L"\\" + iScript->file.File();
-	String tIdeSourcePath=Ide::instance->compiler->ideSrcPath +  L" ";
+	String tScriptSource=Ide::GetInstance()->folderProject + L"\\" + iScript->file.File();
+	String tIdeSourcePath=Ide::GetInstance()->compiler->ideSrcPath +  L" ";
 	String tEngineLibrary=icplr->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
 	String tKernelLib=L" -lkernel32";
 
@@ -4281,7 +4361,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	File tScriptFile(iScript->file);
 
 	String tSourceFileContent=StringUtils::ReadCharFile(iScript->file);
-	File tCompilerTextOutput=Ide::instance->folderAppData + L"\\error.output";
+	File tCompilerTextOutput=Ide::GetInstance()->folderAppData + L"\\error.output";
 
 
 	//delete error.output
@@ -4295,7 +4375,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	//create random directory for the module if not exist yet
 
 	if(iScript->module.empty())
-		iScript->module=gfCreateRandomDir(Ide::instance->folderAppData);
+		iScript->module=gfCreateRandomDir(Ide::GetInstance()->folderAppData);
 
 	//append exports to source
 
@@ -4317,7 +4397,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
+	bool tExecuteWithSuccess=Ide::GetInstance()->subsystem->Execute(iScript->module,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4345,7 +4425,7 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	String tParseLineAddressesCommandLine=L"objdump --dwarf=decodedline " + tSharedObjectFileName + L" | find \""+ tSharedObjectSourceName + L"\" | find /V \":\"";
 
-	tExecuteWithSuccess=Ide::instance->subsystem->Execute(iScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	tExecuteWithSuccess=Ide::GetInstance()->subsystem->Execute(iScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
@@ -4374,7 +4454,7 @@ bool CompilerWin32::Compile(Script* iScript)
 				tLineAddress.script=iScript;
 
 
-				Ide::instance->debugger->allAvailableBreakpoints.push_back(tLineAddress);
+				Ide::GetInstance()->debugger->allAvailableBreakpoints.push_back(tLineAddress);
 			}
 		}
 
@@ -4452,7 +4532,7 @@ bool CompilerWin32::LoadScript(Script* iScript)
 		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->entity;
 
-		Ide::instance->debugger->RunDebuggeeFunction(iScript,0);
+		Ide::GetInstance()->debugger->RunDebuggeeFunction(iScript,0);
 
 		return true;
 	}
@@ -4485,7 +4565,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 			return false;
 
 		//iScript->runtime->deinit();
-		Ide::instance->debugger->RunDebuggeeFunction(iScript,2);
+		Ide::GetInstance()->debugger->RunDebuggeeFunction(iScript,2);
 
 		if(!FreeLibrary(*tModule))
 			return false;
@@ -4519,62 +4599,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 	return true;
 }
 
-
-void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources)
-{
-	//store current dir
-
-	if(iResDir->parent)
-	{
-		iCurrentDirectory+=iResDir->fileName.c_str();
-		iCurrentDirectory+=L"\\";
-	}
-
-	//if node contains files, process them, later process other dir nodes
-
-	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
-	{
-		File	tDataFile(Ide::instance->folderProject + iCurrentDirectory + (*tResFile)->fileName);
-		int		tDataFileStart;
-		size_t	tDataFileSize;
-		String	tFinalFileName;
-
-		if(tDataFile.path.Extension()==L"cpp")
-        {
-            //add sources to vector, later we'll build
-            iCollectSources.push_back(tDataFile.path);
-        }
-        else
-        {
-            tDataFileSize=tDataFile.Size();
-
-            if(tDataFile.Open())
-            {
-                tDataFileStart=ftell(iPackFile.data);
-
-                if(tDataFileSize)
-                {
-                    unsigned char* tDataFileData=new unsigned char[tDataFileSize];
-                    fread(tDataFileData,tDataFileSize,1,tDataFile.data);
-                    fwrite(tDataFileData,tDataFileSize,1,iPackFile.data);
-                    SAFEDELETEARRAY(tDataFileData);
-                }
-
-                tDataFile.Close();
-            }
-            else
-                DEBUG_BREAK();
-
-            tFinalFileName=iCurrentDirectory + tDataFile.path.File();
-
-            fwprintf(iTableFile.data,L"%s %d %d\n",tFinalFileName.c_str(),tDataFileStart,tDataFileSize);
-        }
-	}
-
-	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
-		gPackNonScriptResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
-}
-
+/*
 bool CompilerWin32::CreateAndroidTarget()
 {
     String tApkname=L"Engine";
@@ -4585,7 +4610,7 @@ bool CompilerWin32::CreateAndroidTarget()
     String tAndroidBuildTool=L"build-tools\\27.0.3";
     String tAndroidDebugBridge=L"c:\\adb\\adb.exe";
 
-	String tAndroidOutputDirectory=Ide::instance->folderProject.PathUp(1) + L"\\android";
+	String tAndroidOutputDirectory=Ide::GetInstance()->folderProject.PathUp(1) + L"\\android";
 	String tAndroidProjectDirectory=tAndroidOutputDirectory + L"\\project";
 	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + L"\\jni";
 	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + L"\\assets";
@@ -4650,12 +4675,12 @@ bool CompilerWin32::CreateAndroidTarget()
     {
         tAndroidMk+=L"include $(CLEAR_VARS)\n"
                     L"DSTDIR := " + tAndroidProjectDirectory + L"\n"
-                    L"LOCAL_C_INCLUDES := " + Ide::instance->compiler->ideSrcPath + L"\n"
+                    L"LOCAL_C_INCLUDES := " + Ide::GetInstance()->compiler->ideSrcPath + L"\n"
                     //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
                     L"LOCAL_MODULE := " + ((FilePath)(*si)).Name() + L"\n"
                     L"LOCAL_SRC_FILES := " + (*si) + L"\n"
                     L"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-                    L"LOCAL_LDLIBS := -L" + Ide::instance->compiler->ideLibPath + L" -lEngine -llog\n"
+                    L"LOCAL_LDLIBS := -L" + Ide::GetInstance()->compiler->ideLibPath + L" -lEngine -llog\n"
                     L"include $(BUILD_SHARED_LIBRARY)\n\n";
     }
 
@@ -4732,7 +4757,7 @@ bool CompilerWin32::CreateAndroidTarget()
 
 	//build the native code
 
-    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
+    Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
 
 	//unroll exports (rewrite original script file)
 
@@ -4780,7 +4805,7 @@ bool CompilerWin32::CreateAndroidTarget()
     String tBuildApk=   L"@echo off\n"
                         L"set PLATFORM=" + tAndroidSdkDir + L"\\" + tAndroidPlatform + L"\n"
                         L"set BUILDTOOL=" + tAndroidSdkDir + L"\\" + tAndroidBuildTool + L"\n"
-                        L"set LIBDIR=" + Ide::instance->compiler->ideLibPath + L"\n"
+                        L"set LIBDIR=" + Ide::GetInstance()->compiler->ideLibPath + L"\n"
                         L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
                         L"set ADB=" + tAndroidDebugBridge + L"\n"
                         L"set KEYSTORE=" + tKeyname + L"\n"
@@ -4824,11 +4849,12 @@ bool CompilerWin32::CreateAndroidTarget()
 
     StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\buildapk.bat",tBuildApk);
 
-    Ide::instance->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
+    Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
 
 
 	return true;
 }
+*/
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4990,7 +5016,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 
 LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 {
-	DebuggerWin32* debuggerWin32=(DebuggerWin32*)IdeWin32::instance->debugger;
+	DebuggerWin32* debuggerWin32=(DebuggerWin32*)Ide::GetInstance()->debugger;
 
 	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
 }
@@ -5146,7 +5172,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 		{
 			Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
 
-			this->lastBlinkTime=Timer::instance->GetTime()+this->blinkingRate;
+			this->lastBlinkTime=Ide::GetInstance()->timer->GetTime()+this->blinkingRate;
 			this->blinking=true;
 
 			SAFERELEASE(this->background);
@@ -5172,7 +5198,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 			this->recalcBackground=false;
 		}
 
-		if(this->string && this->background && (Timer::instance->GetTime()-this->lastBlinkTime > this->blinkingRate))
+		if(this->string && this->background && (Ide::GetInstance()->timer->GetTime()-this->lastBlinkTime > this->blinkingRate))
 		{
 			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
 
@@ -5186,25 +5212,201 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 				renderer2DWin32->tabContainer->EndDraw();
 			}
 
-			this->lastBlinkTime=Timer::instance->GetTime();
+			this->lastBlinkTime=Ide::GetInstance()->timer->GetTime();
 			this->blinking=!this->blinking;
 		}
 	}
 }
 
-/*
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////PluginSystemWin32/////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+PluginSystemWin32::PluginSystemWin32()
+{
+}
+
+void PluginSystemWin32::ScanPluginsDirectory()
+{
+	PluginSystem::Plugin* (*ptfGetPluginPrototypeFunction)(PluginSystem*)=0;
+
+	HANDLE			tScanHandle;
+	WIN32_FIND_DATA tScanResult;
+	DWORD			terr=0;
+	HMODULE			tPluginDll=0;
+
+	Plugin*			tPlugin=0;
+
+	String tTargetDir=FilePath(Ide::GetInstance()->pathExecutable).Path() + L"\\plugins\\*";
+
+	tScanHandle=FindFirstFile(tTargetDir.c_str(),&tScanResult); //. dir
+
+	if(!tScanHandle || INVALID_HANDLE_VALUE == tScanHandle)
+	{
+		DEBUG_BREAK();
+		return;
+	}
+	else
+		FindNextFile(tScanHandle,&tScanResult);
+
+	while(FindNextFile(tScanHandle,&tScanResult))
+	{
+		if(tScanResult.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+			continue;
+
+		String tFilename=FilePath(tTargetDir).PathUp(1) + L"\\" + tScanResult.cFileName;
+
+		SetDllDirectory(FilePath(tTargetDir).PathUp(1).c_str());
+
+		tPluginDll=LoadLibrary(tFilename.c_str());
+
+		terr=GetLastError();
+
+		if(tPluginDll)
+		{
+			ptfGetPluginPrototypeFunction=(PluginSystem::Plugin* (*)(PluginSystem*))GetProcAddress(tPluginDll,"GetPlugin");
+
+			if(ptfGetPluginPrototypeFunction)
+			{
+				tPlugin=ptfGetPluginPrototypeFunction(this);
+
+				if(tPlugin)
+				{
+					this->tPluginDlls.push_back(tPluginDll);
+					this->plugins.push_back(tPlugin);
+
+					wprintf(L"%s plugin loaded\n",tPlugin->name.c_str());
+				}
+			}
+
+			if(!ptfGetPluginPrototypeFunction || !tPlugin)
+				FreeLibrary(tPluginDll);
+		}
+	}
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////MenuInterface/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+static int ____MenuInterfaceIds=0;
+
+int DLLBUILD GetMenuId()
+{
+	return ____MenuInterfaceIds;
+}
+
+int DLLBUILD IncrementMenuId()
+{
+	return ____MenuInterfaceIds++;
+}
+
+int MenuInterface::GetMenuId()
+{
+	return ::GetMenuId();
+}
+
+int MenuInterface::IncrementMenuId()
+{
+	return ::IncrementMenuId();
+}
+
+int MenuInterface::Menu(String iName,bool tPopup)
+{
+	HMENU tMenu=GetMenu(((ContainerWin32*)Ide::GetInstance()->mainAppWindow->containers[0])->windowDataWin32->hwnd);
+
+	wchar_t*  tBase=&iName[0];
+	wchar_t* tBegin=tBase;
+	wchar_t* tEnd=0;
+
+	int tItemId=-1;
+
+	while(tBegin)
+	{
+		tEnd=wcsstr(tBegin,L"\\");
+
+		size_t pos=tBegin-tBase;
+		size_t len=tEnd-tBegin;
+		std::wstring searchMenu=iName.substr(pos,tEnd ? len : std::wstring::npos);	
+		int menuIdx=0;
+
+		wchar_t menuName[CHAR_MAX]={0};
+		bool found=false;
+
+		while(GetMenuString(tMenu,menuIdx,menuName,CHAR_MAX,MF_BYPOSITION))
+		{
+			if(searchMenu==menuName)
+			{
+				tMenu=GetSubMenu(tMenu,menuIdx);
+				found=true;
+			}
+
+			menuIdx++;
+		}
+
+		wchar_t* tNextMenuNameExists=wcsstr(tBegin,L"\\");
+
+		if(!found && !tNextMenuNameExists)
+		{
+			if(!menuName[0])
+			{
+				HMENU tNewMenu=tPopup ? CreatePopupMenu() : 0;
+
+				MENUITEMINFO mitem={0};
+
+				mitem.cbSize=sizeof(MENUITEMINFO);
+				mitem.fMask=MIIM_DATA|MIIM_TYPE|MIIM_SUBMENU;
+				mitem.fType=MFT_STRING;
+				mitem.dwItemData=(ULONG_PTR)this;
+				mitem.dwTypeData=(wchar_t*)searchMenu.c_str();
+				mitem.cch=searchMenu.size();
+				mitem.hSubMenu=tNewMenu;
+				mitem.fMask|=MIIM_ID;
+				mitem.wID=tItemId=this->IncrementMenuId();
+
+				::InsertMenuItem(tMenu,menuIdx,true,&mitem);
+			}
+		}
+
+		tBegin = tEnd ? tEnd+1 : 0;
+	}
+
+	return tItemId;
+}
+
+
+
+
+
+int _DLL_PROCESS_ATTACH=0;
+int _DLL_PROCESS_DETACH=0;
+int _DLL_THREAD_ATTACH=0;
+int _DLL_THREAD_DETACH=0;
+int _DLL_THREAD_ERROR=0;
+
 BOOL DllMain(HINSTANCE,DWORD iReason,LPVOID)
 {
-    wprintf(L"DllMain\n");
+	wprintf(L"\nWIN32DLLMAIN:");
+
+	BOOL retVal=FALSE;
 
     switch(iReason)
     {
-        case 0:break; //process detach
-        case 1:break; //process attach
-        case 2:break; //thread attach
-        case 3:break; //thread detach
+		case DLL_PROCESS_ATTACH:wprintf(L"DLL_PROCESS_ATTACH %d:",++_DLL_PROCESS_ATTACH);retVal=TRUE;break;
+		case DLL_PROCESS_DETACH:wprintf(L"DLL_PROCESS_DETACH %d:",++_DLL_PROCESS_DETACH);retVal=TRUE;break;
+		case DLL_THREAD_ATTACH:wprintf(L"DLL_THREAD_ATTACH %d:",++_DLL_THREAD_ATTACH);retVal=TRUE;break;
+        case DLL_THREAD_DETACH:wprintf(L"DLL_THREAD_DETACH %d:",++_DLL_THREAD_DETACH);retVal=TRUE;break;
+
+		default:
+			wprintf(L"DLL_THREAD_ERROR %d:",++_DLL_THREAD_ERROR);retVal=FALSE;
     }
 
-    return 1;
+	wprintf(L"\n");
+
+    return retVal;
 }
-*/
+

@@ -519,3 +519,5 @@ bool AnimationTake(FbxAnimLayer* pAnimLayer,FbxNode* pNode,Animation* animation,
 #endif
 	return true;
 }
+
+
