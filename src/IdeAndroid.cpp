@@ -53,50 +53,35 @@ void ptfExitBuild(void* tData)
 	tCompilerAndroid.Compile();
 }
 
+void gCreateStringPropertyEditable(GuiPanel* iPanel,String iLabel,String* iRef)
+{
+	GuiPropertyString* pProp=new GuiPropertyString(iLabel,iRef,GuiPropertyString::STRING);
+	pProp->SetEdges(0,iPanel->childs.size() ? &iPanel->childs.back()->edges.w : 0,0,0);
+	pProp->SetParent(iPanel);		
+	pProp->value.canEdit=true;
+}
+
 void AndroidPlugin::ShowConfigurationPanel()
 {
 	this->configurationPanel=Ide::GetInstance()->mainAppWindow->containers[0]->CreateModalTabContainer(500,300);
 
 	GuiPanel* tPanel=this->configurationPanel->rects.Panel();
+	//tPanel->offsets.w=-30;
 
 	tPanel->name=L"Android Builder";
 
-	//strings property
-	GuiPropertyString* pApkName=new GuiPropertyString(L"Apk Name",&this->Apkname,GuiPropertyString::STRING);
-						pApkName->SetParent(tPanel);																	
-	GuiPropertyString* pKeyname=new GuiPropertyString(L"Key Name",&this->Keyname,GuiPropertyString::STRING);
-						pKeyname->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pKeyname->SetParent(tPanel);
-	GuiPropertyString* pAndroidSdkDir=new GuiPropertyString(L"SdkDir",&this->AndroidSdkDir,GuiPropertyString::STRING);
-	pAndroidSdkDir->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pAndroidSdkDir->SetParent(tPanel);
-	GuiPropertyString* pAndroidPlatform=new GuiPropertyString(L"Platform",&this->AndroidPlatform,GuiPropertyString::STRING);
-						pAndroidPlatform->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pAndroidPlatform->SetParent(tPanel);
-	GuiPropertyString* pAndroidBuildTool=new GuiPropertyString(L"Build Tool",&this->AndroidBuildTool,GuiPropertyString::STRING);
-						pAndroidBuildTool->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pAndroidBuildTool->SetParent(tPanel);
-	GuiPropertyString* pAndroidDebugBridge=new GuiPropertyString(L"ADB",&this->AndroidDebugBridge,GuiPropertyString::STRING);
-	pAndroidDebugBridge->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-	pAndroidDebugBridge->SetParent(tPanel);
-	GuiPropertyString* pAndroidOutputDirectory=new GuiPropertyString(L"Output Dir",&this->AndroidOutputDirectory,GuiPropertyString::STRING);
-						pAndroidOutputDirectory->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pAndroidOutputDirectory->SetParent(tPanel);
-	GuiPropertyString* pAndroidProjectDirectory=new GuiPropertyString(L"Project Dir",&this->AndroidProjectDirectory,GuiPropertyString::STRING);
-	pAndroidProjectDirectory->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-	pAndroidProjectDirectory->SetParent(tPanel);
-	GuiPropertyString* pAndroidProjectJniDirectory=new GuiPropertyString(L"Jni Dir",&this->AndroidProjectJniDirectory,GuiPropertyString::STRING);
-	pAndroidProjectJniDirectory->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-	pAndroidProjectJniDirectory->SetParent(tPanel);
-	GuiPropertyString* pAndroidProjectAssetDirectory=new GuiPropertyString(L"Asset Dir",&this->AndroidProjectAssetDirectory,GuiPropertyString::STRING);
-	pAndroidProjectAssetDirectory->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-	pAndroidProjectAssetDirectory->SetParent(tPanel);
-	GuiPropertyString* pAndroidProjectResDirectory=new GuiPropertyString(L"Res Directory",&this->AndroidProjectResDirectory,GuiPropertyString::STRING);
-						pAndroidProjectResDirectory->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pAndroidProjectResDirectory->SetParent(tPanel);
-	GuiPropertyString* pAndroidProjectLibsDirectory=new GuiPropertyString(L"Libs Dir",&this->AndroidProjectLibsDirectory,GuiPropertyString::STRING);
-						pAndroidProjectLibsDirectory->SetEdges(0,&tPanel->childs.back()->edges.w,0,0);
-						pAndroidProjectLibsDirectory->SetParent(tPanel);
+	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname);															
+	gCreateStringPropertyEditable(tPanel,L"Key Name",&this->Keyname);
+	gCreateStringPropertyEditable(tPanel,L"SdkDir",&this->AndroidSdkDir);
+	gCreateStringPropertyEditable(tPanel,L"Platform",&this->AndroidPlatform);
+	gCreateStringPropertyEditable(tPanel,L"Build Tool",&this->AndroidBuildTool);
+	gCreateStringPropertyEditable(tPanel,L"ADB",&this->AndroidDebugBridge);
+	gCreateStringPropertyEditable(tPanel,L"Output Dir",&this->AndroidOutputDirectory);
+	gCreateStringPropertyEditable(tPanel,L"Project Dir",&this->AndroidProjectDirectory);
+	gCreateStringPropertyEditable(tPanel,L"Jni Dir",&this->AndroidProjectJniDirectory);
+	gCreateStringPropertyEditable(tPanel,L"Asset Dir",&this->AndroidProjectAssetDirectory);
+	gCreateStringPropertyEditable(tPanel,L"Res Directory",&this->AndroidProjectResDirectory);
+	gCreateStringPropertyEditable(tPanel,L"Libs Dir",&this->AndroidProjectLibsDirectory);
 
 	//buttons
 

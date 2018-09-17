@@ -631,19 +631,19 @@ StringEditor::StringEditor():
 	recalcBackground(false)
 {}
 
-void StringEditor::Bind(GuiString* iString,Cursor* iCursor)
+void StringEditor::Bind(GuiString* iString)
 {
 	this->string=iString;
-	this->tab=iString->GetRootRect()->tabContainer;
-	this->cursor=iCursor;
 
-	if(!this->cursor)
-		this->cursor=new Cursor;
+	this->tab=this->string->GetRootRect()->tabContainer;
 
-	if(!this->cursor->cursor)
-		this->cursor->cursor=iString->text->c_str();
+	if(!this->string->cursor)
+	{
+		this->string->cursor=new Cursor;
+		this->string->cursor->cursor=iString->text->c_str();
 
-	this->EditText(CARET_RECALC,0);
+		this->EditText(CARET_RECALC,0);
+	}
 }
 
 void StringEditor::Enable(bool iEnable)
@@ -654,7 +654,7 @@ void StringEditor::Enable(bool iEnable)
 
 bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 {
-	float tFontHeight=tab->renderer2D->GetFontHeight();
+	float iFontHeight=this->tab->renderer2D->GetFontHeight();
 
 	bool tMustResize=false;
 
@@ -667,17 +667,17 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 			bool tCarriageReturn=false;
 			int tCharWidth=0;
 
-			this->cursor->caret=vec4(this->string->textEdges.x,this->string->textEdges.y,0,tFontHeight);
+			this->string->cursor->caret=vec4(this->string->textEdges.x,this->string->textEdges.y,0,iFontHeight);
 
 			while(*pText)
 			{
 				if(tCarriageReturn)
 				{
-					this->cursor->caret.x=0;
-					this->cursor->caret.y+=tFontHeight;
+					this->string->cursor->caret.x=0;
+					this->string->cursor->caret.y+=iFontHeight;
 					
-					this->cursor->rowcol.x+=1;
-					this->cursor->rowcol.y=0;
+					this->string->cursor->rowcol.x+=1;
+					this->string->cursor->rowcol.y=0;
 
 					tCarriageReturn=false;
 				}
@@ -687,13 +687,13 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				if(*pText=='\n' ||  *pText=='\r')
 					tCarriageReturn=true;
 
-				this->cursor->caret.z=tCharWidth;
+				this->string->cursor->caret.z=tCharWidth;
 
-				if(pText==this->cursor->cursor)
+				if(pText==this->string->cursor->cursor)
 					break;
 
-				this->cursor->caret.x+=tCharWidth;
-				this->cursor->rowcol.y+=1;
+				this->string->cursor->caret.x+=tCharWidth;
+				this->string->cursor->rowcol.y+=1;
 
 				pText++;
 			}
@@ -702,10 +702,10 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 		}
 		case CARET_CANCEL:
 		{
-			if(this->string->text->empty() || this->cursor->cursor==&this->string->text->back())
+			if(this->string->text->empty() || this->string->cursor->cursor==&this->string->text->back())
 				return false;
 
-			std::wstring::iterator sIt=this->string->text->begin()+this->cursor->rowcol.y;
+			std::wstring::iterator sIt=this->string->text->begin()+this->string->cursor->rowcol.y;
 
 			if(sIt!=this->string->text->end())
 				this->string->text->erase(sIt);
@@ -714,15 +714,15 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 		}
 		case CARET_BACKSPACE:
 		{
-			if(this->cursor->cursor==this->string->text->c_str())
+			if(this->string->cursor->cursor==this->string->text->c_str())
 				return false;
 
-			char tCharCode=*(--this->cursor->cursor);
+			char tCharCode=*(--this->string->cursor->cursor);
 
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
 				//find previous row length
-				const wchar_t*	pText=this->cursor->cursor-1;
+				const wchar_t*	pText=this->string->cursor->cursor-1;
 				unsigned int	tRowCharsWidth=0;
 				unsigned int    tRowCharCount=0;
 
@@ -738,20 +738,20 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 				}
 
-				this->cursor->caret.x=tRowCharsWidth;
-				this->cursor->caret.y-=tFontHeight;
-				this->cursor->rowcol.x--;
-				this->cursor->rowcol.y=tRowCharCount;
+				this->string->cursor->caret.x=tRowCharsWidth;
+				this->string->cursor->caret.y-=iFontHeight;
+				this->string->cursor->rowcol.x--;
+				this->string->cursor->rowcol.y=tRowCharCount;
 
 				tMustResize=true;
 			}
 			else
 			{
-				this->cursor->caret.x-=tab->renderer2D->GetCharWidth(tCharCode);
-				this->cursor->rowcol.y--;
+				this->string->cursor->caret.x-=tab->renderer2D->GetCharWidth(tCharCode);
+				this->string->cursor->rowcol.y--;
 			}
 
-			this->string->text->erase(this->cursor->cursor-this->string->text->c_str(),1);
+			this->string->text->erase(this->string->cursor->cursor-this->string->text->c_str(),1);
 
 			break;
 		}
@@ -763,35 +763,35 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			if(tCharcode=='\n' || tCharcode=='\r')
 			{
-				this->cursor->caret.x=0;
-				this->cursor->caret.y+=tFontHeight;
-				this->cursor->rowcol.x++;
-				this->cursor->rowcol.y=0;
+				this->string->cursor->caret.x=0;
+				this->string->cursor->caret.y+=iFontHeight;
+				this->string->cursor->rowcol.x++;
+				this->string->cursor->rowcol.y=0;
 				tMustResize=true;
 			}
 			else
 			{
-				this->cursor->caret.x+=tab->renderer2D->GetCharWidth(tCharcode);
-				this->cursor->rowcol.y++;
+				this->string->cursor->caret.x+=tab->renderer2D->GetCharWidth(tCharcode);
+				this->string->cursor->rowcol.y++;
 			}
 
-			size_t tPosition=this->cursor->cursor-this->string->text->c_str();
+			size_t tPosition=this->string->cursor->cursor-this->string->text->c_str();
 
 			this->string->text->insert(tPosition,1,tCharcode);
-			this->cursor->cursor=this->string->text->c_str()+tPosition+1;
+			this->string->cursor->cursor=this->string->text->c_str()+tPosition+1;
 
 			break;
 		}
 		case CARET_ARROWLEFT:
 		{
-			if(this->cursor->cursor==this->string->text->c_str())
+			if(this->string->cursor->cursor==this->string->text->c_str())
 				return false;
 
-			char tCharCode=*(--this->cursor->cursor);
+			char tCharCode=*(--this->string->cursor->cursor);
 
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
-				const wchar_t*	pText=this->cursor->cursor;
+				const wchar_t*	pText=this->string->cursor->cursor;
 				unsigned int	tRowLenght=0;
 				unsigned int    tRowCharCount=0;
 
@@ -799,7 +799,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 				while(true)
 				{
-					if(this->cursor->cursor!=pText && (*pText=='\n' || *pText=='\r'))
+					if(this->string->cursor->cursor!=pText && (*pText=='\n' || *pText=='\r'))
 						break;
 
 					tRowLenght+=tab->renderer2D->GetCharWidth(*pText);
@@ -811,40 +811,40 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 					tRowCharCount++;
 				}
 
-				this->cursor->caret.x=tRowLenght;
-				this->cursor->caret.y-=tFontHeight;
-				this->cursor->rowcol.x--;
-				this->cursor->rowcol.y=tRowCharCount;
+				this->string->cursor->caret.x=tRowLenght;
+				this->string->cursor->caret.y-=iFontHeight;
+				this->string->cursor->rowcol.x--;
+				this->string->cursor->rowcol.y=tRowCharCount;
 			}
 			else
 			{
-				this->cursor->caret.x-=tab->renderer2D->GetCharWidth(tCharCode);
-				this->cursor->rowcol.y--;
+				this->string->cursor->caret.x-=tab->renderer2D->GetCharWidth(tCharCode);
+				this->string->cursor->rowcol.y--;
 			}
 
 			break;
 		}
 		case CARET_ARROWRIGHT:
 		{
-			char tCharCode=*this->cursor->cursor;
+			char tCharCode=*this->string->cursor->cursor;
 
 			if(tCharCode=='\0')
 				break;
 
 			if(tCharCode=='\n' || tCharCode=='\r')
 			{
-				this->cursor->caret.x=0;
-				this->cursor->caret.y+=tFontHeight;
-				this->cursor->rowcol.x++;
-				this->cursor->rowcol.y=0;
+				this->string->cursor->caret.x=0;
+				this->string->cursor->caret.y+=iFontHeight;
+				this->string->cursor->rowcol.x++;
+				this->string->cursor->rowcol.y=0;
 			}
 			else
 			{
-				this->cursor->caret.x+=tab->renderer2D->GetCharWidth(tCharCode);
-				this->cursor->rowcol.y++;
+				this->string->cursor->caret.x+=tab->renderer2D->GetCharWidth(tCharCode);
+				this->string->cursor->rowcol.y++;
 			}
 
-			this->cursor->cursor++;
+			this->string->cursor->cursor++;
 
 			break;
 		}
@@ -855,7 +855,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			//---find current rowhead
 
-			const wchar_t* pText=this->cursor->cursor;
+			const wchar_t* pText=this->string->cursor->cursor;
 
 			//skip the tail of the current row if present
 			if(*pText=='\r' || *pText=='\n')
@@ -881,7 +881,7 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				pText++;
 
 			//finally found the upper matching position
-			while( tColumn!=this->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			while( tColumn!=this->string->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
 				tRowCharWidth+=tab->renderer2D->GetCharWidth(*pText);
 
@@ -889,11 +889,11 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				tColumn++;
 			}
 
-			this->cursor->cursor=pText;
-			this->cursor->caret.x=tRowCharWidth;
-			this->cursor->caret.y-=tFontHeight;
-			this->cursor->rowcol.y=tColumn;
-			this->cursor->rowcol.x--;
+			this->string->cursor->cursor=pText;
+			this->string->cursor->caret.x=tRowCharWidth;
+			this->string->cursor->caret.y-=iFontHeight;
+			this->string->cursor->rowcol.y=tColumn;
+			this->string->cursor->rowcol.x--;
 
 			break;
 		}
@@ -904,11 +904,11 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			//find current rowtail
 
-			const wchar_t* pText=this->cursor->cursor;
+			const wchar_t* pText=this->string->cursor->cursor;
 
 			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
-				this->cursor->cursor++;
+				this->string->cursor->cursor++;
 				pText++;
 			}
 
@@ -916,26 +916,26 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				return false; //no previous row exists
 
 			pText++;
-			this->cursor->cursor++;
+			this->string->cursor->cursor++;
 
 			//finally found the lower matching position
 
-			while( tColumn!=this->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			while( tColumn!=this->string->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
 				tRowCharWidth+=tab->renderer2D->GetCharWidth(*pText);
 
 				pText++;
-				this->cursor->cursor++;
+				this->string->cursor->cursor++;
 				tColumn++;
 			}
 
-			/*if(tColumn!=this->cursor->rowcol.y)//string is shorter of the lower matching position
+			/*if(tColumn!=this->string->cursor->rowcol.y)//string is shorter of the lower matching position
 				tRowCharWidth*/
 
-			this->cursor->caret.x=tRowCharWidth;
-			this->cursor->caret.y+=tFontHeight;
-			this->cursor->rowcol.y=tColumn;
-			this->cursor->rowcol.x++;
+			this->string->cursor->caret.x=tRowCharWidth;
+			this->string->cursor->caret.y+=iFontHeight;
+			this->string->cursor->rowcol.y=tColumn;
+			this->string->cursor->rowcol.x++;
 
 			break;
 		}
@@ -946,7 +946,9 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 	this->recalcBackground=true;
 
-	//wprintf(L"cursor: %d,col: %d\n",this->cursor->cursor-this->string->text->c_str(),this->cursor->rowcol.y);
+	this->tab->renderer2D->SetCaretPos(this->string->cursor->caret.x,this->string->cursor->caret.y);
+
+	//wprintf(L"cursor: %d,col: %d\n",this->string->cursor->cursor-this->string->text->c_str(),this->string->cursor->rowcol.y);
 }
 
 ///////////////////////////////////////////////
@@ -1181,7 +1183,7 @@ void GuiRect::SetParent(GuiRect* iParent)
 	this->active=iParent ? iParent->active : 0;
 }
 
-void GuiRect::CalcRect()
+void GuiRect::OnSizePre()
 {
 	Edges &re=this->refedges;
 	vec4  &o=this->offsets;
@@ -1227,6 +1229,20 @@ void GuiRect::CalcRect()
 
 	e.make(tLeft,tTop,tLeft+tWidth,tTop+tHeight);
 	r.make(tLeft,tTop,tWidth,tHeight);
+
+	this->content.make(e.z,e.w);
+}
+
+void GuiRect::OnSizePost()
+{
+	if(this->parent)
+	{
+		if(this->edges.z>this->parent->edges.z)
+			this->parent->content.x=this->edges.z;
+
+		if(this->edges.w>this->parent->edges.w)
+			this->parent->content.y=this->edges.w;
+	}
 }
 
 
@@ -1335,8 +1351,9 @@ void GuiRect::OnPaint(const GuiEvent& iMsg)
 
 void GuiRect::OnSize(const GuiEvent& iMsg)
 {
-	this->CalcRect();
+	this->OnSizePre();
 	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
+	this->OnSizePost();
 }
 
 void GuiRect::OnLMouseDown(const GuiEvent& iMsg)
@@ -1695,13 +1712,13 @@ EditorEntity::EditorEntity():
 	expanded(false),
 	level(0)
 {
-	this->entityViewerRootPropertyRect.name=L"EntityRootProperties";
-	this->entityViewerRootPropertyRect.SetStringMode(this->Entity::name,true);
-	this->entityViewerRootPropertyRect.userData=this;
-	this->entityViewerRootPropertyRect.state=true;
+	this->entityViewerProperties.name=L"EntityRootProperties";
+	this->entityViewerProperties.SetStringMode(this->Entity::name,true);
+	this->entityViewerProperties.userData=this;
+	this->entityViewerProperties.state=true;
 
-	this->sceneViewerPropertyRect.SetStringMode(this->Entity::name,true);
-	this->sceneViewerPropertyRect.userData=this;
+	this->sceneViewerLabel.SetStringMode(this->Entity::name,true);
+	this->sceneViewerLabel.userData=this;
 }
 
 void EditorEntity::SetParent(Entity* iParent)
@@ -1756,7 +1773,14 @@ GuiContainer::GuiContainer():state(false)
 	this->fixed.make(0,0,0,20);
 }
 
-void GuiContainer::CalcContainerRect()
+void GuiContainer::OnSizePre(Tab* iTab)
+{
+	this->margins.x=this->childs.empty() ? 0 : ROW_ADVANCE;
+
+	GuiString::OnSizePre(iTab);
+}
+
+void GuiContainer::OnSizePost(Tab* iTab)
 {
 	if(this->state && !this->childs.empty())
 	{
@@ -1765,13 +1789,8 @@ void GuiContainer::CalcContainerRect()
 		this->rect.w=tLastChild->rect.y+tLastChild->rect.w-this->rect.y;
 		this->edges.w=tLastChild->edges.w;
 	}
-}
 
-void GuiContainer::CalcTextRect(Tab* iTab)
-{
-	this->textOffsets.x=this->childs.empty() ? 0 : ROW_ADVANCE;
-
-	GuiString::CalcTextRect(iTab);
+	GuiString::OnSizePost();
 }
 
 void GuiContainer::Insert(GuiRect* iProperty)
@@ -1790,10 +1809,9 @@ void GuiContainer::BroadcastToChilds(void (GuiRect::*iFunction)(const GuiEvent&)
 
 void GuiContainer::OnSize(const GuiEvent& iMsg)
 {
-	this->CalcRect();
-	this->CalcTextRect(iMsg.tab);
+	this->OnSizePre(iMsg.tab);
 	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
-	this->CalcContainerRect();
+	this->OnSizePost(iMsg.tab);
 }
 
 void GuiContainer::OnPaint(const GuiEvent& iMsg)
@@ -1938,17 +1956,16 @@ template<typename T> void GuiContainerRow<T>::OnMouseMove(const GuiEvent& iMsg)
 	this->BroadcastToChilds(&GuiRect::OnMouseMove,iMsg);
 }
 
-template<typename T> void GuiContainerRow<T>::CalcTextRect(Tab* iTab)
+template<typename T> void GuiContainerRow<T>::OnSizePre(Tab* iTab)
 {
-	GuiContainer::CalcTextRect(iTab);
+	GuiContainer::OnSizePre(iTab);
 }
 
 template<typename T> void GuiContainerRow<T>::OnSize(const GuiEvent& iMsg)
 {
-	this->CalcRect();
-	this->CalcTextRect(iMsg.tab);
+	this->OnSizePre(iMsg.tab);
 	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
-	this->CalcContainerRect();
+	this->OnSizePost(iMsg.tab);
 }
 
 template<typename T> void GuiContainerRow<T>::OnPaint(const GuiEvent& iMsg)
@@ -1979,18 +1996,18 @@ template<typename T> void GuiContainerRow<T>::OnPaint(const GuiEvent& iMsg)
 	this->EndClip(iMsg.tab);
 }
 
-template<> void GuiContainerRow<ResourceNode*>::CalcTextRect(Tab* iTab)
+template<> void GuiContainerRow<ResourceNode*>::OnSizePre(Tab* iTab)
 {
-	this->textOffsets.x=ROW_ADVANCE;
+	this->margins.x=ROW_ADVANCE;
 
-	GuiString::CalcTextRect(iTab);
+	GuiString::OnSizePre(iTab);
 }
 
-template<> void GuiContainerRow<ResourceNodeDir*>::CalcTextRect(Tab* iTab)
+template<> void GuiContainerRow<ResourceNodeDir*>::OnSizePre(Tab* iTab)
 {
-	this->textOffsets.x=ROW_ADVANCE + (this->childs.empty() ? 0 : ROW_ADVANCE);
+	this->margins.x=ROW_ADVANCE + (this->childs.empty() ? 0 : ROW_ADVANCE);
 
-	GuiString::CalcTextRect(iTab);
+	GuiString::OnSizePre(iTab);
 }
 
 template<> void GuiContainerRow<ResourceNode*>::OnPaint(const GuiEvent& iMsg)
@@ -2154,11 +2171,18 @@ String* GuiString::GuiStringBase::operator->()
 
 GuiString::GuiString():
 	textAlign(0.0f,0.5f),
-	textSpot(0.0f,0.5f)
+	textSpot(0.0f,0.5f),
+	canEdit(false),
+	adaptRect(false),
+	cursor(0)
 {
 	this->fixed.make(0,0,0,20);
-	this->textOffsets.make(5,0,0,0);
 	this->name=L"GuiString";
+}
+
+GuiString::~GuiString()
+{
+	SAFEDELETE(this->cursor);
 }
 
 
@@ -2167,53 +2191,61 @@ void GuiString::SetStringMode(String& iString,bool isReference)
 	this->text.SetStringMode(iString,isReference);
 }
 
-void GuiString::CalcTextRect(Tab* iTab)
+void GuiString::OnSizePre(Tab* iTab)
 {
+	GuiRect::OnSizePre();
+
 	float tWidth=this->edges.z-this->edges.x;
 	float tHeight=this->edges.w-this->edges.y;
 
-	vec2 tTextSize=iTab->renderer2D->MeasureText(this->text->c_str());
+	wchar_t* tText=(wchar_t*)this->text->c_str();
 
-	float tLeft=this->edges.x + (tWidth*this->textAlign.x) + this->textOffsets.x - (tTextSize.x * this->textSpot.x);
-	float tTop=this->edges.y + (tHeight*this->textAlign.y) + this->textOffsets.y - (tTextSize.y * this->textSpot.y);
-	
+	this->textRect=iTab->renderer2D->MeasureText(this->text->c_str());
+
+	float tLeft=this->edges.x + (tWidth*this->textAlign.x) + this->margins.x - (this->textRect.x * this->textSpot.x);
+	float tTop=this->edges.y + (tHeight*this->textAlign.y) + this->margins.y - (this->textRect.y * this->textSpot.y);
+
+	tLeft<0 ? tLeft=0 : 0;
+	tTop<0 ? tTop=0 : 0;
+
 	this->textEdges.make(
-							tLeft,
-							tTop,
-							tLeft + tTextSize.x,
-							tTop + tTextSize.y
-						);
-
-	this->textRect.make(
-							tLeft,
-							tTop,
-							tTextSize.x,
-							tTextSize.y
-						);
-
-	this->textClipEdges.make(
-		this->textEdges.x<this->edges.x ? this->edges.x : this->textEdges.x,
-		this->textEdges.y<this->edges.y ? this->edges.y : this->textEdges.y,
-		this->textEdges.z>this->edges.z ? this->edges.z : this->textEdges.z,
-		this->textEdges.w>this->edges.w ? this->edges.w : this->textEdges.w
+		tLeft,
+		tTop,
+		tLeft + this->textRect.x,
+		tTop + this->textRect.y
 		);
+
+	if(this->adaptRect)
+	{
+		if(this->textRect.x>this->rect.z)
+		{
+			this->edges.z=this->edges.x+this->textRect.x;
+			this->rect.z=this->textRect.x;
+		}
+		if(this->textRect.y>this->rect.w)
+		{
+			this->edges.w=this->edges.y+this->textRect.y;
+			this->rect.w=this->textRect.y;
+		}
+	}
 }
+
 
 void GuiString::OnSize(const GuiEvent& iMsg)
 {
-	this->CalcRect();
-	this->CalcTextRect(iMsg.tab);
+	this->OnSizePre(iMsg.tab);
 	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
+	this->OnSizePost();
 }
 
 void GuiString::DrawTheText(Tab* iTab)
 {
 	iTab->renderer2D->DrawText(
 											this->text,
-											this->textClipEdges.x,
-											this->textClipEdges.y,
-											this->textClipEdges.z,
-											this->textClipEdges.w
+											this->textEdges.x,
+											this->textEdges.y,
+											this->textEdges.z,
+											this->textEdges.w
 										);
 }
 
@@ -2286,7 +2318,7 @@ bool GuiString::ParseKeyInput(const GuiEvent& iMsg)
 
 void GuiString::OnKeyDown(const GuiEvent& iMsg)
 {
-	if(this==iMsg.tab->GetFocus())
+	if(this->canEdit && this==iMsg.tab->GetFocus())
 	{
 		bool tRedraw=this->ParseKeyInput(iMsg);
 
@@ -2304,6 +2336,12 @@ void GuiString::OnLMouseDown(const GuiEvent& iMsg)
 		iMsg.tab->SetFocus(this);
 
 	GuiRect::OnLMouseDown(iMsg);
+
+	if(this->hovering && this->canEdit)
+	{
+		Ide::GetInstance()->stringEditor->Bind(this);
+		Ide::GetInstance()->stringEditor->Enable(true);
+	}
 }
 
 
@@ -2395,8 +2433,6 @@ void GuiButtonBool::OnLMouseUp(const GuiEvent& iMsg)
 ///////////////////////////////////////////////
 
 GuiScrollRect::GuiScrollRect():
-contentHeight(0),
-contentWidth(0),
 clipped(false),
 hScrollbar(GuiScrollBar::SCROLLBAR_HORIZONTAL),
 vScrollbar(GuiScrollBar::SCROLLBAR_VERTICAL)
@@ -2416,8 +2452,8 @@ vec2 GuiScrollRect::GetClippedMouse(vec2& iMpos)
 {
 	vec2 tMpos(iMpos);
 
-	tMpos.x=tMpos.x+this->hScrollbar.scrollerPosition*this->contentWidth;
-	tMpos.y=tMpos.y+this->vScrollbar.scrollerPosition*this->contentHeight;
+	tMpos.x=tMpos.x+this->hScrollbar.scrollerPosition*(this->content.x-this->edges.x);
+	tMpos.y=tMpos.y+this->vScrollbar.scrollerPosition*(this->content.y-this->edges.y);
 
 	return tMpos;
 }
@@ -2460,24 +2496,33 @@ void GuiScrollRect::BroadcastToChilds(void (GuiRect::*iFunction)(const GuiEvent&
 
 void GuiScrollRect::OnSize(const GuiEvent& iMsg)
 {
-	this->CalcRect();
+	bool tVSWasVisible=this->vScrollbar.IsVisible();
+	bool tHSWasVisible=this->hScrollbar.IsVisible();
 
-	this->contentHeight=(!this->childs.empty() ? this->childs.back()->edges.w : this->edges.w) - this->edges.y;
-	this->contentWidth=this->rect.z;
+	GuiRect::OnSize(iMsg);
 
-	this->vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
-	this->hScrollbar.SetScrollerRatio(this->contentWidth,this->rect.z);
+	float vContent=this->content.y-this->edges.y;
+	float hContent=this->content.x-this->edges.x;
+
+	this->vScrollbar.SetScrollerRatio(vContent,this->rect.w);
+	this->hScrollbar.SetScrollerRatio(hContent,this->rect.z);
 
 	if(this->vScrollbar.IsVisible())
 	{
-		this->rect.z-=GuiScrollBar::SCROLLBAR_TICK;
-		this->edges.z-=GuiScrollBar::SCROLLBAR_TICK;
+		if(this->vScrollbar.IsVisible())
+		{
+			this->rect.z-=GuiScrollBar::SCROLLBAR_TICK;
+			this->edges.z-=GuiScrollBar::SCROLLBAR_TICK;
+		}
 	}
 
 	if(this->hScrollbar.IsVisible())
 	{
-		this->rect.w-=GuiScrollBar::SCROLLBAR_TICK;
-		this->edges.w-=GuiScrollBar::SCROLLBAR_TICK;
+		if(this->hScrollbar.IsVisible())
+		{
+			this->rect.w-=GuiScrollBar::SCROLLBAR_TICK;
+			this->edges.w-=GuiScrollBar::SCROLLBAR_TICK;
+		}
 	}
 
 	this->BroadcastToChilds(&GuiRect::OnSize,iMsg);
@@ -2490,7 +2535,7 @@ void GuiScrollRect::BeginClip(Tab* tabContainer)
 	{
 		vec4& tClipEdges=this->edges;
 		tabContainer->renderer2D->PushScissor(tClipEdges.x,tClipEdges.y,tClipEdges.z,tClipEdges.w);
-		tabContainer->renderer2D->Translate(0,-this->vScrollbar.scrollerPosition*this->contentHeight);
+		tabContainer->renderer2D->Translate(0,-this->vScrollbar.scrollerPosition*(this->content.y-this->edges.y));
 		this->clipped=true;
 	}
 }
@@ -2575,7 +2620,7 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		{
 			String& tString=*(String*)this->valuePointer1;
 
-			this->value.text=tString;
+			this->value.canEdit ? this->value.SetStringMode(tString,true) : this->value.text=tString;
 		}
 		break;
 	case GuiPropertyString::BOOL:
@@ -2673,7 +2718,7 @@ void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 		break;
 	case GuiPropertyString::ENTITYVECSIZE:
 		{
-			std::vector<Entity*>& tEntityVec=*(std::vector<Entity*>*)this->valuePointer1;
+			std::list<Entity*>& tEntityVec=*(std::list<Entity*>*)this->valuePointer1;
 
 			size_t tCount=tEntityVec.size();
 
@@ -3300,9 +3345,9 @@ GuiSceneViewer::GuiSceneViewer():entityRoot((EditorEntity*&)scene.entityRoot)
 	this->entityRoot->name=L"SceneRootEntity";
 	this->entityRoot->expanded=true;
 
-	this->entityRoot->sceneViewerPropertyRect.SetParent(this);
-	this->entityRoot->sceneViewerPropertyRect.state=true;
-	this->entityRoot->sceneViewerPropertyRect.offsets.make(-20,-20,0,0);
+	this->entityRoot->sceneViewerLabel.SetParent(this);
+	this->entityRoot->sceneViewerLabel.state=true;
+	this->entityRoot->sceneViewerLabel.offsets.make(-20,-20,0,0);
 
 	this->name=L"SceneViewer";
 	this->scene.name=L"Scene";
@@ -3337,10 +3382,12 @@ void GuiSceneViewer::OnRMouseUp(const GuiEvent& iMsg)
 
 			tNewEntity->OnPropertiesCreate();
 
+			tNewEntity->sceneViewerLabel.canEdit=true;
+
 			tEditorEntity	? 
-								tEditorEntity->sceneViewerPropertyRect.Insert(&tNewEntity->sceneViewerPropertyRect) 
+								tEditorEntity->sceneViewerLabel.Insert(&tNewEntity->sceneViewerLabel) 
 							: 
-								this->entityRoot->sceneViewerPropertyRect.Insert(&tNewEntity->sceneViewerPropertyRect)
+								this->entityRoot->sceneViewerLabel.Insert(&tNewEntity->sceneViewerLabel)
 							;
 		}
 		break;
@@ -3362,7 +3409,7 @@ void GuiSceneViewer::OnEntitiesChange(const GuiEvent& iMsg)
 	if(entity)
 		entity->SetParent(this->entityRoot);
 
-	vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
+	vScrollbar.SetScrollerRatio((this->content.y-this->edges.y),this->rect.w);
 
 	if(this->active)
 	{
@@ -3407,7 +3454,7 @@ void GuiSceneViewer::OnLMouseDown(const GuiEvent& iMsg)
 	{
 		GuiContainer*	tSelectedRect=dynamic_cast<GuiContainer*>(iMsg.tab->GetFocus());
 
-		if(tSelectedRect==&this->entityRoot->sceneViewerPropertyRect)
+		if(tSelectedRect==&this->entityRoot->sceneViewerLabel)
 			return;
 
 		EditorEntity* tEditorEntity=tSelectedRect ? (EditorEntity*)tSelectedRect->userData : 0;
@@ -3592,20 +3639,20 @@ void GuiEntityViewer::OnEntitySelected(const GuiEvent& iMsg)
 		if(this->entity)
 		{
 			this->BroadcastToChilds(&GuiRect::OnDeactivate,tMsg);
-			this->entity->entityViewerRootPropertyRect.SetParent(0);
+			this->entity->entityViewerProperties.SetParent(0);
 			this->entity=0;
 		}
 
 		if(iEntity)
 		{
 			this->entity=iEntity;
-			this->entity->entityViewerRootPropertyRect.SetParent(this);
+			this->entity->entityViewerProperties.SetParent(this);
 
 			this->vScrollbar.SetScrollerPosition(0);
 			this->hScrollbar.SetScrollerPosition(0);
 
 			this->OnSize(GuiEvent(iMsg.tab,this));
-			this->entity->entityViewerRootPropertyRect.OnActivate(tMsg);
+			this->entity->entityViewerProperties.OnActivate(tMsg);
 		}
 		else
 		{
@@ -4055,33 +4102,7 @@ DrawInstance::DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iN
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiPaper::GuiPaper():lineCount(0),lineNumbers(true)
-{
-	this->textSpot.make(0,0);
-	this->textAlign.make(0,0);
-}
-
-void GuiPaper::DrawLineNumbers(Tab* tabContainer)
-{
-	float tTextHeight=tabContainer->renderer2D->GetFontHeight();
-	float tRowY=this->rect.y;
-	float tRowW=0;
-
-	String tLastLine=StringUtils::Int(this->lineCount);
-
-	vec2 tLastLineTextRect=tabContainer->renderer2D->MeasureText(tLastLine.c_str());
-
-	tRowW=tLastLineTextRect.x;
-
-	for(int i=0;i<this->lineCount;i++)
-	{
-		int tInteger=i+1;
-		tabContainer->renderer2D->DrawText(StringUtils::Int(tInteger),this->rect.x,tRowY,this->rect.x + tRowW,tRowY + tTextHeight,vec2(0,0.5f),vec2(0,0.5f));
-		tRowY+=tTextHeight;
-	}
-}
-
-void GuiPaper::DrawBreakpoints(Tab* tabContainer)
+void GuiScriptViewer::DrawBreakpoints(Tab* tabContainer)
 {
 	float tFontHeight=tabContainer->renderer2D->GetFontHeight();
 
@@ -4089,67 +4110,13 @@ void GuiPaper::DrawBreakpoints(Tab* tabContainer)
 
 	for(size_t i=0;i<breakpoints.size();i++)
 	{
-		if(breakpoints[i].script==this->scriptViewer->script)
+		if(breakpoints[i].script==this->script)
 		{
 			unsigned int tLineInsertion=this->rect.y + (breakpoints[i].line - 1) * tFontHeight;
 
 			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
 
-			tabContainer->renderer2D->DrawRectangle(this->rect.x + 1,tLineInsertion + 1,this->rect.x+this->textOffsets.x -1,tLineInsertion + tFontHeight - 1,tBreakColor,true);
-		}
-	}
-}
-
-void GuiPaper::OnPaint(const GuiEvent& iMsg)
-{
-	this->BeginClip(iMsg.tab);
-	this->DrawBackground(iMsg.tab);
-
-	this->DrawBreakpoints(iMsg.tab);
-
-	if(this->lineNumbers)
-		this->DrawLineNumbers(iMsg.tab);
-
-	this->DrawTheText(iMsg.tab);
-
-	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
-	this->EndClip(iMsg.tab);
-}
-
-void GuiPaper::OnLMouseDown(const GuiEvent& iMsg)
-{
-	GuiString::OnLMouseDown(iMsg);
-
-	vec2 tMpos=*(vec2*)iMsg.data;
-
-	if(tMpos.x < this->textOffsets.x)
-	{
-		unsigned int tBreakOnLine=(tMpos.y-this->rect.y)/iMsg.tab->renderer2D->GetFontHeight() + 1;
-
-		EditorScript* tEditorScript=(EditorScript*)this->scriptViewer->script;
-
-		std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Ide::GetInstance()->debugger->allAvailableBreakpoints;
-		std::vector<Debugger::Breakpoint>& tBreakpoints=Ide::GetInstance()->debugger->breakpointSet;
-
-		for(size_t i=0;i<tAvailableBreakpoints.size();i++)
-		{
-			if(tAvailableBreakpoints[i].script==this->scriptViewer->script && tAvailableBreakpoints[i].line==tBreakOnLine)
-			{
-				std::vector<Debugger::Breakpoint>::iterator tFoundedBreakpointIterator=std::find(tBreakpoints.begin(),tBreakpoints.end(),tAvailableBreakpoints[i]);
-
-				bool tAdd=tBreakpoints.end()==tFoundedBreakpointIterator;
-
-				if(tAdd)
-					tBreakpoints.push_back(tAvailableBreakpoints[i]);
-				else
-					tBreakpoints.erase(tFoundedBreakpointIterator);
-
-				Ide::GetInstance()->debugger->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
-
-				iMsg.tab->SetDraw(2,false,this->scriptViewer);
-
-				break;
-			}
+			tabContainer->renderer2D->DrawRectangle(this->rect.x + 1,tLineInsertion + 1,this->rect.x+this->editor.margins.x -1,tLineInsertion + tFontHeight - 1,tBreakColor,true);
 		}
 	}
 }
@@ -4166,23 +4133,24 @@ GuiScriptViewer::GuiScriptViewer():
 {
 	this->name=L"ScriptViewer";
 
-	this->paper=this->Create<GuiPaper>();
-	this->paper->scriptViewer=this;
-	this->paper->name=L"ScriptSource";
-	this->paper->textOffsets.make(20,0,0,0);
+	this->lines.SetParent(this);
+	this->editor.SetParent(this);
+
+	this->editor.canEdit=true;
+	this->editor.adaptRect=true;
+
+	this->lines.SetEdges(0,0,&this->lines.edges.x,0);
+	this->lines.offsets.x=0;
+
+	this->editor.SetEdges(&this->lines.edges.z,0,0,0);
+
 }
 
 void GuiScriptViewer::Open(Script* iScript)
 {
 	this->script=(EditorScript*)iScript;
-	this->paper->cursor=StringEditor::Cursor();
 
-	this->paper->text=StringUtils::ReadCharFile(iScript->file);
-
-	this->paper->cursor.cursor=this->paper->text->c_str();
-	this->paper->cursor.rowcol.make(0,0);
-
-	Ide::GetInstance()->stringEditor->Bind(this->paper,&this->paper->cursor);
+	this->editor.text=StringUtils::ReadCharFile(iScript->file);
 
 	this->script->scriptViewer=this;
 }
@@ -4195,7 +4163,7 @@ bool GuiScriptViewer::Save()
 
 		if(tScriptFile.Open(L"wb"))
 		{
-			tScriptFile.Write((void*)this->paper->text->c_str(),sizeof(wchar_t),this->paper->text->size());
+			tScriptFile.Write((void*)this->editor.text->c_str(),sizeof(wchar_t),this->editor.text->size());
 
 			tScriptFile.Close();
 
@@ -4238,13 +4206,6 @@ void GuiScriptViewer::OnKeyDown(const GuiEvent& iMsg)
 			if(InputManager::keyboardInput.IsPressed('S'))
 				this->Save();
 		}
-		else
-		{
-			bool tRedraw=this->paper->ParseKeyInput(iMsg);
-
-			if(tRedraw)
-				iMsg.tab->SetDraw(2,0,this);
-		}
 	}
 
 	GuiRect::OnKeyDown(iMsg);
@@ -4261,16 +4222,43 @@ void GuiScriptViewer::OnLMouseDown(const GuiEvent& iMsg)
 
 	vec2 tMpos=*(vec2*)iMsg.data;
 
-	iMsg.tab->SetFocus(this->paper);
+	if(tMpos.x < this->editor.margins.x)
+	{
+		unsigned int tBreakOnLine=(tMpos.y-this->rect.y)/iMsg.tab->renderer2D->GetFontHeight() + 1;
 
-	Ide::GetInstance()->stringEditor->Bind(this->paper,&this->paper->cursor);
-	Ide::GetInstance()->stringEditor->Enable(true);
+		EditorScript* tEditorScript=(EditorScript*)this->script;
+
+		std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Ide::GetInstance()->debugger->allAvailableBreakpoints;
+		std::vector<Debugger::Breakpoint>& tBreakpoints=Ide::GetInstance()->debugger->breakpointSet;
+
+		for(size_t i=0;i<tAvailableBreakpoints.size();i++)
+		{
+			if(tAvailableBreakpoints[i].script==this->script && tAvailableBreakpoints[i].line==tBreakOnLine)
+			{
+				std::vector<Debugger::Breakpoint>::iterator tFoundedBreakpointIterator=std::find(tBreakpoints.begin(),tBreakpoints.end(),tAvailableBreakpoints[i]);
+
+				bool tAdd=tBreakpoints.end()==tFoundedBreakpointIterator;
+
+				if(tAdd)
+					tBreakpoints.push_back(tAvailableBreakpoints[i]);
+				else
+					tBreakpoints.erase(tFoundedBreakpointIterator);
+
+				Ide::GetInstance()->debugger->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
+
+				iMsg.tab->SetDraw(2,false,this);
+
+				break;
+			}
+		}
+	}
+
+	iMsg.tab->SetFocus(&this->editor);
 }
 
 void GuiScriptViewer::OnDeactivate(const GuiEvent& iMsg)
 {
 	iMsg.tab->SetFocus(0);
-	Ide::GetInstance()->stringEditor->Enable(false);
 
 	GuiRect::OnDeactivate(iMsg);
 }
@@ -4283,7 +4271,7 @@ void GuiScriptViewer::OnMouseMove(const GuiEvent& iMsg)
 	{
 		vec2 tMpos=*(vec2*)iMsg.data;
 
-		if(tMpos.x < this->paper->textOffsets.x)
+		if(tMpos.x < this->editor.margins.x)
 		{
 
 		}
@@ -4296,22 +4284,15 @@ void GuiScriptViewer::OnMouseMove(const GuiEvent& iMsg)
 
 void GuiScriptViewer::OnSize(const GuiEvent& iMsg)
 {
-	if(!this->paper->text->empty())
-	{
-		this->paper->lineCount=this->CountScriptLines()-1;
-
-		float tFontHeight=iMsg.tab->renderer2D->GetFontHeight();
-
-		this->contentHeight=this->paper->lineCount * tFontHeight;
-	}
-
 	GuiScrollRect::OnSize(iMsg);
+
+	this->lineCount=this->CountScriptLines()-1;
 }
 
 
 int GuiScriptViewer::CountScriptLines()
 {
-	const wchar_t* t=this->paper->text->c_str();
+	const wchar_t* t=this->editor.text->c_str();
 
 	int tLinesCount=!(*t) ? 0 : 1;
 
@@ -4427,7 +4408,7 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(String iFileBuffer)
 
 		this->vScrollbar.SetParent(this);
 
-		this->contentHeight=messagesGlue->childs.size()*MESSAHE_ROW_HEIGHT;
+		//this->contentHeight=messagesGlue->childs.size()*MESSAHE_ROW_HEIGHT;
 	}
 
 	return bReturnValue;
@@ -4436,15 +4417,15 @@ bool GuiCompilerViewer::ParseCompilerOutputFile(String iFileBuffer)
 
 void GuiCompilerViewer::OnSize(const GuiEvent& iMsg)
 {
-	this->vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
+	/*this->vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
 
 	if(this->childs.size()==2)
 		//we don't need the GuiScrollRect::width cause the newly GuiRect::offset
-		this->vScrollbar.IsVisible() ? this->childs[0]->offsets.z=-GuiScrollBar::SCROLLBAR_TICK : this->childs[0]->offsets.z=0;
+		this->vScrollbar.IsVisible() ? this->childs[0]->offsets.z=-GuiScrollBar::SCROLLBAR_TICK : this->childs[0]->offsets.z=0;*/
 
 	GuiRect::OnSize(iMsg);
 
-	this->rect.z=this->rect.z;
+	/*this->rect.z=this->rect.z;*/
 }
 
 
@@ -4462,17 +4443,19 @@ void EditorEntity::OnPropertiesCreate()
 
 	std::vector<GuiRect*> tRootLevel(2);
 
-	this->container=this->entityViewerRootPropertyRect.Container(L"Entity");
+	this->container=this->entityViewerProperties.Container(L"Entity");
 
 	tRootLevel[0]=this->container;
-	tRootLevel[0]->Property(L"Name",&this->name,GuiPropertyString::STRING);
+	GuiPropertyString* tNameLabel=tRootLevel[0]->Property(L"Name",&this->name,GuiPropertyString::STRING);
+	tNameLabel->value.canEdit=true;
 	tRootLevel[0]->Property(L"Ptr",this,GuiPropertyString::PTR);
 	tRootLevel[0]->Property(L"Position",&this->world,GuiPropertyString::MAT4POS);
+	tRootLevel[0]->Property(L"Childs",&this->Entity::childs,GuiPropertyString::ENTITYVECSIZE);
+	
 	tRootLevel[1]=tRootLevel[0]->Container(L"AABB");
 	tRootLevel[1]->Property(L"Min",this->bbox.a,GuiPropertyString::VEC3);
 	tRootLevel[1]->Property(L"Max",this->bbox.b,GuiPropertyString::VEC3);
 	tRootLevel[1]->Property(L"Volume",this->bbox.a,GuiPropertyString::VEC3,this->bbox.b);
-	tRootLevel[0]->Property(L"ChildNum",&this->childs,GuiPropertyString::ENTITYVECSIZE);
 }
 
 void EditorEntity::OnPropertiesUpdate(Tab* tab)
@@ -4489,7 +4472,7 @@ void EditorMesh::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Mesh");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Mesh");
 
 	this->container->Property(L"Controlpoints",&this->ncontrolpoints,GuiPropertyString::INT);
 	this->container->Property(L"Normals",&this->nnormals,GuiPropertyString::INT);
@@ -4506,7 +4489,7 @@ void EditorSkin::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Skin");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Skin");
 
 	this->container->Property(L"Clusters",&this->nclusters,GuiPropertyString::INT);
 	this->container->Property(L"Textures",&this->ntextures,GuiPropertyString::INT);
@@ -4518,7 +4501,7 @@ void EditorRoot::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Root");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Root");
 }
 void EditorRoot::OnPropertiesUpdate(Tab* tab)
 {
@@ -4527,7 +4510,7 @@ void EditorSkeleton::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Skeleton");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Skeleton");
 }
 void EditorSkeleton::OnPropertiesUpdate(Tab* tab)
 {
@@ -4536,7 +4519,7 @@ void EditorGizmo::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Gizmo");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Gizmo");
 }
 void EditorGizmo::OnPropertiesUpdate(Tab* tab)
 {
@@ -4545,7 +4528,7 @@ void EditorAnimation::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Animation");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Animation");
 
 	this->container->Property(L"IsBone",this,GuiPropertyString::ISBONECOMPONENT);
 	this->container->Property(L"Duration",&this->start,GuiPropertyString::FLOAT2MINUSFLOAT1,&this->end);
@@ -4559,7 +4542,7 @@ void EditorAnimationController::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"AnimationController");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"AnimationController");
 
 	this->container->name=L"EditorAnimationControllerProperties";
 	this->container->text=L"AnimationController";
@@ -4585,7 +4568,7 @@ void EditorBone::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Bone");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Bone");
 }
 void EditorBone::OnPropertiesUpdate(Tab* tab)
 {
@@ -4594,7 +4577,7 @@ void EditorLight::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Light");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Light");
 }
 void EditorLight::OnPropertiesUpdate(Tab* tab)
 {
@@ -4617,6 +4600,7 @@ void editScriptEditorCallback(void* iData)
 	if(guiScriptViewer)
 	{
 		guiScriptViewer->Open(editorScript);
+		guiScriptViewer->OnSize(GuiEvent(tabContainer));
 		tabContainer->SetDraw(0,1);
 	}
 }
@@ -4655,7 +4639,7 @@ void EditorScript::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Script");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Script");
 
 	GuiProperty* tFile=container->Property(L"File",&this->Script::file,GuiPropertyString::STRING);
 	GuiProperty* tRunning=container->Property(L"Running",&this->Script::runtime,GuiPropertyString::BOOLPTR);
@@ -4708,7 +4692,7 @@ void EditorCamera::OnPropertiesCreate()
 {
 	EditorEntity* tEditorEntity=(EditorEntity*)this->entity;
 
-	this->container=tEditorEntity->entityViewerRootPropertyRect.Container(L"Camera");
+	this->container=tEditorEntity->entityViewerProperties.Container(L"Camera");
 }
 void EditorCamera::OnPropertiesUpdate(Tab* tab)
 {

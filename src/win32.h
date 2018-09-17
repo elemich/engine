@@ -68,6 +68,8 @@ void glCheckError();
 
 struct DLLBUILD Direct2D
 {
+	static ID2D1Geometry        *caret;
+
 	static ID2D1Factory			*factory;
 	static IWICImagingFactory	*imager;
 	static IDWriteFactory		*writer;
@@ -83,11 +85,11 @@ struct DLLBUILD Direct2D
 
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	//static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const char* text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float op=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
+	static void DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush);
 
 	static void PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h);
 	static void PopScissor(ID2D1RenderTarget*);
@@ -131,6 +133,9 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 {
 	ID2D1HwndRenderTarget*		renderer;
 	ID2D1SolidColorBrush*		brush;
+	ID2D1Layer*					caretLayer;
+
+	bool layerPushed;
 
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
@@ -156,12 +161,12 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 
 	void SetTabSpaces(unsigned int iNumOfSpaces);
 
-	ID2D1Brush* SetColorWin32(unsigned int color);
+	ID2D1Brush* SetColorWin32(unsigned int color,float opaque=1.0f);
 
 	bool RecreateTarget(HWND);
 
 	void DrawCaret();
-	void SetCaret(GuiRect* iGuiRect,vec2 iPosition,vec2 iRect);
+	void SetCaretPos(float x,float y);
 	void EnableCaret(bool);
 };
 

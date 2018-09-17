@@ -154,7 +154,7 @@ ThreadWin32::~ThreadWin32()
 /////////////////Direct2DBase//////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-
+ID2D1Geometry*          Direct2D::caret=0;
 ID2D1Factory*			Direct2D::factory=0;
 IWICImagingFactory*		Direct2D::imager=0;
 IDWriteFactory*			Direct2D::writer=0;
@@ -380,7 +380,7 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 
 vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
 {
-	float width=0;
+	float width=0,tWidth=0;;
 	float height=0;
 
 	if(!iText)
@@ -388,26 +388,30 @@ vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSle
 
 	float fontHeight=height=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
 
-	
-
 	char* t=(char*)iText;
 
 	while(*t)
 	{
 		if(*t=='\n' || *t=='\r')
+		{
 			height+=fontHeight;
+			tWidth>width?width=tWidth:0;
+			tWidth=0;
+		}
 		else
-			width+=Direct2D::charsWidth[*t];
+			tWidth+=Direct2D::charsWidth[*t];
 
 		t++;
 	}
+
+	tWidth>width?width=tWidth:0;
 
 	return vec2(width,height);
 }
 
 vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
 {
-	float width=0;
+	float width=0,tWidth=0;
 	float height=0;
 
 	if(!iText)
@@ -420,12 +424,18 @@ vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int i
 	while(*t)
 	{
 		if(*t=='\n' || *t=='\r')
+		{
 			height+=fontHeight;
+			tWidth>width?width=tWidth:0;
+			tWidth=0;
+		}
 		else
-			width+=Direct2D::charsWidth[*t];
+			tWidth+=Direct2D::charsWidth[*t];
 
 		t++;
 	}
+
+	tWidth>width?width=tWidth:0;
 
 	return vec2(width,height);
 }
@@ -461,8 +471,14 @@ float Direct2D::GetCharWidth(char iCharacter)
 
 void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_CLIP,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
 }
+
+void Direct2D::DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush)
+{
+	renderer->DrawGeometry(caret,iBrush);
+}
+
 
 void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill,float op)
 {
@@ -501,7 +517,7 @@ void Direct2D::Identity(ID2D1RenderTarget* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0)
+Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretLayer(0),layerPushed(0)
 {
 	Direct2D::Init();
 	this->SetTabSpaces(this->tabSpaces);
@@ -513,7 +529,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
 	SAFERELEASE(this->renderer);
 	SAFERELEASE(this->brush);
-	//SAFEDELETE(this->caret);
+	SAFEDELETE(this->caretLayer);
 
 
 	HRESULT result=S_OK;
@@ -528,6 +544,8 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 
 		rRenderTargetProperties.type=D2D1_RENDER_TARGET_TYPE_HARDWARE;
 		rRenderTargetProperties.usage=D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE;//we wants resource sharing
+		/*rRenderTargetProperties.pixelFormat.format=DXGI_FORMAT_UNKNOWN;
+		rRenderTargetProperties.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;*/
 
 		result=Direct2D::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
 	}
@@ -540,7 +558,10 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	if(S_OK!=result || !this->brush)
 		DEBUG_BREAK();
 
-	//this->caret=new CaretWin32(this);
+	result=this->renderer->CreateLayer(&this->caretLayer);
+
+	if(S_OK!=result || !this->caretLayer)
+		DEBUG_BREAK();
 
 	return true;
 }
@@ -617,9 +638,10 @@ float Renderer2DWin32::GetCharWidth(char iCharacter)
 	return iCharacter!='\t' ? tCharWidth : tCharWidth*this->tabSpaces;
 }
 
-ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color)
+ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color,float opaque)
 {
 	this->brush->SetColor(D2D1::ColorF(color));
+	this->brush->SetOpacity(opaque);
 	return this->brush;
 }
 
@@ -630,6 +652,18 @@ void Renderer2DWin32::SetTabSpaces(unsigned int iNumOfSpaces)
 	Direct2D::texter->SetIncrementalTabStop(tSpaceCharWidth*this->tabSpaces);
 }
 
+void Renderer2DWin32::DrawCaret()
+{
+	//this->renderer->DrawGeometry(this->caret,this->SetColorWin32(0x000000));
+}
+
+void Renderer2DWin32::SetCaretPos(float x,float y)
+{
+	/*this->caretPos.left=x;
+	this->caretPos.top=y;
+	this->caretPos.right=x+1;
+	this->caretPos.bottom=y+13.33f;*/
+}
 
 
 ///////////////////////////////////////////////
@@ -3671,7 +3705,6 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
 		DEBUG_BREAK();
 
-
 	this->Tab::OnGuiRecreateTarget(iData);
 
 }
@@ -5165,7 +5198,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 
 	if(this->enabled && this->string && iCallerTab->GetFocus()==this->string)
 	{
-		vec4 tCaret=this->cursor->caret;
+		vec4 tCaret=this->string->cursor->caret;
 		bool tRecalcBackground=this->recalcBackground;
 
 		if(!this->background || tRecalcBackground)
@@ -5204,10 +5237,14 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 
 			if(renderer2DWin32->tabContainer->BeginDraw())
 			{
+				this->string->BeginClip(iCallerTab);
+
 				if(this->blinking)
 					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+renderer2DWin32->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
 				else
 					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w));
+
+				this->string->EndClip(iCallerTab);
 
 				renderer2DWin32->tabContainer->EndDraw();
 			}

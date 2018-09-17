@@ -215,8 +215,6 @@ struct DLLBUILD Debugger
 	virtual void PrintThreadContext(void*)=0;
 };
 
-
-
 struct DLLBUILD StringEditor
 {
 	static const unsigned int BLINKRATE=300;
@@ -238,7 +236,7 @@ struct DLLBUILD StringEditor
 
 	struct DLLBUILD Cursor
 	{
-		const wchar_t*        cursor;
+		const wchar_t*  cursor;
 		vec2			rowcol;
 		vec4			caret;
 
@@ -247,8 +245,6 @@ struct DLLBUILD StringEditor
 
 	GuiString*		string;
 	Tab*			tab;
-
-	Cursor*			cursor;
 
 	unsigned int	blinkingRate;
 	unsigned int	lastBlinkTime;
@@ -264,7 +260,7 @@ struct DLLBUILD StringEditor
 
 	bool EditText(unsigned int iCaretOp,void* iParam);
 
-	void Bind(GuiString* iString,Cursor* iCaret=0);
+	void Bind(GuiString* iString);
 	void Enable(bool);
 	
 	virtual void Draw(Tab*)=0;
@@ -307,6 +303,9 @@ struct DLLBUILD Renderer2D
 
 
 	virtual float GetCharWidth(char iCharacter)=0;
+
+	virtual void DrawCaret()=0;
+	virtual void SetCaretPos(float x,float y)=0;
 };
 
 struct DLLBUILD Renderer3D : Renderer3DBase
@@ -451,6 +450,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	vec4 fixed;
 	vec4 edges;
 	vec4 rect;
+	vec2 content;
 
 	unsigned int colorBackground;
 	unsigned int colorHovering;
@@ -473,7 +473,8 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	virtual void SetParent(GuiRect*);
 
-	void CalcRect();
+	virtual void OnSizePre();
+	virtual void OnSizePost();
 
 	virtual void Insert(GuiRect* iProperty);
 
@@ -586,21 +587,24 @@ struct DLLBUILD GuiString : GuiRect
 
 	GuiStringBase text;
 
-	vec4 textOffsets;
-	vec4 textFixed;
+	vec4 margins;
 	vec4 textEdges;
-	vec4 textRect;
+	vec2 textRect;
 
 	vec2 textSpot;
 	vec2 textAlign;
 
-	vec4 textClipEdges;
+	bool canEdit;
+	bool adaptRect;
+
+	StringEditor::Cursor* cursor;
 
 	GuiString();
+	~GuiString();
 
 	void SetStringMode(String&,bool isReference);
 
-	void CalcTextRect(Tab*);
+	virtual void OnSizePre(Tab*);
 	void DrawTheText(Tab*);
 
 	bool ParseKeyInput(const GuiEvent&);
@@ -617,8 +621,9 @@ struct DLLBUILD GuiContainer : GuiString
 
 	GuiContainer();
 
-	void CalcContainerRect();
-	void CalcTextRect(Tab*);
+	virtual void OnSizePre(Tab*);
+	virtual void OnSizePost(Tab*);
+
 	void Insert(GuiRect* iProperty);
 
 	void BroadcastToChilds(void (GuiRect::*iFunction)(const GuiEvent&),const GuiEvent&);
@@ -635,7 +640,7 @@ template<typename TPointer> struct DLLBUILD GuiContainerRow : GuiContainer
 	GuiContainerRow();
 
 	void UnselectAll(GuiRect*);
-	void CalcTextRect(Tab*);
+	virtual void OnSizePre(Tab*);
 	void DrawBackground(const GuiEvent&);
 	void OnPaint(const GuiEvent&);
 	void OnSize(const GuiEvent&);
@@ -722,9 +727,6 @@ struct DLLBUILD GuiScrollRect : GuiRect
 {
 	GuiScrollRect();
 	~GuiScrollRect();
-
-	float contentHeight;
-	float contentWidth;
 
 	GuiScrollBar	vScrollbar;
 	GuiScrollBar	hScrollbar;
@@ -888,31 +890,15 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-struct DLLBUILD GuiPaper : GuiString
-{
-	GuiScriptViewer* scriptViewer;
-
-	int lineCount;
-	bool lineNumbers;
-
-	StringEditor::Cursor cursor;
-
-	GuiPaper();
-
-	void DrawLineNumbers(Tab*);
-	void DrawBreakpoints(Tab*);
-
-	virtual void OnPaint(const GuiEvent&);
-	virtual void OnLMouseDown(const GuiEvent&);
-};
-
 struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 {
 	EditorScript* script;
 
-	GuiPaper*	paper;
+	GuiString editor;
+	GuiString lines;
 
 	bool		lineNumbers;
+	int			lineCount;
 
 	GuiScriptViewer();
 	~GuiScriptViewer();
@@ -929,6 +915,9 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	void OnDeactivate(const GuiEvent&);
 
 	int CountScriptLines();
+
+	void DrawLineNumbers(Tab*);
+	void DrawBreakpoints(Tab*);
 	
 };
 
@@ -1443,8 +1432,8 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 	bool					expanded;
 	int						level;
 
-	GuiContainer					entityViewerRootPropertyRect;
-	GuiContainerRow<EditorEntity*>	sceneViewerPropertyRect;
+	GuiContainer					entityViewerProperties;
+	GuiContainerRow<EditorEntity*>	sceneViewerLabel;
 
 	EditorEntity();
 
