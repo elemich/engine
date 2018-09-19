@@ -1526,7 +1526,9 @@ Thread::Thread():exit(false){}
 Thread::~Thread()
 {
 	for(std::list<Task*>::iterator it=this->tasks.begin();it!=this->tasks.end();it++)
-		delete *it;
+		SAFEDELETE(*it);
+
+	this->tasks.clear();
 }
 
 Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
@@ -1542,6 +1544,13 @@ Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 	tasks.push_back(task);
 
 	return task;
+}
+
+void Thread::DestroyTask(Task* iTask)
+{
+	this->tasks.erase(std::find(this->tasks.begin(),this->tasks.end(),iTask));
+
+	SAFEDELETE(iTask);
 }
 
 void Thread::Block(bool iBlock)
@@ -1565,4 +1574,5 @@ void Task::Block(bool iBlock)
 			this->pause=iBlock;
 	}
 }
+
 

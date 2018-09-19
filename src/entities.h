@@ -67,10 +67,12 @@ struct DLLBUILD MatrixStack
 
 struct DLLBUILD Shader : TPoolVector<Shader>
 {
-	static Shader* Find(const char*,bool exact=true);
+	Renderer3DBase* renderer; 
 
-	virtual int GetProgram()=0;
-	virtual void SetProgram(int)=0;
+	Shader(Renderer3DBase*);
+	virtual ~Shader();
+
+	static Shader* Find(const char*,bool exact=true);
 
 	virtual int GetUniform(int slot,char* var)=0;
 	virtual int GetAttrib(int slot,char* var)=0;
@@ -109,10 +111,12 @@ struct DLLBUILD Shader : TPoolVector<Shader>
 	virtual void SetModelviewMatrix(float*)=0;
 	virtual void SetMatrices(float* view,float* mdl)=0;
 
-	Shader();
+	
 
 	String				name;
-	int					program;
+	int					programId;
+	int					vertexShaderId;
+	int					fragmentShaderId;
 	unsigned int		vbo;
 	unsigned int		vao;
 	unsigned int		ibo;
@@ -643,7 +647,7 @@ struct DLLBUILD TextureProcedural : Texture
 struct DLLBUILD Renderer3DBase
 {
 	Renderer3DBase();
-	~Renderer3DBase();
+	virtual ~Renderer3DBase();
 
 	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;
@@ -666,11 +670,11 @@ struct DLLBUILD Renderer3DBase
 
 	bool picking;
 
-	Shader* unlit;
-	Shader* unlit_color;
-	Shader* unlit_texture;
-	Shader* font;
-	Shader* shaded_texture;
+	Shader* shader_unlit;
+	Shader* shader_unlit_color;
+	Shader* shader_unlit_texture;
+	Shader* shader_font;
+	Shader* shader_shaded_texture;
 
 	std::vector<Shader*> shaders;
 };

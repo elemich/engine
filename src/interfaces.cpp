@@ -128,6 +128,8 @@ Ide::Ide():
 	___________ide=this->Instance();
 }
 
+Ide::~Ide(){}
+
 String Ide::GetSceneExtension()
 {
 	return L".engineScene";
@@ -155,12 +157,14 @@ Container::Container()
 	resizeCheckHeight=0;
 }
 
+Container::~Container(){}
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////Debugger//////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-Debugger::Debugger():breaked(false),threadSuspendend(false),runningScript(0),runningScriptFunction(0),debuggerCode(0),lastBreakedAddress(0){}
+Debugger::Debugger():breaked(false),threadSuspendend(false),runningScript(0),runningScriptFunction(0),debuggerCode(0),lastBreakedAddress(0),sleep(1){}
 
 
 ///////////////////////////////////////////////
@@ -223,9 +227,10 @@ unsigned char Tab::rawFile[]={0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x
 
 
 Tab::Tab(float x,float y,float w,float h):
-rects(this),
+	rects(this),
+	rectsLayered(this),
 	windowData(0),
-	parentWindowContainer(0),
+	container(0),
 	selected(0),
 	mouseDown(false),
 	isRender(false),
@@ -251,12 +256,9 @@ rects(this),
 
 Tab::~Tab()
 {
-	this->parentWindowContainer->tabContainers.erase(std::find(parentWindowContainer->tabContainers.begin(),parentWindowContainer->tabContainers.end(),this));
+	this->container->tabs.erase(std::find(container->tabs.begin(),container->tabs.end(),this));
 
-	this->rects.DestroyChilds();
-	
-	if(this->renderer3D)
-		delete this->renderer3D;
+	this->rectsLayered.name=L"RECTLAYERED";
 }
 
 GuiRect* Tab::GetSelected()
@@ -302,11 +304,13 @@ void Tab::Draw()
 			this->drawInstances.pop_front();
 		}
 	}
+#if ENABLE_RENDERER
 	else if(Ide::GetInstance()->timer->GetTime()-this->lastFrameTime>(1000.0f/Ide::GetInstance()->timer->renderFps))
 	{
 		this->lastFrameTime=Ide::GetInstance()->timer->GetTime();
 		this->renderer3D->Render();
 	}
+#endif
 
 	Ide::GetInstance()->stringEditor->Draw(this);
 }
@@ -324,11 +328,14 @@ void Tab::BroadcastToSelected(void (GuiRect::*iFunc)(const GuiEvent&),void* iDat
 
 	if(selectedTab)
 		(selectedTab->*iFunc)(GuiEvent(this,selectedTab,0,iFunc,iData));
+
+	this->rectsLayered.BroadcastToChilds(iFunc,GuiEvent(this,&this->rectsLayered,0,iFunc,iData));
 }
 
 void Tab::BroadcastToAll(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
 {
 	(this->rects.*iFunc)(GuiEvent(this,&this->rects,0,iFunc,iData));
+	this->rectsLayered.BroadcastToChilds(iFunc,GuiEvent(this,&this->rectsLayered,0,iFunc,iData));
 }
 
 
@@ -338,11 +345,14 @@ template<class C> void Tab::BroadcastToSelected(void (GuiRect::*iFunc)(const Gui
 
 	if(selectedTab)
 		selectedTab->BroadcastTo<C>(iFunc,iData);
+
+	this->rectsLayered.BroadcastTo<C>(iFunc,iData);
 }
 
 template<class C> void Tab::BroadcastToAll(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
 {
 	this->rects.BroadcastTo<C>(iFunc,iData);
+	this->rectsLayered.BroadcastTo<C>(iFunc,iData);
 }
 
 
@@ -370,14 +380,13 @@ void Tab::OnGuiSize(void* data)
 {
 	this->windowData->OnSize();
 
-	this->rects.rect.make(0.0f,(float)Tab::CONTAINER_HEIGHT,this->windowData->width,this->windowData->height-Tab::CONTAINER_HEIGHT);
-	this->rects.edges.x=0;
-	this->rects.edges.y=(float)Tab::CONTAINER_HEIGHT;
-	this->rects.edges.z=this->windowData->width;
-	this->rects.edges.w=this->windowData->height;
+	GuiEvent tEvent(this,0,0,0,data);
+
+	this->rects.OnSize(tEvent);
+	this->rectsLayered.BroadcastToChilds(&GuiRect::OnSize,tEvent);
 
 	this->BroadcastToSelected(&GuiRect::OnSize,data);
-
+	
 	this->resizeTarget=true;
 }
 
@@ -387,11 +396,10 @@ void Tab::OnWindowPosChanging(void* data)
 
 	this->windowData->OnWindowPosChanging();
 
-	this->rects.rect.make(0,Tab::CONTAINER_HEIGHT,this->windowData->width,this->windowData->height-Tab::CONTAINER_HEIGHT);
-	this->rects.edges.x=0;
-	this->rects.edges.y=(float)Tab::CONTAINER_HEIGHT;
-	this->rects.edges.z=this->windowData->width;
-	this->rects.edges.w=this->windowData->height;
+	GuiEvent tEvent(this,0,0,0,data);
+
+	this->rects.OnSize(tEvent);
+	this->rectsLayered.BroadcastToChilds(&GuiRect::OnSize,tEvent);
 
 	this->BroadcastToSelected(&GuiRect::OnSize,data);
 }
@@ -543,12 +551,12 @@ void Tab::OnGuiRecreateTarget(void* data)
 void Tab::SetFocus(GuiRect* iFocusedRect)
 {
 	if(Tab::focused)
-		Tab::focused->OnExitFocus(GuiEvent(Tab::focused->GetRootRect()->tabContainer,Tab::focused,0,&GuiRect::OnExitFocus,Tab::focused));
+		Tab::focused->OnExitFocus(GuiEvent(Tab::focused->GetRootRect()->tab,Tab::focused,0,&GuiRect::OnExitFocus,Tab::focused));
 
 	Tab::focused=iFocusedRect;
 
 	if(Tab::focused)
-		Tab::focused->OnEnterFocus(GuiEvent(Tab::focused->GetRootRect()->tabContainer,Tab::focused,0,&GuiRect::OnEnterFocus,Tab::focused));
+		Tab::focused->OnEnterFocus(GuiEvent(Tab::focused->GetRootRect()->tab,Tab::focused,0,&GuiRect::OnEnterFocus,Tab::focused));
 }
 
 void Tab::SetHover(GuiRect* iHoveredRect)
@@ -635,7 +643,7 @@ void StringEditor::Bind(GuiString* iString)
 {
 	this->string=iString;
 
-	this->tab=this->string->GetRootRect()->tabContainer;
+	this->tab=this->string->GetRootRect()->tab;
 
 	if(!this->string->cursor)
 	{
@@ -958,9 +966,11 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 ///////////////////////////////////////////////
 
 Renderer2D::Renderer2D(Tab* iTabContainer):
-	tabContainer(iTabContainer),
+	tab(iTabContainer),
 	tabSpaces(4)
 {}
+
+Renderer2D::~Renderer2D(){}
 
 
 ///////////////////////////////////////////////
@@ -1256,7 +1266,11 @@ void GuiRect::SetClip(GuiScrollRect* iScrollingRect)
 
 void GuiRect::BeginClip(Tab* iTab)
 {
-	this->clip ? this->clip->BeginClip(iTab) : iTab->renderer2D->PushScissor(this->edges.x,this->edges.y,this->edges.z,this->edges.w);
+	this->clip 
+		? 
+		this->clip->BeginClip(iTab) 
+		: 
+		iTab->renderer2D->PushScissor(this->edges.x,this->edges.y,this->edges.z,this->edges.w);
 }
 
 void GuiRect::EndClip(Tab* iTab)
@@ -1745,7 +1759,7 @@ void EditorEntity::SetLevel(EditorEntity* iEntity)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiRootRect::GuiRootRect(Tab* t):tabContainer(t)
+GuiRootRect::GuiRootRect(Tab* t):tab(t)
 {
 	this->name=L"RootRect";
 	//this->Set(0,0,0,-1,0,0,0,0,0,0,1,1);
@@ -1756,9 +1770,13 @@ GuiRootRect::~GuiRootRect()
 {
 }
 
-void GuiRootRect::OnSize(const GuiEvent&)
+void GuiRootRect::OnSize(const GuiEvent& iData)
 {
-	DEBUG_BREAK();
+	this->rect.make(0.0f,(float)Tab::CONTAINER_HEIGHT,this->tab->windowData->width,this->tab->windowData->height-Tab::CONTAINER_HEIGHT);
+	this->edges.x=0;
+	this->edges.y=(float)Tab::CONTAINER_HEIGHT;
+	this->edges.z=this->tab->windowData->width;
+	this->edges.w=this->tab->windowData->height;
 }
 
 ///////////////////////////////////////////////
@@ -2174,7 +2192,8 @@ GuiString::GuiString():
 	textSpot(0.0f,0.5f),
 	canEdit(false),
 	adaptRect(false),
-	cursor(0)
+	cursor(0),
+	textColor(0xffffff)
 {
 	this->fixed.make(0,0,0,20);
 	this->name=L"GuiString";
@@ -2245,7 +2264,10 @@ void GuiString::DrawTheText(Tab* iTab)
 											this->textEdges.x,
 											this->textEdges.y,
 											this->textEdges.z,
-											this->textEdges.w
+											this->textEdges.w,
+											vec2(),
+											vec2(),
+											this->textColor
 										);
 }
 
@@ -2576,6 +2598,11 @@ GuiProperty::GuiProperty()
 	this->description.scalars.make(1,1,0.5f,1);
 }
 
+GuiProperty::~GuiProperty()
+{
+
+}
+
 GuiPropertyString::GuiPropertyString(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2,unsigned int iValueParameter1,unsigned int iValueParameter2):
 	valuePointer1(iValuePointer1),
 	valuePointer2(iValuePointer2),
@@ -2609,6 +2636,12 @@ GuiPropertyString::GuiPropertyString(String iDescription,void* iValuePointer1,un
 
 	this->name+=L" PropertyString";
 }
+
+GuiPropertyString::~GuiPropertyString()
+{
+	this->childs.clear();
+}
+
 
 void GuiPropertyString::RefreshReference(Tab* iTabContainer)
 {
@@ -3030,7 +3063,9 @@ void GuiViewport::OnSize(const GuiEvent& iMsg)
 
 void GuiViewport::OnPaint(const GuiEvent& iMsg)
 {
+#if ENABLE_RENDERER
 	iMsg.tab->renderer3D->Render(this,false);
+#endif
 	this->BroadcastToChilds(&GuiRect::OnPaint,iMsg);
 }
 
@@ -3106,12 +3141,16 @@ void GuiViewport::OnMouseMove(const GuiEvent& iMsg)
 void GuiViewport::OnActivate(const GuiEvent& iMsg)
 {
 	GuiRect::OnActivate(iMsg);
+#if ENABLE_RENDERER
 	iMsg.tab->renderer3D->Register(this);
+#endif
 }
 void GuiViewport::OnDeactivate(const GuiEvent& iMsg)
 {
 	GuiRect::OnDeactivate(iMsg);
+#if ENABLE_RENDERER
 	iMsg.tab->renderer3D->Unregister(this);
+#endif
 }
 
 void GuiViewport::OnReparent(const GuiEvent& iMsg)
@@ -3601,7 +3640,7 @@ void GuiSceneViewer::Load(String iFilename)
 
 		if(this->active)
 		{
-			Tab* tab=this->GetRootRect()->tabContainer;
+			Tab* tab=this->GetRootRect()->tab;
 
 			this->OnSize(GuiEvent(tab,this,0,&GuiRect::OnSize,0));
 			tab->SetDraw(2,0,this);
@@ -3987,7 +4026,7 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(const GuiEvent& iMsg)
 						String tHoveredNodeFilename=tHovered->rowData->parent->fileName + L"\\" + tHovered->rowData->fileName;
 
 						tGuiSceneViewer->Load(tHoveredNodeFilename.c_str());
-						tGuiSceneViewer->GetRootRect()->tabContainer->SetDraw(2,0,tGuiSceneViewer);
+						tGuiSceneViewer->GetRootRect()->tab->SetDraw(2,0,tGuiSceneViewer);
 					}
 				}
 				break;
@@ -4143,6 +4182,11 @@ GuiScriptViewer::GuiScriptViewer():
 	this->lines.offsets.x=0;
 
 	this->editor.SetEdges(&this->lines.edges.z,0,0,0);
+
+}
+
+GuiScriptViewer::~GuiScriptViewer()
+{
 
 }
 
@@ -4587,7 +4631,7 @@ void editScriptEditorCallback(void* iData)
 {
 	EditorScript* editorScript=(EditorScript*)iData;
 
-	Tab* tabContainer=Ide::GetInstance()->mainAppWindow->containers[0]->tabContainers[0];
+	Tab* tabContainer=Ide::GetInstance()->mainAppWindow->mainContainer->tabs[0];
 
 	if(!tabContainer)
 		DEBUG_BREAK();
@@ -4627,7 +4671,7 @@ void launchStopScriptEditorCallback(void* iData)
 			editorScript->buttonLaunch->text=L"Stop";
 	}
 
-	editorScript->container->GetRootRect()->tabContainer->SetDraw(2,0,editorScript->buttonLaunch);
+	editorScript->container->GetRootRect()->tab->SetDraw(2,0,editorScript->buttonLaunch);
 }
 
 EditorScript::EditorScript():scriptViewer(0)
@@ -4737,7 +4781,8 @@ namespace PluginSystemUtils
 	{
 		PluginSystem* tPluginSystem=(PluginSystem*)tData;
 
-		Ide::GetInstance()->mainAppWindow->containers[0]->DestroyTabContainer(tPluginSystem->configurationPanel);
+		tPluginSystem->configurationPanel->Destroy();
+		Ide::GetInstance()->mainAppWindow->mainContainer->Enable(true);
 	}
 
 	void ptfLoadUnloadConfigurationPanelRowButton(void* tData)
@@ -4754,13 +4799,17 @@ namespace PluginSystemUtils
 
 void PluginSystem::ShowConfigurationPanel()
 {
-	this->configurationPanel=Ide::GetInstance()->mainAppWindow->containers[0]->CreateModalTabContainer(500,300);
+	this->configurationPanel=Ide::GetInstance()->mainAppWindow->containers[0]->CreateModalTab(500,300);
 
 	GuiPanel* tPanel=this->configurationPanel->rects.Panel();
+
+	tPanel->offsets.w=-30;
 
 	tPanel->name=L"Plugins";
 
 	GuiRect* tLast=0;
+
+	int tColor=GuiRect::COLOR_BACKGROUNDO+15;
 	
 	for(size_t i=0;i<this->plugins.size();i++)
 	{
@@ -4768,6 +4817,10 @@ void PluginSystem::ShowConfigurationPanel()
 
 		GuiString* tString=tPanel->Text(L"");
 		tString->colorHovering=0x123456;
+
+		
+
+		tString->colorBackground=(i%2) ? tColor : tColor+15;
 		tString->SetStringMode(this->plugins[i]->name,true);
 
 		//set on/off button
@@ -4795,7 +4848,7 @@ void PluginSystem::ShowConfigurationPanel()
 	this->exitButton=new GuiButtonFunc();
 	this->exitButton->text=L"Exit";
 	this->exitButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
-	this->exitButton->offsets.make(-35,-25,-5,-5);
+	this->exitButton->offsets.make(-35,5,-5,25);
 
 	this->exitButton->colorBackground=0x888888;
 	this->exitButton->colorHovering=0x989898;
@@ -4804,19 +4857,22 @@ void PluginSystem::ShowConfigurationPanel()
 	this->exitButton->func=PluginSystemUtils::ptfCloseConfigurationPanel;
 	this->exitButton->param=this;
 
-	this->exitButton->SetParent(tPanel);
+	this->exitButton->SetParent(&this->configurationPanel->rectsLayered);
 }
 
 
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-/////////////////MainAppWindow/////////////////
+/////////////////MainContainer/////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
 
-void MainAppWindow::OnMenuPressed(int iIdx)
+MainContainer::MainContainer(){}
+MainContainer::~MainContainer(){}
+
+void MainContainer::OnMenuPressed(int iIdx)
 {
 	if(iIdx==MenuActionExit)
 	{

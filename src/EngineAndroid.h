@@ -22,8 +22,7 @@ struct ShaderAndroid : Shader
 {
 	static Shader* Create(const char* shader_name,const char* pixel_shader,const char* fragment_shader);
 
-	int GetProgram();
-	void SetProgram(int);
+	~ShaderAndroid();
 
 	int GetUniform(int slot,char* var);
 	int GetAttrib(int slot,char* var);
@@ -77,6 +76,7 @@ struct Renderer3DAndroid : Renderer3DBase
 	GLuint renderBufferDepth;
 
 	Renderer3DAndroid();
+	~Renderer3DAndroid();
 
 	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
 	void draw(vec2);

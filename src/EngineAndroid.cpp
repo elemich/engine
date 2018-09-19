@@ -283,73 +283,81 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 }
 
 
-int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
+ShaderAndroid* create_program(const char* name,const char* vertexsh,const char* fragmentsh)
 {
-	GLint link_success=0;
-	GLint program=0;
-	GLint vertex_shader=0;
-	GLint fragment_shader=0;
-	GLchar message[1024]={0};
-	GLint len=0;
+	GLint tLinkSuccess=0;
+	GLint tProgramId=0;
+	GLint tVertexShader=0;
+	GLint tFragmentShader=0;
+	GLchar tMessage[1024]={0};
+	GLint tLength=0;
 
-	program = glCreateProgram();glCheckError();
+	tProgramId = glCreateProgram();glCheckError();
 
-	if(!program)
+	if(!tProgramId)
 	{
 		wprintf(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
 		__debugbreak();
-		return 0;
+		return false;
 	}
 
-	vertex_shader=simple_shader(name,GL_VERTEX_SHADER, vertexsh);
-	fragment_shader=simple_shader(name,GL_FRAGMENT_SHADER, fragmentsh);
+	tVertexShader=simple_shader(name,GL_VERTEX_SHADER, vertexsh);
+	tFragmentShader=simple_shader(name,GL_FRAGMENT_SHADER, fragmentsh);
 
-	glAttachShader(program, vertex_shader);glCheckError();
-	glAttachShader(program, fragment_shader);glCheckError();
-	glLinkProgram(program);glCheckError();
-	glGetProgramiv(program, GL_LINK_STATUS, &link_success);glCheckError();
+	glAttachShader(tProgramId, tVertexShader);glCheckError();
+	glAttachShader(tProgramId, tFragmentShader);glCheckError();
+	glLinkProgram(tProgramId);glCheckError();
+	glGetProgramiv(tProgramId, GL_LINK_STATUS, &tLinkSuccess);glCheckError();
 
-	if (GL_FALSE==link_success)
+	if (GL_FALSE==tLinkSuccess)
 	{
-		wprintf(L"glLinkProgram error for %s\n",message);
+		wprintf(L"glLinkProgram error for %s\n",tMessage);
 		__debugbreak();
+		return false;
 	}
 
-	glGetProgramInfoLog(program,sizeof(message),&len,message);glCheckError();
+	glDetachShader(tProgramId,tVertexShader);
+	glDetachShader(tProgramId,tFragmentShader);
 
+	glGetProgramInfoLog(tProgramId,sizeof(tMessage),&tLength,tMessage);glCheckError();
 
-	//print infos
-	/*if(len && len<sizeof(message))
-		wprintf(L"%s",message);*/
+	ShaderAndroid* ___shader=0;
 
+	if(tProgramId && GL_FALSE!=tLinkSuccess)
+	{
+		___shader=new ShaderAndroid;
 
-	return program;
+		___shader->name=StringUtils::ToWide(name);
+		___shader->programId=tProgramId;
+		___shader->vertexShaderId=tVertexShader;
+		___shader->fragmentShaderId=tFragmentShader;
+	}
+
+	return ___shader;
 }
 
 
 
 Shader* ShaderAndroid::Create(const char* name,const char* pix,const char* frag)
 {
-	int program=create_program(name,pix,frag);
+	Shader* shader=create_program(name,pix,frag);
 
-	if(program)
+	if(shader)
 	{
-		Shader* shader=new ShaderAndroid;
-
-		shader->name=StringUtils::ToWide(name);
-		shader->SetProgram(program);
 		shader->Use();
 		shader->init();
-
-		return shader;
 	}
 	else
-
 		wprintf(L"error creating shader %s\n",name);
 
-	return 0;
+	return shader;
 }
 
+
+ShaderAndroid::~ShaderAndroid()
+{
+	glDeleteProgram(this->programId);
+}
 
 
 unsigned int& ShaderAndroid::GetBufferObject()
@@ -357,8 +365,6 @@ unsigned int& ShaderAndroid::GetBufferObject()
 	return vbo;
 }
 
-int ShaderAndroid::GetProgram(){return program;}
-void ShaderAndroid::SetProgram(int p){program=p;}
 
 int ShaderAndroid::GetUniform(int slot,char* var)
 {
@@ -390,7 +396,7 @@ void ShaderAndroid::SetMatrices(float* view,float* mdl)
 
 void ShaderAndroid::Use()
 {
-	glUseProgram(program);glCheckError();
+	glUseProgram(programId);glCheckError();
 }
 
 const char* ShaderAndroid::GetPixelShader(){return 0;}
@@ -410,13 +416,13 @@ int ShaderAndroid::init()
 
 int ShaderAndroid::GetAttribute(const char* attrib)
 {
-	int location=glGetAttribLocation(program,attrib);glCheckError();
+	int location=glGetAttribLocation(programId,attrib);glCheckError();
 	return location;
 }
 
 int ShaderAndroid::GetUniform(const char* uniform)
 {
-	int location=glGetUniformLocation(program,uniform);glCheckError();
+	int location=glGetUniformLocation(programId,uniform);glCheckError();
 	return location;
 }
 
@@ -527,6 +533,14 @@ void glCheckError()
 		__debugbreak();
 	}
 }
+Renderer3DAndroid::~Renderer3DAndroid()
+{
+	SAFEDELETE(this->shader_font);
+	SAFEDELETE(this->shader_shaded_texture);
+	SAFEDELETE(this->shader_unlit);
+	SAFEDELETE(this->shader_unlit_color);
+	SAFEDELETE(this->shader_unlit_texture);
+}
 
 Renderer3DAndroid::Renderer3DAndroid()
 {
@@ -563,17 +577,17 @@ Renderer3DAndroid::Renderer3DAndroid()
 	wprintf(L"Status: Using GL %s\n", glGetString(GL_VERSION));
 	wprintf(L"Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-	this->unlit=ShaderAndroid::Create("unlit",unlit_vert,unlit_frag);
-	this->unlit_color=ShaderAndroid::Create("unlit_color",unlit_color_vert,unlit_color_frag);
-	this->unlit_texture=ShaderAndroid::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
-	this->font=ShaderAndroid::Create("font",font_pixsh,font_frgsh);
-	this->shaded_texture=ShaderAndroid::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+	this->shader_unlit=ShaderAndroid::Create("unlit",unlit_vert,unlit_frag);
+	this->shader_unlit_color=ShaderAndroid::Create("unlit_color",unlit_color_vert,unlit_color_frag);
+	this->shader_unlit_texture=ShaderAndroid::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	this->shader_font=ShaderAndroid::Create("font",font_pixsh,font_frgsh);
+	this->shader_shaded_texture=ShaderAndroid::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
 
-	this->shaders.push_back(this->unlit);
-	this->shaders.push_back(this->unlit_color);
-	this->shaders.push_back(this->unlit_texture);
-	this->shaders.push_back(this->font);
-	this->shaders.push_back(this->shaded_texture);
+	this->shaders.push_back(this->shader_unlit);
+	this->shaders.push_back(this->shader_unlit_color);
+	this->shaders.push_back(this->shader_unlit_texture);
+	this->shaders.push_back(this->shader_font);
+	this->shaders.push_back(this->shader_shaded_texture);
 }
 
 void Renderer3DAndroid::draw(Light*)
@@ -600,7 +614,7 @@ void Renderer3DAndroid::draw(Gizmo* gizmo)
 
 void Renderer3DAndroid::draw(vec3 point,float psize,vec3 col)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -643,7 +657,7 @@ void Renderer3DAndroid::draw(vec3 point,float psize,vec3 col)
 
 void Renderer3DAndroid::draw(vec4 rect)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	int position_slot=-1;
 	int modelview_slot=-1;
@@ -687,7 +701,7 @@ void Renderer3DAndroid::draw(vec4 rect)
 
 void Renderer3DAndroid::draw(mat4 mtx,float size,vec3 color)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -743,7 +757,7 @@ void Renderer3DAndroid::draw(mat4 mtx,float size,vec3 color)
 
 void Renderer3DAndroid::draw(AABB aabb,vec3 color)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -812,7 +826,7 @@ void Renderer3DAndroid::draw(AABB aabb,vec3 color)
 
 void Renderer3DAndroid::draw(vec3 a,vec3 b,vec3 color)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -1143,14 +1157,14 @@ void Renderer3DAndroid::draw(Mesh* mesh)
 
 void Renderer3DAndroid::drawUnlitTextured(Mesh* mesh)
 {
-	Shader* shader = mesh->materials.size() ? this->unlit_texture : this->unlit_color;
+	Shader* shader = mesh->materials.size() ? this->shader_unlit_texture : this->shader_unlit_color;
 
 	if(!shader || !mesh)
 		return;
 
 	vec3 lightpos(0,200,-100);
 
-	if(shader==this->shaded_texture)
+	if(shader==this->shader_shaded_texture)
 		this->draw(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
@@ -1212,7 +1226,7 @@ void Renderer3DAndroid::drawUnlitTextured(Mesh* mesh)
 
 void Renderer3DAndroid::draw(Skin* skin)
 {
-	Shader* shader = skin->materials.size() ? this->unlit_texture : this->unlit_color;
+	Shader* shader = skin->materials.size() ? this->shader_unlit_texture : this->shader_unlit_color;
 
 	if(!skin || !skin->vertexcache || !shader)
 	{
@@ -1222,7 +1236,7 @@ void Renderer3DAndroid::draw(Skin* skin)
 
 	vec3 lightpos(0,200,-100);
 
-	if(shader==this->shaded_texture)
+	if(shader==this->shader_shaded_texture)
 		this->draw(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
@@ -1303,7 +1317,7 @@ void Renderer3DAndroid::draw(Camera*)
 
 void Renderer3DAndroid::draw(Bone* bone)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;

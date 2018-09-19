@@ -32,8 +32,8 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 	if(iIdx==this->MenuActionBuild)
 		this->ShowConfigurationPanel();
 }
-
 void ptfCompileAndroidBuild(void* tData)
+
 {
 	GuiButtonFunc* tButtonFunc=(GuiButtonFunc*)tData;
 
@@ -45,50 +45,55 @@ void ptfCompileAndroidBuild(void* tData)
 
 void ptfExitBuild(void* tData)
 {
-	GuiButtonFunc* tButtonFunc=(GuiButtonFunc*)tData;
+	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)tData;
 
-	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)tButtonFunc->userData;
-
-	CompilerAndroid tCompilerAndroid;
-	tCompilerAndroid.Compile();
+	tAndroidPlugin->configurationPanel->Destroy();
+	Ide::GetInstance()->mainAppWindow->mainContainer->Enable(true);
 }
 
-void gCreateStringPropertyEditable(GuiPanel* iPanel,String iLabel,String* iRef)
+void gCreateStringPropertyEditable(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
 	GuiPropertyString* pProp=new GuiPropertyString(iLabel,iRef,GuiPropertyString::STRING);
 	pProp->SetEdges(0,iPanel->childs.size() ? &iPanel->childs.back()->edges.w : 0,0,0);
 	pProp->SetParent(iPanel);		
 	pProp->value.canEdit=true;
+	pProp->description.colorBackground=iColor;
+	pProp->value.colorBackground=0xffffff;
+	pProp->value.offsets.make(0,2,0,-2);
+	pProp->value.textColor=0x000000;
 }
 
 void AndroidPlugin::ShowConfigurationPanel()
 {
-	this->configurationPanel=Ide::GetInstance()->mainAppWindow->containers[0]->CreateModalTabContainer(500,300);
+	this->configurationPanel=Ide::GetInstance()->mainAppWindow->mainContainer->CreateModalTab(500,300);
 
 	GuiPanel* tPanel=this->configurationPanel->rects.Panel();
 	//tPanel->offsets.w=-30;
 
 	tPanel->name=L"Android Builder";
 
-	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname);															
-	gCreateStringPropertyEditable(tPanel,L"Key Name",&this->Keyname);
-	gCreateStringPropertyEditable(tPanel,L"SdkDir",&this->AndroidSdkDir);
-	gCreateStringPropertyEditable(tPanel,L"Platform",&this->AndroidPlatform);
-	gCreateStringPropertyEditable(tPanel,L"Build Tool",&this->AndroidBuildTool);
-	gCreateStringPropertyEditable(tPanel,L"ADB",&this->AndroidDebugBridge);
-	gCreateStringPropertyEditable(tPanel,L"Output Dir",&this->AndroidOutputDirectory);
-	gCreateStringPropertyEditable(tPanel,L"Project Dir",&this->AndroidProjectDirectory);
-	gCreateStringPropertyEditable(tPanel,L"Jni Dir",&this->AndroidProjectJniDirectory);
-	gCreateStringPropertyEditable(tPanel,L"Asset Dir",&this->AndroidProjectAssetDirectory);
-	gCreateStringPropertyEditable(tPanel,L"Res Directory",&this->AndroidProjectResDirectory);
-	gCreateStringPropertyEditable(tPanel,L"Libs Dir",&this->AndroidProjectLibsDirectory);
+	int tColor1=GuiRect::COLOR_BACKGROUNDO+15;
+	int tColor2=tColor1+15;
+
+	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname,tColor1);															
+	gCreateStringPropertyEditable(tPanel,L"Key Name",&this->Keyname,tColor2);
+	gCreateStringPropertyEditable(tPanel,L"SdkDir",&this->AndroidSdkDir,tColor1);
+	gCreateStringPropertyEditable(tPanel,L"Platform",&this->AndroidPlatform,tColor2);
+	gCreateStringPropertyEditable(tPanel,L"Build Tool",&this->AndroidBuildTool,tColor1);
+	gCreateStringPropertyEditable(tPanel,L"ADB",&this->AndroidDebugBridge,tColor2);
+	gCreateStringPropertyEditable(tPanel,L"Output Dir",&this->AndroidOutputDirectory,tColor1);
+	gCreateStringPropertyEditable(tPanel,L"Project Dir",&this->AndroidProjectDirectory,tColor2);
+	gCreateStringPropertyEditable(tPanel,L"Jni Dir",&this->AndroidProjectJniDirectory,tColor1);
+	gCreateStringPropertyEditable(tPanel,L"Asset Dir",&this->AndroidProjectAssetDirectory,tColor2);
+	gCreateStringPropertyEditable(tPanel,L"Res Directory",&this->AndroidProjectResDirectory,tColor1);
+	gCreateStringPropertyEditable(tPanel,L"Libs Dir",&this->AndroidProjectLibsDirectory,tColor2);
 
 	//buttons
 
 	this->exitButton=new GuiButtonFunc();
 	this->exitButton->text=L"Exit";
 	this->exitButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
-	this->exitButton->offsets.make(-35,-25,-5,-5);
+	this->exitButton->offsets.make(-35,5,-5,25);
 
 	this->exitButton->colorBackground=0x888888;
 	this->exitButton->colorHovering=0x989898;
@@ -97,7 +102,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->exitButton->func=ptfExitBuild;
 	this->exitButton->param=this;
 
-	this->exitButton->SetParent(tPanel);
+	this->exitButton->SetParent(&this->configurationPanel->rects);
 
 	//button build
 
@@ -105,7 +110,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->buildButton=new GuiButtonFunc();
 	this->buildButton->text=L"Build";
 	this->buildButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
-	this->buildButton->offsets.make(-35,-50,-5,-30);
+	this->buildButton->offsets.make(-35,30,-5,50);
 
 	this->buildButton->colorBackground=0x888888;
 	this->buildButton->colorHovering=0x989898;
@@ -114,7 +119,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->buildButton->func=ptfCompileAndroidBuild;
 	this->buildButton->param=this;
 
-	this->buildButton->SetParent(tPanel);
+	this->buildButton->SetParent(&this->configurationPanel->rects);
 }
 
 

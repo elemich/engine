@@ -133,9 +133,6 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 {
 	ID2D1HwndRenderTarget*		renderer;
 	ID2D1SolidColorBrush*		brush;
-	ID2D1Layer*					caretLayer;
-
-	bool layerPushed;
 
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
@@ -183,19 +180,74 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	GLuint renderBufferColor;
 	GLuint renderBufferDepth;
 
+	PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB;
+	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
+
+	PFNGLATTACHSHADERPROC glAttachShader;
+	PFNGLBINDBUFFERPROC glBindBuffer;
+	PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
+	PFNGLBUFFERDATAPROC glBufferData;
+	PFNGLCOMPILESHADERPROC glCompileShader;
+	PFNGLCREATEPROGRAMPROC glCreateProgram;
+	PFNGLCREATESHADERPROC glCreateShader;
+	PFNGLDELETEBUFFERSPROC glDeleteBuffers;
+	PFNGLDELETEPROGRAMPROC glDeleteProgram;
+	PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
+	PFNGLDELETERENDERBUFFERSPROC glDeleteRenderbuffers;
+	PFNGLDELETESHADERPROC glDeleteShader;
+	PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
+	PFNGLDETACHSHADERPROC glDetachShader;
+	PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
+	PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib;
+	PFNGLGENBUFFERSPROC glGenBuffers;
+	PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
+	PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
+	PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
+	PFNGLGETPROGRAMIVPROC glGetProgramiv;
+	PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
+	PFNGLGETSHADERIVPROC glGetShaderiv;
+	PFNGLLINKPROGRAMPROC glLinkProgram;
+	PFNGLSHADERSOURCEPROC glShaderSource;
+	PFNGLUSEPROGRAMPROC glUseProgram;
+	PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
+	PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation;
+	PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+	PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
+	PFNGLACTIVETEXTUREPROC glActiveTexture;
+	PFNGLUNIFORM1IPROC glUniform1i;
+	PFNGLUNIFORM1FPROC glUniform1f;
+	PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
+	PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
+	PFNGLUNIFORM3FVPROC glUniform3fv;
+	PFNGLUNIFORM4FVPROC glUniform4fv;
+	PFNGLTEXBUFFERPROC glTexBuffer;
+	PFNGLTEXTUREBUFFERPROC glTextureBuffer;
+	PFNGLBUFFERSUBDATAPROC glBufferSubData;
+	PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
+	PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers;
+	PFNGLREADNPIXELSPROC glReadnPixels;
+	PFNGLUNIFORM2FPROC glUniform2f;
+	PFNGLUNIFORM2FVPROC glUniform2fv;
+	PFNGLUNIFORM3FPROC glUniform3f;
+	PFNGLUNIFORM4FPROC glUniform4f;
+	PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
+
 	HGLRC hglrc;
 	HDC   hdc;
+
+	int pixelFormat;
 
 #if USE_MULTIPLE_OPENGL_CONTEXTS
 	GLEWContext* glewContext;
 #endif
 
-	TabWin32* tabContainerWin32;
+	TabWin32* tab;
 
 	Renderer3DOpenGL(TabWin32*);
 	~Renderer3DOpenGL();
 
-	virtual void Create(HWND container);
+	virtual void Initialize();
+	virtual void Deinitialize();
 
 	char* Name();
 	void ChangeContext();
@@ -225,9 +277,59 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 
 	void draw(EntityComponent*);
 	void draw(Entity*);
+
+	int		CreateShader(const char* name,int shader_type, const char* shader_src);
+	Shader* CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh);
+	Shader* CreateShaderProgram(const char* name,const char* pix,const char* frag);
 };
 
+struct DLLBUILD ShaderOpenGL : Shader
+{
+	Renderer3DOpenGL* renderer3DOpenGL;
 
+	ShaderOpenGL(Renderer3DOpenGL*);
+	~ShaderOpenGL();
+
+	int GetProgram();
+	void SetProgram(int);
+
+	int GetUniform(int slot,char* var);
+	int GetAttrib(int slot,char* var);
+
+	void Use();
+
+	const char* GetPixelShader();
+	const char* GetFragmentShader();
+
+	int GetAttribute(const char*);
+	int GetUniform(const char*);
+
+	int init();
+
+	int GetPositionSlot();
+	int GetColorSlot();
+	int GetProjectionSlot();
+	int GetModelviewSlot();
+	int GetTexcoordSlot();
+	int GetTextureSlot();
+	int GetLightposSlot();
+	int GetLightdiffSlot();
+	int GetLightambSlot();
+	int GetNormalSlot();
+	int GetMouseSlot();
+	int GetHoveringSlot();
+	int GetPointSize();
+
+	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
+
+	bool SetMatrix4f(int slot,float* mtx);
+
+	unsigned int& GetBufferObject();
+
+	void SetProjectionMatrix(float*);
+	void SetModelviewMatrix(float*);
+	void SetMatrices(float* view,float* mdl);
+};
 
 struct DLLBUILD DirectXRenderer : WindowData ,  Renderer3D
 {
@@ -268,7 +370,6 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	UINT msg;
 	WPARAM wparam;
 	LPARAM lparam;
-	HDC    hdc;
 
 	operator HWND(){return this->hwnd;};
 	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
@@ -285,13 +386,13 @@ struct DLLBUILD WindowDataWin32 : WindowData
 };
 
 
-
-
 struct DLLBUILD TabWin32 : Tab
 {
 	WindowDataWin32*& windowDataWin32;
-	ContainerWin32*& editorWindowContainerWin32;
-	Renderer2DWin32* renderer2DWin32;
+	ContainerWin32*& containerWin32;
+	Renderer2DWin32*& renderer2DWin32;
+	Renderer3DOpenGL*& renderer3DOpenGL;
+	ThreadWin32*& threadRenderWin32;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
@@ -302,6 +403,8 @@ struct DLLBUILD TabWin32 : Tab
 
 	bool BeginDraw();
 	void EndDraw();
+
+	void Destroy();
 
 	void DrawFrame();
 
@@ -361,6 +464,7 @@ struct DLLBUILD SplitterWin32 : Splitter
 struct DLLBUILD ContainerWin32 : Container
 {
 	ContainerWin32();
+	~ContainerWin32();
 
 	void OnSizing();
 	void OnSize();
@@ -368,20 +472,24 @@ struct DLLBUILD ContainerWin32 : Container
 	WindowDataWin32*& windowDataWin32;
 	SplitterWin32*& splitterContainerWin32;
 
-	TabWin32* CreateTabContainer(float x,float y,float w,float h);
-	TabWin32* CreateModalTabContainer(float w,float h);
-	void DestroyTabContainer(Tab*);
+	TabWin32* CreateTab(float x,float y,float w,float h);
+	TabWin32* CreateModalTab(float w,float h);
+	void DestroyTab(Tab*);
+
+	void Enable(bool);
 };
 
-struct DLLBUILD MainAppWindowWin32 : MainAppWindow
+struct DLLBUILD MainContainerWin32 : MainContainer
 {
 	static LRESULT CALLBACK MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
 
-	HWND mainMenu;
+	ContainerWin32* mainContainerWin32;
 
-	void Init();
+	MainContainerWin32();
+	~MainContainerWin32();
 
 	ContainerWin32* CreateContainer();
+	
 };
 
 struct DLLBUILD TimerWin32 : Timer
@@ -395,12 +503,10 @@ struct DLLBUILD TimerWin32 : Timer
 struct DLLBUILD IdeWin32 : Ide
 {
 	IdeWin32();
+	~IdeWin32();
 
 	HANDLE processThreadHandle;
 	HANDLE processHandle;
-
-	int Initialize();
-	void Deinitialize();
 
 	void Run();
 

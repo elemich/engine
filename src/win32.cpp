@@ -25,57 +25,7 @@ bool KeyboardInput::IsPressed(unsigned int iCharCode)
 }
 
 
-PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB = 0;
-PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 0;
 
-#ifndef GL_GLEXT_PROTOTYPES
-extern PFNGLATTACHSHADERPROC glAttachShader=0;
-extern PFNGLBINDBUFFERPROC glBindBuffer=0;
-extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray=0;
-extern PFNGLBUFFERDATAPROC glBufferData=0;
-extern PFNGLCOMPILESHADERPROC glCompileShader=0;
-extern PFNGLCREATEPROGRAMPROC glCreateProgram=0;
-extern PFNGLCREATESHADERPROC glCreateShader=0;
-extern PFNGLDELETEBUFFERSPROC glDeleteBuffers=0;
-extern PFNGLDELETEPROGRAMPROC glDeleteProgram=0;
-extern PFNGLDELETESHADERPROC glDeleteShader=0;
-extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays=0;
-extern PFNGLDETACHSHADERPROC glDetachShader=0;
-extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray=0;
-extern PFNGLENABLEVERTEXARRAYATTRIBPROC glEnableVertexArrayAttrib=0;
-extern PFNGLGENBUFFERSPROC glGenBuffers=0;
-extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays=0;
-extern PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation=0;
-extern PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog=0;
-extern PFNGLGETPROGRAMIVPROC glGetProgramiv=0;
-extern PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog=0;
-extern PFNGLGETSHADERIVPROC glGetShaderiv=0;
-extern PFNGLLINKPROGRAMPROC glLinkProgram=0;
-extern PFNGLSHADERSOURCEPROC glShaderSource=0;
-extern PFNGLUSEPROGRAMPROC glUseProgram=0;
-extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer=0;
-extern PFNGLBINDATTRIBLOCATIONPROC glBindAttribLocation=0;
-extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation=0;
-extern PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv=0;
-extern PFNGLACTIVETEXTUREPROC glActiveTexture=0;
-extern PFNGLUNIFORM1IPROC glUniform1i=0;
-extern PFNGLUNIFORM1FPROC glUniform1f=0;
-extern PFNGLGENERATEMIPMAPPROC glGenerateMipmap=0;
-extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray=0;
-extern PFNGLUNIFORM3FVPROC glUniform3fv=0;
-extern PFNGLUNIFORM4FVPROC glUniform4fv=0;
-extern PFNGLTEXBUFFERPROC glTexBuffer=0;
-extern PFNGLTEXTUREBUFFERPROC glTextureBuffer=0;
-extern PFNGLBUFFERSUBDATAPROC glBufferSubData=0;
-extern PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers=0;
-extern PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers=0;
-extern PFNGLREADNPIXELSPROC glReadnPixels=0;
-extern PFNGLUNIFORM2FPROC glUniform2f=0;
-extern PFNGLUNIFORM2FVPROC glUniform2fv=0;
-extern PFNGLUNIFORM3FPROC glUniform3f=0;
-extern PFNGLUNIFORM4FPROC glUniform4f=0;
-extern PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB=0;
-#endif
 
 
 bool InitSplitter();
@@ -517,20 +467,22 @@ void Direct2D::Identity(ID2D1RenderTarget* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0),caretLayer(0),layerPushed(0)
+Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0)
 {
 	Direct2D::Init();
 	this->SetTabSpaces(this->tabSpaces);
 }
 Renderer2DWin32::~Renderer2DWin32()
-{}
+{
+	SAFERELEASE(this->brush);
+	SAFERELEASE(this->renderer);
+
+}
 
 bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
 	SAFERELEASE(this->renderer);
 	SAFERELEASE(this->brush);
-	SAFEDELETE(this->caretLayer);
-
 
 	HRESULT result=S_OK;
 
@@ -556,11 +508,6 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2D::COLOR_TAB_BACKGROUND),&brush);
 
 	if(S_OK!=result || !this->brush)
-		DEBUG_BREAK();
-
-	result=this->renderer->CreateLayer(&this->caretLayer);
-
-	if(S_OK!=result || !this->caretLayer)
 		DEBUG_BREAK();
 
 	return true;
@@ -683,15 +630,21 @@ ContainerWin32::ContainerWin32():
 	splitter=new SplitterWin32;
 }
 
+ContainerWin32::~ContainerWin32()
+{
+	SAFEDELETE(this->window);
+	SAFEDELETE(this->splitter);
+}
 
 
-TabWin32* ContainerWin32::CreateTabContainer(float x,float y,float w,float h)
+
+TabWin32* ContainerWin32::CreateTab(float x,float y,float w,float h)
 {
 	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd);
 	return result;
 }
 
-TabWin32* ContainerWin32::CreateModalTabContainer(float w,float h)
+TabWin32* ContainerWin32::CreateModalTab(float w,float h)
 {
 	EnableWindow(this->windowDataWin32->hwnd,false);
 
@@ -717,14 +670,18 @@ TabWin32* ContainerWin32::CreateModalTabContainer(float w,float h)
 	return result;
 }
 
-void ContainerWin32::DestroyTabContainer(Tab* tTab)
+void ContainerWin32::DestroyTab(Tab* tTab)
 {
-	DestroyWindow(((TabWin32*)tTab)->windowDataWin32->hwnd);
+	tTab->Destroy();
 
-	tTab->destroy=true;
-
-	EnableWindow(this->windowDataWin32->hwnd,true);
+	PostMessage(this->windowDataWin32->hwnd,(WPARAM)WM_ENABLE,true,0);
 }
+
+void ContainerWin32::Enable(bool value)
+{
+	EnableWindow(this->windowDataWin32->hwnd,value);
+}
+
 
 void ContainerWin32::OnSizing()
 {
@@ -758,13 +715,105 @@ void ContainerWin32::OnSize()
 	this->resizeCheckWidth=0;
 	this->resizeCheckHeight=0;
 
-	for(std::vector<Tab*>::iterator i=this->tabContainers.begin();i!=this->tabContainers.end();i++)
+	for(std::vector<Tab*>::iterator i=this->tabs.begin();i!=this->tabs.end();i++)
 	{
 		TabWin32* tab=static_cast<TabWin32*>(*(i));
 
 		if(tab && tab->windowData->siblings[this->resizeEnumType].empty())
 			tab->OnResizeContainer();
 	}
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////MenuInterface/////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+HMENU ____MainMenu=0;
+static int ____MenuInterfaceIds=0;
+
+int DLLBUILD GetMenuId()
+{
+	return ____MenuInterfaceIds;
+}
+
+int DLLBUILD IncrementMenuId()
+{
+	return ____MenuInterfaceIds++;
+}
+
+int MenuInterface::GetMenuId()
+{
+	return ::GetMenuId();
+}
+
+int MenuInterface::IncrementMenuId()
+{
+	return ::IncrementMenuId();
+}
+
+int MenuInterface::Menu(String iName,bool tPopup)
+{
+	HMENU tMenu=____MainMenu;
+
+	wchar_t*  tBase=&iName[0];
+	wchar_t* tBegin=tBase;
+	wchar_t* tEnd=0;
+
+	int tItemId=-1;
+
+	while(tBegin)
+	{
+		tEnd=wcsstr(tBegin,L"\\");
+
+		size_t pos=tBegin-tBase;
+		size_t len=tEnd-tBegin;
+		std::wstring searchMenu=iName.substr(pos,tEnd ? len : std::wstring::npos);	
+		int menuIdx=0;
+
+		wchar_t menuName[CHAR_MAX]={0};
+		bool found=false;
+
+		while(GetMenuString(tMenu,menuIdx,menuName,CHAR_MAX,MF_BYPOSITION))
+		{
+			if(searchMenu==menuName)
+			{
+				tMenu=GetSubMenu(tMenu,menuIdx);
+				found=true;
+			}
+
+			menuIdx++;
+		}
+
+		wchar_t* tNextMenuNameExists=wcsstr(tBegin,L"\\");
+
+		if(!found && !tNextMenuNameExists)
+		{
+			if(!menuName[0])
+			{
+				HMENU tNewMenu=tPopup ? CreatePopupMenu() : 0;
+
+				MENUITEMINFO mitem={0};
+
+				mitem.cbSize=sizeof(MENUITEMINFO);
+				mitem.fMask=MIIM_DATA|MIIM_TYPE|MIIM_SUBMENU;
+				mitem.fType=MFT_STRING;
+				mitem.dwItemData=(ULONG_PTR)this;
+				mitem.dwTypeData=(wchar_t*)searchMenu.c_str();
+				mitem.cch=searchMenu.size();
+				mitem.hSubMenu=tNewMenu;
+				mitem.fMask|=MIIM_ID;
+				mitem.wID=tItemId=this->IncrementMenuId();
+
+				::InsertMenuItem(tMenu,menuIdx,true,&mitem);
+			}
+		}
+
+		tBegin = tEnd ? tEnd+1 : 0;
+	}
+
+	return tItemId;
 }
 
 
@@ -774,16 +823,16 @@ void ContainerWin32::OnSize()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-void MainAppWindowWin32::Init()
+MainContainerWin32::MainContainerWin32():mainContainerWin32(new ContainerWin32)
 {
-	ContainerWin32* container=new ContainerWin32;
+	this->mainContainer=this->mainContainerWin32;
 
-	this->containers.push_back(container);
+	this->containers.push_back(this->mainContainer);
 
-	HMENU menuMain=CreateMenu();
-	::InsertMenu(menuMain,0,MF_BYPOSITION,0,0);
+	____MainMenu=CreateMenu();
+	::InsertMenu(____MainMenu,0,MF_BYPOSITION,0,0);
 
-	if(menuMain)
+	if(____MainMenu)
 	{
 		MENUINFO mi={0};
 
@@ -791,10 +840,10 @@ void MainAppWindowWin32::Init()
 		mi.fMask=MIM_STYLE|MIM_APPLYTOSUBMENUS;
 		mi.dwStyle=MNS_NOTIFYBYPOS;
 
-		SetMenuInfo(menuMain,&mi);
+		SetMenuInfo(____MainMenu,&mi);
 	}
 
-	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,menuMain,0,container);
+	this->mainContainerWin32->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,____MainMenu,0,this->mainContainerWin32);
 
 
 	this->MenuFile=this->Menu(L"File",true);
@@ -807,12 +856,12 @@ void MainAppWindowWin32::Init()
 	this->MenuActionProgramInfo=this->Menu(L"?\\Info",false);
 
 	RECT rc;
-	GetClientRect(container->windowDataWin32->hwnd,&rc);
+	GetClientRect(this->mainContainerWin32->windowDataWin32->hwnd,&rc);
 
-	TabWin32* tabContainer1=container->CreateTabContainer(0.0f,0.0f,(float)300,(float)200);
-	TabWin32* tabContainer2=container->CreateTabContainer(0.0f,204.0f,(float)300,(float)200);
-	TabWin32* tabContainer3=container->CreateTabContainer(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408));
-	TabWin32* tabContainer4=container->CreateTabContainer(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top);
+	TabWin32* tabContainer1=this->mainContainerWin32->CreateTab(0.0f,0.0f,(float)300,(float)200);
+	TabWin32* tabContainer2=this->mainContainerWin32->CreateTab(0.0f,204.0f,(float)300,(float)200);
+	TabWin32* tabContainer3=this->mainContainerWin32->CreateTab(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408));
+	TabWin32* tabContainer4=this->mainContainerWin32->CreateTab(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top);
 
 	GuiSceneViewer* scene=tabContainer1->rects.SceneViewer();
 	GuiViewport* viewport=tabContainer4->rects.Viewport();
@@ -825,24 +874,27 @@ void MainAppWindowWin32::Init()
 	Tab::BroadcastToPoolSelecteds(&GuiRect::OnSize);
 	Tab::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
 
-	ShowWindow(container->windowDataWin32->hwnd,true);
+	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
+}
+
+MainContainerWin32::~MainContainerWin32()
+{
+
 }
 
 
-
-ContainerWin32* MainAppWindowWin32::CreateContainer()
+ContainerWin32* MainContainerWin32::CreateContainer()
 {
-	ContainerWin32* rootContainer=(ContainerWin32*)this->containers[0];
 	ContainerWin32* container=new ContainerWin32;
 
-	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,rootContainer->windowDataWin32->hwnd,0,0,container);
+	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,this->mainContainerWin32->windowDataWin32->hwnd,0,0,container);
 
 	this->containers.push_back(container);
 
 	return container;
 }
 
-LRESULT CALLBACK MainAppWindowWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 	ContainerWin32* mainw=(ContainerWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
@@ -1034,6 +1086,11 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			tc->OnGuiRMouseUp();
 		break;
+		case WM_CLOSE:
+			SAFEDELETE(tc);
+			DestroyWindow(hwnd);
+			return 0;
+		break;
 		case WM_KEYDOWN:
 			{
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
@@ -1072,9 +1129,6 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		tc->windowDataWin32->msg=0;
 		tc->windowDataWin32->wparam;
 		tc->windowDataWin32->lparam=0;
-
-		if(tc->destroy)
-			SAFEDELETE(tc);
 	}
 
 	
@@ -1232,12 +1286,6 @@ IdeWin32::IdeWin32():
 processThreadHandle(0),
 processHandle(0)
 {
-	this->timer=new TimerWin32;
-	this->mainAppWindow=new MainAppWindowWin32;
-}
-
-int IdeWin32::Initialize()
-{
 	HRESULT result;
 
 	{
@@ -1329,34 +1377,26 @@ int IdeWin32::Initialize()
 
 	this->stringEditor=new StringEditorWin32;
 
-	MainAppWindowWin32* mainAppWindowWin32=new MainAppWindowWin32;
-
-	this->mainAppWindow=mainAppWindowWin32;
-
-	if(!this->mainAppWindow)
-		wprintf(L"failed to create main window!\n");
-
-	mainAppWindowWin32->Init();
+	this->timer=new TimerWin32;
+	this->mainAppWindow=new MainContainerWin32;
 
 	this->pluginSystem=new PluginSystemWin32;
 
 	this->pluginSystem->ScanPluginsDirectory();
-
-
-	return error;
 }
 
-void IdeWin32::Deinitialize()
+IdeWin32::~IdeWin32()
 {
-    SAFEDELETE(this->mainAppWindow);
-    SAFEDELETE(this->subsystem);
-    SAFEDELETE(this->compiler);
-    SAFEDELETE(this->debugger);
+	SAFEDELETE(this->mainAppWindow);
+	SAFEDELETE(this->subsystem);
+	SAFEDELETE(this->compiler);
+	SAFEDELETE(this->debugger);
 
 	SetDllDirectory(0);
 	Direct2D::Release();
 	CoUninitialize();
 }
+
 
 void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 {
@@ -1514,14 +1554,13 @@ void IdeWin32::Run()
 			DispatchMessage(&msg);
 		}
 	}
-
-	this->Deinitialize();
 }
 
 void IdeWin32::Sleep(int iMilliseconds)
 {
 	::Sleep(iMilliseconds);
 }
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1639,7 +1678,16 @@ void glCheckError()
 
 
 
-int simple_shader(const char* name,int shader_type, const char* shader_src)
+
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////ShaderOpenGL//////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+int Renderer3DOpenGL::CreateShader(const char* name,int shader_type, const char* shader_src)
 {
 	GLint compile_success = 0;
 	GLchar message[1024];
@@ -1671,77 +1719,90 @@ int simple_shader(const char* name,int shader_type, const char* shader_src)
 }
 
 
-int create_program(const char* name,const char* vertexsh,const char* fragmentsh)
+Shader* Renderer3DOpenGL::CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh)
 {
-	GLint link_success=0;
-	GLint program=0;
-	GLint vertex_shader=0;
-	GLint fragment_shader=0;
-	GLchar message[1024]={0};
-	GLint len=0;
+	GLint tLinkSuccess=0;
+	GLint tProgram=0;
+	GLint tVertexShader=0;
+	GLint tFragmentShader=0;
+	GLchar tMessage[1024]={0};
+	GLint tLength=0;
 
-	program = glCreateProgram();glCheckError();
+	tProgram = glCreateProgram();glCheckError();
 
-	if(!program)
+	if(!tProgram)
 	{
 		wprintf(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
 		DEBUG_BREAK();
 		return 0;
 	}
 
-	vertex_shader=simple_shader(name,GL_VERTEX_SHADER, vertexsh);
-	fragment_shader=simple_shader(name,GL_FRAGMENT_SHADER, fragmentsh);
+	tVertexShader=CreateShader(name,GL_VERTEX_SHADER, vertexsh);
+	tFragmentShader=CreateShader(name,GL_FRAGMENT_SHADER, fragmentsh);
 
-	glAttachShader(program, vertex_shader);glCheckError();
-	glAttachShader(program, fragment_shader);glCheckError();
-	glLinkProgram(program);glCheckError();
-	glGetProgramiv(program, GL_LINK_STATUS, &link_success);glCheckError();
+	glAttachShader(tProgram, tVertexShader);glCheckError();
+	glAttachShader(tProgram, tFragmentShader);glCheckError();
+	glLinkProgram(tProgram);glCheckError();
+	glGetProgramiv(tProgram, GL_LINK_STATUS, &tLinkSuccess);glCheckError();
 
-	if (GL_FALSE==link_success)
+	if (GL_FALSE==tLinkSuccess)
 	{
-		wprintf(L"glLinkProgram error for %s\n",message);
+		wprintf(L"glLinkProgram error for %s\n",tMessage);
 		DEBUG_BREAK();
 	}
 
-	glGetProgramInfoLog(program,sizeof(message),&len,message);glCheckError();
+	glGetProgramInfoLog(tProgram,sizeof(tMessage),&tLength,tMessage);glCheckError();
 
+	glDetachShader(tProgram,tVertexShader);
+	glDetachShader(tProgram,tFragmentShader);
 
-	//print infos
-	/*if(len && len<sizeof(message))
-		wprintf(L"%s",message);*/
+	glDeleteShader(tVertexShader);
+	glDeleteShader(tFragmentShader);
 
+	ShaderOpenGL* ___shader=0;
 
-	return program;
+	if(tProgram && GL_FALSE!=tLinkSuccess)
+	{
+		___shader=new ShaderOpenGL(this);
+
+		___shader->name=StringUtils::ToWide(name);
+		___shader->programId=tProgram;
+		___shader->vertexShaderId=tVertexShader;
+		___shader->fragmentShaderId=tFragmentShader;
+
+		this->shaders.push_back(___shader);
+	}
+
+	return ___shader;
 }
 
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-//////////////////ShaderOpenGL//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-
-Shader* ShaderOpenGL::Create(const char* name,const char* pix,const char* frag)
+Shader* Renderer3DOpenGL::CreateShaderProgram(const char* name,const char* pix,const char* frag)
 {
-	int program=create_program(name,pix,frag);
+	Shader* shader=this->CreateProgram(name,pix,frag);
 
-	if(program)
+	if(shader)
 	{
-		Shader* shader=new ShaderOpenGL;
-
-		shader->name=StringUtils::ToWide(name);
-		shader->SetProgram(program);
 		shader->Use();
 		shader->init();
-
-		return shader;
 	}
 	else
-
 		wprintf(L"error creating shader %s\n",name);
 
-	return 0;
+	return shader;
+}
+
+ShaderOpenGL::ShaderOpenGL(Renderer3DOpenGL* iRenderer3DOpenGL):
+	Shader(iRenderer3DOpenGL),
+	renderer3DOpenGL(iRenderer3DOpenGL)
+{
+
+}
+
+ShaderOpenGL::~ShaderOpenGL()
+{
+	renderer3DOpenGL->glDeleteProgram(this->programId);
 }
 
 
@@ -1751,16 +1812,13 @@ unsigned int& ShaderOpenGL::GetBufferObject()
 	return vbo;
 }
 
-int ShaderOpenGL::GetProgram(){return program;}
-void ShaderOpenGL::SetProgram(int p){program=p;}
-
 int ShaderOpenGL::GetUniform(int slot,char* var)
 {
-	return glGetUniformLocation(slot,var);glCheckError();
+	return renderer3DOpenGL->glGetUniformLocation(slot,var);glCheckError();
 }
 int ShaderOpenGL::GetAttrib(int slot,char* var)
 {
-	return glGetAttribLocation(slot,var);glCheckError();
+	return renderer3DOpenGL->glGetAttribLocation(slot,var);glCheckError();
 }
 
 void ShaderOpenGL::SetProjectionMatrix(float* pm)
@@ -1784,7 +1842,7 @@ void ShaderOpenGL::SetMatrices(float* view,float* mdl)
 
 void ShaderOpenGL::Use()
 {
-	glUseProgram(program);glCheckError();
+	renderer3DOpenGL->glUseProgram(programId);glCheckError();
 }
 
 const char* ShaderOpenGL::GetPixelShader(){return 0;}
@@ -1804,13 +1862,13 @@ int ShaderOpenGL::init()
 
 int ShaderOpenGL::GetAttribute(const char* attrib)
 {
-	int location=glGetAttribLocation(program,attrib);glCheckError();
+	int location=renderer3DOpenGL->glGetAttribLocation(programId,attrib);glCheckError();
 	return location;
 }
 
 int ShaderOpenGL::GetUniform(const char* uniform)
 {
-	int location=glGetUniformLocation(program,uniform);glCheckError();
+	int location=renderer3DOpenGL->glGetUniformLocation(programId,uniform);glCheckError();
 	return location;
 }
 
@@ -1883,12 +1941,12 @@ void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
 			float fcz=clr1[1]/255.0f;
 			float fcw=clr1[0]/255.0f;
 
-			glUniform4f(_ptrclr,fcx,fcy,fcz,fcw);
+			renderer3DOpenGL->glUniform4f(_ptrclr,fcx,fcy,fcz,fcw);
 		}
-		else glUniform4f(_ptrclr,0,0,0,0);
+		else renderer3DOpenGL->glUniform4f(_ptrclr,0,0,0,0);
 
 		if(_mousepos>=0)
-			glUniform2f(_mousepos,mposNorm.x,mposNorm.y);
+			renderer3DOpenGL->glUniform2f(_mousepos,mposNorm.x,mposNorm.y);
 	}
 }
 
@@ -1897,7 +1955,7 @@ bool ShaderOpenGL::SetMatrix4f(int slot,float* mtx)
 	if(slot<0)
 		return false;
 
-	glUniformMatrix4fv(slot,1,0,mtx);glCheckError();
+	renderer3DOpenGL->glUniformMatrix4fv(slot,1,0,mtx);glCheckError();
 	return true;
 }
 
@@ -1952,15 +2010,16 @@ vec3 rayStart;
 vec3 rayEnd;
 
 
-Renderer3DOpenGL::Renderer3DOpenGL(TabWin32* iTabContainer):
-	Renderer3D(iTabContainer),
+Renderer3DOpenGL::Renderer3DOpenGL(TabWin32* iTab):
+	Renderer3D(iTab),
 	hglrc(0),
-	tabContainerWin32((TabWin32*&)iTabContainer)
-{
-}
+	tab((TabWin32*&)iTab)
+{}
 
 Renderer3DOpenGL::~Renderer3DOpenGL()
 {
+	
+	
 }
 
 char* Renderer3DOpenGL::Name()
@@ -1968,129 +2027,140 @@ char* Renderer3DOpenGL::Name()
 	return 0;
 }
 
-void Renderer3DOpenGL::Create(HWND hwnd)
+void Renderer3DOpenGL::Deinitialize()
 {
-	hdc=GetDC(hwnd);
+	this->ChangeContext();
+
+	SAFEDELETE(this->shader_font);
+	SAFEDELETE(this->shader_shaded_texture);
+	SAFEDELETE(this->shader_unlit);
+	SAFEDELETE(this->shader_unlit_color);
+	SAFEDELETE(this->shader_unlit_texture);
+
+	glDeleteFramebuffers(1,&this->frameBuffer);
+	glDeleteTextures(1,&this->textureColorbuffer);
+	glDeleteTextures(1,&this->textureRenderbuffer);
+	glDeleteRenderbuffers(1,&this->renderBufferColor);
+	glDeleteRenderbuffers(1,&this->renderBufferDepth);
+
+	glDeleteVertexArrays(1,&this->vertexArrayObject);
+
+	glDeleteBuffers(1,&this->vertexBufferObject);
+	glDeleteBuffers(1,&this->textureBufferObject);
+	glDeleteBuffers(1,&this->pixelBuffer);
+
+	wglMakeCurrent(this->hdc,0);
+	
+	wglDeleteContext(this->hglrc);
+	ReleaseDC(this->tab->windowDataWin32->hwnd,this->hdc);
+}
+
+void Renderer3DOpenGL::Initialize()
+{
+	this->hdc=GetDC(this->tab->windowDataWin32->hwnd);
 
 	RECT r;
-	GetClientRect(hwnd,&r);
+	GetClientRect(this->tab->windowDataWin32->hwnd,&r);
 
 	int width=(int)(r.right-r.left);
 	int height=(int)(r.bottom-r.top);
 
 	DWORD error=0;
 
+	if(!hdc)
+		MessageBox(0,L"Getting Device Context",L"GetDC",MB_OK|MB_ICONEXCLAMATION);
 
-	int pixelFormat;
+	PIXELFORMATDESCRIPTOR pfd={0};
+	pfd.nVersion=1;
+	pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
+	pfd.dwFlags=PFD_DOUBLEBUFFER|PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL;
+	pfd.iPixelType=PFD_TYPE_RGBA;
+	pfd.cColorBits=32;
+	pfd.cDepthBits=32;
+	pfd.cStencilBits=32;
 
-	for(int i=0;i<1;i++)
-	{
-		if(!hdc)
-			MessageBox(0,L"Getting Device Context",L"GetDC",MB_OK|MB_ICONEXCLAMATION);
+	pixelFormat = ChoosePixelFormat(hdc,&pfd);
 
-		PIXELFORMATDESCRIPTOR pfd={0};
-		pfd.nVersion=1;
-		pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
-		pfd.dwFlags=PFD_DOUBLEBUFFER|PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL;
-		pfd.iPixelType=PFD_TYPE_RGBA;
-		pfd.cColorBits=32;
-		pfd.cDepthBits=32;
-		pfd.cStencilBits=32;
+	error=GetLastError();
 
-		pixelFormat = ChoosePixelFormat(hdc,&pfd);
+	if(error!=NO_ERROR && error!=ERROR_OLD_WIN_VERSION)
+		DEBUG_BREAK();
 
-		error=GetLastError();
+	if(pixelFormat==0)
+		DEBUG_BREAK();
 
-		if(error!=NO_ERROR && error!=ERROR_OLD_WIN_VERSION)
-			DEBUG_BREAK();
+	if(!SetPixelFormat(hdc,pixelFormat,&pfd))
+		DEBUG_BREAK();
 
-		if(pixelFormat==0)
-			DEBUG_BREAK();
+	if(!(hglrc = wglCreateContext(hdc)))
+		DEBUG_BREAK();
 
-		if(!SetPixelFormat(hdc,pixelFormat,&pfd))
-			DEBUG_BREAK();
+	if(!wglMakeCurrent(hdc,hglrc))
+		DEBUG_BREAK();
 
-		if(!(hglrc = wglCreateContext(hdc)))
-			DEBUG_BREAK();
+	wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
+	wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
 
-		if(!wglMakeCurrent(hdc,hglrc))
-			DEBUG_BREAK();
+	glAttachShader = (PFNGLATTACHSHADERPROC) wglGetProcAddress("glAttachShader");
+	glBindBuffer = (PFNGLBINDBUFFERPROC) wglGetProcAddress("glBindBuffer");
+	glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) wglGetProcAddress("glBindVertexArray");
+	glBufferData = (PFNGLBUFFERDATAPROC) wglGetProcAddress("glBufferData");
+	glCompileShader = (PFNGLCOMPILESHADERPROC) wglGetProcAddress("glCompileShader");
+	glCreateProgram = (PFNGLCREATEPROGRAMPROC) wglGetProcAddress("glCreateProgram");
+	glCreateShader = (PFNGLCREATESHADERPROC) wglGetProcAddress("glCreateShader");
+	glDeleteBuffers = (PFNGLDELETEBUFFERSPROC) wglGetProcAddress("glDeleteBuffers");
+	glDeleteProgram = (PFNGLDELETEPROGRAMPROC) wglGetProcAddress("glDeleteProgram");
+	glDeleteShader = (PFNGLDELETESHADERPROC) wglGetProcAddress("glDeleteShader");
+	glDeleteFramebuffers = (PFNGLDELETEFRAMEBUFFERSPROC) wglGetProcAddress("glDeleteFramebuffers");
+	glDeleteRenderbuffers = (PFNGLDELETERENDERBUFFERSPROC) wglGetProcAddress("glDeleteRenderbuffers");
+	glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC) wglGetProcAddress("glDeleteVertexArrays");
+	glDetachShader = (PFNGLDETACHSHADERPROC) wglGetProcAddress("glDetachShader");
+	glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glEnableVertexAttribArray");
+	glEnableVertexArrayAttrib = (PFNGLENABLEVERTEXARRAYATTRIBPROC) wglGetProcAddress("glEnableVertexArrayAttrib");
+	glGenBuffers = (PFNGLGENBUFFERSPROC) wglGetProcAddress("glGenBuffers");
+	glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) wglGetProcAddress("glGenVertexArrays");
+	glGetAttribLocation = (PFNGLGETATTRIBLOCATIONPROC) wglGetProcAddress("glGetAttribLocation");
+	glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC) wglGetProcAddress("glGetProgramInfoLog");
+	glGetProgramiv = (PFNGLGETPROGRAMIVPROC) wglGetProcAddress("glGetProgramiv");
+	glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC) wglGetProcAddress("glGetShaderInfoLog");
+	glGetShaderiv = (PFNGLGETSHADERIVPROC) wglGetProcAddress("glGetShaderiv");
+	glLinkProgram = (PFNGLLINKPROGRAMPROC) wglGetProcAddress("glLinkProgram");
+	glShaderSource = (PFNGLSHADERSOURCEPROC) wglGetProcAddress("glShaderSource");
+	glUseProgram = (PFNGLUSEPROGRAMPROC) wglGetProcAddress("glUseProgram");
+	glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC) wglGetProcAddress("glVertexAttribPointer");
+	glBindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC) wglGetProcAddress("glBindAttribLocation");
+	glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) wglGetProcAddress("glGetUniformLocation");
+	glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC) wglGetProcAddress("glUniformMatrix4fv");
+	glActiveTexture = (PFNGLACTIVETEXTUREPROC) wglGetProcAddress("glActiveTexture");
+	glUniform1i = (PFNGLUNIFORM1IPROC) wglGetProcAddress("glUniform1i");
+	glUniform1f = (PFNGLUNIFORM1FPROC) wglGetProcAddress("glUniform1f");
+	glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
+	glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) wglGetProcAddress("glGenerateMipmap");
+	glDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glDisableVertexAttribArray");
+	glUniform3fv = (PFNGLUNIFORM3FVPROC) wglGetProcAddress("glUniform3fv");
+	glUniform4fv = (PFNGLUNIFORM4FVPROC) wglGetProcAddress("glUniform4fv");
+	glTexBuffer = (PFNGLTEXBUFFERPROC) wglGetProcAddress("glTexBuffer");
+	glTextureBuffer = (PFNGLTEXTUREBUFFERPROC) wglGetProcAddress("glTextureBuffer");
+	glBufferSubData = (PFNGLBUFFERSUBDATAPROC) wglGetProcAddress("glBufferSubData");
+	glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) wglGetProcAddress("glGenFramebuffers");
+	glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) wglGetProcAddress("glGenRenderbuffers");
+	glReadnPixels = (PFNGLREADNPIXELSPROC) wglGetProcAddress("glReadnPixels");
+	glUniform2f = (PFNGLUNIFORM2FPROC) wglGetProcAddress("glUniform2f");
+	glUniform2fv = (PFNGLUNIFORM2FVPROC) wglGetProcAddress("glUniform2fv");
+	glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
+	glUniform4f = (PFNGLUNIFORM4FPROC) wglGetProcAddress("glUniform4f");
+	wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC) wglGetProcAddress("wglGetPixelFormatAttribivARB");
 
-		if(!wglChoosePixelFormatARB)wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
-		if(!wglCreateContextAttribsARB)wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
+	wglMakeCurrent(this->hdc, NULL);
+	wglDeleteContext(hglrc);
 
-		#ifndef GL_GLEXT_PROTOTYPES
-
-		if(!glAttachShader)glAttachShader = (PFNGLATTACHSHADERPROC) wglGetProcAddress("glAttachShader");
-		if(!glBindBuffer)glBindBuffer = (PFNGLBINDBUFFERPROC) wglGetProcAddress("glBindBuffer");
-		if(!glBindVertexArray) glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) wglGetProcAddress("glBindVertexArray");
-		if(!glBufferData) glBufferData = (PFNGLBUFFERDATAPROC) wglGetProcAddress("glBufferData");
-		if(!glCompileShader) glCompileShader = (PFNGLCOMPILESHADERPROC) wglGetProcAddress("glCompileShader");
-		if(!glCreateProgram) glCreateProgram = (PFNGLCREATEPROGRAMPROC) wglGetProcAddress("glCreateProgram");
-		if(!glCreateShader) glCreateShader = (PFNGLCREATESHADERPROC) wglGetProcAddress("glCreateShader");
-		if(!glDeleteBuffers) glDeleteBuffers = (PFNGLDELETEBUFFERSPROC) wglGetProcAddress("glDeleteBuffers");
-		if(!glDeleteProgram) glDeleteProgram = (PFNGLDELETEPROGRAMPROC) wglGetProcAddress("glDeleteProgram");
-		if(!glDeleteShader) glDeleteShader = (PFNGLDELETESHADERPROC) wglGetProcAddress("glDeleteShader");
-		if(!glDeleteVertexArrays) glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC) wglGetProcAddress("glDeleteVertexArrays");
-		if(!glDetachShader) glDetachShader = (PFNGLDETACHSHADERPROC) wglGetProcAddress("glDetachShader");
-		if(!glEnableVertexAttribArray) glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glEnableVertexAttribArray");
-		if(!glEnableVertexArrayAttrib) glEnableVertexArrayAttrib = (PFNGLENABLEVERTEXARRAYATTRIBPROC) wglGetProcAddress("glEnableVertexArrayAttrib");
-		if(!glGenBuffers) glGenBuffers = (PFNGLGENBUFFERSPROC) wglGetProcAddress("glGenBuffers");
-		if(!glGenVertexArrays) glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC) wglGetProcAddress("glGenVertexArrays");
-		if(!glGetAttribLocation) glGetAttribLocation = (PFNGLGETATTRIBLOCATIONPROC) wglGetProcAddress("glGetAttribLocation");
-		if(!glGetProgramInfoLog) glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC) wglGetProcAddress("glGetProgramInfoLog");
-		if(!glGetProgramiv) glGetProgramiv = (PFNGLGETPROGRAMIVPROC) wglGetProcAddress("glGetProgramiv");
-		if(!glGetShaderInfoLog) glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC) wglGetProcAddress("glGetShaderInfoLog");
-		if(!glGetShaderiv) glGetShaderiv = (PFNGLGETSHADERIVPROC) wglGetProcAddress("glGetShaderiv");
-		if(!glLinkProgram) glLinkProgram = (PFNGLLINKPROGRAMPROC) wglGetProcAddress("glLinkProgram");
-		if(!glShaderSource) glShaderSource = (PFNGLSHADERSOURCEPROC) wglGetProcAddress("glShaderSource");
-		if(!glUseProgram) glUseProgram = (PFNGLUSEPROGRAMPROC) wglGetProcAddress("glUseProgram");
-		if(!glVertexAttribPointer) glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC) wglGetProcAddress("glVertexAttribPointer");
-		if(!glBindAttribLocation) glBindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC) wglGetProcAddress("glBindAttribLocation");
-		if(!glGetUniformLocation) glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC) wglGetProcAddress("glGetUniformLocation");
-		if(!glUniformMatrix4fv) glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC) wglGetProcAddress("glUniformMatrix4fv");
-		if(!glActiveTexture) glActiveTexture = (PFNGLACTIVETEXTUREPROC) wglGetProcAddress("glActiveTexture");
-		if(!glUniform1i) glUniform1i = (PFNGLUNIFORM1IPROC) wglGetProcAddress("glUniform1i");
-		if(!glUniform1f) glUniform1f = (PFNGLUNIFORM1FPROC) wglGetProcAddress("glUniform1f");
-		if(!glUniform3f) glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
-		if(!glGenerateMipmap) glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) wglGetProcAddress("glGenerateMipmap");
-		if(!glDisableVertexAttribArray) glDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC) wglGetProcAddress("glDisableVertexAttribArray");
-		if(!glUniform3fv) glUniform3fv = (PFNGLUNIFORM3FVPROC) wglGetProcAddress("glUniform3fv");
-		if(!glUniform4fv) glUniform4fv = (PFNGLUNIFORM4FVPROC) wglGetProcAddress("glUniform4fv");
-		if(!glTexBuffer) glTexBuffer = (PFNGLTEXBUFFERPROC) wglGetProcAddress("glTexBuffer");
-		if(!glTextureBuffer) glTextureBuffer = (PFNGLTEXTUREBUFFERPROC) wglGetProcAddress("glTextureBuffer");
-		if(!glBufferSubData) glBufferSubData = (PFNGLBUFFERSUBDATAPROC) wglGetProcAddress("glBufferSubData");
-		if(!glGenFramebuffers)glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC) wglGetProcAddress("glGenFramebuffers");
-		if(!glGenRenderbuffers)glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) wglGetProcAddress("glGenRenderbuffers");
-		/*if(!glBufferSubData)glViewportIndexedf = (PFNGLVIEWPORTINDEXEDFPROC) wglGetProcAddress("glViewportIndexedf");
-		if(!glAddSwapHintRectWIN)glAddSwapHintRectWIN = (PFNGLADDSWAPHINTRECTWINPROC) wglGetProcAddress("glAddSwapHintRectWIN");
-		if(!glBindFramebuffer)glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) wglGetProcAddress("glBindFramebuffer");
-		if(!glNamedRenderbufferStorage)glNamedRenderbufferStorage = (PFNGLNAMEDRENDERBUFFERSTORAGEPROC) wglGetProcAddress("glNamedRenderbufferStorage");
-		if(!glRenderbufferStorage)glRenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) wglGetProcAddress("glRenderbufferStorage");
-		if(!glBindRenderbuffer)glBindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) wglGetProcAddress("glBindRenderbuffer");
-		if(!glFramebufferRenderbuffer)glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) wglGetProcAddress("glFramebufferRenderbuffer");
-		if(!glBlitFramebuffer)glBlitFramebuffer = (PFNGLBLITFRAMEBUFFERPROC) wglGetProcAddress("glBlitFramebuffer");
-		if(!glCheckFramebufferStatus)glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC) wglGetProcAddress("glCheckFramebufferStatus");
-		if(!glDrawBuffers)glDrawBuffers = (PFNGLDRAWBUFFERSPROC) wglGetProcAddress("glDrawBuffers");
-		if(!glBlitNamedFramebuffer) glBlitNamedFramebuffer = (PFNGLBLITNAMEDFRAMEBUFFERPROC) wglGetProcAddress("glBlitNamedFramebuffer");
-		if(!glFramebufferTexture)glFramebufferTexture = (PFNGLFRAMEBUFFERTEXTUREPROC)wglGetProcAddress("glFramebufferTexture");
-		if(!glFramebufferTexture2D)glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) wglGetProcAddress("glFramebufferTexture2D");*/
-		if(!glReadnPixels)glReadnPixels = (PFNGLREADNPIXELSPROC) wglGetProcAddress("glReadnPixels");
-		if(!glUniform2f)glUniform2f = (PFNGLUNIFORM2FPROC) wglGetProcAddress("glUniform2f");
-		if(!glUniform2fv)glUniform2fv = (PFNGLUNIFORM2FVPROC) wglGetProcAddress("glUniform2fv");
-		if(!glUniform3f)glUniform3f = (PFNGLUNIFORM3FPROC) wglGetProcAddress("glUniform3f");
-		if(!glUniform4f)glUniform4f = (PFNGLUNIFORM4FPROC) wglGetProcAddress("glUniform4f");
-		if(!wglGetPixelFormatAttribivARB)wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC) wglGetProcAddress("wglGetPixelFormatAttribivARB");
-#endif
-
-		wglMakeCurrent(NULL, NULL);
-		wglDeleteContext(hglrc);
-	}
-
+	ReleaseDC(this->tab->windowDataWin32->hwnd,this->hdc);
+	
 	const int pixelFormatAttribList[] =
 	{
 		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
 		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+		WGL_ACCELERATION_ARB,WGL_FULL_ACCELERATION_ARB,
 		WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
 		WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
 		WGL_COLOR_BITS_ARB, 32,
@@ -2099,6 +2169,8 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 		//WGL_SWAP_COPY_ARB,GL_TRUE,        //End
 		0
 	};
+
+	this->hdc=GetDC(this->tab->windowDataWin32->hwnd);
 
 	UINT numFormats;
 
@@ -2116,14 +2188,13 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
 		MessageBox(0,L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
-
 	if(hglrc)
 		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
 
 	if(!wglMakeCurrent(hdc,hglrc))
 		DEBUG_BREAK();
 
-	//if(!vertexArrayObject)
+	/*if(!vertexArrayObject)
 	{
 		{
 			glGenFramebuffers(1,&frameBuffer);glCheckError();
@@ -2140,47 +2211,44 @@ void Renderer3DOpenGL::Create(HWND hwnd)
 
 		glGenBuffers(1,&vertexBufferObject);glCheckError();
 		glGenBuffers(1,&textureBufferObject);glCheckError();
-		/*
+		/ *
 		//glGenBuffers(1,&indicesBufferObject);
 
 		glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 		//glBindBuffer(GL_ARRAY_BUFFER,indicesBufferObject);
 
-		glBufferData(GL_ARRAY_BUFFER,100000,0,GL_DYNAMIC_DRAW);*/
+		glBufferData(GL_ARRAY_BUFFER,100000,0,GL_DYNAMIC_DRAW);* /
 
 
 		glGenBuffers(1, &pixelBuffer);
-	}
+	}*/
 
 	wprintf(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)).c_str());
 	wprintf(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str());
 
-	this->unlit=ShaderOpenGL::Create("unlit",unlit_vert,unlit_frag);
-	this->unlit_color=ShaderOpenGL::Create("unlit_color",unlit_color_vert,unlit_color_frag);
-	this->unlit_texture=ShaderOpenGL::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
-	this->font=ShaderOpenGL::Create("font",font_pixsh,font_frgsh);
-	this->shaded_texture=ShaderOpenGL::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
-
-	this->shaders.push_back(this->unlit);
-	this->shaders.push_back(this->unlit_color);
-	this->shaders.push_back(this->unlit_texture);
-	this->shaders.push_back(this->font);
-	this->shaders.push_back(this->shaded_texture);
+	this->shader_unlit=this->CreateShaderProgram("unlit",unlit_vert,unlit_frag);
+	this->shader_unlit_color=this->CreateShaderProgram("unlit_color",unlit_color_vert,unlit_color_frag);
+	this->shader_unlit_texture=this->CreateShaderProgram("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	this->shader_font=this->CreateShaderProgram("font",font_pixsh,font_frgsh);
+	this->shader_shaded_texture=this->CreateShaderProgram("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
 }
 
 
 void Renderer3DOpenGL::ChangeContext()
 {
-	if(!hglrc || !hdc)
+	if(!this->hglrc || !this->hdc)
 	{
 		DEBUG_BREAK();
 		return;
 	}
 
-	if(hglrc != wglGetCurrentContext() || hdc!=wglGetCurrentDC())
+	if(this->hglrc != wglGetCurrentContext() || this->hdc!=wglGetCurrentDC())
 	{
-		if(!wglMakeCurrent(hdc,hglrc))
+		if(!wglMakeCurrent(this->hdc,this->hglrc))
+		{
+			glCheckError();
 			DEBUG_BREAK();
+		}
 	}
 }
 
@@ -2218,7 +2286,7 @@ void Renderer3DOpenGL::draw(Gizmo* gizmo)
 
 void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -2227,7 +2295,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -2261,7 +2329,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 void Renderer3DOpenGL::draw(vec4 rect)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	int position_slot=-1;
 	int modelview_slot=-1;
@@ -2305,7 +2373,7 @@ void Renderer3DOpenGL::draw(vec4 rect)
 
 void Renderer3DOpenGL::draw(mat4 mtx,float size,vec3 color)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -2361,7 +2429,7 @@ void Renderer3DOpenGL::draw(mat4 mtx,float size,vec3 color)
 
 void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -2370,7 +2438,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -2430,7 +2498,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 
 void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -2445,7 +2513,7 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2761,14 +2829,14 @@ void Renderer3DOpenGL::draw(Mesh* mesh)
 
 void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 {
-	Shader* shader = mesh->materials.size() ? this->unlit_texture : this->unlit_color;
+	Shader* shader = mesh->materials.size() ? this->shader_unlit_texture : this->shader_unlit_color;
 
 	if(!shader || !mesh)
 		return;
 
 	vec3 lightpos(0,200,-100);
 
-	if(shader==this->shaded_texture)
+	if(shader==this->shader_shaded_texture)
 		this->draw(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
@@ -2781,7 +2849,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
 
 
-	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2830,7 +2898,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 
 void Renderer3DOpenGL::draw(Skin* skin)
 {
-	Shader* shader = skin->materials.size() ? this->unlit_texture : this->unlit_color;
+	Shader* shader = skin->materials.size() ? this->shader_unlit_texture : this->shader_unlit_color;
 
 	if(!skin || !skin->vertexcache || !shader)
 	{
@@ -2840,7 +2908,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 
 	vec3 lightpos(0,200,-100);
 
-	if(shader==this->shaded_texture)
+	if(shader==this->shader_shaded_texture)
 		this->draw(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
@@ -2856,7 +2924,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
 
 
-	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2921,7 +2989,7 @@ void Renderer3DOpenGL::draw(Camera*)
 
 void Renderer3DOpenGL::draw(Bone* bone)
 {
-	Shader* shader=this->unlit_color;
+	Shader* shader=this->shader_unlit_color;
 
 	if(!shader)
 		return;
@@ -2939,7 +3007,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mouse.x/this->tabContainerWin32->windowData->width,this->tabContainer->mouse.y/this->tabContainerWin32->windowData->height));
+	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2975,7 +3043,7 @@ void Renderer3DOpenGL::draw(Entity* iEntity)
 void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 {
 	vec4 tCanvas=viewport->rect;
-	vec2 tMouse(tabContainerWin32->mouse);
+	vec2 tMouse(tab->mouse);
 
 	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)viewport->renderBitmap;
 	unsigned char*& rBuffer=(unsigned char*&)viewport->renderBuffer;
@@ -2993,9 +3061,9 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 
 		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
 		//tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
-		AGGREGATECALL(tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
+		AGGREGATECALL(tab->renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
 
-		tabContainerWin32->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)tCanvas.z,(unsigned int)tCanvas.w),bp,&rBitmap);
+		tab->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)tCanvas.z,(unsigned int)tCanvas.w),bp,&rBitmap);
 
 		int rBufferSize=tCanvas.z*tCanvas.w*4;
 
@@ -3017,7 +3085,7 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 		}
 	}
 
-	tabContainerWin32->renderer3D->ChangeContext();
+	tab->renderer3D->ChangeContext();
 
 	glViewport((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
 	glScissor((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
@@ -3051,7 +3119,7 @@ void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
 
 		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(tCanvas.z*4));
 
-		tabContainerWin32->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(tCanvas.x,tCanvas.y,tCanvas.x+tCanvas.z,tCanvas.y+tCanvas.w));
+		tab->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(tCanvas.x,tCanvas.y,tCanvas.x+tCanvas.z,tCanvas.y+tCanvas.w));
 	}
 
 	if(viewport->needsPicking && tMouse.y-tCanvas.y>=0)
@@ -3110,10 +3178,10 @@ void Renderer3DOpenGL::Render()
 {
 	for(std::list<GuiViewport*>::iterator vport=this->viewports.begin();vport!=this->viewports.end();vport++)
 	{
-		if(tabContainerWin32->BeginDraw())
+		if(tab->BeginDraw())
 		{
 			(*vport)->OnPaint(GuiEvent(this->tabContainer,*vport));
-			tabContainerWin32->EndDraw();
+			tab->EndDraw();
 		}
 	}
 }
@@ -3269,12 +3337,60 @@ bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+void TabWin32::Destroy()
+{
+	PostMessage(this->windowDataWin32->hwnd,WM_CLOSE,0,0);
+}
+
+TabWin32::~TabWin32()
+{
+	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)0);
+
+	if(!this->windowDataWin32->FindAndGrowSibling())
+		this->windowDataWin32->UnlinkSibling();
+
+	SAFEDELETE(this->iconDown);
+	SAFEDELETE(this->iconUp);
+	SAFEDELETE(this->iconLeft);
+	SAFEDELETE(this->iconRight);
+	SAFEDELETE(this->iconFolder);
+	SAFEDELETE(this->iconFile);
+
+	//destroy the tab draw task
+
+	this->threadRenderWin32->Block(true);
+
+	for(std::list<DrawInstance*>::iterator it=this->drawInstances.begin();it!=this->drawInstances.end();it++)
+		SAFEDELETE(*it);
+
+	this->threadRenderWin32->Block(false);
+
+	
+	this->threadRenderWin32->DestroyTask(this->taskDraw);
+
+	//opengl destruction
+	{
+#if ENABLE_RENDERER
+		//deinit the opengl stuff
+		Task* tDeleteOpenGLContext=this->threadRender->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
+		while(tDeleteOpenGLContext->func);
+		SAFEDELETE(tDeleteOpenGLContext);
+#endif
+	}
+
+	SAFEDELETE(this->renderer3DOpenGL);
+	SAFEDELETE(this->threadRenderWin32);
+	SAFEDELETE(this->renderer2DWin32);
+	SAFEDELETE(this->windowDataWin32);
+}
 
 TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool child,bool overlapped)
 	:Tab(iX,iY,iW,iH),
 	windowDataWin32((WindowDataWin32*&)windowData),
-	editorWindowContainerWin32((ContainerWin32*&)parentWindowContainer),
-	renderer2DWin32(0)
+	containerWin32((ContainerWin32*&)container),
+	renderer2DWin32((Renderer2DWin32*&)renderer2D),
+	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
+	threadRenderWin32((ThreadWin32*&)threadRender)
 {
 	windowData=new WindowDataWin32;
 
@@ -3290,6 +3406,24 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool c
 
 	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
 
+	this->threadRender=new ThreadWin32;
+
+#if ENABLE_RENDERER
+	//3d rendering stuff
+	{
+		this->renderer3D=new Renderer3DOpenGL(this);
+
+		if(!this->renderer3D)
+			DEBUG_BREAK();
+
+		Task* tCreateOpenGLContext=this->threadRender->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
+		while(tCreateOpenGLContext->func);
+		SAFEDELETE(tCreateOpenGLContext);
+	}
+#endif
+
+	this->taskDraw=this->threadRender->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
+
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
 	this->iconLeft=new GuiImageWin32;
@@ -3301,28 +3435,13 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool c
 
 	this->OnGuiRecreateTarget();
 
-	this->parentWindowContainer=(Container*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
-	this->parentWindowContainer->tabContainers.push_back(this);
+	this->container=(Container*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
+	this->container->tabs.push_back(this);
 
-	splitterContainer=this->parentWindowContainer->splitter;
+	splitterContainer=this->container->splitter;
 
 	if(!splitterContainer)
 		DEBUG_BREAK();
-
-	Renderer3DOpenGL* _oglRenderer=new Renderer3DOpenGL(this);
-
-	if(!_oglRenderer)
-		DEBUG_BREAK();
-
-	this->renderer3D=_oglRenderer;
-
-	this->threadRender=new ThreadWin32;
-
-	Task* tCreateOpenGLContext=this->threadRender->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Create,_oglRenderer,this->windowDataWin32->hwnd)));//_oglRenderer->Create(this->hwnd);
-	while(tCreateOpenGLContext->func);
-	SAFEDELETE(tCreateOpenGLContext);
-
-	this->taskDraw=this->threadRender->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
 
 	ShowWindow(this->windowDataWin32->hwnd,true);
 }
@@ -3437,21 +3556,6 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	DestroyMenu(menu);
 
 	return result;
-}
-
-
-TabWin32::~TabWin32()
-{
-	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)0);
-
-	ThreadWin32* tThreadWin32=(ThreadWin32*)this->threadRender;
-
-	SAFEDELETE(tThreadWin32);
-
-	if(!this->windowDataWin32->FindAndGrowSibling())
-		this->windowDataWin32->UnlinkSibling();
-
-	
 }
 
 bool TabWin32::BeginDraw()
@@ -3627,7 +3731,8 @@ void TabWin32::DrawFrame()
 
 void TabWin32::OnGuiPaint(void* data)
 {
-	this->renderer2D->DrawRectangle(0,Tab::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height-Tab::CONTAINER_HEIGHT,Renderer2D::COLOR_GUI_BACKGROUND);
+	this->renderer2D->DrawRectangle(0,Tab::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height/*-Tab::CONTAINER_HEIGHT*/,Renderer2D::COLOR_GUI_BACKGROUND);
+	this->renderer2D->DrawRectangle(0,Tab::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height/*-Tab::CONTAINER_HEIGHT*/,0xff0000,false);
 
 	this->BroadcastToSelected(&GuiRect::OnPaint,data);
 }
@@ -3638,42 +3743,42 @@ void TabWin32::OnResizeContainer(void* data)
 	RECT rc;
 
 	GetClientRect(this->windowDataWin32->hwnd,&rc);
-	MapWindowRect(this->windowDataWin32->hwnd,this->editorWindowContainerWin32->windowDataWin32->hwnd,&rc);
+	MapWindowRect(this->windowDataWin32->hwnd,this->containerWin32->windowDataWin32->hwnd,&rc);
 
 	int size=0;
 	int diff=0;
 	int side=0;
 
 
-	switch(this->parentWindowContainer->resizeEnumType)
+	switch(this->container->resizeEnumType)
 	{
 		case 0:
 			side=(rc.right-rc.left);
-			diff=this->parentWindowContainer->resizeDiffWidth;
+			diff=this->container->resizeDiffWidth;
 			size=side+diff;
 			SetWindowPos(this->windowDataWin32->hwnd,0,0,rc.top,size,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
-			this->parentWindowContainer->resizeCheckWidth+=size;
+			this->container->resizeCheckWidth+=size;
 			break;
 		case 1:
 			side=rc.bottom;
-			diff=this->parentWindowContainer->resizeDiffHeight;
+			diff=this->container->resizeDiffHeight;
 			size=side+diff;
 			SetWindowPos(this->windowDataWin32->hwnd,0,rc.left,rc.top,rc.right-rc.left,size,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
-			this->parentWindowContainer->resizeCheckHeight+=size;
+			this->container->resizeCheckHeight+=size;
 			break;
 		case 2:
 			side=(rc.right-rc.left);
-			diff=this->parentWindowContainer->resizeDiffWidth;
+			diff=this->container->resizeDiffWidth;
 			size=side+diff;
 			SetWindowPos(this->windowDataWin32->hwnd,0,rc.left,rc.top,size,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
-			this->parentWindowContainer->resizeCheckWidth+=size;
+			this->container->resizeCheckWidth+=size;
 			break;
 		case 3:
 			side=rc.bottom;
-			diff=this->parentWindowContainer->resizeDiffHeight;
+			diff=this->container->resizeDiffHeight;
 			size=side+diff;
 			SetWindowPos(this->windowDataWin32->hwnd,0,rc.left,rc.top,rc.right-rc.left,size,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
-			this->parentWindowContainer->resizeCheckHeight+=size;
+			this->container->resizeCheckHeight+=size;
 		break;
 		default:
 			DEBUG_BREAK();
@@ -3841,7 +3946,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 					{
 						//newTabContainer=new TabContainerWin32((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top),hwnd);
 
-						newTabContainer=this->currentTabContainerWin32->editorWindowContainerWin32->CreateTabContainer((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
+						newTabContainer=this->currentTabContainerWin32->containerWin32->CreateTab((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
 
 						GuiRect* reparentTab=floatingTabRef->rects.childs[floatingTabRefTabIdx];
 						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
@@ -4168,7 +4273,7 @@ bool InitSplitter()
 		wc.cbSize=sizeof(WNDCLASSEX);
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
-		wc.lpfnWndProc=MainAppWindowWin32::MainWindowProcedure;
+		wc.lpfnWndProc=MainContainerWin32::MainWindowProcedure;
 		wc.hbrBackground=CreateSolidBrush(Renderer2D::COLOR_MAIN_BACKGROUND);
 
 		if(!RegisterClassEx(&wc))
@@ -4183,7 +4288,7 @@ bool InitSplitter()
 		wc.lpfnWndProc=TabWin32::TabContainerWindowClassProcedure;
 		wc.hbrBackground=CreateSolidBrush(RGB(0,255,0));
 		wc.hCursor=(HCURSOR)LoadCursor(0,IDC_ARROW);
-		wc.style=CS_VREDRAW|CS_HREDRAW|CS_PARENTDC;
+		wc.style=CS_VREDRAW|CS_HREDRAW|CS_OWNDC;
 
 		if(!RegisterClass(&wc))
 			DEBUG_BREAK();
@@ -4505,7 +4610,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	{
 		EditorScript* tEditorScript=(EditorScript*)iScript;
 
-		Tab* tabContainer=tEditorScript->scriptViewer ? tEditorScript->scriptViewer->GetRootRect()->tabContainer : Tab::GetPool().front();
+		Tab* tabContainer=tEditorScript->scriptViewer ? tEditorScript->scriptViewer->GetRootRect()->tab : Tab::GetPool().front();
 
 		if(!tabContainer)
 			DEBUG_BREAK();
@@ -4515,7 +4620,7 @@ bool CompilerWin32::Compile(Script* iScript)
 		tabContainer->SetDraw(0,true,0);
 	}
 
-	Tab* tabContainer=guiCompilerViewer->GetRootRect()->tabContainer;
+	Tab* tabContainer=guiCompilerViewer->GetRootRect()->tab;
 
 	bool noErrors=guiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
 
@@ -4612,7 +4717,7 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 		{
 			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))GetProcAddress(*tModule,"Destroy");
 
-			Tab* tabContainerRunninUpdater=GuiViewport::GetPool()[0]->GetRootRect()->tabContainer;
+			Tab* tabContainerRunninUpdater=GuiViewport::GetPool()[0]->GetRootRect()->tab;
 
 			tabContainerRunninUpdater->taskDraw->pause=true;
 
@@ -4994,6 +5099,8 @@ DWORD WINAPI debuggeeThreadFunc(LPVOID iDebuggerWin32)
 			tDebuggerWin32->runningScriptFunction=0;
 			tDebuggerWin32->runningScript=0;
 		}
+		
+		::Sleep(tDebuggerWin32->sleep);
 	}
 
 	return 0;
@@ -5127,7 +5234,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
-	tEditorScript->scriptViewer->GetRootRect()->tabContainer->SetDraw(2,0,tEditorScript->scriptViewer);
+	tEditorScript->scriptViewer->GetRootRect()->tab->SetDraw(2,0,tEditorScript->scriptViewer);
 
 	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }
@@ -5235,7 +5342,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 		{
 			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
 
-			if(renderer2DWin32->tabContainer->BeginDraw())
+			if(renderer2DWin32->tab->BeginDraw())
 			{
 				this->string->BeginClip(iCallerTab);
 
@@ -5246,7 +5353,9 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 
 				this->string->EndClip(iCallerTab);
 
-				renderer2DWin32->tabContainer->EndDraw();
+				renderer2DWin32->tab->EndDraw();
+
+				wprintf(L"-");
 			}
 
 			this->lastBlinkTime=Ide::GetInstance()->timer->GetTime();
@@ -5324,96 +5433,7 @@ void PluginSystemWin32::ScanPluginsDirectory()
 	}
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-/////////////////MenuInterface/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-static int ____MenuInterfaceIds=0;
-
-int DLLBUILD GetMenuId()
-{
-	return ____MenuInterfaceIds;
-}
-
-int DLLBUILD IncrementMenuId()
-{
-	return ____MenuInterfaceIds++;
-}
-
-int MenuInterface::GetMenuId()
-{
-	return ::GetMenuId();
-}
-
-int MenuInterface::IncrementMenuId()
-{
-	return ::IncrementMenuId();
-}
-
-int MenuInterface::Menu(String iName,bool tPopup)
-{
-	HMENU tMenu=GetMenu(((ContainerWin32*)Ide::GetInstance()->mainAppWindow->containers[0])->windowDataWin32->hwnd);
-
-	wchar_t*  tBase=&iName[0];
-	wchar_t* tBegin=tBase;
-	wchar_t* tEnd=0;
-
-	int tItemId=-1;
-
-	while(tBegin)
-	{
-		tEnd=wcsstr(tBegin,L"\\");
-
-		size_t pos=tBegin-tBase;
-		size_t len=tEnd-tBegin;
-		std::wstring searchMenu=iName.substr(pos,tEnd ? len : std::wstring::npos);	
-		int menuIdx=0;
-
-		wchar_t menuName[CHAR_MAX]={0};
-		bool found=false;
-
-		while(GetMenuString(tMenu,menuIdx,menuName,CHAR_MAX,MF_BYPOSITION))
-		{
-			if(searchMenu==menuName)
-			{
-				tMenu=GetSubMenu(tMenu,menuIdx);
-				found=true;
-			}
-
-			menuIdx++;
-		}
-
-		wchar_t* tNextMenuNameExists=wcsstr(tBegin,L"\\");
-
-		if(!found && !tNextMenuNameExists)
-		{
-			if(!menuName[0])
-			{
-				HMENU tNewMenu=tPopup ? CreatePopupMenu() : 0;
-
-				MENUITEMINFO mitem={0};
-
-				mitem.cbSize=sizeof(MENUITEMINFO);
-				mitem.fMask=MIIM_DATA|MIIM_TYPE|MIIM_SUBMENU;
-				mitem.fType=MFT_STRING;
-				mitem.dwItemData=(ULONG_PTR)this;
-				mitem.dwTypeData=(wchar_t*)searchMenu.c_str();
-				mitem.cch=searchMenu.size();
-				mitem.hSubMenu=tNewMenu;
-				mitem.fMask|=MIIM_ID;
-				mitem.wID=tItemId=this->IncrementMenuId();
-
-				::InsertMenuItem(tMenu,menuIdx,true,&mitem);
-			}
-		}
-
-		tBegin = tEnd ? tEnd+1 : 0;
-	}
-
-	return tItemId;
-}
 
 
 

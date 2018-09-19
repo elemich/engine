@@ -524,6 +524,7 @@ struct DLLBUILD  Thread  : TPoolVector<Thread>
 	~Thread();
 
 	Task* NewTask(std::function<void()>,bool remove=true,bool iBlock=false);
+	void DestroyTask(Task*);
 
 	void Block(bool);
 };

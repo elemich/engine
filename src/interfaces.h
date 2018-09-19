@@ -38,7 +38,7 @@ struct DLLBUILD GuiPropertyAnimationController;
 struct DLLBUILD Tab;
 struct DLLBUILD Container;
 struct DLLBUILD Splitter;
-struct DLLBUILD MainAppWindow;
+struct DLLBUILD MainContainer;
 struct DLLBUILD ResourceNodeDir;
 struct DLLBUILD Compiler;
 struct DLLBUILD Subsystem;
@@ -64,6 +64,8 @@ struct DLLBUILD Script;
 #define MENUCONFIGUREPLUGINS 0
 
 #define MAX_TOUCH_INPUTS 10
+
+#define ENABLE_RENDERER 1
 
 struct DLLBUILD InputInterface
 {
@@ -136,7 +138,7 @@ struct DLLBUILD InputManager
 struct DLLBUILD Ide : TStaticInstance<Ide>
 {
 	Timer*					timer;
-	MainAppWindow*			mainAppWindow;
+	MainContainer*			mainAppWindow;
 	Compiler*				compiler;
 	Subsystem*				subsystem;
 	Debugger*				debugger;
@@ -154,9 +156,8 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 	unsigned int			processThreadId;
 	
 	Ide();
+	virtual ~Ide();
 
-	virtual int Initialize()=0;
-	virtual void Deinitialize()=0;
 	virtual void Run()=0;
 
 	virtual void ScanDir(String,ResourceNodeDir*)=0;
@@ -197,6 +198,8 @@ struct DLLBUILD Debugger
 
 	Script*			runningScript;
 	unsigned char	runningScriptFunction;
+
+	int sleep;
 
 	Debugger();
 
@@ -278,9 +281,10 @@ struct DLLBUILD Renderer2D
 	unsigned int	colorText;
 	unsigned int	tabSpaces;
 
-	Tab*			tabContainer;
+	Tab*			tab;
 
 	Renderer2D(Tab*);
+	~Renderer2D();
 
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT)=0;
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT)=0;
@@ -313,6 +317,8 @@ struct DLLBUILD Renderer3D : Renderer3DBase
 	std::list<GuiViewport*> viewports;
 
 	Tab* tabContainer;
+
+	virtual Shader* CreateShaderProgram(const char* shader_name,const char* pixel_shader,const char* fragment_shader)=0;
 
 	Shader* FindShader(const char* name,bool exact);
 	void SetMatrices(const float* view,const float* mdl);
@@ -358,8 +364,6 @@ struct DLLBUILD Renderer3D : Renderer3DBase
 
 	Renderer3D(Tab*);
 	virtual ~Renderer3D(){};
-
-
 };
 
 
@@ -370,54 +374,6 @@ struct DLLBUILD Game
 };
 
 
-
-int simple_shader(const char* name,int shader_type, const char* shader_src);
-int create_program(const char* name,const char* vertexsh,const char* fragmentsh);
-
-struct DLLBUILD ShaderOpenGL : Shader
-{
-	static Shader* Create(const char* shader_name,const char* pixel_shader,const char* fragment_shader);
-
-	int GetProgram();
-	void SetProgram(int);
-
-	int GetUniform(int slot,char* var);
-	int GetAttrib(int slot,char* var);
-
-	void Use();
-
-	const char* GetPixelShader();
-	const char* GetFragmentShader();
-
-	int GetAttribute(const char*);
-	int GetUniform(const char*);
-
-	int init();
-
-	int GetPositionSlot();
-	int GetColorSlot();
-	int GetProjectionSlot();
-	int GetModelviewSlot();
-	int GetTexcoordSlot();
-	int GetTextureSlot();
-	int GetLightposSlot();
-	int GetLightdiffSlot();
-	int GetLightambSlot();
-	int GetNormalSlot();
-	int GetMouseSlot();
-	int GetHoveringSlot();
-	int GetPointSize();
-
-	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
-
-	bool SetMatrix4f(int slot,float* mtx);
-
-	unsigned int& GetBufferObject();
-
-	void SetProjectionMatrix(float*);
-	void SetModelviewMatrix(float*);
-	void SetMatrices(float* view,float* mdl);
-};
 
 struct GuiEvent
 {
@@ -467,7 +423,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	GuiScrollRect* clip;
 
 	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
-	~GuiRect();
+	virtual ~GuiRect();
 
 	virtual void SetEdges(float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
 
@@ -557,12 +513,12 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 {
-	Tab* tabContainer;
-
-	void OnSize(const GuiEvent&);
+	Tab* tab;
 
 	GuiRootRect(Tab* t);
 	~GuiRootRect();
+
+	virtual void OnSize(const GuiEvent&);
 };
 
 struct DLLBUILD GuiString : GuiRect
@@ -597,10 +553,12 @@ struct DLLBUILD GuiString : GuiRect
 	bool canEdit;
 	bool adaptRect;
 
+	int textColor;
+
 	StringEditor::Cursor* cursor;
 
 	GuiString();
-	~GuiString();
+	virtual ~GuiString();
 
 	void SetStringMode(String&,bool isReference);
 
@@ -774,6 +732,7 @@ struct DLLBUILD GuiProperty : GuiRect
 	GuiString description;
 
 	GuiProperty();
+	virtual ~GuiProperty();
 };
 
 struct DLLBUILD GuiPropertyString : GuiProperty
@@ -810,6 +769,7 @@ struct DLLBUILD GuiPropertyString : GuiProperty
 	GuiString value;
 
 	GuiPropertyString(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
+	~GuiPropertyString();
 
 	virtual void OnPaint(const GuiEvent&);
 	virtual void OnSize(const GuiEvent&);
@@ -1000,8 +960,8 @@ struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 
 struct DLLBUILD GuiConsoleViewer : GuiScrollRect
 {
-	GuiConsoleViewer();
-	~GuiConsoleViewer();
+	GuiConsoleViewer(){}
+	~GuiConsoleViewer(){}
 };
 
 struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
@@ -1111,7 +1071,7 @@ struct DLLBUILD GuiImage
 	int bpp;
 
 	GuiImage();
-	~GuiImage();
+	virtual ~GuiImage();
 
 	virtual void Release()=0;
 	virtual bool Fill(Renderer2D*,unsigned char* iData,float iWidth,float iHeight)=0;
@@ -1133,7 +1093,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 {
 	WindowData* windowData;
 
-	Container* parentWindowContainer;
+	Container* container;
 
 	static const int CONTAINER_HEIGHT=30;
 	static const int TAB_WIDTH=80;
@@ -1150,6 +1110,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	static unsigned char rawFile[];
 
 	GuiRootRect	rects;
+	GuiRootRect	rectsLayered;
 
 	GuiRect* focused;
 	GuiRect* hovered;
@@ -1211,6 +1172,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	virtual void OnGuiKeyUp(void* data=0);
 
 	virtual void DrawFrame()=0;
+	virtual void Destroy()=0;
 
 	virtual void OnGuiRecreateTarget(void* data=0);
 
@@ -1276,7 +1238,7 @@ struct DLLBUILD Splitter
 
 struct DLLBUILD Container
 {
-	std::vector<Tab*> tabContainers;
+	std::vector<Tab*> tabs;
 
 	WindowData* window;
 	Splitter* splitter;
@@ -1288,24 +1250,27 @@ struct DLLBUILD Container
 	int resizeCheckHeight;
 
 	Container();
+	virtual ~Container();
+
+	virtual void Enable(bool)=0;
 
 	virtual void OnSizing()=0;
 	virtual void OnSize()=0;
 
-	virtual Tab* CreateTabContainer(float x,float y,float w,float h)=0;
-	virtual Tab* CreateModalTabContainer(float w,float h)=0;
-	virtual void DestroyTabContainer(Tab*)=0;
+	virtual Tab* CreateTab(float x,float y,float w,float h)=0;
+	virtual Tab* CreateModalTab(float w,float h)=0;
+	virtual void DestroyTab(Tab*)=0;
 
 	template<class GuiViewerDerived> GuiViewerDerived* SpawnViewer(Tab* iTabContainer=0,bool skipExist=true)
 	{
-		Tab* tTabContainer=iTabContainer ? iTabContainer : tabContainers[0];
+		Tab* tTabContainer=iTabContainer ? iTabContainer : tabs[0];
 
 		if(GuiViewerDerived::GetPool().empty())
-			return tabContainers[0]->rects.Create<GuiViewerDerived>();
+			return tabs[0]->rects.Create<GuiViewerDerived>();
 		else if(skipExist)
 			return GuiViewerDerived::GetPool().front();
 		else
-			return tabContainers[0]->rects.Create<GuiViewerDerived>();
+			return tabs[0]->rects.Create<GuiViewerDerived>();
 	}
 };
 
@@ -1318,7 +1283,7 @@ struct DLLBUILD MenuInterface
 	static int IncrementMenuId();
 };
 
-struct DLLBUILD MainAppWindow : MenuInterface
+struct DLLBUILD MainContainer : MenuInterface
 {
 	int MenuBuild;
 	int MenuPlugins;
@@ -1329,12 +1294,18 @@ struct DLLBUILD MainAppWindow : MenuInterface
 	int MenuActionConfigurePlugin;
 	int MenuActionProgramInfo;
 
+	MainContainer();
+	virtual ~MainContainer();
+
+	Container* mainContainer;
+
 	std::vector<Container*> containers;
 
 	virtual Container* CreateContainer()=0;
 
 	void OnMenuPressed(int iIdx);
 	
+
 };
 
 struct DLLBUILD Subsystem

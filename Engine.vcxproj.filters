@@ -48,14 +48,14 @@
     <ClCompile Include="src\EngineAndroid.cpp">
       <Filter>Android</Filter>
     </ClCompile>
-    <ClCompile Include="src\IdeAndroid.cpp">
-      <Filter>Plugins</Filter>
-    </ClCompile>
     <ClCompile Include="src\fbxutil_fbx.cpp">
       <Filter>Plugins</Filter>
     </ClCompile>
     <ClCompile Include="src\fbxutil.cpp">
       <Filter>Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IdeAndroid.cpp">
+      <Filter>Android</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -83,11 +83,11 @@
     <ClInclude Include="src\EngineAndroid.h">
       <Filter>Android</Filter>
     </ClInclude>
-    <ClInclude Include="src\IdeAndroid.h">
-      <Filter>Plugins</Filter>
-    </ClInclude>
     <ClInclude Include="src\fbxutil.h">
       <Filter>Plugins</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IdeAndroid.h">
+      <Filter>Android</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -231,16 +231,17 @@ void* Resource::Load(FilePath iResourceName)
 ///////////////////////////////////////////////
 
 Renderer3DBase::Renderer3DBase():
-	unlit(0),
-	unlit_color(0),
-	unlit_texture(0),
-	font(0),
-	shaded_texture(0),
+	shader_unlit(0),
+	shader_unlit_color(0),
+	shader_unlit_texture(0),
+	shader_font(0),
+	shader_shaded_texture(0),
 	picking(false)
 {}
 
 Renderer3DBase::~Renderer3DBase()
 {
+	
 }
 
 ///////////////////////////////////////////////
@@ -420,7 +421,17 @@ void MatrixStack::SetMode(MatrixStack::matrixmode m)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Shader::Shader(){}
+Shader::Shader(Renderer3DBase* iRenderer):
+	renderer(iRenderer),
+	programId(-1),
+	vertexShaderId(-1),
+	fragmentShaderId(-1)
+{}
+
+Shader::~Shader()
+{
+
+}
 
 Shader* Shader::Find(const char* iNameToFind,bool iExact)
 {
