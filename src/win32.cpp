@@ -104,25 +104,17 @@ ThreadWin32::~ThreadWin32()
 /////////////////Direct2DBase//////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-ID2D1Geometry*          Direct2D::caret=0;
 ID2D1Factory*			Direct2D::factory=0;
 IWICImagingFactory*		Direct2D::imager=0;
 IDWriteFactory*			Direct2D::writer=0;
-IDWriteTextFormat*		Direct2D::texter=0;
-
-
-char	Direct2D::charsWidth[255]={0};
-
-const int Direct2D::fontLogicSize=10;
-const wchar_t* Direct2D::fontFaceName=L"Verdana";
 
 void Direct2D::Release()
 {
 	SAFERELEASE(factory);
 	SAFERELEASE(imager);
 	SAFERELEASE(writer);
-	SAFERELEASE(texter);
 };
+
 
 void Direct2D::Init()
 {
@@ -144,115 +136,104 @@ void Direct2D::Init()
 		if(S_OK!=res || !Direct2D::writer)
 			DEBUG_BREAK();
 
-		res=Direct2D::writer->CreateTextFormat(Direct2D::fontFaceName,NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,Direct2D::fontLogicSize,L"",&Direct2D::texter);
-		if(S_OK!=res || !Direct2D::texter)
-			DEBUG_BREAK();
-
-		res=Direct2D::texter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
-		if(S_OK!=res)
-			DEBUG_BREAK();
-
-		res=Direct2D::texter->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM,13.333334f,Direct2D::fontLogicSize);
-
-		if(S_OK!=res)
-			DEBUG_BREAK();
-
-		{
- 			const void*	tTableData=0;
-			UINT32		tTableSize=0;
-			void*		tTableContext=0;
-
-			IDWriteFontFace* tFontFace = NULL;
-			IDWriteFontFile* tFontFile = NULL;
-
-			res = Direct2D::writer->CreateFontFileReference(L"c:\\windows\\fonts\\verdana.ttf",NULL,&tFontFile);
-
-			if(S_OK!=res || !tFontFile)
-				DEBUG_BREAK();
-
-			res = Direct2D::writer->CreateFontFace(DWRITE_FONT_FACE_TYPE_TRUETYPE,1,&tFontFile,0,DWRITE_FONT_SIMULATIONS_NONE,&tFontFace);
-
-			if(S_OK!=res || !tFontFace)
-				DEBUG_BREAK();
-
-			BOOL exists=false;
-
-			res=tFontFace->TryGetFontTable(DWRITE_MAKE_OPENTYPE_TAG('h','d','m','x'),&tTableData,&tTableSize,&tTableContext,&exists);
-
-			if(S_OK!=res || !exists)
-				DEBUG_BREAK();
-
-			UINT16 numRecords=0;
-			UINT32 recordSize=0;
-
-			UINT8 *tablePointer=(UINT8*)tTableData;
-
-			//getting record infos
-			{
-				UINT8 __word[4];
-
-				__word[0]=*(tablePointer + 3);
-				__word[1]=*(tablePointer + 2);
-
-				numRecords=*((UINT16*)__word);
-
-				UINT8 __long[4];
-
-				__long[0]=*(tablePointer + 7);
-				__long[1]=*(tablePointer + 6);
-				__long[2]=*(tablePointer + 5);
-				__long[3]=*(tablePointer + 4);
-
-				recordSize=*((UINT32*)__long);
-			}
-
-			//records begin here
-			tablePointer+=8;
-
-			//matching infos
-			for(int iRecord=0;iRecord<numRecords;iRecord++)
-			{
-				UINT8 ppem=*tablePointer;
-
-				if(ppem!=Direct2D::GetFontSize())
-					tablePointer+=recordSize*(iRecord+1);
-				else
-					break;
-			}
-
-			for(int i=0;i<255;i++)
-				Direct2D::charsWidth[i]=*(tablePointer+i);
-
-			SAFERELEASE(tFontFace);
-			SAFERELEASE(tFontFile);
-
-			if(0)
-			{
-				wprintf(L"----------\n");
-
-
-				char *prova=" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
-				char* t=prova;
-
-
-				while(*t)
-				{
-					int width=charsWidth[(*t)-32];
-					wprintf(L"%c: %d\n",*t,width);
-					t++;
-				}
-
-				wprintf(L"----------\n");
-			}
-		}
-
-		// Center the text horizontally and vertically.
-		//textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-
-		/*res=texter->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-		if(S_OK!=res)
-			__debugbreak();*/
+		Direct2D::CreateFont(L"Verdana",15);
 	}
+}
+
+
+bool Direct2D::CreateFont(String iFontName,float iFontSize)
+{
+	IDWriteFontCollection*	tFontCollection=0;
+	IDWriteFontFamily*		tFontFamily=0;
+	IDWriteFontFace*		tFontFace=0;
+	IDWriteFontFile*		tFontFile=0;
+	IDWriteFont*			tFont=0;
+	IDWriteTextFormat*		tTexter=0;
+
+	HRESULT res=S_OK;
+
+	res=Direct2D::writer->GetSystemFontCollection(&tFontCollection,false);
+	if(S_OK!=res || !tFontCollection)
+		DEBUG_BREAK();
+
+	BOOL tFontExist;
+	UINT32 tFontIndex;
+	tFontCollection->FindFamilyName(iFontName.c_str(),&tFontIndex,&tFontExist);
+
+	if(!tFontExist || tFontExist==UINT_MAX)
+		DEBUG_BREAK();
+
+	res=tFontCollection->GetFontFamily(tFontIndex,&tFontFamily);
+	if(S_OK!=res || !tFontFamily)
+		DEBUG_BREAK();
+
+	res=tFontFamily->GetFirstMatchingFont(DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STRETCH_NORMAL,DWRITE_FONT_STYLE_NORMAL,&tFont);
+
+	if(S_OK!=res || !tFont)
+		DEBUG_BREAK();
+
+	res=tFont->CreateFontFace(&tFontFace);
+
+	if(S_OK!=res || !tFontFace)
+		DEBUG_BREAK();
+
+	wchar_t*				tGlyphs=L" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~\0";//" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
+	
+	DWRITE_FONT_METRICS		tFontMetrics;
+	
+	UINT32					tGlyphsCount=wcslen(tGlyphs);
+	UINT32*					tGlyphsCodePoints=new UINT32[tGlyphsCount];
+	UINT16*					tGlyphsIndices=new UINT16[tGlyphsCount];
+	DWRITE_GLYPH_METRICS*	tGlyphMetrics=new DWRITE_GLYPH_METRICS[tGlyphsCount];
+
+	//get metrics
+
+	tFontFace->GetMetrics(&tFontMetrics);
+
+	for(int i=0;i<tGlyphsCount;i++)
+		tGlyphsCodePoints[i]=tGlyphs[i];
+
+	res = tFontFace->GetGlyphIndices((UINT32*)tGlyphsCodePoints,tGlyphsCount,tGlyphsIndices);
+
+	if(S_OK!=res)
+		DEBUG_BREAK();
+
+	res = tFontFace->GetDesignGlyphMetrics(tGlyphsIndices,tGlyphsCount,tGlyphMetrics,FALSE);
+
+	if(S_OK!=res)
+		DEBUG_BREAK();
+
+	res=Direct2D::writer->CreateTextFormat(iFontName.c_str(),NULL,DWRITE_FONT_WEIGHT_NORMAL,DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,iFontSize,L"",&tTexter);
+	if(S_OK!=res || !tTexter)
+		DEBUG_BREAK();
+
+	res=tTexter->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
+	if(S_OK!=res)
+		DEBUG_BREAK();
+
+	/*res=tTexter->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_DEFAULT,13.333334f,Direct2D::fontLogicSize);
+
+	if(S_OK!=res)
+		DEBUG_BREAK();*/
+
+	GuiFontWin32* tGuiFont=new GuiFontWin32;
+
+	tGuiFont->name=iFontName;
+	tGuiFont->texter=tTexter;
+	tGuiFont->height=tTexter->GetFontSize();
+
+	//set unhandleds
+	for(int i=0;i<255;i++)
+		tGuiFont->widths[i]=-1;
+
+	for(int i=0;i<tGlyphsCount;i++)
+	{	
+		tGuiFont->widths[tGlyphs[i]]=iFontSize*tGlyphMetrics[i].advanceWidth/(float)tFontMetrics.designUnitsPerEm;
+	}
+
+	Renderer2D::fonts.push_back(tGuiFont);
+
+	return true;
 }
 
 void dump(unsigned char* t)
@@ -328,100 +309,10 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 	}
 }
 
-vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const char* iText,int iSlen)
+
+void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,IDWriteTextFormat* texter,ID2D1Brush* iBrush,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	float width=0,tWidth=0;;
-	float height=0;
-
-	if(!iText)
-		vec2(width,height);
-
-	float fontHeight=height=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)renderer);
-
-	char* t=(char*)iText;
-
-	while(*t)
-	{
-		if(*t=='\n' || *t=='\r')
-		{
-			height+=fontHeight;
-			tWidth>width?width=tWidth:0;
-			tWidth=0;
-		}
-		else
-			tWidth+=Direct2D::charsWidth[*t];
-
-		t++;
-	}
-
-	tWidth>width?width=tWidth:0;
-
-	return vec2(width,height);
-}
-
-vec2 Direct2D::MeasureText(ID2D1RenderTarget*renderer,const wchar_t* iText,int iSlen)
-{
-	float width=0,tWidth=0;
-	float height=0;
-
-	if(!iText)
-		vec2(width,height);
-
-	float fontHeight=height=Direct2D::GetFontHeight((ID2D1HwndRenderTarget*)(renderer));
-
-	wchar_t* t=(wchar_t*)iText;
-
-	while(*t)
-	{
-		if(*t=='\n' || *t=='\r')
-		{
-			height+=fontHeight;
-			tWidth>width?width=tWidth:0;
-			tWidth=0;
-		}
-		else
-			tWidth+=Direct2D::charsWidth[*t];
-
-		t++;
-	}
-
-	tWidth>width?width=tWidth:0;
-
-	return vec2(width,height);
-}
-
-float Direct2D::GetFontHeight(ID2D1HwndRenderTarget* renderer)
-{
-	if(!renderer)
-		return 0;
-
-	const float tTypographicPoint=1.0f/72.0f;
-	const float tDeviceIndependentPixelFontHeightValue=Direct2D::texter->GetFontSize();
-
-	float tDotPerInchX,tDotPerInchY;
-
-	renderer->GetDpi(&tDotPerInchX,&tDotPerInchY);
-
-	float tDeviceIndependentPixelScalar=tDotPerInchY * tTypographicPoint;
-	float tPixelValue=tDeviceIndependentPixelScalar * tDeviceIndependentPixelFontHeightValue;
-
-	return tPixelValue;
-}
-
-float Direct2D::GetFontSize()
-{
-	return Direct2D::texter->GetFontSize();
-}
-
-float Direct2D::GetCharWidth(char iCharacter)
-{
-	return iCharacter!='\t' ? Direct2D::charsWidth[iCharacter-27] : Direct2D::charsWidth[' '-27];
-}
-
-
-void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,ID2D1Brush* iBrush,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
-{
-	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_GDI_CLASSIC);
+	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_NATURAL);
 }
 
 void Direct2D::DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush)
@@ -470,7 +361,6 @@ void Direct2D::Identity(ID2D1RenderTarget* renderer)
 Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0)
 {
 	Direct2D::Init();
-	this->SetTabSpaces(this->tabSpaces);
 }
 Renderer2DWin32::~Renderer2DWin32()
 {
@@ -505,7 +395,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	if(S_OK!=result || !this->renderer)
 		DEBUG_BREAK();
 
-	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Renderer2D::COLOR_TAB_BACKGROUND),&brush);
+	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Tab::COLOR_BACK),&brush);
 
 	if(S_OK!=result || !this->brush)
 		DEBUG_BREAK();
@@ -514,18 +404,22 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 }
 void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor)
 {
-	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,left,top,right,bottom);
+	GuiFontWin32* tFont=(GuiFontWin32*)this->fonts[0];
+
+	Direct2D::DrawText(this->renderer,tFont->texter,this->SetColorWin32(iColor),iText,left,top,right,bottom);
 }
 void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor)
 {
+	GuiFontWin32* tFont=(GuiFontWin32*)this->fonts[0];
+
 	vec4 tRect(left,top,right-left,bottom-top);
 
-	vec2 tTextSize=this->MeasureText(iText.c_str());
+	vec2 tTextSize=tFont->MeasureText(iText.c_str());
 
 	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
 	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
 
-	Direct2D::DrawText(this->renderer,this->SetColorWin32(iColor),iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
+	Direct2D::DrawText(this->renderer,tFont->texter,this->SetColorWin32(iColor),iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 }
 void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill,float op)
 {
@@ -558,45 +452,12 @@ void Renderer2DWin32::Identity()
 	Direct2D::Identity(this->renderer);
 }
 
-vec2 Renderer2DWin32::MeasureText(const char* iText,int iSlen)
-{
-	return Direct2D::MeasureText(this->renderer,iText,iSlen);
-}
-
-vec2 Renderer2DWin32::MeasureText(const wchar_t* iText,int iSlen)
-{
-	return Direct2D::MeasureText(this->renderer,iText,iSlen);
-}
-
-float Renderer2DWin32::GetFontSize()
-{
-	return Direct2D::GetFontSize();
-}
-
-float Renderer2DWin32::GetFontHeight()
-{
-	return Direct2D::GetFontHeight(this->renderer);
-}
-
-float Renderer2DWin32::GetCharWidth(char iCharacter)
-{
-	float tCharWidth=Direct2D::GetCharWidth(iCharacter);
-
-	return iCharacter!='\t' ? tCharWidth : tCharWidth*this->tabSpaces;
-}
 
 ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color,float opaque)
 {
 	this->brush->SetColor(D2D1::ColorF(color));
 	this->brush->SetOpacity(opaque);
 	return this->brush;
-}
-
-void Renderer2DWin32::SetTabSpaces(unsigned int iNumOfSpaces)
-{
-	this->tabSpaces=iNumOfSpaces;
-	unsigned int tSpaceCharWidth=Direct2D::GetCharWidth(' ');
-	Direct2D::texter->SetIncrementalTabStop(tSpaceCharWidth*this->tabSpaces);
 }
 
 void Renderer2DWin32::DrawCaret()
@@ -1008,7 +869,8 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 
 LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	TabWin32* tc=(TabWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+	TabWin32* tabWin32=(TabWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+	Tab*	  tab=(Tab*)tabWin32;
 
 	LPARAM result=0;
 
@@ -1030,71 +892,87 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		break;
 		case WM_ERASEBKGND:
 			/*if(tc->splitterContainer->floatingTabRef)
-				tc->OnPaint();*/
+				tab->OnPaint();*/
 			return 1;
 		case WM_SIZE:
-			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			tc->OnGuiSize();
+			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+			tab->OnGuiSize();
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiSize,tab,(void*)0)));
 		break;
 		case WM_WINDOWPOSCHANGED:
-			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			tc->OnWindowPosChanging();
+			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+			tab->OnWindowPosChanging();
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnWindowPosChanging,tab,(void*)0)));
 		break;
 		case WM_LBUTTONDOWN:
 			{
-				tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
 
 				InputManager::mouseInput.left=true;
 
 				unsigned int tOldTime=InputManager::mouseInput.lastLeft;
 				InputManager::mouseInput.lastLeft=Ide::GetInstance()->timer->GetTime();
 
-				if(tc->windowDataWin32->hwnd!=::GetFocus())
-					::SetFocus(tc->windowDataWin32->hwnd);
+				if(tabWin32->windowDataWin32->hwnd!=::GetFocus())
+					::SetFocus(tabWin32->windowDataWin32->hwnd);
 
 				if(InputManager::mouseInput.lastLeft-tOldTime<1000/6.0f)
-					tc->OnGuiDLMouseDown();
+					tab->OnGuiDLMouseDown();
+					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiDLMouseDown,tab,(void*)0)));
 				else
-					tc->OnGuiLMouseDown();
+					tab->OnGuiLMouseDown();
+					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiLMouseDown,tab,(void*)0)));
 			}
 		break;
 		case WM_MOUSEWHEEL:
 			{
-				tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
 				float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
-				tc->OnGuiMouseWheel(&wheelValue);
+				tab->OnGuiMouseWheel(&wheelValue);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiMouseWheel,tab,(void*)&wheelValue)));
 			}
 		break;
 		case WM_MOUSEMOVE:
-			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			tc->OnGuiMouseMove();
+			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+			tab->OnGuiMouseMove();
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiMouseMove,tab,(void*)0)));
 		break;
 		case WM_NCHITTEST:
-			if(tc->splitterContainer->floatingTabRef)
+			if(tabWin32->splitterContainer->floatingTabRef)
 				return HTTRANSPARENT;
 			else
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
 			break;
 		case WM_LBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
 			InputManager::mouseInput.left=false;
-			tc->OnGuiLMouseUp();
+			tab->OnGuiLMouseUp();
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiLMouseUp,tab,(void*)0)));
 		break;
 		case WM_RBUTTONUP:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			tc->OnGuiRMouseUp();
+			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+			tab->OnGuiRMouseUp();
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiRMouseUp,tab,(void*)0)));
 		break;
 		case WM_CLOSE:
-			SAFEDELETE(tc);
+			SAFEDELETE(tabWin32);
 			DestroyWindow(hwnd);
 			return 0;
 		break;
 		case WM_KEYDOWN:
 			{
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
 				MSG _msg;
 				PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
 
@@ -1102,20 +980,23 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 				{
 					TranslateMessage(&_msg);
 					DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
-					tc->OnGuiKeyDown(&_msg.wParam);
+					tab->OnGuiKeyDown(&_msg.wParam);
+					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)&_msg.wParam)));
 				}
 				else
-					tc->OnGuiKeyDown();
+					tab->OnGuiKeyDown();
+					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)0)));
 			}
 			break;
 		case WM_PAINT:
 		{
-			tc->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
 			PAINTSTRUCT ps;
 			BeginPaint(hwnd,&ps);
-			//tc->OnGuiPaint();
+			//tab->OnGuiPaint();
 			EndPaint(hwnd,&ps);
-			tc->SetDraw();
+			tab->SetDraw();
 			result=0;
 		}
 		break;
@@ -1124,11 +1005,12 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 
 	}
 
-	if(tc)
+	if(tabWin32)
 	{
-		tc->windowDataWin32->msg=0;
-		tc->windowDataWin32->wparam;
-		tc->windowDataWin32->lparam=0;
+		//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+		tabWin32->windowDataWin32->msg=0;
+		tabWin32->windowDataWin32->wparam;
+		tabWin32->windowDataWin32->lparam=0;
 	}
 
 	
@@ -1155,17 +1037,18 @@ TimerWin32::TimerWin32(){}
 
 void WindowDataWin32::CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l){hwnd=h,msg=m,wparam=w,lparam=l;}
 
+vec2 WindowDataWin32::Size()
+{
+	RECT tRect;
+	vec2 tSize;
+	
+	GetClientRect(this->hwnd,&tRect);
 
-void WindowDataWin32::OnSize()
-{
-	width=LOWORD(lparam);
-	height=HIWORD(lparam);
+	tSize.make(tRect.right-tRect.left,tRect.bottom-tRect.top);
+
+	return tSize;
 }
-void WindowDataWin32::OnWindowPosChanging()
-{
-	width=(float)((LPWINDOWPOS)lparam)->cx;
-	height=(float)((LPWINDOWPOS)lparam)->cy;
-}
+
 
 void WindowDataWin32::LinkSibling(WindowData* t,int pos)
 {
@@ -1210,13 +1093,17 @@ void WindowDataWin32::UnlinkSibling(WindowData* t)
 
 WindowDataWin32* WindowDataWin32::FindSiblingOfSameSize()
 {
+	vec2 iThisWSize=this->Size();
+
 	for(int i=0;i<4;i++)
 	{
 		for(std::list<WindowData*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
 		{
 			WindowDataWin32* window=static_cast<WindowDataWin32*>(*it);
 
-			if(window->width==this->width || window->height==this->height)
+			vec2 iWSize=window->Size();
+
+			if(iWSize.x==iThisWSize.x || iWSize.y==iThisWSize.y)
 				return window;
 		}
 	}
@@ -1925,7 +1812,7 @@ int ShaderOpenGL::GetPointSize()
 	return GetUniform("pointsize");
 }
 
-void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
+void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectSize)
 {
 	int _mousepos=this->GetMouseSlot();
 	int _ptrclr=this->GetUniform("ptrclr");
@@ -1946,7 +1833,7 @@ void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
 		else renderer3DOpenGL->glUniform4f(_ptrclr,0,0,0,0);
 
 		if(_mousepos>=0)
-			renderer3DOpenGL->glUniform2f(_mousepos,mposNorm.x,mposNorm.y);
+			renderer3DOpenGL->glUniform2f(_mousepos,iMpos.x/iRectSize.x,iMpos.y/iRectSize.y);
 	}
 }
 
@@ -2189,7 +2076,7 @@ void Renderer3DOpenGL::Initialize()
 		MessageBox(0,L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 	if(hglrc)
-		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tabContainer,hglrc,hdc);
+		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tab,hglrc,hdc);
 
 	if(!wglMakeCurrent(hdc,hglrc))
 		DEBUG_BREAK();
@@ -2295,7 +2182,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
+	shader->SetSelectionColor(this->picking,0,this->tab->mouse,this->tab->Size());
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -2438,7 +2325,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
+	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->Size());
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -2513,7 +2400,7 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	shader->SetSelectionColor(false,0,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
+	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->Size());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2849,7 +2736,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
 
 
-	shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
+	shader->SetSelectionColor(this->picking,mesh->entity,this->tab->mouse,this->tab->Size());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2924,7 +2811,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
 
 
-	shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
+	shader->SetSelectionColor(this->picking,skin->entity,this->tab->mouse,this->tab->Size());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -3007,7 +2894,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mouse.x/this->tab->windowData->width,this->tabContainer->mouse.y/this->tab->windowData->height));
+	shader->SetSelectionColor(this->picking,bone->entity,this->tab->mouse,this->tab->Size());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -3037,153 +2924,6 @@ float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 void Renderer3DOpenGL::draw(Entity* iEntity)
 {
 	iEntity->draw(this);
-}
-
-
-void Renderer3DOpenGL::Render(GuiViewport* viewport,bool force)
-{
-	vec4 tCanvas=viewport->rect;
-	vec2 tMouse(tab->mouse);
-
-	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)viewport->renderBitmap;
-	unsigned char*& rBuffer=(unsigned char*&)viewport->renderBuffer;
-
-	D2D1_SIZE_F tSize;
-
-	if(rBitmap)
-		//rBitmap->GetSize(&tSize);
-		AGGREGATECALL(rBitmap->GetSize,tSize);
-
-	if(!rBitmap || tSize.width!=tCanvas.z || tSize.height!=tCanvas.w || !viewport->renderBuffer || !viewport->renderBitmap)
-	{
-		SAFERELEASE(rBitmap);
-		SAFEDELETEARRAY(viewport->renderBuffer);
-
-		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		//tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
-		AGGREGATECALL(tab->renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
-
-		tab->renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)tCanvas.z,(unsigned int)tCanvas.w),bp,&rBitmap);
-
-		int rBufferSize=tCanvas.z*tCanvas.w*4;
-
-		rBuffer=new unsigned char[rBufferSize];
-	}
-
-	if(viewport->rootEntity)
-	{
-		viewport->rootEntity->world=viewport->model;
-
-		viewport->rootEntity->update();
-
-		for(std::vector<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetPool().begin();it!=GuiEntityViewer::GetPool().end();it++)
-		{
-			EditorEntity* tEditorEntity=(EditorEntity*)(*it)->entity;
-
-			if(tEditorEntity && (*it)->tabContainer)
-				tEditorEntity->OnPropertiesUpdate((*it)->tabContainer);
-		}
-	}
-
-	tab->renderer3D->ChangeContext();
-
-	glViewport((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
-	glScissor((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
-
-	glEnable(GL_DEPTH_TEST);
-
-	{
-		glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
-
-		MatrixStack::Push(MatrixStack::PROJECTION,viewport->projection);
-		MatrixStack::Push(MatrixStack::VIEW,viewport->view);
-		MatrixStack::Push(MatrixStack::MODEL,viewport->model);
-
-		tabContainer->renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-		tabContainer->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-		tabContainer->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
-
-		if(viewport->rootEntity)
-			this->draw(viewport->rootEntity);
-
-		MatrixStack::Pop(MatrixStack::MODEL);
-		MatrixStack::Pop(MatrixStack::VIEW);
-		MatrixStack::Pop(MatrixStack::PROJECTION);
-
-		glReadBuffer(GL_BACK);glCheckError();
-
-		glReadPixels((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
-
-		D2D1_RECT_U rBitmapRect={0,0,tCanvas.z,tCanvas.w};
-
-		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(tCanvas.z*4));
-
-		tab->renderer2DWin32->renderer->DrawBitmap(rBitmap,D2D1::RectF(tCanvas.x,tCanvas.y,tCanvas.x+tCanvas.z,tCanvas.y+tCanvas.w));
-	}
-
-	if(viewport->needsPicking && tMouse.y-tCanvas.y>=0)
-	{
-		glDisable(GL_DITHER);
-
-		tabContainer->renderer3D->picking=true;
-
-		glClearColor(0.0f,0.0f,0.0f,0.0f);glCheckError();
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
-
-		MatrixStack::Push(MatrixStack::PROJECTION,viewport->projection);
-		MatrixStack::Push(MatrixStack::VIEW,viewport->view);
-		MatrixStack::Push(MatrixStack::MODEL,viewport->model);
-
-		if(viewport->rootEntity)
-			this->draw(viewport->rootEntity);
-
-		MatrixStack::Pop(MatrixStack::MODEL);
-		MatrixStack::Pop(MatrixStack::VIEW);
-		MatrixStack::Pop(MatrixStack::PROJECTION);
-
-		glReadBuffer(GL_BACK);glCheckError();
-
-		viewport->pickedPixel;
-		glReadPixels((int)tMouse.x,(int)tMouse.y-tCanvas.y,(int)1,(int)1,GL_RGBA,GL_UNSIGNED_BYTE,&viewport->pickedPixel);glCheckError();//@mic should implement pbo for performance
-
-		unsigned int address=0;
-
-		unsigned char* ptrPixel=(unsigned char*)&viewport->pickedPixel;
-		unsigned char* ptrAddress=(unsigned char*)&address;
-
-		{
-			viewport->pickedEntity=viewport->pickedPixel ?
-
-				ptrAddress[0]=ptrPixel[3],
-				ptrAddress[1]=ptrPixel[2],
-				ptrAddress[2]=ptrPixel[1],
-				ptrAddress[3]=ptrPixel[0],
-
-				dynamic_cast<EditorEntity*>((EditorEntity*)address)
-
-				: 0 ;
-		}
-
-		tabContainer->renderer3D->picking=false;
-
-		glEnable(GL_DITHER);
-
-		viewport->needsPicking=false;
-	}
-}
-
-
-void Renderer3DOpenGL::Render()
-{
-	for(std::list<GuiViewport*>::iterator vport=this->viewports.begin();vport!=this->viewports.end();vport++)
-	{
-		if(tab->BeginDraw())
-		{
-			(*vport)->OnPaint(GuiEvent(this->tabContainer,*vport));
-			tab->EndDraw();
-		}
-	}
 }
 
 
@@ -3366,22 +3106,44 @@ TabWin32::~TabWin32()
 	this->threadRenderWin32->Block(false);
 
 	
-	this->threadRenderWin32->DestroyTask(this->taskDraw);
+	this->threadRenderWin32->DestroyTask(this->drawTask);
 
-	//opengl destruction
-	{
-#if ENABLE_RENDERER
-		//deinit the opengl stuff
-		Task* tDeleteOpenGLContext=this->threadRender->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
-		while(tDeleteOpenGLContext->func);
-		SAFEDELETE(tDeleteOpenGLContext);
-#endif
-	}
+	this->Destroy3DRenderer();
 
 	SAFEDELETE(this->renderer3DOpenGL);
 	SAFEDELETE(this->threadRenderWin32);
 	SAFEDELETE(this->renderer2DWin32);
 	SAFEDELETE(this->windowDataWin32);
+}
+
+void TabWin32::Create3DRenderer()
+{
+#if ENABLE_RENDERER
+	if(!this->renderer3D)
+	{
+		this->renderer3D=new Renderer3DOpenGL(this);
+
+		if(!this->renderer3D)
+			DEBUG_BREAK();
+
+		Task* tCreateOpenGLContext=this->thread->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
+		while(tCreateOpenGLContext->func);
+		SAFEDELETE(tCreateOpenGLContext);
+	}
+#endif
+}
+
+void TabWin32::Destroy3DRenderer()
+{
+#if ENABLE_RENDERER
+	if(this->renderer3D)
+	{
+		Task* tDeleteOpenGLContext=this->thread->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
+		while(tDeleteOpenGLContext->func);
+		SAFEDELETE(tDeleteOpenGLContext);
+	}
+#endif
+
 }
 
 TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool child,bool overlapped)
@@ -3390,7 +3152,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool c
 	containerWin32((ContainerWin32*&)container),
 	renderer2DWin32((Renderer2DWin32*&)renderer2D),
 	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
-	threadRenderWin32((ThreadWin32*&)threadRender)
+	threadRenderWin32((ThreadWin32*&)thread)
 {
 	windowData=new WindowDataWin32;
 
@@ -3406,23 +3168,9 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool c
 
 	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
 
-	this->threadRender=new ThreadWin32;
+	this->thread=new ThreadWin32;
 
-#if ENABLE_RENDERER
-	//3d rendering stuff
-	{
-		this->renderer3D=new Renderer3DOpenGL(this);
-
-		if(!this->renderer3D)
-			DEBUG_BREAK();
-
-		Task* tCreateOpenGLContext=this->threadRender->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
-		while(tCreateOpenGLContext->func);
-		SAFEDELETE(tCreateOpenGLContext);
-	}
-#endif
-
-	this->taskDraw=this->threadRender->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
+	this->drawTask=this->thread->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
 
 	this->iconDown=new GuiImageWin32;
 	this->iconUp=new GuiImageWin32;
@@ -3569,16 +3317,22 @@ bool TabWin32::BeginDraw()
 		}
 		else if(this->resizeTarget)
 		{
-			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU((int)this->windowDataWin32->width,(int)this->windowDataWin32->height));
+			vec2 tTabSize=this->Size();
+
+			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU(tTabSize.x,tTabSize.y));
 
 			if(S_OK!=result)
 				DEBUG_BREAK();
-
-			this->resizeTarget=0;
 		}
 
 		this->renderer2DWin32->renderer->BeginDraw();
 		this->isRender=true;
+
+		if(this->resizeTarget)
+		{
+			this->PaintBackground();
+			this->resizeTarget=0;
+		}
 
 		return true;
 	}
@@ -3633,7 +3387,7 @@ void TabWin32::OnGuiMouseWheel(void* data)
 {
 	float factor=GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)<0 ? -1.0f : 0);
 
-	if(this->mouse.y>Tab::CONTAINER_HEIGHT)
+	if(this->mouse.y>Tab::BAR_HEIGHT)
 		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
 }
 
@@ -3644,13 +3398,13 @@ void TabWin32::OnGuiRMouseUp(void* data)
 	float &x=this->mouse.x;
 	float &y=this->mouse.y;
 
-	if(y<=Tab::CONTAINER_HEIGHT)
+	if(y<=Tab::BAR_HEIGHT)
 	{
 		int tabNumberHasChanged=this->rects.childs.size();
 
 		for(int i=0;i<(int)rects.childs.size();i++)
 		{
-			if(x>(i*TAB_WIDTH) && x< (i*TAB_WIDTH+TAB_WIDTH) && y > (CONTAINER_HEIGHT-TAB_HEIGHT) &&  y<CONTAINER_HEIGHT)
+			if(x>(i*LABEL_WIDTH) && x< (i*LABEL_WIDTH+LABEL_WIDTH) && y > (BAR_HEIGHT-LABEL_HEIGHT) &&  y<BAR_HEIGHT)
 			{
 
 				int menuResult=this->TrackTabMenuPopup();
@@ -3703,39 +3457,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 
 
 
-void TabWin32::DrawFrame()
-{
-	this->renderer2D->Identity();
 
-	this->renderer2D->DrawRectangle(0,0,(float)this->windowDataWin32->width,(float)CONTAINER_HEIGHT,Renderer2D::COLOR_TAB_BACKGROUND);
-	this->renderer2D->DrawRectangle((float)(selected*TAB_WIDTH),
-									(float)(CONTAINER_HEIGHT-TAB_HEIGHT),
-									(float)(selected*TAB_WIDTH+TAB_WIDTH),
-									(float)((CONTAINER_HEIGHT-TAB_HEIGHT)+TAB_HEIGHT),
-									Renderer2D::COLOR_GUI_BACKGROUND);
-
-	for(int i=0;i<(int)rects.childs.size();i++)
-		this->renderer2D->DrawText(
-									rects.childs[i]->name,
-									(float)i*TAB_WIDTH,
-									(float)CONTAINER_HEIGHT-TAB_HEIGHT,
-									(float)i*TAB_WIDTH + (float)TAB_WIDTH,
-									(float)(CONTAINER_HEIGHT-TAB_HEIGHT) + (float)TAB_HEIGHT,
-									vec2(0,0.5f),
-									vec2(0,0.5f),
-									Renderer2D::COLOR_TEXT
-								  );
-}
-
-
-
-void TabWin32::OnGuiPaint(void* data)
-{
-	this->renderer2D->DrawRectangle(0,Tab::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height/*-Tab::CONTAINER_HEIGHT*/,Renderer2D::COLOR_GUI_BACKGROUND);
-	this->renderer2D->DrawRectangle(0,Tab::CONTAINER_HEIGHT,this->windowDataWin32->width,this->windowDataWin32->height/*-Tab::CONTAINER_HEIGHT*/,0xff0000,false);
-
-	this->BroadcastToSelected(&GuiRect::OnPaint,data);
-}
 
 
 void TabWin32::OnResizeContainer(void* data)
@@ -3797,17 +3519,17 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	this->iconFolder->Release();
 	this->iconFile->Release();
 
-	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,ICON_WH,ICON_WH))
 		DEBUG_BREAK();
-	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,ICON_WH,ICON_WH))
 		DEBUG_BREAK();
-	if(!this->iconLeft->Fill(this->renderer2D,this->rawLeftArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+	if(!this->iconLeft->Fill(this->renderer2D,this->rawLeftArrow,ICON_WH,ICON_WH))
 		DEBUG_BREAK();
-	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,ICON_WH,ICON_WH))
 		DEBUG_BREAK();
-	if(!this->iconFolder->Fill(this->renderer2D,this->rawFolder,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+	if(!this->iconFolder->Fill(this->renderer2D,this->rawFolder,ICON_WH,ICON_WH))
 		DEBUG_BREAK();
-	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,CONTAINER_ICON_WH,CONTAINER_ICON_WH))
+	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,ICON_WH,ICON_WH))
 		DEBUG_BREAK();
 
 	this->Tab::OnGuiRecreateTarget(iData);
@@ -3830,9 +3552,175 @@ void TabWin32::SetCursor(int iCursorCode)
 		::SetCursor(cursor);
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////////GuiViewportWin32///////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+GuiViewport* GuiRect::Viewport(vec3 pos,vec3 target,vec3 up,bool perspective)
+{
+	GuiViewport* tGuiViewport=new GuiViewportWin32;
+
+	tGuiViewport->SetParent(this);
+	tGuiViewport->projection= !perspective ? tGuiViewport->projection : tGuiViewport->projection.perspective(90,16/9,1,1000);
+	tGuiViewport->view.move(pos);
+	tGuiViewport->view.lookat(target,up);
+
+	return tGuiViewport;
+}
 
 
+GuiViewportWin32::GuiViewportWin32():renderBitmap(0){}
+GuiViewportWin32::~GuiViewportWin32()
+{
+	SAFERELEASE(this->renderBitmap);
+}
 
+void GuiViewportWin32::DrawBuffer(Tab* iTab,vec4& iVec)
+{
+	if(this->renderBuffer)
+	{
+		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
+		renderer2DWin32->renderer->DrawBitmap(this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w));
+	}
+}
+void GuiViewportWin32::Render(Tab* iTab)
+{
+	vec4 tCanvas=this->rect;
+	vec2 tMouse(iTab->mouse);
+
+	Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
+
+	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)this->renderBitmap;
+	unsigned char*& rBuffer=(unsigned char*&)this->renderBuffer;
+
+	D2D1_SIZE_F tSize;
+
+	if(rBitmap)
+		//rBitmap->GetSize(&tSize);
+		AGGREGATECALL(rBitmap->GetSize,tSize);
+
+	if(!rBitmap || tSize.width!=tCanvas.z || tSize.height!=tCanvas.w || !this->renderBuffer || !this->renderBitmap)
+	{
+		SAFERELEASE(rBitmap);
+		SAFEDELETEARRAY(this->renderBuffer);
+
+		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+		//tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+		AGGREGATECALL(renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
+
+		renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)tCanvas.z,(unsigned int)tCanvas.w),bp,&rBitmap);
+
+		int rBufferSize=tCanvas.z*tCanvas.w*4;
+
+		rBuffer=new unsigned char[rBufferSize];
+	}
+
+	if(this->rootEntity)
+	{
+		this->rootEntity->world=this->model;
+
+		this->rootEntity->update();
+
+		for(std::vector<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetPool().begin();it!=GuiEntityViewer::GetPool().end();it++)
+		{
+			EditorEntity* tEditorEntity=(EditorEntity*)(*it)->entity;
+
+			if(tEditorEntity && (*it)->tabContainer)
+				tEditorEntity->OnPropertiesUpdate((*it)->tabContainer);
+		}
+	}
+
+	iTab->renderer3D->ChangeContext();
+
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_SCISSOR_TEST);
+
+	glViewport((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
+	glScissor((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
+
+	{
+		glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
+		//glClearColor(1,0,0,0);glCheckError();
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+
+		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+		MatrixStack::Push(MatrixStack::VIEW,this->view);
+		MatrixStack::Push(MatrixStack::MODEL,this->model);
+
+		iTab->renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+		iTab->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+		iTab->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+
+		if(this->rootEntity)
+			iTab->renderer3D->draw(this->rootEntity);
+
+		MatrixStack::Pop(MatrixStack::MODEL);
+		MatrixStack::Pop(MatrixStack::VIEW);
+		MatrixStack::Pop(MatrixStack::PROJECTION);
+
+		glReadBuffer(GL_BACK);glCheckError();
+
+		glReadPixels((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
+
+		D2D1_RECT_U rBitmapRect={0,0,tCanvas.z,tCanvas.w};
+
+		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(tCanvas.z*4));
+
+		this->DrawBuffer(iTab,tCanvas);
+	}
+
+	if(this->needsPicking && tMouse.y-tCanvas.y>=0)
+	{
+		glDisable(GL_DITHER);
+
+		iTab->renderer3D->picking=true;
+
+		glClearColor(0.0f,0.0f,0.0f,0.0f);glCheckError();
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
+
+		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+		MatrixStack::Push(MatrixStack::VIEW,this->view);
+		MatrixStack::Push(MatrixStack::MODEL,this->model);
+
+		if(this->rootEntity)
+			iTab->renderer3D->draw(this->rootEntity);
+
+		MatrixStack::Pop(MatrixStack::MODEL);
+		MatrixStack::Pop(MatrixStack::VIEW);
+		MatrixStack::Pop(MatrixStack::PROJECTION);
+
+		glReadBuffer(GL_BACK);glCheckError();
+
+		this->pickedPixel;
+		glReadPixels((int)tMouse.x,(int)tMouse.y-tCanvas.y,(int)1,(int)1,GL_RGBA,GL_UNSIGNED_BYTE,&this->pickedPixel);glCheckError();//@mic should implement pbo for performance
+
+		unsigned int address=0;
+
+		unsigned char* ptrPixel=(unsigned char*)&this->pickedPixel;
+		unsigned char* ptrAddress=(unsigned char*)&address;
+
+		{
+			this->pickedEntity=this->pickedPixel ?
+
+				ptrAddress[0]=ptrPixel[3],
+				ptrAddress[1]=ptrPixel[2],
+				ptrAddress[2]=ptrPixel[1],
+				ptrAddress[3]=ptrPixel[0],
+
+				dynamic_cast<EditorEntity*>((EditorEntity*)address)
+
+				: 0 ;
+		}
+
+		iTab->renderer3D->picking=false;
+
+		glEnable(GL_DITHER);
+
+		this->needsPicking=false;
+	}
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4005,7 +3893,7 @@ void SplitterWin32::OnMouseMove(HWND hwnd,LPARAM lparam)
 		{
 			floatingTabTarget=(Tab*)GetWindowLongPtr(target,GWLP_USERDATA);
 
-			int hh=Tab::CONTAINER_HEIGHT;
+			int hh=Tab::BAR_HEIGHT;
 
 			GetClientRect(target,&targetRc);
 			tmpRc=targetRc;
@@ -4274,7 +4162,7 @@ bool InitSplitter()
 		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 		wc.lpszClassName=WC_MAINAPPWINDOW;
 		wc.lpfnWndProc=MainContainerWin32::MainWindowProcedure;
-		wc.hbrBackground=CreateSolidBrush(Renderer2D::COLOR_MAIN_BACKGROUND);
+		wc.hbrBackground=CreateSolidBrush(MainContainer::COLOR_BACK);
 
 		if(!RegisterClassEx(&wc))
 			DEBUG_BREAK();
@@ -4719,14 +4607,14 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 
 			Tab* tabContainerRunninUpdater=GuiViewport::GetPool()[0]->GetRootRect()->tab;
 
-			tabContainerRunninUpdater->taskDraw->pause=true;
+			tabContainerRunninUpdater->drawTask->pause=true;
 
-			while(tabContainerRunninUpdater->taskDraw->executing);
+			while(tabContainerRunninUpdater->drawTask->executing);
 
 			DestroyScript(iScript->runtime);
 			iScript->runtime=0;
 
-			tabContainerRunninUpdater->taskDraw->pause=false;
+			tabContainerRunninUpdater->drawTask->pause=false;
 		}
 		else
 			iScript->runtime=0;
@@ -5347,15 +5235,13 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 				this->string->BeginClip(iCallerTab);
 
 				if(this->blinking)
-					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+renderer2DWin32->GetFontHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
+					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+renderer2DWin32->fonts[0]->GetHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
 				else
 					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w));
 
 				this->string->EndClip(iCallerTab);
 
 				renderer2DWin32->tab->EndDraw();
-
-				wprintf(L"-");
 			}
 
 			this->lastBlinkTime=Ide::GetInstance()->timer->GetTime();

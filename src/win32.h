@@ -8,7 +8,7 @@
 //#pragma warning(disable:4996) //
 
 #define _CRT_SECURE_NO_WARNINGS
-#define UNICODE
+#define UNICODE 1
 
 #include <windows.h>
 #include <windowsx.h>
@@ -66,26 +66,25 @@ struct DLLBUILD Renderer2DWin32;
 
 void glCheckError();
 
+struct DLLBUILD GuiFontWin32 : GuiFont
+{
+	IDWriteTextFormat* texter;
+};
+
 struct DLLBUILD Direct2D
 {
-	static ID2D1Geometry        *caret;
-
 	static ID2D1Factory			*factory;
 	static IWICImagingFactory	*imager;
 	static IDWriteFactory		*writer;
-	static IDWriteTextFormat	*texter;
-
-	static const int fontLogicSize;
-	static const wchar_t* fontFaceName;
-
-	static char charsWidth[255];
 
 	static void Init();
 	static void Release();
 
+	static bool CreateFont(String,float iFontSize);
+
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	static void DrawText(ID2D1RenderTarget*renderer,ID2D1Brush* brush,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	static void DrawText(ID2D1RenderTarget*renderer,IDWriteTextFormat* texter,ID2D1Brush* brush,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float op=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
@@ -96,14 +95,6 @@ struct DLLBUILD Direct2D
 
 	static void Translate(ID2D1RenderTarget*,float,float);
 	static void Identity(ID2D1RenderTarget*);
-
-	static vec2 MeasureText(ID2D1RenderTarget*,const char*,int iSlen=-1);
-	static vec2 MeasureText(ID2D1RenderTarget*,const wchar_t*,int iSlen=-1);
-
-	static float GetFontHeight(ID2D1HwndRenderTarget*);
-	static float GetFontSize();
-
-	static float GetCharWidth(char iCharacter);
 };
 
 
@@ -137,8 +128,8 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
 
-	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT);
-	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT);
+	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT);
+	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
@@ -148,16 +139,6 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 
 	void Translate(float,float);
 	void Identity();
-
-	vec2 MeasureText(const char*,int iSlen=-1);
-	vec2 MeasureText(const wchar_t*,int iSlen=-1);
-
-	float GetFontSize();
-	float GetFontHeight();
-	float GetCharWidth(char iCharacter);
-
-	void SetTabSpaces(unsigned int iNumOfSpaces);
-
 	ID2D1Brush* SetColorWin32(unsigned int color,float opaque=1.0f);
 
 	bool RecreateTarget(HWND);
@@ -237,10 +218,6 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 
 	int pixelFormat;
 
-#if USE_MULTIPLE_OPENGL_CONTEXTS
-	GLEWContext* glewContext;
-#endif
-
 	TabWin32* tab;
 
 	Renderer3DOpenGL(TabWin32*);
@@ -272,8 +249,6 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	void draw(Gizmo*);
 	void draw(Script*);
 
-	virtual void Render(GuiViewport*,bool force=false);
-	virtual void Render();
 
 	void draw(EntityComponent*);
 	void draw(Entity*);
@@ -320,7 +295,7 @@ struct DLLBUILD ShaderOpenGL : Shader
 	int GetHoveringSlot();
 	int GetPointSize();
 
-	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
+	void SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectSize);
 
 	bool SetMatrix4f(int slot,float* mtx);
 
@@ -375,14 +350,13 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
 	void Create(HWND container);
 
-	void OnSize();
-	void OnWindowPosChanging();
-
 	void LinkSibling(WindowData* t,int pos);
 	void UnlinkSibling(WindowData* t=0);
 	WindowDataWin32* FindSiblingOfSameSize();
 	int FindSiblingPosition(WindowData* t);
 	bool FindAndGrowSibling();
+
+	vec2 Size();
 };
 
 
@@ -406,12 +380,12 @@ struct DLLBUILD TabWin32 : Tab
 
 	void Destroy();
 
-	void DrawFrame();
+	void Create3DRenderer();
+	void Destroy3DRenderer();
 
 	void OnGuiMouseMove(void* data=0);
 	void OnGuiMouseWheel(void* data=0);
 	void OnGuiRMouseUp(void* data=0);
-	void OnGuiPaint(void* data=0);
 	void OnResizeContainer(void* data=0);
 	void OnGuiRecreateTarget(void* data=0);
 
@@ -421,6 +395,17 @@ struct DLLBUILD TabWin32 : Tab
 
 	void SetCursor(int);
 
+};
+
+struct DLLBUILD GuiViewportWin32 : GuiViewport
+{
+	ID2D1Bitmap*	renderBitmap;
+
+	GuiViewportWin32();
+	~GuiViewportWin32();
+
+	void Render(Tab*);
+	void DrawBuffer(Tab*,vec4&);
 };
 
 struct DLLBUILD SplitterWin32 : Splitter

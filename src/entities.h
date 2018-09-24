@@ -101,7 +101,8 @@ struct DLLBUILD Shader : TPoolVector<Shader>
 	virtual int GetHoveringSlot()=0;
 	virtual int GetPointSize()=0;
 
-	virtual void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm)=0;
+	virtual void SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectSize)=0;
+
 
 	virtual bool SetMatrix4f(int slot,float* mtx)=0;
 

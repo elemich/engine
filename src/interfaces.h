@@ -35,6 +35,7 @@ struct DLLBUILD GuiPropertyFloat;
 struct DLLBUILD GuiPropertyBool;
 struct DLLBUILD GuiPropertyAnimationController;
 
+struct DLLBUILD DrawInstance;
 struct DLLBUILD Tab;
 struct DLLBUILD Container;
 struct DLLBUILD Splitter;
@@ -269,104 +270,6 @@ struct DLLBUILD StringEditor
 	virtual void Draw(Tab*)=0;
 };
 
-struct DLLBUILD Renderer2D
-{
-	static const unsigned int COLOR_TAB_BACKGROUND=0x808080;
-	static const unsigned int COLOR_TAB_SELECTED=0x0000FF;
-	static const unsigned int COLOR_GUI_BACKGROUND = 0x707070;
-	static const unsigned int COLOR_MAIN_BACKGROUND = 0x505050;
-	static const unsigned int COLOR_TEXT=0xFFFFFF;
-
-	unsigned int	colorBackgroud;
-	unsigned int	colorText;
-	unsigned int	tabSpaces;
-
-	Tab*			tab;
-
-	Renderer2D(Tab*);
-	~Renderer2D();
-
-	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=COLOR_TEXT)=0;
-	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=COLOR_TEXT)=0;
-	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
-	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
-	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
-
-	virtual void PushScissor(float x,float y,float w,float h)=0;
-	virtual void PopScissor()=0;
-
-	virtual void Translate(float,float)=0;
-	virtual void Identity()=0;
-
-	virtual vec2 MeasureText(const char*,int iSlen=-1)=0;
-	virtual vec2 MeasureText(const wchar_t*,int iSlen=-1)=0;
-	virtual float GetFontSize()=0;
-	virtual float GetFontHeight()=0;
-
-	virtual void SetTabSpaces(unsigned int iNumOfSpaces)=0;
-
-
-	virtual float GetCharWidth(char iCharacter)=0;
-
-	virtual void DrawCaret()=0;
-	virtual void SetCaretPos(float x,float y)=0;
-};
-
-struct DLLBUILD Renderer3D : Renderer3DBase
-{
-	std::list<GuiViewport*> viewports;
-
-	Tab* tabContainer;
-
-	virtual Shader* CreateShaderProgram(const char* shader_name,const char* pixel_shader,const char* fragment_shader)=0;
-
-	Shader* FindShader(const char* name,bool exact);
-	void SetMatrices(const float* view,const float* mdl);
-
-	void Register(GuiViewport*);
-	void Unregister(GuiViewport*);
-
-	virtual char* Name()=0;
-
-	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
-	virtual void draw(vec2)=0;
-	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
-	virtual void draw(vec4)=0;
-	virtual void draw(AABB,vec3 color=vec3(1,1,1))=0;
-	virtual void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1))=0;
-	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
-	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
-
-
-	virtual void draw(Bone*)=0;
-	virtual void draw(Mesh*)=0;
-	virtual void draw(Skin*)=0;
-	virtual void draw(Texture*)=0;
-	virtual void draw(Light*)=0;
-	virtual void drawUnlitTextured(Mesh*)=0;
-	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
-	virtual void draw(Camera*)=0;
-	virtual void draw(Gizmo*)=0;
-	virtual void draw(Script*)=0;
-
-	virtual void draw(EntityComponent*)=0;
-	virtual void draw(Entity*)=0;
-
-	virtual void ChangeContext()=0;
-
-	virtual void Render(GuiViewport*,bool)=0;
-	virtual void Render()=0;
-
-	bool Block();
-	bool Release();
-
-	bool LoadTexture(String iFilename,Texture* iTexture);
-
-	Renderer3D(Tab*);
-	virtual ~Renderer3D(){};
-};
-
-
 
 struct DLLBUILD Game
 {
@@ -389,9 +292,9 @@ struct GuiEvent
 struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 {
 	static const int ROW_HEIGHT=20;
-	static const int ROW_ADVANCE=ROW_HEIGHT;
+	static const int ROW_ADVANCE=GuiRect::ROW_HEIGHT;
 
-	static const int COLOR_BACKGROUNDO=Renderer2D::COLOR_GUI_BACKGROUND;
+	static const int COLOR_BACK=0x505050;
 	static const int COLOR_HOVERED=0xb845d8;
 	static const int COLOR_PRESSED=0x6c45d8;
 	static const int COLOR_CHECKED=0x45d8b0;
@@ -523,6 +426,8 @@ struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
 
 struct DLLBUILD GuiString : GuiRect
 {
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
+
 	struct DLLBUILD GuiStringBase
 	{
 	private:
@@ -821,7 +726,6 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 
 	vec2 mouseold;
 
-	void*	renderBitmap;
 	unsigned char*	renderBuffer;
 
 	unsigned int lastFrameTime;
@@ -831,8 +735,12 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	unsigned char pickedPixel[4];
 	EditorEntity*		  pickedEntity;
 
+	DrawInstance* renderDrawInstance;
+
+	unsigned int renderFps;
+
 	GuiViewport();
-	~GuiViewport();
+	virtual ~GuiViewport();
 
 	virtual void OnPaint(const GuiEvent&);
 	virtual void OnSize(const GuiEvent&);
@@ -842,6 +750,9 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 	virtual void OnDeactivate(const GuiEvent&);
 	virtual void OnReparent(const GuiEvent&);
 	virtual void OnLMouseUp(const GuiEvent&);
+
+	virtual void Render(Tab*)=0;
+	virtual void DrawBuffer(Tab*,vec4&)=0;
 };
 
 ///////////////////////////////////////////////
@@ -1050,9 +961,6 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 
 struct DLLBUILD WindowData
 {
-	float width;
-	float height;
-
 	std::list<WindowData*> siblings[4];
 
 	virtual void LinkSibling(WindowData* t,int pos)=0;
@@ -1061,8 +969,7 @@ struct DLLBUILD WindowData
 	virtual int FindSiblingPosition(WindowData* t)=0;
 	virtual bool FindAndGrowSibling()=0;
 
-	virtual void OnSize()=0;
-	virtual void OnWindowPosChanging()=0;
+	virtual vec2 Size()=0;
 };
 
 struct DLLBUILD GuiImage
@@ -1095,12 +1002,15 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	Container* container;
 
-	static const int CONTAINER_HEIGHT=30;
-	static const int TAB_WIDTH=80;
-	static const int TAB_HEIGHT=25;
+	static const int COLOR_BACK=0x707070;
+	static const int COLOR_LABEL=GuiRect::COLOR_BACK;
 
-	static const int CONTAINER_ICON_WH=20;
-	static const int CONTAINER_ICON_STRIDE=CONTAINER_ICON_WH*4;
+	static const int BAR_HEIGHT=30;
+	static const int LABEL_WIDTH=80;
+	static const int LABEL_HEIGHT=25;
+
+	static const int ICON_WH=20;
+	static const int ICON_STRIDE=ICON_WH*4;
 
 	static unsigned char rawUpArrow[];
 	static unsigned char rawRightArrow[];
@@ -1139,13 +1049,15 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	std::list<DrawInstance*> drawInstances;
 
-	Task*	 taskDraw;
+	Task*	 drawTask;
 
 	vec2 mouse;
 
 	unsigned int lastFrameTime;
 
-	Thread* threadRender;
+	Thread* thread;
+
+	//std::list< std::function<void()> > evtQueue;
 
 	Tab(float x,float y,float w,float h);
 	virtual ~Tab();
@@ -1171,7 +1083,10 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	virtual void OnGuiKeyDown(void* data=0);
 	virtual void OnGuiKeyUp(void* data=0);
 
-	virtual void DrawFrame()=0;
+	virtual vec2 Size();
+
+	virtual void PaintBackground();
+	virtual void DrawFrame();
 	virtual void Destroy()=0;
 
 	virtual void OnGuiRecreateTarget(void* data=0);
@@ -1194,6 +1109,9 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
+
+	virtual void Create3DRenderer()=0;
+	virtual void Destroy3DRenderer()=0;
 
 	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,String iName=L"",bool iRemove=true);
 
@@ -1285,6 +1203,8 @@ struct DLLBUILD MenuInterface
 
 struct DLLBUILD MainContainer : MenuInterface
 {
+	static const int COLOR_BACK=0x202020;
+
 	int MenuBuild;
 	int MenuPlugins;
 	int MenuFile;
@@ -1496,6 +1416,92 @@ struct DLLBUILD EditorSkin : EditorObject<Skin>
 {
 	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
+};
+
+
+struct DLLBUILD GuiFont
+{
+	String	name;
+	float	widths[255];
+	float	height;
+
+	float GetHeight();
+	vec2 MeasureText(const wchar_t*);
+	float GetCharWidth(wchar_t);
+};
+
+struct DLLBUILD Renderer2D
+{
+	static std::vector<GuiFont*> fonts;
+
+	unsigned int	colorBackgroud;
+	unsigned int	colorText;
+	unsigned int	tabSpaces;
+
+	Tab*			tab;
+
+	Renderer2D(Tab*);
+	~Renderer2D();
+
+	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT)=0;
+	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT)=0;
+	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
+	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
+
+	virtual void PushScissor(float x,float y,float w,float h)=0;
+	virtual void PopScissor()=0;
+
+	virtual void Translate(float,float)=0;
+	virtual void Identity()=0;
+
+	virtual vec2 MeasureText(const wchar_t*);
+
+	virtual void DrawCaret()=0;
+	virtual void SetCaretPos(float x,float y)=0;
+};
+
+struct DLLBUILD Renderer3D : Renderer3DBase
+{
+	Tab* tab;
+
+	virtual Shader* CreateShaderProgram(const char* shader_name,const char* pixel_shader,const char* fragment_shader)=0;
+
+	Shader* FindShader(const char* name,bool exact);
+	void SetMatrices(const float* view,const float* mdl);
+
+	virtual char* Name()=0;
+
+	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(vec2)=0;
+	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(vec4)=0;
+	virtual void draw(AABB,vec3 color=vec3(1,1,1))=0;
+	virtual void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1))=0;
+	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+
+
+	virtual void draw(Bone*)=0;
+	virtual void draw(Mesh*)=0;
+	virtual void draw(Skin*)=0;
+	virtual void draw(Texture*)=0;
+	virtual void draw(Light*)=0;
+	virtual void drawUnlitTextured(Mesh*)=0;
+	virtual void draw(Mesh*,std::vector<unsigned int>& textureIndices,int texture_slot,int texcoord_slot)=0;
+	virtual void draw(Camera*)=0;
+	virtual void draw(Gizmo*)=0;
+	virtual void draw(Script*)=0;
+
+	virtual void draw(EntityComponent*)=0;
+	virtual void draw(Entity*)=0;
+
+	virtual void ChangeContext()=0;
+
+	bool LoadTexture(String iFilename,Texture* iTexture);
+
+	Renderer3D(Tab*);
+	virtual ~Renderer3D(){};
 };
 
 

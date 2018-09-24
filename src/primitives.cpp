@@ -1384,7 +1384,7 @@ void mat4::zero(){memset(this->v,0,sizeof(float[16]));}
 
 Timer* _________timer=0;
 
-Timer::Timer():renderFps(60)
+Timer::Timer()
 {
 	_________timer=this->Instance();
 }

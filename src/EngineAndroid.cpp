@@ -479,7 +479,7 @@ int ShaderAndroid::GetPointSize()
 	return GetUniform("pointsize");
 }
 
-void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
+void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectDim)
 {
 	int _mousepos=this->GetMouseSlot();
 	int _ptrclr=this->GetUniform("ptrclr");
@@ -500,7 +500,7 @@ void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 mposNorm)
 		else glUniform4f(_ptrclr,0,0,0,0);
 
 		if(_mousepos>=0)
-			glUniform2f(_mousepos,mposNorm.x,mposNorm.y);
+			glUniform2f(_mousepos,iMpos.x/iRectDim.x,iMpos.y/iRectDim.y);
 	}
 }
 

@@ -490,7 +490,6 @@ struct DLLBUILD  Timer : TStaticInstance<Timer>
 	unsigned int currentFrameTime;
 	unsigned int currentFrameDeltaTime;
 	unsigned int lastFrameTime;
-	unsigned int renderFps;
 
 	Timer();
 

@@ -68,11 +68,11 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->configurationPanel=Ide::GetInstance()->mainAppWindow->mainContainer->CreateModalTab(500,300);
 
 	GuiPanel* tPanel=this->configurationPanel->rects.Panel();
-	//tPanel->offsets.w=-30;
+	tPanel->offsets.w=-30;
 
 	tPanel->name=L"Android Builder";
 
-	int tColor1=GuiRect::COLOR_BACKGROUNDO+15;
+	int tColor1=GuiRect::COLOR_BACK+15;
 	int tColor2=tColor1+15;
 
 	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname,tColor1);															
@@ -102,7 +102,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->exitButton->func=ptfExitBuild;
 	this->exitButton->param=this;
 
-	this->exitButton->SetParent(&this->configurationPanel->rects);
+	this->exitButton->SetParent(&this->configurationPanel->rectsLayered);
 
 	//button build
 
@@ -110,7 +110,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->buildButton=new GuiButtonFunc();
 	this->buildButton->text=L"Build";
 	this->buildButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
-	this->buildButton->offsets.make(-35,30,-5,50);
+	this->buildButton->offsets.make(-75,5,-40,25);
 
 	this->buildButton->colorBackground=0x888888;
 	this->buildButton->colorHovering=0x989898;
@@ -119,7 +119,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->buildButton->func=ptfCompileAndroidBuild;
 	this->buildButton->param=this;
 
-	this->buildButton->SetParent(&this->configurationPanel->rects);
+	this->buildButton->SetParent(&this->configurationPanel->rectsLayered);
 }
 
 
