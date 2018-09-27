@@ -15,7 +15,7 @@ struct DLLBUILD Fbx : PluginSystem::Plugin
 	void Unload();
 	void OnMenuPressed(int);
 
-	EditorEntity* Import(char* iFileName);
+	EditorEntity* Import(const char* iFileName);
 };
 
 extern "C" DLLBUILD PluginSystem::Plugin* GetPlugin(PluginSystem*);

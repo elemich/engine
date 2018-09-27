@@ -42,8 +42,6 @@ DWORD WINAPI threadFunc(LPVOID data)
 
 	while(true)
 	{
-		Ide::GetInstance()->timer->update();
-
 		for(std::list<Task*>::iterator taskIter=pThread->tasks.begin();taskIter!=pThread->tasks.end();)
 		{
 			Task* pTask=(*taskIter);
@@ -135,13 +133,13 @@ void Direct2D::Init()
 		res=DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(writer),reinterpret_cast<IUnknown **>(&Direct2D::writer));
 		if(S_OK!=res || !Direct2D::writer)
 			DEBUG_BREAK();
-
-		Direct2D::CreateFont(L"Verdana",15);
 	}
 }
 
+extern GuiFont* globalDefaultFont;
+extern std::vector<GuiFont*> globalFontPool;
 
-bool Direct2D::CreateFont(String iFontName,float iFontSize)
+GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 {
 	IDWriteFontCollection*	tFontCollection=0;
 	IDWriteFontFamily*		tFontFamily=0;
@@ -216,11 +214,22 @@ bool Direct2D::CreateFont(String iFontName,float iFontSize)
 	if(S_OK!=res)
 		DEBUG_BREAK();*/
 
+	SAFERELEASE(tFontCollection);
+	SAFERELEASE(tFontFamily);
+	SAFERELEASE(tFontFace);
+	SAFERELEASE(tFontFile);
+	SAFERELEASE(tFont);
+
 	GuiFontWin32* tGuiFont=new GuiFontWin32;
 
 	tGuiFont->name=iFontName;
 	tGuiFont->texter=tTexter;
-	tGuiFont->height=tTexter->GetFontSize();
+
+	float tXHeight=tTexter->GetFontSize() * (float)tFontMetrics.xHeight/(float)tFontMetrics.designUnitsPerEm;
+	float tAscent=tTexter->GetFontSize() * (float)tFontMetrics.ascent/(float)tFontMetrics.designUnitsPerEm;
+	float tDescent=tTexter->GetFontSize() * (float)tFontMetrics.descent/(float)tFontMetrics.designUnitsPerEm;
+
+	tGuiFont->height=(tAscent+tDescent);
 
 	//set unhandleds
 	for(int i=0;i<255;i++)
@@ -228,12 +237,21 @@ bool Direct2D::CreateFont(String iFontName,float iFontSize)
 
 	for(int i=0;i<tGlyphsCount;i++)
 	{	
-		tGuiFont->widths[tGlyphs[i]]=iFontSize*tGlyphMetrics[i].advanceWidth/(float)tFontMetrics.designUnitsPerEm;
+		float tAdvanceWidth=(float)tGlyphMetrics[i].advanceWidth/(float)tFontMetrics.designUnitsPerEm;
+
+		tGuiFont->widths[tGlyphs[i]]=tTexter->GetFontSize() * tAdvanceWidth;
 	}
 
-	Renderer2D::fonts.push_back(tGuiFont);
+	globalFontPool.push_back(tGuiFont);
 
-	return true;
+	if(!globalDefaultFont)
+		globalDefaultFont=tGuiFont;
+
+	SAFEDELETE(tGlyphsCodePoints);
+	SAFEDELETE(tGlyphsIndices);
+	SAFEDELETE(tGlyphMetrics);
+
+	return tGuiFont;
 }
 
 void dump(unsigned char* t)
@@ -310,9 +328,12 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 }
 
 
-void Direct2D::DrawText(ID2D1RenderTarget*iRenderer,IDWriteTextFormat* texter,ID2D1Brush* iBrush,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
+void Direct2D::DrawText(Renderer2D* iRenderer,const GuiFont* iFont,unsigned int iColor,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
 {
-	iRenderer->DrawText(iText.c_str(),iText.size(),texter,D2D1::RectF(x1,y1,x2,y2),iBrush,D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_NATURAL);
+	Renderer2DWin32* tRenderer=(Renderer2DWin32*)iRenderer;
+	GuiFontWin32* tFont=(GuiFontWin32*)iFont;
+
+	tRenderer->renderer->DrawText(iText.c_str(),iText.size(),tFont->texter,D2D1::RectF(x1,y1,x2,y2),tRenderer->SetColorWin32(iColor),D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_NATURAL);
 }
 
 void Direct2D::DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush)
@@ -351,6 +372,22 @@ void Direct2D::Identity(ID2D1RenderTarget* renderer)
 	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////GuiFontWin32///////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+GuiFontWin32::GuiFontWin32():texter(0){};
+GuiFontWin32::~GuiFontWin32()
+{
+	SAFERELEASE(this->texter);
+}
+
+GuiFont* GuiFont::CreateFont(String iFontName,float iFontSize)
+{
+	return Direct2D::CreateFont(iFontName,iFontSize);
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -368,6 +405,8 @@ Renderer2DWin32::~Renderer2DWin32()
 	SAFERELEASE(this->renderer);
 
 }
+
+
 
 bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 {
@@ -402,33 +441,34 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 
 	return true;
 }
-void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor)
-{
-	GuiFontWin32* tFont=(GuiFontWin32*)this->fonts[0];
 
-	Direct2D::DrawText(this->renderer,tFont->texter,this->SetColorWin32(iColor),iText,left,top,right,bottom);
+void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor,const GuiFont* iFont)
+{
+	Direct2D::DrawText(this,iFont,iColor,iText,left,top,right,bottom);
 }
-void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor)
-{
-	GuiFontWin32* tFont=(GuiFontWin32*)this->fonts[0];
 
+void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor,const GuiFont* iFont)
+{
 	vec4 tRect(left,top,right-left,bottom-top);
 
-	vec2 tTextSize=tFont->MeasureText(iText.c_str());
+	vec2 tTextSize=iFont->MeasureText(iText.c_str());
 
 	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
 	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
 
-	Direct2D::DrawText(this->renderer,tFont->texter,this->SetColorWin32(iColor),iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
+	Direct2D::DrawText(this,iFont,iColor,iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 }
+
 void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill,float op)
 {
 	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill,op);
 }
+
 void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
 {
 	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
 }
+
 void Renderer2DWin32::DrawBitmap(GuiImage* iBitmap,float iX,float iY, float iW,float iH)
 {
 	Direct2D::DrawBitmap(this->renderer,((GuiImageWin32*)iBitmap)->handle,iX,iY,iW,iH);
@@ -438,6 +478,7 @@ void Renderer2DWin32::PushScissor(float iX,float iY, float iW,float iH)
 {
 	Direct2D::PushScissor(this->renderer,iX,iY,iW,iH);
 }
+
 void Renderer2DWin32::PopScissor()
 {
 	Direct2D::PopScissor(this->renderer);
@@ -497,7 +538,10 @@ ContainerWin32::~ContainerWin32()
 	SAFEDELETE(this->splitter);
 }
 
-
+int ContainerWin32::GetWindowHandle()
+{
+	return (int)this->windowDataWin32->hwnd;
+}
 
 TabWin32* ContainerWin32::CreateTab(float x,float y,float w,float h)
 {
@@ -525,8 +569,8 @@ TabWin32* ContainerWin32::CreateModalTab(float w,float h)
 
 	SetParent(result->windowDataWin32->hwnd,0);
 
-	Tab::BroadcastToPoolSelecteds(&GuiRect::OnSize);
-	Tab::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
+	Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
+	Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
 
 	return result;
 }
@@ -549,7 +593,7 @@ void ContainerWin32::OnSizing()
 	LPRECT sz=(LPRECT)this->windowDataWin32->lparam;
 
 	RECT trc;
-	GetWindowRect(this->windowDataWin32->hwnd,&trc);
+	GetClientRect(this->windowDataWin32->hwnd,&trc);
 
 	this->resizeDiffWidth=(sz->right-sz->left)-(trc.right-trc.left);
 	this->resizeDiffHeight=(sz->bottom-sz->top)-(trc.bottom-trc.top);
@@ -684,9 +728,22 @@ int MenuInterface::Menu(String iName,bool tPopup)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-MainContainerWin32::MainContainerWin32():mainContainerWin32(new ContainerWin32)
+MainContainerWin32::MainContainerWin32():mainContainerWin32(0)
 {
-	this->mainContainer=this->mainContainerWin32;
+	GuiFont::CreateFont(L"Verdana",10);
+	GuiFont::CreateFont(L"Verdana",12);
+	GuiFont::CreateFont(L"Verdana",14);
+	GuiFont::CreateFont(L"Verdana",16);
+}
+
+MainContainerWin32::~MainContainerWin32()
+{
+	this->Deintialize();
+}
+
+void MainContainerWin32::Initialize()
+{
+	this->mainContainer=this->mainContainerWin32=new ContainerWin32;
 
 	this->containers.push_back(this->mainContainer);
 
@@ -705,7 +762,6 @@ MainContainerWin32::MainContainerWin32():mainContainerWin32(new ContainerWin32)
 	}
 
 	this->mainContainerWin32->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,____MainMenu,0,this->mainContainerWin32);
-
 
 	this->MenuFile=this->Menu(L"File",true);
 	this->MenuActionExit=this->Menu(L"File\\Exit",false);
@@ -732,17 +788,16 @@ MainContainerWin32::MainContainerWin32():mainContainerWin32(new ContainerWin32)
 	tabContainer3->rects.ProjectViewer();
 	tabContainer2->rects.EntityViewer();
 
-	Tab::BroadcastToPoolSelecteds(&GuiRect::OnSize);
-	Tab::BroadcastToPoolSelecteds(&GuiRect::OnActivate);
+	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
+	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
 
 	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
 }
 
-MainContainerWin32::~MainContainerWin32()
+void MainContainerWin32::Deintialize()
 {
 
 }
-
 
 ContainerWin32* MainContainerWin32::CreateContainer()
 {
@@ -830,35 +885,6 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 			}
 		}
 		break;
-		/*case WM_COMMAND:
-			{
-				bool isMenuCommand=!HIWORD(wparam);
-				
-				if(isMenuCommand)
-				{
-					int menuId=LOWORD(wparam);
-					
-					HMENU tMenu=LoadMenu(GetModuleHandle(0),MAKEINTRESOURCE(menuId));
-
-					DWORD le=GetLastError();
-
-					if(tMenu)
-					{
-						MENUITEMINFO mii={0};
-						mii.cbSize=sizeof(MENUITEMINFO);
-						mii.fMask=MIIM_DATA;
-
-						if(GetMenuItemInfo(tMenu,menuId,false,&mii))
-						{
-							MenuInterface* tMenuInterface=(MenuInterface*)mii.dwItemData;
-
-							if(tMenuInterface)
-								tMenuInterface->OnMenuPressed(menuId);
-						}
-					}
-				}
-			}
-		break;*/
 		default:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 	}
@@ -914,7 +940,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 				InputManager::mouseInput.left=true;
 
 				unsigned int tOldTime=InputManager::mouseInput.lastLeft;
-				InputManager::mouseInput.lastLeft=Ide::GetInstance()->timer->GetTime();
+				InputManager::mouseInput.lastLeft=Ide::GetInstance()->timer->GetCurrent();
 
 				if(tabWin32->windowDataWin32->hwnd!=::GetFocus())
 					::SetFocus(tabWin32->windowDataWin32->hwnd);
@@ -1264,8 +1290,16 @@ processHandle(0)
 
 	this->stringEditor=new StringEditorWin32;
 
-	this->timer=new TimerWin32;
+	{
+		this->timer=new TimerWin32;
+
+		this->timerThread=new ThreadWin32;
+		this->timerThread->NewTask(std::function<void()>(std::bind(&Timer::update,this->timer)),false);
+	}
+
 	this->mainAppWindow=new MainContainerWin32;
+
+	this->mainAppWindow->Initialize();
 
 	this->pluginSystem=new PluginSystemWin32;
 
@@ -1455,15 +1489,10 @@ void IdeWin32::Sleep(int iMilliseconds)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-unsigned int TimerWin32::GetTime()
-{
-	return (unsigned int)timeGetTime();
-}
-
 void TimerWin32::update()
 {
 	lastFrameTime=currentFrameTime;
-	currentFrameTime=GetTime();
+	currentFrameTime=timeGetTime();
 	currentFrameDeltaTime=currentFrameTime-lastFrameTime;
 }
 
@@ -3374,8 +3403,6 @@ void TabWin32::EndDraw()
 
 void TabWin32::OnGuiMouseMove(void* data)
 {
-
-
 	this->mouse.x=(float)LOWORD(this->windowDataWin32->lparam);
 	this->mouse.y=(float)HIWORD(this->windowDataWin32->lparam);
 
@@ -3412,11 +3439,11 @@ void TabWin32::OnGuiRMouseUp(void* data)
 				switch(menuResult)
 				{
 					case 1:
-						if(this->GetPool().size()>1)
+						if(this->container->tabs.size()>1)
 						{
-							wprintf(L"total TabContainer before destroying: %d\n",this->GetPool().size());
-							this->~TabWin32();
-							wprintf(L"total TabContainer after destroying: %d\n",this->GetPool().size());
+							wprintf(L"total TabContainer before destroying: %d\n",this->container->tabs.size());
+							this->Destroy();
+							wprintf(L"total TabContainer after destroying: %d\n",this->container->tabs.size());
 						}
 					break;
 					case 2:
@@ -3583,6 +3610,7 @@ void GuiViewportWin32::DrawBuffer(Tab* iTab,vec4& iVec)
 	{
 		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
 		renderer2DWin32->renderer->DrawBitmap(this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w));
+		iTab->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w,0xff0000,false);
 	}
 }
 void GuiViewportWin32::Render(Tab* iTab)
@@ -3623,7 +3651,11 @@ void GuiViewportWin32::Render(Tab* iTab)
 
 		this->rootEntity->update();
 
-		for(std::vector<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetPool().begin();it!=GuiEntityViewer::GetPool().end();it++)
+		std::vector<GuiEntityViewer*> tGuiEntityViewer;
+
+		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiEntityViewer>(tGuiEntityViewer);
+
+		for(std::vector<GuiEntityViewer*>::iterator it=tGuiEntityViewer.begin();it!=tGuiEntityViewer.end();it++)
 		{
 			EditorEntity* tEditorEntity=(EditorEntity*)(*it)->entity;
 
@@ -3637,11 +3669,13 @@ void GuiViewportWin32::Render(Tab* iTab)
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_SCISSOR_TEST);
 
-	glViewport((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
-	glScissor((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.z,(int)tCanvas.w);glCheckError();
+	glViewport((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w);glCheckError();
+	glScissor((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w);glCheckError();
 
 	{
-		glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
+		char* pGuiRectColorBack=(char*)&GuiRect::COLOR_BACK;
+
+		glClearColor(pGuiRectColorBack[2]/255.0f,pGuiRectColorBack[1]/255.0f,pGuiRectColorBack[0]/255.0f,0.0f);glCheckError();
 		//glClearColor(1,0,0,0);glCheckError();
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
@@ -3662,7 +3696,7 @@ void GuiViewportWin32::Render(Tab* iTab)
 
 		glReadBuffer(GL_BACK);glCheckError();
 
-		glReadPixels((int)0,(int)0,(int)tCanvas.z,(int)tCanvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
+		glReadPixels((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
 
 		D2D1_RECT_U rBitmapRect={0,0,tCanvas.z,tCanvas.w};
 
@@ -3983,7 +4017,7 @@ void SplitterWin32::OnMouseMove(HWND hwnd,LPARAM lparam)
 	{
 		if(!GetCapture())
 		{
-			Tab::BroadcastToPool(&Tab::OnGuiMouseMove,(void*)0);
+			Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToTabs(&Tab::OnGuiMouseMove,(void*)0);
 
 			int pixelDistance=6;
 
@@ -4279,6 +4313,28 @@ unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThread
 	return 0;
 }
 
+String SubsystemWin32::DirectoryChooser()
+{
+	return L"";
+}
+
+String SubsystemWin32::FileChooser(String iDescription,String iExtension)
+{
+	wchar_t charpretval[5000]={0};
+
+	OPENFILENAME openfilename={0};
+	openfilename.lStructSize=sizeof(OPENFILENAME);
+	openfilename.hwndOwner=(HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle();
+	openfilename.lpstrFilter=(iDescription + L"\0" + iExtension + L"\0\0").c_str();
+	openfilename.nFilterIndex=1;
+	openfilename.lpstrFile=charpretval;
+	openfilename.nMaxFile=5000;
+
+	GetOpenFileName(&openfilename);
+
+	return openfilename.lpstrFile;
+}
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4492,25 +4548,17 @@ bool CompilerWin32::Compile(Script* iScript)
 
 	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
 
-	GuiCompilerViewer* guiCompilerViewer=!GuiCompilerViewer::GetPool().empty() ? GuiCompilerViewer::GetPool().front() : 0;
+	EditorScript* tEditorScript=(EditorScript*)iScript;
+	std::vector<GuiCompilerViewer*> tGuiCompilerViewers;
+	MainContainer* tMainContainer=Ide::GetInstance()->mainAppWindow;
 
-	if(!guiCompilerViewer)
-	{
-		EditorScript* tEditorScript=(EditorScript*)iScript;
+	//get all compiler viewers
+	tMainContainer->GetTabRects<GuiCompilerViewer>(tGuiCompilerViewers);
 
-		Tab* tabContainer=tEditorScript->scriptViewer ? tEditorScript->scriptViewer->GetRootRect()->tab : Tab::GetPool().front();
+	//if a compilerviewer not exist create one
+	GuiCompilerViewer* tGuiCompilerViewer=tGuiCompilerViewers.empty() ? tMainContainer->mainContainer->tabs[0]->rects.CompilerViewer() : tGuiCompilerViewers[0];
 
-		if(!tabContainer)
-			DEBUG_BREAK();
-
-		guiCompilerViewer=tabContainer->rects.CompilerViewer();
-
-		tabContainer->SetDraw(0,true,0);
-	}
-
-	Tab* tabContainer=guiCompilerViewer->GetRootRect()->tab;
-
-	bool noErrors=guiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
+	bool noErrors=tGuiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
 
 	/*
 	guiCompilerViewer->OnSize(tabContainer);
@@ -4605,16 +4653,20 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 		{
 			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))GetProcAddress(*tModule,"Destroy");
 
-			Tab* tabContainerRunninUpdater=GuiViewport::GetPool()[0]->GetRootRect()->tab;
+			std::vector<GuiViewport*> tGuiViewport;
 
-			tabContainerRunninUpdater->drawTask->pause=true;
+			Ide::GetInstance()->mainAppWindow->GetTabRects<GuiViewport>(tGuiViewport);
 
-			while(tabContainerRunninUpdater->drawTask->executing);
+			Tab* tabContainerRunningUpdater=tGuiViewport[0]->GetRootRect()->tab;
+
+			tabContainerRunningUpdater->drawTask->pause=true;
+
+			while(tabContainerRunningUpdater->drawTask->executing);
 
 			DestroyScript(iScript->runtime);
 			iScript->runtime=0;
 
-			tabContainerRunninUpdater->drawTask->pause=false;
+			tabContainerRunningUpdater->drawTask->pause=false;
 		}
 		else
 			iScript->runtime=0;
@@ -5200,7 +5252,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 		{
 			Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
 
-			this->lastBlinkTime=Ide::GetInstance()->timer->GetTime()+this->blinkingRate;
+			this->lastBlinkTime=Ide::GetInstance()->timer->GetCurrent()+this->blinkingRate;
 			this->blinking=true;
 
 			SAFERELEASE(this->background);
@@ -5226,7 +5278,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 			this->recalcBackground=false;
 		}
 
-		if(this->string && this->background && (Ide::GetInstance()->timer->GetTime()-this->lastBlinkTime > this->blinkingRate))
+		if(this->string && this->background && (Ide::GetInstance()->timer->GetCurrent()-this->lastBlinkTime > this->blinkingRate))
 		{
 			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
 
@@ -5235,7 +5287,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 				this->string->BeginClip(iCallerTab);
 
 				if(this->blinking)
-					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+renderer2DWin32->fonts[0]->GetHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
+					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+this->string->font->GetHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
 				else
 					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w));
 
@@ -5244,7 +5296,7 @@ void StringEditorWin32::Draw(Tab* iCallerTab)
 				renderer2DWin32->tab->EndDraw();
 			}
 
-			this->lastBlinkTime=Ide::GetInstance()->timer->GetTime();
+			this->lastBlinkTime=Ide::GetInstance()->timer->GetCurrent();
 			this->blinking=!this->blinking;
 		}
 	}

@@ -8,6 +8,7 @@ struct DLLBUILD EditorEntity;
 struct DLLBUILD Renderer2D;
 struct DLLBUILD Renderer3D;
 
+struct DLLBUILD GuiFont;
 struct DLLBUILD GuiRect;
 struct DLLBUILD GuiRootRect;
 struct DLLBUILD GuiContainer;
@@ -27,6 +28,7 @@ struct DLLBUILD GuiPanel;
 struct DLLBUILD GuiSceneViewer;
 struct DLLBUILD GuiEntityViewer;
 struct DLLBUILD GuiCompilerViewer;
+struct DLLBUILD GuiConsoleViewer;
 struct DLLBUILD GuiProjectViewer;
 struct DLLBUILD GuiScriptViewer;
 struct DLLBUILD GuiPropertyVec3;
@@ -155,8 +157,18 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 	unsigned int            caretLastTime;
 	unsigned int			processId;
 	unsigned int			processThreadId;
-	
+
+	Thread*					timerThread;
+
+	static Ide* GetInstance();
+	static bool IsInstanced();
+
+protected:
 	Ide();
+	Ide(Ide const&){};
+	void operator=(Ide const&){}
+public:
+
 	virtual ~Ide();
 
 	virtual void Run()=0;
@@ -168,7 +180,11 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 
 	virtual void Sleep(int iMilliseconds=1)=0;
 
-	static Ide* GetInstance();
+	GuiProjectViewer*	GetProjectViewer();
+	GuiSceneViewer*		GetSceneViewer();
+	GuiCompilerViewer*	GetCompilerViewer();
+	GuiConsoleViewer*	GetConsoleViewer();
+
 };
 
 struct DLLBUILD Debugger
@@ -246,7 +262,7 @@ struct DLLBUILD StringEditor
 
 		Cursor();
 	};
-
+protected:
 	GuiString*		string;
 	Tab*			tab;
 
@@ -259,13 +275,15 @@ struct DLLBUILD StringEditor
 	bool			enabled;
 
 	bool			recalcBackground;
-
+public:
 	StringEditor();
 
 	bool EditText(unsigned int iCaretOp,void* iParam);
 
 	void Bind(GuiString* iString);
 	void Enable(bool);
+	GuiString* Binded();
+	bool Enabled();
 	
 	virtual void Draw(Tab*)=0;
 };
@@ -391,6 +409,17 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 			((*tRect)->*func)(iMsg);
 	}
 
+	template<class C> void Get(std::vector<C*>& iRects)
+	{
+		C* isaC=dynamic_cast<C*>(this);
+
+		if(isaC)
+			iRects.push_back(isaC);
+
+		for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+			(*tRect)->Get(iRects);
+	}
+
 	GuiContainer* Container(String iText);
 	template<typename T> GuiContainerRow<T>* ContainerRow(T);
 
@@ -414,7 +443,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	template<class C> C* Create(int iSibling=-1,int iContainer=-1,float ix=0.0f, float iy=0.0f, float iw=0.0f,float ih=0.0f,float iAlignPosX=0,float iAlignPosY=0,float iAlignRectX=1,float iAlignRectY=1);
 };
 
-struct DLLBUILD GuiRootRect : GuiRect , TPoolVector<GuiRootRect>
+struct DLLBUILD GuiRootRect : GuiRect
 {
 	Tab* tab;
 
@@ -458,9 +487,11 @@ struct DLLBUILD GuiString : GuiRect
 	bool canEdit;
 	bool adaptRect;
 
-	int textColor;
+	int color;
 
 	StringEditor::Cursor* cursor;
+
+	GuiFont* font;
 
 	GuiString();
 	virtual ~GuiString();
@@ -476,6 +507,15 @@ struct DLLBUILD GuiString : GuiRect
 	virtual void OnLMouseDown(const GuiEvent&);
 	virtual void OnKeyDown(const GuiEvent&);
 	virtual void OnSize(const GuiEvent&);
+};
+
+struct DLLBUILD GuiTextBox : GuiString
+{
+	GuiTextBox();
+	~GuiTextBox();
+
+	virtual void OnKeyDown(const GuiEvent&);
+	virtual void OnLMouseDown(const GuiEvent&);
 };
 
 struct DLLBUILD GuiContainer : GuiString
@@ -605,6 +645,7 @@ struct DLLBUILD GuiScrollRect : GuiRect
 	virtual void OnLMouseDown(const GuiEvent&);
 	virtual void OnMouseMove(const GuiEvent&);
 	virtual void OnMouseWheel(const GuiEvent&);
+	virtual void OnExpandos(const GuiEvent&);
 
 	virtual void BeginClip(Tab*);
 	virtual void EndClip(Tab*);
@@ -617,7 +658,7 @@ struct DLLBUILD GuiSlider : GuiRect
 	float& minimum;
 	float& maximum;
 
-	GuiSlider(float& iRef,float& iMin,float& iMax):referenceValue(iRef),minimum(iMin),maximum(iMax){this->name=L"GuiSlider";}
+	GuiSlider(float& iRef,float& iMin,float& iMax);
 
 	virtual void OnPaint(const GuiEvent&);
 	virtual void OnMouseMove(const GuiEvent&);
@@ -642,7 +683,7 @@ struct DLLBUILD GuiProperty : GuiRect
 
 struct DLLBUILD GuiPropertyString : GuiProperty
 {
-	static const unsigned int scDefaultParameter1=3;
+	static const unsigned int scDefaultParameter1=2;
 	static const unsigned int scDefaultParameter2=2;
 
 	enum
@@ -687,8 +728,6 @@ struct DLLBUILD GuiPropertySlider : GuiProperty
 	GuiSlider slider;
 
 	GuiPropertySlider(String iDescription,float& iRefVal,float& iMin,float& iMax);
-
-	virtual void OnPaint(const GuiEvent&);
 };
 
 struct DLLBUILD GuiAnimationController : GuiRect
@@ -714,7 +753,7 @@ struct DLLBUILD GuiPropertyAnimationController : GuiProperty
 	GuiPropertyAnimationController(AnimationController&);
 };
 
-struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
+struct DLLBUILD GuiViewport : GuiRect
 {
 	EditorEntity* rootEntity;
 
@@ -761,11 +800,11 @@ struct DLLBUILD GuiViewport : GuiRect , TPoolVector<GuiViewport>
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
+struct DLLBUILD GuiScriptViewer : GuiScrollRect
 {
 	EditorScript* script;
 
-	GuiString editor;
+	GuiTextBox editor;
 	GuiString lines;
 
 	bool		lineNumbers;
@@ -792,9 +831,18 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect , TPoolVector<GuiScriptViewer>
 	
 };
 
-struct DLLBUILD GuiCompilerViewer : GuiScrollRect , TPoolVector<GuiCompilerViewer>
+struct DLLBUILD GuiCompilerViewer : GuiScrollRect
 {
+	static GuiCompilerViewer* GetInstance();
+	static bool IsInstanced();
+
+private:
 	GuiCompilerViewer();
+	GuiCompilerViewer(GuiCompilerViewer const&){};
+	void operator=(GuiCompilerViewer const&){}
+public:
+
+	~GuiCompilerViewer();
 
 	bool ParseCompilerOutputFile(String);
 
@@ -829,19 +877,27 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 	virtual ~ResourceNodeDir();
 };
 
-struct DLLBUILD GuiPanel : GuiScrollRect , TPoolVector<GuiPanel>
+struct DLLBUILD GuiPanel : GuiScrollRect
 {
 	GuiPanel();
 };
 
 
-struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
+struct DLLBUILD GuiSceneViewer : GuiScrollRect
 {
 	Scene						scene;
 	EditorEntity*&				entityRoot;
 	std::vector<EditorEntity*>	selection;
 
+private:
 	GuiSceneViewer();
+	GuiSceneViewer(GuiSceneViewer const&);
+	void operator=(GuiSceneViewer const&){}
+public:
+
+	static GuiSceneViewer* GetInstance();
+	static bool IsInstanced();
+
 	~GuiSceneViewer();
 
 	void OnLMouseDown(const GuiEvent&);
@@ -854,7 +910,7 @@ struct DLLBUILD GuiSceneViewer : GuiScrollRect , TPoolVector<GuiSceneViewer>
 	void Load(String);
 };
 
-struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
+struct DLLBUILD GuiEntityViewer : GuiScrollRect
 {
 	GuiEntityViewer();
 	~GuiEntityViewer();
@@ -871,12 +927,27 @@ struct DLLBUILD GuiEntityViewer : GuiScrollRect , TPoolVector<GuiEntityViewer>
 
 struct DLLBUILD GuiConsoleViewer : GuiScrollRect
 {
-	GuiConsoleViewer(){}
-	~GuiConsoleViewer(){}
+
+	static GuiConsoleViewer* GetInstance();
+	static bool IsInstanced();
+
+private:
+	GuiConsoleViewer();
+	GuiConsoleViewer(GuiConsoleViewer const&){};
+	void operator=(GuiConsoleViewer const&){}
+public:
+
+	~GuiConsoleViewer();
 };
 
-struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
+struct DLLBUILD GuiProjectViewer : GuiRect
 {
+private:
+
+	GuiProjectViewer();
+	GuiProjectViewer(GuiProjectViewer const&);
+	void operator=(GuiProjectViewer const&){}
+
 	struct DLLBUILD DirViewer : GuiScrollRect
 	{
 		GuiProjectViewer* projectViewer;
@@ -909,11 +980,13 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 		GuiProjectViewer* projectViewer;
 	};
 
+public:
+
 	DirViewer dirViewer;
 	FileViewer fileViewer;
 	DataViewer resViewer;
 
-	ResourceNodeDir* projectDirectory;
+	ResourceNodeDir*& projectDirectory;
 
 	bool splitterLeftActive;
 	bool splitterRightActive;
@@ -921,8 +994,10 @@ struct DLLBUILD GuiProjectViewer : GuiRect , TPoolVector<GuiProjectViewer>
 	float splitterLeft;
 	float splitterRight;
 
-	GuiProjectViewer();
 	~GuiProjectViewer();
+
+	static GuiProjectViewer* GetInstance();
+	static bool IsInstanced();
 
 	void OnPaint(const GuiEvent&);
 	void OnLMouseDown(const GuiEvent&);
@@ -989,14 +1064,15 @@ struct DLLBUILD DrawInstance
 	int		 code;
 	bool	 frame;
 	GuiRect* rect;
-	String	name;
+	String	 name;
+	bool	 skip;
 
 	bool remove;
 
-	DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iname,bool iRemove=true);
+	DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iname,bool iRemove=true,bool iSkip=false);
 };
 
-struct DLLBUILD Tab : TPoolVector<Tab>
+struct DLLBUILD Tab
 {
 	WindowData* windowData;
 
@@ -1011,6 +1087,9 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 
 	static const int ICON_WH=20;
 	static const int ICON_STRIDE=ICON_WH*4;
+
+	static const int LABEL_LEFT_OFFSET=5;
+	static const int LABEL_RIGHT_OFFSET=10;
 
 	static unsigned char rawUpArrow[];
 	static unsigned char rawRightArrow[];
@@ -1096,13 +1175,30 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	virtual void BroadcastToSelected(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
 	virtual void BroadcastToAll(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
 
-	template<class C> void BroadcastToSelected(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
-	template<class C> void BroadcastToAll(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
-
-	static void BroadcastToPoolSelecteds(void (GuiRect::*func)(const GuiEvent&),void* iData=0)
+	template<class C> void BroadcastToSelected(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
 	{
-		for(std::vector<Tab*>::iterator tabContainer=TPoolVector<Tab>::GetPool().begin();tabContainer!=TPoolVector<Tab>::GetPool().end();tabContainer++)
-			(*tabContainer)->BroadcastToSelected(func,iData);
+		GuiRect* selectedTab=this->GetSelected();
+
+		if(selectedTab)
+			selectedTab->BroadcastTo<C>(iFunc,iData);
+
+		this->rectsLayered.BroadcastTo<C>(iFunc,iData);
+	}
+
+	template<class C> void BroadcastToAll(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
+	{
+		this->rects.BroadcastTo<C>(iFunc,iData);
+		this->rectsLayered.BroadcastTo<C>(iFunc,iData);
+	}
+
+	template<class C> void GetRects(std::vector<C*>& iRects)
+	{
+		GuiRect* selectedRect=this->GetSelected();
+
+		if(selectedRect)
+			selectedRect->Get(iRects);
+
+		this->rectsLayered.Get(iRects);
 	}
 
 	void Draw();
@@ -1113,7 +1209,7 @@ struct DLLBUILD Tab : TPoolVector<Tab>
 	virtual void Create3DRenderer()=0;
 	virtual void Destroy3DRenderer()=0;
 
-	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,String iName=L"",bool iRemove=true);
+	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,String iName=L"",bool iRemove=true,bool iSkip=false);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
@@ -1158,6 +1254,15 @@ struct DLLBUILD Container
 {
 	std::vector<Tab*> tabs;
 
+	void BroadcastToTabs(void (Tab::*func)(void*),void* data=0);
+	void BroadcastToSelectedTabRects(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
+	
+	template<typename T> void GetTabRects(std::vector<T*>& iRects)
+	{
+		for(std::vector<Tab*>::iterator tTab=this->tabs.begin();tTab!=this->tabs.end();tTab++)
+			(*tTab)->GetRects(iRects);
+	}
+
 	WindowData* window;
 	Splitter* splitter;
 
@@ -1169,6 +1274,8 @@ struct DLLBUILD Container
 
 	Container();
 	virtual ~Container();
+
+	virtual int GetWindowHandle()=0;
 
 	virtual void Enable(bool)=0;
 
@@ -1221,11 +1328,21 @@ struct DLLBUILD MainContainer : MenuInterface
 
 	std::vector<Container*> containers;
 
+	virtual void Initialize()=0;
+	virtual void Deintialize()=0;
+
 	virtual Container* CreateContainer()=0;
 
 	void OnMenuPressed(int iIdx);
 	
+	void BroadcastToTabs(void (Tab::*func)(void*),void* data);
+	void BroadcastToSelectedTabRects(void (GuiRect::*func)(const GuiEvent&),void* iData);
 
+	template<typename T> void GetTabRects(std::vector<T*>& iRects)
+	{
+		for(std::vector<Container*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
+			(*tContainer)->GetTabRects(iRects);
+	}
 };
 
 struct DLLBUILD Subsystem
@@ -1233,6 +1350,8 @@ struct DLLBUILD Subsystem
 	virtual bool Execute(String iPath,String iCmdLine,String iOutputFile=L"",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false)=0;
 	virtual unsigned int FindProcessId(String iProcessName)=0;
 	virtual unsigned int FindThreadId(unsigned int iProcessId,String iThreadName)=0;
+	virtual String DirectoryChooser()=0;
+	virtual String FileChooser(String iDescription,String iExtension)=0;
 };
 
 struct DLLBUILD Compiler
@@ -1348,7 +1467,13 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 struct DLLBUILD EditorAnimationController : EditorObject<AnimationController>
 {
 	float oldCursor;
+	float minSpeed;
+	float maxSpeed;
+
 	GuiPropertyAnimationController*  guiPropertyAnimationController;
+
+	EditorAnimationController();
+	~EditorAnimationController();
 
 	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
@@ -1383,6 +1508,11 @@ struct DLLBUILD EditorBone : EditorObject<Bone>
 {
 	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Tab*);
+};
+struct DLLBUILD EditorLine : EditorObject<Line>
+{
+	void OnPropertiesCreate(){}
+	void OnPropertiesUpdate(Tab*){}
 };
 struct DLLBUILD EditorLight : EditorObject<Light>
 {
@@ -1425,15 +1555,19 @@ struct DLLBUILD GuiFont
 	float	widths[255];
 	float	height;
 
-	float GetHeight();
-	vec2 MeasureText(const wchar_t*);
-	float GetCharWidth(wchar_t);
+	float GetHeight()const;
+	vec2 MeasureText(const wchar_t*)const;
+	float GetCharWidth(wchar_t)const;
+
+
+	static const GuiFont* GetDefaultFont();
+	static const std::vector<GuiFont*>& GetFontPool();
+	static GuiFont* CreateFont(String iFontName,float iFontSize);
 };
+
 
 struct DLLBUILD Renderer2D
 {
-	static std::vector<GuiFont*> fonts;
-
 	unsigned int	colorBackgroud;
 	unsigned int	colorText;
 	unsigned int	tabSpaces;
@@ -1443,8 +1577,8 @@ struct DLLBUILD Renderer2D
 	Renderer2D(Tab*);
 	~Renderer2D();
 
-	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT)=0;
-	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT)=0;
+	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
+	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(GuiImage* bitmap,float x,float y, float w,float h)=0;
@@ -1455,7 +1589,8 @@ struct DLLBUILD Renderer2D
 	virtual void Translate(float,float)=0;
 	virtual void Identity()=0;
 
-	virtual vec2 MeasureText(const wchar_t*);
+	
+	virtual vec2 MeasureText(const wchar_t*,const GuiFont* iFont=GuiFont::GetDefaultFont());
 
 	virtual void DrawCaret()=0;
 	virtual void SetCaretPos(float x,float y)=0;

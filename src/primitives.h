@@ -94,36 +94,6 @@ public:
 
 template <typename T> T* TStaticInstance<T>::instance=0;
 
-template <typename T> struct DLLBUILD TPoolVector
-{
-private:
-	static std::vector<T*>* _pool;
-public:
-
-	TPoolVector()
-	{
-		this->_pool->push_back((T*)this);
-	}
-
-	~TPoolVector()
-	{
-		this->_pool->erase(std::find(this->_pool->begin(),this->_pool->end(),(T*)this));
-	}
-
-	static void BroadcastToPool(void (T::*func)(void*),void* data=0)
-	{
-		for(typename std::vector< T*>::iterator tPoolElement=TPoolVector<T>::GetPool().begin();tPoolElement!=TPoolVector<T>::GetPool().end();tPoolElement++)
-			((*tPoolElement)->*func)(data);
-	}
-
-	static std::vector<T*>& GetPool()
-	{
-		return *TPoolVector<T>::_pool;
-	}
-};
-
-template <typename T> std::vector<T*>* TPoolVector<T>::_pool=new std::vector<T*>;
-
 typedef std::wstring String;
 
 namespace StringUtils
@@ -137,7 +107,7 @@ namespace StringUtils
 	String DLLBUILD ToWide(const std::string&);
 
 	String DLLBUILD Int(int&);
-	String DLLBUILD Float(float&,int iBefore=3,int iAfter=1);
+	String DLLBUILD Float(float&,int iBefore=2,int iAfter=2);
 
 	bool DLLBUILD WriteCharFile(String iFilename,String iContent,String iMode=L"w");
 	String DLLBUILD ReadCharFile(String iFilename,String iMode=L"r");
@@ -487,14 +457,16 @@ struct DLLBUILD  mat4 : TNumberedVectorInterface<float,16>
 
 struct DLLBUILD  Timer : TStaticInstance<Timer>
 {
+protected:
 	unsigned int currentFrameTime;
 	unsigned int currentFrameDeltaTime;
 	unsigned int lastFrameTime;
-
+public:
 	Timer();
 
-	virtual unsigned int GetTime()=0;
-	virtual void update();
+	virtual void update()=0;
+	virtual unsigned int GetCurrent();
+	virtual unsigned int GetLastDelta();
 
 	static Timer* GetInstance();
 };
@@ -510,7 +482,7 @@ struct DLLBUILD  Task
 	void Block(bool);
 };
 
-struct DLLBUILD  Thread  : TPoolVector<Thread>
+struct DLLBUILD Thread
 {
 	int id;
 	bool pause;

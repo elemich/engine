@@ -33,9 +33,19 @@ void Fbx::Unload()
 void Fbx::OnMenuPressed(int iIdx)
 {
 	if(iIdx==MenuActionImport)
-		wprintf(L"fbx import pressed\n");
+	{
+		String tFbxFile=Ide::GetInstance()->subsystem->FileChooser(L"Fbx Files (*.fbx)",L"*.fbx");
+
+		if(tFbxFile.size())
+		{
+			EditorEntity* importedEntities=this->Import(StringUtils::ToChar(tFbxFile).c_str());
+			Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToTabs(&Tab::OnEntitiesChange,importedEntities);
+		}
+	}
 	else if(iIdx==MenuActionExport)
-		wprintf(L"fbx export pressed\n");
+	{
+		wprintf(L"not yet implemented\n");
+	}
 }
 
 PluginSystem::Plugin* GetPlugin(PluginSystem* tPluginSystem)
@@ -284,16 +294,32 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 
 		Skin* skin=0;
 		Mesh* mesh=0;
+		Line* line=0;
 
 		if(deformerCount)//skin
 		{
 			skin=entity->CreateComponent<EditorSkin>();
 			FillSkin(fbxNode,skin);
 		}
-		else//mesh
+		else if(fbxNode->GetMesh())
 		{
 			mesh=entity->CreateComponent<EditorMesh>();
 			FillMesh(fbxNode,mesh);
+		}
+		else if(fbxNode->GetLine())
+		{
+			FbxLine* fbxLine=fbxNode->GetLine();
+
+			if(fbxLine)
+			{
+				line=entity->CreateComponent<EditorLine>();
+
+				for(int i=0;i<fbxLine->GetIndexArraySize();i++)
+				{
+					FbxVector4 tFbxPoint=fbxLine->GetControlPointAt(fbxLine->GetPointIndexAt(i));
+					line->points.push_back(vec3(tFbxPoint[0],tFbxPoint[1],tFbxPoint[2]));
+				}
+			}
 		}
 
 		for(int i=0;i<fbxNode->GetMaterialCount();i++)
@@ -427,7 +453,7 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 
 
 
-EditorEntity* Fbx::Import(char* fname)
+EditorEntity* Fbx::Import(const char* fname)
 {
 	rootNode=0;
 

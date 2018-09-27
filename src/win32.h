@@ -69,6 +69,9 @@ void glCheckError();
 struct DLLBUILD GuiFontWin32 : GuiFont
 {
 	IDWriteTextFormat* texter;
+
+	GuiFontWin32();
+	~GuiFontWin32();
 };
 
 struct DLLBUILD Direct2D
@@ -80,11 +83,11 @@ struct DLLBUILD Direct2D
 	static void Init();
 	static void Release();
 
-	static bool CreateFont(String,float iFontSize);
+	static GuiFont* CreateFont(String,float iFontSize);
 
 	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
 
-	static void DrawText(ID2D1RenderTarget*renderer,IDWriteTextFormat* texter,ID2D1Brush* brush,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	static void DrawText(Renderer2D*,const GuiFont*,unsigned int iColor,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float op=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
@@ -128,8 +131,8 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
 
-	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT);
-	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT);
+	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
+	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
@@ -457,6 +460,8 @@ struct DLLBUILD ContainerWin32 : Container
 	WindowDataWin32*& windowDataWin32;
 	SplitterWin32*& splitterContainerWin32;
 
+	virtual int GetWindowHandle();
+
 	TabWin32* CreateTab(float x,float y,float w,float h);
 	TabWin32* CreateModalTab(float w,float h);
 	void DestroyTab(Tab*);
@@ -475,6 +480,8 @@ struct DLLBUILD MainContainerWin32 : MainContainer
 
 	ContainerWin32* CreateContainer();
 	
+	void Initialize();
+	void Deintialize();
 };
 
 struct DLLBUILD TimerWin32 : Timer
@@ -482,7 +489,6 @@ struct DLLBUILD TimerWin32 : Timer
 	TimerWin32();
 
 	virtual void update();
-	virtual unsigned int GetTime();
 };
 
 struct DLLBUILD IdeWin32 : Ide
@@ -504,6 +510,8 @@ struct DLLBUILD SubsystemWin32 : Subsystem
 	bool Execute(String iPath,String iCmdLine,String iOutputFile=L"",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false);
 	unsigned int FindProcessId(String iProcessName);
 	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
+	String DirectoryChooser();
+	String FileChooser(String iDescription,String iExtension);
 };
 
 

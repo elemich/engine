@@ -65,7 +65,7 @@ struct DLLBUILD MatrixStack
 
 
 
-struct DLLBUILD Shader : TPoolVector<Shader>
+struct DLLBUILD Shader
 {
 	Renderer3DBase* renderer; 
 
@@ -493,6 +493,15 @@ struct DLLBUILD Bone : EntityComponent
 
 };
 
+struct DLLBUILD Line : EntityComponent
+{
+	Line();
+
+	std::vector<vec3> points;
+
+	void draw(Renderer3DBase*);
+};
+
 struct DLLBUILD Light : EntityComponent
 {
 	Light();
@@ -550,7 +559,7 @@ struct DLLBUILD Mesh : EntityComponent
 	void draw(Renderer3DBase*);
 };
 
-struct DLLBUILD Script : EntityComponent , TPoolVector<Script>
+struct DLLBUILD Script : EntityComponent
 {
 	FilePath file;
 	EntityScript* runtime;

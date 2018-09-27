@@ -417,27 +417,36 @@ void MatrixStack::SetMode(MatrixStack::matrixmode m)
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
+/////////////////////Shader////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////////////////////////////////
+
+std::vector<Shader*> ____shaders;
+
+DLLBUILD std::vector<Shader*>& GetShadersPool()
+{
+	return ____shaders;
+}
 
 Shader::Shader(Renderer3DBase* iRenderer):
 	renderer(iRenderer),
 	programId(-1),
 	vertexShaderId(-1),
 	fragmentShaderId(-1)
-{}
+{
+	GetShadersPool().push_back(this);
+}
 
 Shader::~Shader()
 {
-
+	GetShadersPool().erase(std::find(GetShadersPool().begin(),GetShadersPool().end(),this));
 }
 
 Shader* Shader::Find(const char* iNameToFind,bool iExact)
 {
-	for(size_t i=0;i<GetPool().size();i++)
+	for(size_t i=0;i<GetShadersPool().size();i++)
 	{
-		Shader* element=GetPool()[i];
+		Shader* element=GetShadersPool()[i];
 
 		if(element)
 		{
@@ -668,7 +677,7 @@ void AnimationController::update()
 	{
 		this->SetFrame(this->cursor);
 
-		int		tCurrentTime=Timer::GetInstance()->GetTime();
+		int		tCurrentTime=Timer::GetInstance()->GetCurrent();
 
 		float	tCurrentDelta=	this->frameTime ? (tCurrentTime-this->frameTime)/1000.0f : 0;
 
@@ -715,6 +724,20 @@ root(0)
 	color.make((float)x,(float)y,(float)z);
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////////Line/////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+Line::Line(){}
+
+void Line::draw(Renderer3DBase* renderer3d)
+{
+
+	for(int i=1;i<this->points.size();i++)
+		renderer3d->draw(this->points[i-1],this->points[i],vec3(1,1,1));
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

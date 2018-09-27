@@ -57,10 +57,14 @@ void gCreateStringPropertyEditable(GuiPanel* iPanel,String iLabel,String* iRef,i
 	pProp->SetEdges(0,iPanel->childs.size() ? &iPanel->childs.back()->edges.w : 0,0,0);
 	pProp->SetParent(iPanel);		
 	pProp->value.canEdit=true;
-	pProp->description.colorBackground=iColor;
+	pProp->description.colorBackground|=iColor;
+	pProp->description.margins.x=10;
 	pProp->value.colorBackground=0xffffff;
+	pProp->value.colorHovering=0xffffff;
+	pProp->value.colorChecked=0xffffff;
+	pProp->value.colorPressing=0xffffff;
 	pProp->value.offsets.make(0,2,0,-2);
-	pProp->value.textColor=0x000000;
+	pProp->value.color=0x000000;
 }
 
 void AndroidPlugin::ShowConfigurationPanel()
@@ -72,21 +76,21 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	tPanel->name=L"Android Builder";
 
-	int tColor1=GuiRect::COLOR_BACK+15;
-	int tColor2=tColor1+15;
+	int even=0x050505;
+	int odd=0x101010;
 
-	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname,tColor1);															
-	gCreateStringPropertyEditable(tPanel,L"Key Name",&this->Keyname,tColor2);
-	gCreateStringPropertyEditable(tPanel,L"SdkDir",&this->AndroidSdkDir,tColor1);
-	gCreateStringPropertyEditable(tPanel,L"Platform",&this->AndroidPlatform,tColor2);
-	gCreateStringPropertyEditable(tPanel,L"Build Tool",&this->AndroidBuildTool,tColor1);
-	gCreateStringPropertyEditable(tPanel,L"ADB",&this->AndroidDebugBridge,tColor2);
-	gCreateStringPropertyEditable(tPanel,L"Output Dir",&this->AndroidOutputDirectory,tColor1);
-	gCreateStringPropertyEditable(tPanel,L"Project Dir",&this->AndroidProjectDirectory,tColor2);
-	gCreateStringPropertyEditable(tPanel,L"Jni Dir",&this->AndroidProjectJniDirectory,tColor1);
-	gCreateStringPropertyEditable(tPanel,L"Asset Dir",&this->AndroidProjectAssetDirectory,tColor2);
-	gCreateStringPropertyEditable(tPanel,L"Res Directory",&this->AndroidProjectResDirectory,tColor1);
-	gCreateStringPropertyEditable(tPanel,L"Libs Dir",&this->AndroidProjectLibsDirectory,tColor2);
+	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname,even);															
+	gCreateStringPropertyEditable(tPanel,L"Key Name",&this->Keyname,odd);
+	gCreateStringPropertyEditable(tPanel,L"SdkDir",&this->AndroidSdkDir,even);
+	gCreateStringPropertyEditable(tPanel,L"Platform",&this->AndroidPlatform,odd);
+	gCreateStringPropertyEditable(tPanel,L"Build Tool",&this->AndroidBuildTool,even);
+	gCreateStringPropertyEditable(tPanel,L"ADB",&this->AndroidDebugBridge,odd);
+	gCreateStringPropertyEditable(tPanel,L"Output Dir",&this->AndroidOutputDirectory,even);
+	gCreateStringPropertyEditable(tPanel,L"Project Dir",&this->AndroidProjectDirectory,odd);
+	gCreateStringPropertyEditable(tPanel,L"Jni Dir",&this->AndroidProjectJniDirectory,even);
+	gCreateStringPropertyEditable(tPanel,L"Asset Dir",&this->AndroidProjectAssetDirectory,odd);
+	gCreateStringPropertyEditable(tPanel,L"Res Directory",&this->AndroidProjectResDirectory,even);
+	gCreateStringPropertyEditable(tPanel,L"Libs Dir",&this->AndroidProjectLibsDirectory,odd);
 
 	//buttons
 
@@ -120,6 +124,8 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->buildButton->param=this;
 
 	this->buildButton->SetParent(&this->configurationPanel->rectsLayered);
+
+	this->configurationPanel->OnGuiActivate();
 }
 
 
@@ -251,7 +257,11 @@ bool CompilerAndroid::Compile()
 	{
 		//pack non-sources resources
 
-		gPackNonScriptResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
+		std::vector<GuiProjectViewer*> tGuiProjectViewer;
+
+		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);
+
+		gPackNonScriptResourceDir(tResourceDirectory,tGuiProjectViewer[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
 		tPackFile.Close();
 		tTableFile.Close();

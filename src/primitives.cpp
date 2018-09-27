@@ -375,7 +375,7 @@ String StringUtils::Float(float& iFloat,int iBefore,int iAfter)
 	String tString;
 
 	wchar_t tCharInt[100];
-	swprintf(tCharInt,100,L"%*.*f",iBefore,iAfter,iFloat);
+	swprintf(tCharInt,100,L"%*.*g",iBefore,iAfter,iFloat);
 
 	tString=tCharInt;
 
@@ -1389,7 +1389,15 @@ Timer::Timer()
 	_________timer=this->Instance();
 }
 
-void Timer::update(){};
+unsigned int Timer::GetCurrent()
+{
+	return this->currentFrameTime;
+};
+
+unsigned int Timer::GetLastDelta()
+{
+	return this->currentFrameDeltaTime;
+};
 
 DLLBUILD Timer* GetTimer(){return _________timer;}
 
@@ -1574,5 +1582,10 @@ void Task::Block(bool iBlock)
 			this->pause=iBlock;
 	}
 }
+
+
+
+
+
 
 

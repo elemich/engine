@@ -13,27 +13,27 @@ CLDLL=/DCREATEDLL -c
 primitives.obj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\primitives.cpp
 
-entities.obj: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.obj
+entities.obj: primitives.obj $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\entities.cpp
 
-imgjpg.obj: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
+imgjpg.obj: entities.obj $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\imgjpg.cpp
 
-imgpng.obj: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
+imgpng.obj: entities.obj $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\imgpng.cpp
 
-imgtga.obj: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
+imgtga.obj: entities.obj $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\imgtga.cpp
 	
-interfaces.obj: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
+interfaces.obj: imgjpg.obj imgpng.obj imgtga.obj $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\interfaces.cpp
 	
-win32.obj: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
+win32.obj: interfaces.obj $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
  @cl.exe $(CLOPT) $(CLDLL) $(DIRSRC)\win32.cpp
  
 #FBXPLUGIN BEGIN
  
-fbxutil.obj: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+fbxutil.obj: win32.obj $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
  @cl.exe /DFBXSDK_SHARED $(CLOPT) $(CLDLL) $(DIRSRC)\fbxutil.cpp
  
 fbxplugin.dll: enginelibMS.lib fbxutil.obj
@@ -46,7 +46,7 @@ fbxplugin.dll: enginelibMS.lib fbxutil.obj
 
 #ANDROIDPLUGIN BEGIN
 
-android.obj: $(DIRSRC)\IdeAndroid.cpp $(DIRSRC)\IdeAndroid.h
+android.obj: win32.obj $(DIRSRC)\IdeAndroid.cpp $(DIRSRC)\IdeAndroid.h
  @cl.exe $(CLOPT) $(CLDLL) $(CLDLL) /Foandroid.obj $(DIRSRC)\IdeAndroid.cpp
  
 androidplugin.dll: enginelibMS.lib android.obj
