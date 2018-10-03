@@ -57,7 +57,7 @@ Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<Enti
 
 		wprintf(L"componentsCode %d\n",componentCode);
 
-		if(componentCode==Serialization::Script)
+		if(componentCode==Serializer::Script)
 		{
 			Script* tScript=tEntity->CreateComponent<Script>();
 
@@ -732,11 +732,14 @@ root(0)
 
 Line::Line(){}
 
+Line::~Line()
+{
+}
+
 void Line::draw(Renderer3DBase* renderer3d)
 {
-
-	for(int i=1;i<this->points.size();i++)
-		renderer3d->draw(this->points[i-1],this->points[i],vec3(1,1,1));
+	for(std::list<vec3>::iterator i=this->points.begin(),j=i++;i!=this->points.end() && j!=this->points.end();i++,j++)
+		renderer3d->draw(*i,*j,vec3(1,1,1));
 }
 
 ///////////////////////////////////////////////

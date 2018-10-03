@@ -123,19 +123,24 @@ struct DLLBUILD Shader
 	unsigned int		ibo;
 };
 
-namespace Serialization
+struct DLLBUILD Serializer
 {
-	const unsigned char Root=0;
-	const unsigned char Skeleton=1;
-	const unsigned char Animation=2;
-	const unsigned char Gizmo=3;
-	const unsigned char AnimationController=4;
-	const unsigned char Bone=5;
-	const unsigned char Light=6;
-	const unsigned char Mesh=7;
-	const unsigned char Script=8;
-	const unsigned char Camera=9;
-	const unsigned char Unknown=10;
+	static const int Root=0;
+	static const int Skeleton=1;
+	static const int Animation=2;
+	static const int Gizmo=3;
+	static const int AnimationController=4;
+	static const int Bone=5;
+	static const int Light=6;
+	static const int Mesh=7;
+	static const int Script=8;
+	static const int Camera=9;
+	static const int Project=10;
+	static const int Scene=11;
+	static const int Entity=12;
+	static const int Material=13;
+	static const int Texture=14;
+	static const int Unknown=0xffffffff;
 };
 
 enum EEntity
@@ -277,21 +282,29 @@ struct DLLBUILD Material
 
 	vec3 emissive;
 	float femissive;
+
 	vec3 ambient;
 	float fambient;
+	
 	vec3 diffuse;
 	float fdiffuse;
+	
 	vec3 normalmap;
+	
 	vec3 bump;
 	float fbump;
+	
 	vec3 transparent;
 	float ftransparent;
+	
 	vec3 displacement;
 	float fdisplacement;
 
 	vec3 specular;
 	float fspecular;
+	
 	float fshininess;
+	
 	vec3 reflection;
 	float freflection;
 
@@ -496,8 +509,9 @@ struct DLLBUILD Bone : EntityComponent
 struct DLLBUILD Line : EntityComponent
 {
 	Line();
+	~Line();
 
-	std::vector<vec3> points;
+	std::list<vec3> points;
 
 	void draw(Renderer3DBase*);
 };
@@ -531,9 +545,6 @@ struct DLLBUILD Mesh : EntityComponent
 {
 	Mesh();
 	~Mesh();
-
-	int save(char*);
-	int load(char*);
 
 	float (*controlpoints)[3];
 	int	  ncontrolpoints;

@@ -36,31 +36,31 @@ primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
 	$(info primitives.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
 
-entities.o: $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
+entities.o: primitives.o $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
 	$(info entities.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
 
-imgjpg.o: $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
+imgjpg.o: entities.o $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
 	$(info imgjpg.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
 
-imgpng.o: $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
+imgpng.o: entities.o $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
 	$(info imgpng.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
 
-imgtga.o: $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
+imgtga.o: entities.o $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
 	$(info imgtga.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
 
-interfaces.o: $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h $(DIRSRC)\shaders.cpp
+interfaces.o: imgjpg.o imgpng.o imgtga.o $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
 	$(info interfaces.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
 
-win32.o: $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h $(DIRSRC)\shaders.cpp
+win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
 	$(info win32.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\win32.cpp
 
-fbxutil.o: $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
 	$(info fbxutil.o)
 	$(CPPCOMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
 

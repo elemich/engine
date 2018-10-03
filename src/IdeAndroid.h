@@ -1,4 +1,4 @@
-#include "win32.h"
+#include "interfaces.h"
 
 struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 {
@@ -15,15 +15,13 @@ struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 	String AndroidDebugBridge;
 
 	String AndroidOutputDirectory;
-	String AndroidProjectDirectory;
-	String AndroidProjectJniDirectory;
-	String AndroidProjectAssetDirectory;
-	String AndroidProjectResDirectory;
 
-	String AndroidProjectLibsDirectory;
+	GuiButton* exitButton;
+	GuiButton* buildButton;
 
-	GuiButtonFunc* exitButton;
-	GuiButtonFunc* buildButton;
+	GuiProperty<GuiPath>* sdkDirProperty;
+	GuiProperty<GuiComboBox>* sdkPlatform;
+	GuiProperty<GuiComboBox>* sdkBuildtool;
 
 	AndroidPlugin();
 
@@ -32,11 +30,6 @@ struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 	void OnMenuPressed(int);
 
 	void ShowConfigurationPanel();
-};
-
-struct DLLBUILD CompilerAndroid : CompilerWin32
-{
-	bool Compile();
 };
 
 

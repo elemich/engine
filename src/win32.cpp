@@ -265,12 +265,8 @@ void dump(unsigned char* t)
 	system("pause");
 }
 
-void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float &width,float &height)
+bool Direct2D::CreateRawBitmap(const wchar_t* fname,bool iAction,ID2D1RenderTarget* renderer,ID2D1Bitmap* iBitmap,unsigned char** iBuffer,float* iWidth,float* iHeight)
 {
-	wprintf(L"loading %s from disk...\n",fname);
-
-	ID2D1Bitmap *bitmap=0;
-
 	IWICBitmapDecoder *pDecoder = NULL;
 	IWICBitmapFrameDecode *pSource = NULL;
 	IWICStream *pStream = NULL;
@@ -281,7 +277,7 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 
 	hr = imager->CreateDecoderFromFilename(fname,NULL,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&pDecoder);
 
-	if (!SUCCEEDED(hr))
+	if (hr!=S_OK || !pDecoder)
 		DEBUG_BREAK();
 
 	unsigned int frameCount;
@@ -289,33 +285,43 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 
 	hr = pDecoder->GetFrame(0, &pSource);
 
-	if (!SUCCEEDED(hr))
+	if (hr!=S_OK || !pSource)
 		DEBUG_BREAK();
 
 	hr = imager->CreateFormatConverter(&pConverter);
 
-	if (!SUCCEEDED(hr))
+	if (hr!=S_OK || !pConverter)
 		DEBUG_BREAK();
 
 	hr = pConverter->Initialize(pSource,GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,NULL,0.f,WICBitmapPaletteTypeMedianCut);
 
-	if(buffer)
-	delete [] buffer;
+	if(iAction==0)//Create the bitmap
+	{
+		hr = renderer->CreateBitmapFromWicBitmap(pConverter,NULL,&iBitmap);
 
-	UINT _width,_height;
-	pSource->GetSize(&_width,&_height);
+		if (hr!=S_OK || !iBitmap)
+			DEBUG_BREAK();
+	}
+	else if(iBuffer) //Copy the data
+	{
+		if(*iBuffer)
+			delete [] *iBuffer;
 
-	buffer=new unsigned char[_width*_height*4];
+		UINT tWidth,tHeight;
+		pSource->GetSize(&tWidth,&tHeight);
 
-	hr=pSource->CopyPixels(0,_width*4,_width*_height*4,buffer);
+		*iBuffer=new unsigned char[tWidth*tHeight*4];
 
-	width=(float)_width;
-	height=(float)_height;
+		hr=pSource->CopyPixels(0,tWidth*4,tWidth*tHeight*4,*iBuffer);
 
-	if (!SUCCEEDED(hr))
-		DEBUG_BREAK();
+		if (hr!=S_OK || !*iBuffer)
+			DEBUG_BREAK();
 
-	dump(buffer);
+		*iWidth=(float)tWidth;
+		*iHeight=(float)tHeight;
+
+		dump(*iBuffer);
+	}
 
 	if (SUCCEEDED(hr))
 	{
@@ -325,6 +331,8 @@ void Direct2D::CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float
 		SAFERELEASE(pConverter);
 		SAFERELEASE(pScaler);
 	}
+
+	return true;
 }
 
 
@@ -370,6 +378,61 @@ void Direct2D::Translate(ID2D1RenderTarget* renderer,float x,float y)
 void Direct2D::Identity(ID2D1RenderTarget* renderer)
 {
 	renderer->SetTransform(D2D1::Matrix3x2F::Identity());
+}
+
+bool Direct2D::LoadBitmapRef(ID2D1RenderTarget* renderer,ID2D1Bitmap*& iHandle,unsigned char* iData,float iWidth,float iHeight)
+{
+	HRESULT result=S_OK;
+
+	if(!iHandle)
+	{
+		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+		//renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+		AGGREGATECALL(renderer->GetPixelFormat,bp.pixelFormat);
+		bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+
+		result=renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&iHandle);
+
+		if(S_OK!=result || !iHandle)
+			DEBUG_BREAK();
+	}
+	else
+	{
+		D2D1_SIZE_F tSize;
+		//this->handle->GetSize(&tSize);
+		AGGREGATECALL(iHandle->GetSize,tSize);
+
+		if(tSize.width!=iWidth || tSize.height!=iHeight)
+		{
+			SAFEDELETE(iHandle);
+
+			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+			//renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
+			AGGREGATECALL(renderer->GetPixelFormat,bp.pixelFormat);
+			bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
+
+			result=renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&iHandle);
+
+			if(S_OK!=result || !iHandle)
+				DEBUG_BREAK();
+		}
+		else
+		{
+			D2D_RECT_U rBitmapRect={0,0,iWidth,iHeight};
+
+			result=iHandle->CopyFromMemory(&rBitmapRect,iData,iWidth*4);
+
+			if(S_OK!=result)
+				DEBUG_BREAK();
+		}
+	}
+
+	return true;
+}
+
+bool Direct2D::LoadBitmapFile(ID2D1RenderTarget* renderer,String iFilename,ID2D1Bitmap*& iHandle,float& iWidth,float& iHeight)
+{
+	return Direct2D::CreateRawBitmap(iFilename.c_str(),false,renderer,iHandle,0,0,0);
 }
 
 ///////////////////////////////////////////////
@@ -469,9 +532,24 @@ void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
 	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
 }
 
-void Renderer2DWin32::DrawBitmap(GuiImage* iBitmap,float iX,float iY, float iW,float iH)
+void Renderer2DWin32::DrawBitmap(Picture* iBitmap,float iX,float iY, float iW,float iH)
 {
-	Direct2D::DrawBitmap(this->renderer,((GuiImageWin32*)iBitmap)->handle,iX,iY,iW,iH);
+	Direct2D::DrawBitmap(this->renderer,(ID2D1Bitmap*)iBitmap->handle,iX,iY,iW,iH);
+}
+
+bool Renderer2DWin32::LoadBitmap(Picture* iPicture)
+{
+	if(!iPicture->handle)
+	{
+		PictureRef* tPictureRef   = dynamic_cast<PictureRef*>(iPicture);
+		PictureFile* tPictureFile = dynamic_cast<PictureFile*>(iPicture);
+
+		if(tPictureRef)
+			return Direct2D::LoadBitmapRef(this->renderer,(ID2D1Bitmap*&)tPictureRef->handle,tPictureRef->refData,tPictureRef->width,tPictureRef->height);
+
+		if(tPictureFile)
+			return Direct2D::LoadBitmapFile(this->renderer,tPictureFile->fileName,(ID2D1Bitmap*&)tPictureFile->handle,tPictureFile->width,tPictureFile->height);
+	}
 }
 
 void Renderer2DWin32::PushScissor(float iX,float iY, float iW,float iH)
@@ -524,17 +602,17 @@ void Renderer2DWin32::SetCaretPos(float x,float y)
 
 
 ContainerWin32::ContainerWin32():
-	windowDataWin32((WindowDataWin32*&)window),
+	windowDataWin32((WindowDataWin32*&)windowData),
 	splitterContainerWin32((SplitterWin32*&)splitter)
 
 {
-	window=new WindowDataWin32;
+	windowData=new WindowDataWin32;
 	splitter=new SplitterWin32;
 }
 
 ContainerWin32::~ContainerWin32()
 {
-	SAFEDELETE(this->window);
+	SAFEDELETE(this->windowData);
 	SAFEDELETE(this->splitter);
 }
 
@@ -549,17 +627,9 @@ TabWin32* ContainerWin32::CreateTab(float x,float y,float w,float h)
 	return result;
 }
 
-TabWin32* ContainerWin32::CreateModalTab(float w,float h)
+TabWin32* ContainerWin32::CreateModalTab(float x,float y,float w,float h)
 {
-	EnableWindow(this->windowDataWin32->hwnd,false);
-
-	RECT rect;
-	GetWindowRect(this->windowDataWin32->hwnd,&rect);
-
-	float x=rect.left+((rect.right-rect.left)/2.0f)-w/2.0f;
-	float y=rect.top+((rect.bottom-rect.top)/2.0f)-h/2.0f;
-
-	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd,false,false);
+	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd,true);
 
 	DWORD tLong=(DWORD)GetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE);
 
@@ -580,11 +650,6 @@ void ContainerWin32::DestroyTab(Tab* tTab)
 	tTab->Destroy();
 
 	PostMessage(this->windowDataWin32->hwnd,(WPARAM)WM_ENABLE,true,0);
-}
-
-void ContainerWin32::Enable(bool value)
-{
-	EnableWindow(this->windowDataWin32->hwnd,value);
 }
 
 
@@ -780,13 +845,14 @@ void MainContainerWin32::Initialize()
 	TabWin32* tabContainer3=this->mainContainerWin32->CreateTab(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408));
 	TabWin32* tabContainer4=this->mainContainerWin32->CreateTab(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top);
 
-	GuiSceneViewer* scene=tabContainer1->rects.SceneViewer();
-	GuiViewport* viewport=tabContainer4->rects.Viewport();
 
-	viewport->rootEntity=scene->entityRoot;
 
-	tabContainer3->rects.ProjectViewer();
-	tabContainer2->rects.EntityViewer();
+	GuiSceneViewer* tScene=tabContainer1->CreateSingletonViewer<GuiSceneViewer>();
+	tabContainer2->CreateViewer<GuiEntityViewer>();
+	tabContainer3->CreateSingletonViewer<GuiProjectViewer>();
+	GuiViewport* tViewport=tabContainer4->CreateViewer<GuiViewport>(new GuiViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
+
+	tViewport->rootEntity=tScene->entityRoot;
 
 	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
 	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
@@ -1063,18 +1129,50 @@ TimerWin32::TimerWin32(){}
 
 void WindowDataWin32::CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l){hwnd=h,msg=m,wparam=w,lparam=l;}
 
+void WindowDataWin32::Enable(bool iValue)
+{
+	::EnableWindow(this->hwnd,iValue);
+}
+bool WindowDataWin32::IsEnabled()
+{
+	return ::IsWindowEnabled(this->hwnd);
+}
+
 vec2 WindowDataWin32::Size()
 {
 	RECT tRect;
 	vec2 tSize;
 	
-	GetClientRect(this->hwnd,&tRect);
+	::GetWindowRect(this->hwnd,&tRect);
 
 	tSize.make(tRect.right-tRect.left,tRect.bottom-tRect.top);
 
 	return tSize;
 }
 
+vec2 WindowDataWin32::Pos()
+{
+	RECT tRect;
+
+	::GetWindowRect(this->hwnd,&tRect);
+
+	return vec2(tRect.left,tRect.top);
+}
+
+void WindowDataWin32::Show(bool iShow)
+{
+	::ShowWindow(this->hwnd,iShow ? SW_SHOWNORMAL : SW_HIDE);
+}
+
+bool WindowDataWin32::IsVisible()
+{
+	return ::IsWindowVisible(this->hwnd);
+}
+
+void WindowDataWin32::Resize(float iWidth,float iHeight)
+{
+	::SetWindowPos(this->hwnd,0,0,0,iWidth,iHeight,SWP_NOREPOSITION|SWP_NOMOVE);
+}
 
 void WindowDataWin32::LinkSibling(WindowData* t,int pos)
 {
@@ -3029,76 +3127,14 @@ void OpenGLRenderer::OnGuiLMouseDown()
 }*/
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////GuiImageWin32///////////////
+///////////////////GuiImage///////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-//#pragma message(LOCATION " remember to use WindowData::CopyProcedureData to properly synchronize messages by the wndproc and the window herself")
-
-GuiImageWin32::GuiImageWin32():handle(0){}
-
-GuiImageWin32::~GuiImageWin32()
+void Picture::Release()
 {
-	SAFERELEASE(this->handle);
+	SAFERELEASE((ID2D1Bitmap*&)this->handle);
 }
-
-void GuiImageWin32::Release()
-{
-	SAFERELEASE(this->handle);
-}
-
-bool GuiImageWin32::Fill(Renderer2D* renderer,unsigned char* iData,float iWidth,float iHeight)
-{
-	Renderer2DWin32* renderer2DInterfaceWin32=(Renderer2DWin32*)renderer;
-
-	HRESULT result=S_OK;
-
-	if(!this->handle)
-	{
-		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		//renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
-		AGGREGATECALL(renderer2DInterfaceWin32->renderer->GetPixelFormat,bp.pixelFormat);
-		bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
-
-		result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
-
-		if(S_OK!=result || !this->handle)
-			DEBUG_BREAK();
-	}
-	else
-	{
-		D2D1_SIZE_F tSize;
-		//this->handle->GetSize(&tSize);
-		AGGREGATECALL(this->handle->GetSize,tSize);
-
-		if(tSize.width!=iWidth || tSize.height!=iHeight)
-		{
-			SAFEDELETE(this->handle);
-
-			D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-			//renderer2DInterfaceWin32->renderer->GetPixelFormat(&bp.pixelFormat);
-			AGGREGATECALL(renderer2DInterfaceWin32->renderer->GetPixelFormat,bp.pixelFormat);
-			bp.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;
-
-			result=renderer2DInterfaceWin32->renderer->CreateBitmap(D2D1::SizeU(iWidth,iHeight),iData,iWidth*4,bp,&this->handle);
-
-			if(S_OK!=result || !this->handle)
-				DEBUG_BREAK();
-		}
-		else
-		{
-			D2D_RECT_U rBitmapRect={0,0,iWidth,iHeight};
-
-			result=this->handle->CopyFromMemory(&rBitmapRect,iData,iWidth*4);
-
-			if(S_OK!=result)
-				DEBUG_BREAK();
-		}
-	}
-
-	return true;
-}
-
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3175,7 +3211,7 @@ void TabWin32::Destroy3DRenderer()
 
 }
 
-TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool child,bool overlapped)
+TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool iModal)
 	:Tab(iX,iY,iW,iH),
 	windowDataWin32((WindowDataWin32*&)windowData),
 	containerWin32((ContainerWin32*&)container),
@@ -3183,11 +3219,13 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool c
 	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
 	threadRenderWin32((ThreadWin32*&)thread)
 {
+	this->isModal=iModal;
+
 	windowData=new WindowDataWin32;
 
 	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
 
-	if(child)
+	if(!this->isModal)
 		tStyle=tStyle|WS_CHILD;
 
 	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
@@ -3201,12 +3239,12 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool c
 
 	this->drawTask=this->thread->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
 
-	this->iconDown=new GuiImageWin32;
-	this->iconUp=new GuiImageWin32;
-	this->iconLeft=new GuiImageWin32;
-	this->iconRight=new GuiImageWin32;
-	this->iconFolder=new GuiImageWin32;
-	this->iconFile=new GuiImageWin32;
+	this->iconDown=new PictureRef(Tab::rawDownArrow,Tab::ICON_WH,Tab::ICON_WH);
+	this->iconUp=new PictureRef(Tab::rawUpArrow,Tab::ICON_WH,Tab::ICON_WH);
+	this->iconLeft=new PictureRef(Tab::rawLeftArrow,Tab::ICON_WH,Tab::ICON_WH);
+	this->iconRight=new PictureRef(Tab::rawRightArrow,Tab::ICON_WH,Tab::ICON_WH);
+	this->iconFolder=new PictureRef(Tab::rawFolder,Tab::ICON_WH,Tab::ICON_WH);
+	this->iconFile=new PictureRef(Tab::rawFile,Tab::ICON_WH,Tab::ICON_WH);
 
 	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
 
@@ -3414,7 +3452,7 @@ void TabWin32::OnGuiMouseWheel(void* data)
 {
 	float factor=GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)<0 ? -1.0f : 0);
 
-	if(this->mouse.y>Tab::BAR_HEIGHT)
+	if(!this->hasFrame || this->mouse.y>Tab::BAR_HEIGHT)
 		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
 }
 
@@ -3422,11 +3460,11 @@ void TabWin32::OnGuiMouseWheel(void* data)
 
 void TabWin32::OnGuiRMouseUp(void* data)
 {
-	float &x=this->mouse.x;
-	float &y=this->mouse.y;
-
-	if(y<=Tab::BAR_HEIGHT)
+	if(this->hasFrame && this->mouse.y<=Tab::BAR_HEIGHT)
 	{
+		float &x=this->mouse.x;
+		float &y=this->mouse.y;
+
 		int tabNumberHasChanged=this->rects.childs.size();
 
 		for(int i=0;i<(int)rects.childs.size();i++)
@@ -3447,19 +3485,19 @@ void TabWin32::OnGuiRMouseUp(void* data)
 						}
 					break;
 					case 2:
-						this->rects.Viewport();
+						this->CreateViewer<GuiViewport>();
 						this->selected=this->rects.childs.size()-1;
 					break;
 					case 3:
-						this->rects.SceneViewer();
+						this->CreateSingletonViewer<GuiSceneViewer>();
 						this->selected=this->rects.childs.size()-1;
 					break;
 					case 4:
-						this->rects.EntityViewer();
+						this->CreateViewer<GuiEntityViewer>();
 						this->selected=this->rects.childs.size()-1;
 					break;
 					case 5:
-						this->rects.ProjectViewer();
+						this->CreateSingletonViewer<GuiProjectViewer>();
 						this->selected=this->rects.childs.size()-1;
 					break;
 					case 6:
@@ -3479,7 +3517,6 @@ void TabWin32::OnGuiRMouseUp(void* data)
 	{
 		this->BroadcastToSelected(&GuiRect::OnRMouseUp,this->mouse);
 	}
-
 }
 
 
@@ -3546,17 +3583,17 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	this->iconFolder->Release();
 	this->iconFile->Release();
 
-	if(!this->iconUp->Fill(this->renderer2D,this->rawUpArrow,ICON_WH,ICON_WH))
+	if(!this->renderer2D->LoadBitmap(this->iconUp))
 		DEBUG_BREAK();
-	if(!this->iconRight->Fill(this->renderer2D,this->rawRightArrow,ICON_WH,ICON_WH))
+	if(!this->renderer2D->LoadBitmap(this->iconRight))
 		DEBUG_BREAK();
-	if(!this->iconLeft->Fill(this->renderer2D,this->rawLeftArrow,ICON_WH,ICON_WH))
+	if(!this->renderer2D->LoadBitmap(this->iconLeft))
 		DEBUG_BREAK();
-	if(!this->iconDown->Fill(this->renderer2D,this->rawDownArrow,ICON_WH,ICON_WH))
+	if(!this->renderer2D->LoadBitmap(this->iconDown))
 		DEBUG_BREAK();
-	if(!this->iconFolder->Fill(this->renderer2D,this->rawFolder,ICON_WH,ICON_WH))
+	if(!this->renderer2D->LoadBitmap(this->iconFolder))
 		DEBUG_BREAK();
-	if(!this->iconFile->Fill(this->renderer2D,this->rawFile,ICON_WH,ICON_WH))
+	if(!this->renderer2D->LoadBitmap(this->iconFile))
 		DEBUG_BREAK();
 
 	this->Tab::OnGuiRecreateTarget(iData);
@@ -3585,35 +3622,22 @@ void TabWin32::SetCursor(int iCursorCode)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiViewport* GuiRect::Viewport(vec3 pos,vec3 target,vec3 up,bool perspective)
+
+GuiViewport::~GuiViewport()
 {
-	GuiViewport* tGuiViewport=new GuiViewportWin32;
-
-	tGuiViewport->SetParent(this);
-	tGuiViewport->projection= !perspective ? tGuiViewport->projection : tGuiViewport->projection.perspective(90,16/9,1,1000);
-	tGuiViewport->view.move(pos);
-	tGuiViewport->view.lookat(target,up);
-
-	return tGuiViewport;
+	SAFERELEASE((ID2D1Bitmap*&)this->renderBitmap);
 }
 
-
-GuiViewportWin32::GuiViewportWin32():renderBitmap(0){}
-GuiViewportWin32::~GuiViewportWin32()
-{
-	SAFERELEASE(this->renderBitmap);
-}
-
-void GuiViewportWin32::DrawBuffer(Tab* iTab,vec4& iVec)
+void GuiViewport::DrawBuffer(Tab* iTab,vec4& iVec)
 {
 	if(this->renderBuffer)
 	{
 		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
-		renderer2DWin32->renderer->DrawBitmap(this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w));
+		renderer2DWin32->renderer->DrawBitmap((ID2D1Bitmap*&)this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w));
 		iTab->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w,0xff0000,false);
 	}
 }
-void GuiViewportWin32::Render(Tab* iTab)
+void GuiViewport::Render(Tab* iTab)
 {
 	vec4 tCanvas=this->rect;
 	vec2 tMouse(iTab->mouse);
@@ -4313,8 +4337,29 @@ unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThread
 	return 0;
 }
 
-String SubsystemWin32::DirectoryChooser()
+String SubsystemWin32::DirectoryChooser(String iDescription,String iExtension)
 {
+	wchar_t _pszDisplayName[MAX_PATH]=L"";
+
+	BROWSEINFO bi={0};
+	bi.hwndOwner=(HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle();
+	bi.pszDisplayName=_pszDisplayName;
+	bi.lpszTitle=L"Select Directory";
+
+	PIDLIST_ABSOLUTE tmpFolder=SHBrowseForFolder(&bi);
+
+	DWORD err=GetLastError();
+
+	if(tmpFolder)
+	{
+		wchar_t path[MAX_PATH];
+
+		if(SHGetPathFromIDList(tmpFolder,path))
+		{
+			return path;
+		}
+	}
+
 	return L"";
 }
 
@@ -4333,6 +4378,43 @@ String SubsystemWin32::FileChooser(String iDescription,String iExtension)
 	GetOpenFileName(&openfilename);
 
 	return openfilename.lpstrFile;
+}
+
+std::vector<String> SubsystemWin32::ListDirectories(String iDir)
+{
+	std::vector<String> tResult;
+
+	HANDLE			tHandle;
+	WIN32_FIND_DATA tData;
+
+	String tScanDir=iDir + L"\\*";
+
+	tHandle=FindFirstFile(tScanDir.c_str(),&tData); //. dir
+
+	if(!tHandle || INVALID_HANDLE_VALUE == tHandle)
+		tResult;
+	else
+		FindNextFile(tHandle,&tData);
+
+	while(FindNextFile(tHandle,&tData))
+	{
+		if(!(tData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			continue;
+
+		tResult.push_back(tData.cFileName);
+	}
+
+	FindClose(tHandle);
+	tHandle=0;
+
+	return tResult;
+}
+
+bool SubsystemWin32::CreateDirectory(String iDir)
+{
+	SECURITY_ATTRIBUTES sa={sizeof(SECURITY_ATTRIBUTES),0,false};
+
+	return ::CreateDirectory(iDir.c_str(),&sa);
 }
 
 
@@ -4556,7 +4638,7 @@ bool CompilerWin32::Compile(Script* iScript)
 	tMainContainer->GetTabRects<GuiCompilerViewer>(tGuiCompilerViewers);
 
 	//if a compilerviewer not exist create one
-	GuiCompilerViewer* tGuiCompilerViewer=tGuiCompilerViewers.empty() ? tMainContainer->mainContainer->tabs[0]->rects.CompilerViewer() : tGuiCompilerViewers[0];
+	GuiCompilerViewer* tGuiCompilerViewer=tGuiCompilerViewers.empty() ? tMainContainer->mainContainer->tabs[0]->CreateSingletonViewer<GuiCompilerViewer>() : tGuiCompilerViewers[0];
 
 	bool noErrors=tGuiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
 

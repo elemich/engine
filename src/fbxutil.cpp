@@ -294,7 +294,7 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 
 		Skin* skin=0;
 		Mesh* mesh=0;
-		Line* line=0;
+		EditorLine* line=0;
 
 		if(deformerCount)//skin
 		{
@@ -317,7 +317,7 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 				for(int i=0;i<fbxLine->GetIndexArraySize();i++)
 				{
 					FbxVector4 tFbxPoint=fbxLine->GetControlPointAt(fbxLine->GetPointIndexAt(i));
-					line->points.push_back(vec3(tFbxPoint[0],tFbxPoint[1],tFbxPoint[2]));
+					line->AddPoint(vec3(tFbxPoint[0],tFbxPoint[1],tFbxPoint[2]));
 				}
 			}
 		}

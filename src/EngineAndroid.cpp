@@ -590,7 +590,7 @@ Renderer3DAndroid::Renderer3DAndroid()
 	this->shaders.push_back(this->shader_shaded_texture);
 }
 
-void Renderer3DAndroid::draw(Light*)
+void Renderer3DAndroid::drawLight(Light*)
 {
 
 }

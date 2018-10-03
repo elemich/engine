@@ -85,7 +85,7 @@ struct DLLBUILD Direct2D
 
 	static GuiFont* CreateFont(String,float iFontSize);
 
-	static void CreateRawBitmap(const wchar_t* fname,unsigned char*& buffer,float& width,float& height);
+	static bool CreateRawBitmap(const wchar_t* fname,bool iAction,ID2D1RenderTarget* renderer,ID2D1Bitmap* iBitmap,unsigned char** buffer,float* width,float* height);
 
 	static void DrawText(Renderer2D*,const GuiFont*,unsigned int iColor,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
@@ -98,6 +98,9 @@ struct DLLBUILD Direct2D
 
 	static void Translate(ID2D1RenderTarget*,float,float);
 	static void Identity(ID2D1RenderTarget*);
+
+	static bool LoadBitmapRef(ID2D1RenderTarget* renderer,ID2D1Bitmap*& iHandle,unsigned char* iData,float iWidth,float iHeight);
+	static bool LoadBitmapFile(ID2D1RenderTarget* renderer,String iFilename,ID2D1Bitmap*& iHandle,float& iWidth,float& iHeight);
 };
 
 
@@ -112,17 +115,6 @@ struct DLLBUILD ThreadWin32 : Thread
 };
 
 
-struct DLLBUILD GuiImageWin32 : GuiImage
-{
-	GuiImageWin32();
-	~GuiImageWin32();
-
-	ID2D1Bitmap* handle;
-
-	void Release();
-	bool Fill(Renderer2D*,unsigned char* iData,float iWidth,float iHeight);
-};
-
 struct DLLBUILD Renderer2DWin32 : Renderer2D
 {
 	ID2D1HwndRenderTarget*		renderer;
@@ -135,7 +127,9 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
-	void DrawBitmap(GuiImage* iImage,float iX,float iY, float iW,float iH);
+	void DrawBitmap(Picture* iImage,float iX,float iY, float iW,float iH);
+
+	bool LoadBitmap(Picture*);
 
 	void PushScissor(float x,float y,float w,float h);
 	void PopScissor();
@@ -349,6 +343,9 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	WPARAM wparam;
 	LPARAM lparam;
 
+	void Enable(bool);
+	bool IsEnabled();
+
 	operator HWND(){return this->hwnd;};
 	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
 	void Create(HWND container);
@@ -360,6 +357,10 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	bool FindAndGrowSibling();
 
 	vec2 Size();
+	vec2 Pos();
+	void Show(bool);
+	bool IsVisible();
+	void Resize(float,float);
 };
 
 
@@ -373,7 +374,7 @@ struct DLLBUILD TabWin32 : Tab
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
-	TabWin32(float x,float y,float w,float h,HWND parent,bool child=true,bool overlapped=false);
+	TabWin32(float x,float y,float w,float h,HWND parent,bool iModal=false);
 	~TabWin32();
 
 	operator TabWin32& (){return *this;}
@@ -400,16 +401,6 @@ struct DLLBUILD TabWin32 : Tab
 
 };
 
-struct DLLBUILD GuiViewportWin32 : GuiViewport
-{
-	ID2D1Bitmap*	renderBitmap;
-
-	GuiViewportWin32();
-	~GuiViewportWin32();
-
-	void Render(Tab*);
-	void DrawBuffer(Tab*,vec4&);
-};
 
 struct DLLBUILD SplitterWin32 : Splitter
 {
@@ -463,10 +454,8 @@ struct DLLBUILD ContainerWin32 : Container
 	virtual int GetWindowHandle();
 
 	TabWin32* CreateTab(float x,float y,float w,float h);
-	TabWin32* CreateModalTab(float w,float h);
+	TabWin32* CreateModalTab(float x,float y,float w,float h);
 	void DestroyTab(Tab*);
-
-	void Enable(bool);
 };
 
 struct DLLBUILD MainContainerWin32 : MainContainer
@@ -510,8 +499,10 @@ struct DLLBUILD SubsystemWin32 : Subsystem
 	bool Execute(String iPath,String iCmdLine,String iOutputFile=L"",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false);
 	unsigned int FindProcessId(String iProcessName);
 	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
-	String DirectoryChooser();
+	String DirectoryChooser(String iDescription,String iExtension);
 	String FileChooser(String iDescription,String iExtension);
+	std::vector<String> ListDirectories(String iDir);
+	bool CreateDirectory(String);
 };
 
 

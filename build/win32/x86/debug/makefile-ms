@@ -57,7 +57,7 @@ androidplugin.dll: enginelibMS.lib android.obj
  
 #ANDROIDPLUGIN END
 	
-enginelibMS.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj fbxutil.obj
+enginelibMS.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj
  echo enginelibMS.dll
  @link.exe $(LKOPT) /DLL /OUT:enginelibMS.dll primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj $(WIN32LIBD) $(OPENGLLIB)
  

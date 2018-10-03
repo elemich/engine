@@ -1,13 +1,39 @@
 #include "IdeAndroid.h"
 
 
-AndroidPlugin* allocatedAndroidPlugin=0;
+AndroidPlugin* globalAllocatedAndroidPlugin=0;
 
-AndroidPlugin::AndroidPlugin()
+namespace AndroidPluginGlobalDefaults
+{
+	String defaultApkName=L"Engine";
+	String defaultApkKeyName=L"EngineKey";
+
+	String defaultSdkPlatformDirectory=L"platforms";
+	String defaultSdkBuildtoolsDirectory=L"build-tools";
+}
+
+namespace AndroidPluginGlobalFunctions
+{
+	GuiProperty<GuiComboBox>* globalAndroidPluginCreateComboBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor);
+	GuiProperty<GuiPath>*	 globalAndroidPluginCreatePathProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor);
+	void				 globalAndroidPluginCreateTextBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor);
+	void				 globalAndroidPluginFindPlatformDirectories(void* iData);
+
+	void globalPackResources(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources);
+
+	void globalCompileButton(void* tData);
+	void globalExitButton(void* tData);
+
+	void globalCompileAndroidApk(AndroidPlugin*);
+}
+
+
+AndroidPlugin::AndroidPlugin():exitButton(0),buildButton(0),sdkDirProperty(0),sdkPlatform(0),sdkBuildtool(0)
 {
 	this->name=L"AndroidBuilder";
 
-	Apkname=L"pippo";
+	this->Apkname=L"Engine";
+	this->Keyname=L"EngineKey";
 }
 
 void AndroidPlugin::Load()
@@ -32,69 +58,48 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 	if(iIdx==this->MenuActionBuild)
 		this->ShowConfigurationPanel();
 }
-void ptfCompileAndroidBuild(void* tData)
 
-{
-	GuiButtonFunc* tButtonFunc=(GuiButtonFunc*)tData;
 
-	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)tButtonFunc->userData;
 
-	CompilerAndroid tCompilerAndroid;
-	tCompilerAndroid.Compile();
-}
 
-void ptfExitBuild(void* tData)
-{
-	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)tData;
-
-	tAndroidPlugin->configurationPanel->Destroy();
-	Ide::GetInstance()->mainAppWindow->mainContainer->Enable(true);
-}
-
-void gCreateStringPropertyEditable(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
-{
-	GuiPropertyString* pProp=new GuiPropertyString(iLabel,iRef,GuiPropertyString::STRING);
-	pProp->SetEdges(0,iPanel->childs.size() ? &iPanel->childs.back()->edges.w : 0,0,0);
-	pProp->SetParent(iPanel);		
-	pProp->value.canEdit=true;
-	pProp->description.colorBackground|=iColor;
-	pProp->description.margins.x=10;
-	pProp->value.colorBackground=0xffffff;
-	pProp->value.colorHovering=0xffffff;
-	pProp->value.colorChecked=0xffffff;
-	pProp->value.colorPressing=0xffffff;
-	pProp->value.offsets.make(0,2,0,-2);
-	pProp->value.color=0x000000;
-}
 
 void AndroidPlugin::ShowConfigurationPanel()
 {
-	this->configurationPanel=Ide::GetInstance()->mainAppWindow->mainContainer->CreateModalTab(500,300);
+	Container* tContainer=Ide::GetInstance()->mainAppWindow->mainContainer;
 
-	GuiPanel* tPanel=this->configurationPanel->rects.Panel();
+	tContainer->windowData->Enable(false);
+
+	vec2 tIdeFrameSize=tContainer->windowData->Size();
+	vec2 tTabSize(500,300);
+	vec2 tTabPos=tContainer->windowData->Pos();
+
+	tTabPos.x+=tIdeFrameSize.x/2.0f-tTabSize.x/2.0f;
+	tTabPos.y+=tIdeFrameSize.y/2.0f-tTabSize.y/2.0f;
+
+	this->configurationPanel=tContainer->CreateModalTab(tTabPos.x,tTabPos.y,tTabSize.x,tTabSize.y);
+
+	GuiPanel* tPanel=this->configurationPanel->CreateViewer<GuiPanel>();
 	tPanel->offsets.w=-30;
 
 	tPanel->name=L"Android Builder";
 
-	int even=0x050505;
-	int odd=0x101010;
+	int even=0x101010;
+	int odd=0x151515;
 
-	gCreateStringPropertyEditable(tPanel,L"Apk Name",&this->Apkname,even);															
-	gCreateStringPropertyEditable(tPanel,L"Key Name",&this->Keyname,odd);
-	gCreateStringPropertyEditable(tPanel,L"SdkDir",&this->AndroidSdkDir,even);
-	gCreateStringPropertyEditable(tPanel,L"Platform",&this->AndroidPlatform,odd);
-	gCreateStringPropertyEditable(tPanel,L"Build Tool",&this->AndroidBuildTool,even);
-	gCreateStringPropertyEditable(tPanel,L"ADB",&this->AndroidDebugBridge,odd);
-	gCreateStringPropertyEditable(tPanel,L"Output Dir",&this->AndroidOutputDirectory,even);
-	gCreateStringPropertyEditable(tPanel,L"Project Dir",&this->AndroidProjectDirectory,odd);
-	gCreateStringPropertyEditable(tPanel,L"Jni Dir",&this->AndroidProjectJniDirectory,even);
-	gCreateStringPropertyEditable(tPanel,L"Asset Dir",&this->AndroidProjectAssetDirectory,odd);
-	gCreateStringPropertyEditable(tPanel,L"Res Directory",&this->AndroidProjectResDirectory,even);
-	gCreateStringPropertyEditable(tPanel,L"Libs Dir",&this->AndroidProjectLibsDirectory,odd);
+	AndroidPluginGlobalFunctions::globalAndroidPluginCreateTextBoxProperty(tPanel,L"Apk Name",&this->Apkname,even);															
+	AndroidPluginGlobalFunctions::globalAndroidPluginCreateTextBoxProperty(tPanel,L"Key Name",&this->Keyname,odd);
+	this->sdkDirProperty=AndroidPluginGlobalFunctions::globalAndroidPluginCreatePathProperty(tPanel,L"SdkDir",&this->AndroidSdkDir,even);
+	this->sdkPlatform=AndroidPluginGlobalFunctions::globalAndroidPluginCreateComboBoxProperty(tPanel,L"Platform",&this->AndroidPlatform,odd);
+	this->sdkBuildtool=AndroidPluginGlobalFunctions::globalAndroidPluginCreateComboBoxProperty(tPanel,L"Build Tools",&this->AndroidBuildTool,even);
+	AndroidPluginGlobalFunctions::globalAndroidPluginCreatePathProperty(tPanel,L"ADB",&this->AndroidDebugBridge,odd);
+	AndroidPluginGlobalFunctions::globalAndroidPluginCreatePathProperty(tPanel,L"Output Dir",&this->AndroidOutputDirectory,even);
+
+	sdkDirProperty->property->func=AndroidPluginGlobalFunctions::globalAndroidPluginFindPlatformDirectories;
+	sdkDirProperty->property->param=this;
 
 	//buttons
 
-	this->exitButton=new GuiButtonFunc();
+	this->exitButton=new GuiButton;
 	this->exitButton->text=L"Exit";
 	this->exitButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
 	this->exitButton->offsets.make(-35,5,-5,25);
@@ -103,15 +108,13 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->exitButton->colorHovering=0x989898;
 	this->exitButton->colorPressing=0xa8a8a8;
 
-	this->exitButton->func=ptfExitBuild;
-	this->exitButton->param=this;
+	this->exitButton->func=AndroidPluginGlobalFunctions::globalExitButton;
 
 	this->exitButton->SetParent(&this->configurationPanel->rectsLayered);
 
 	//button build
 
-
-	this->buildButton=new GuiButtonFunc();
+	this->buildButton=new GuiButton;
 	this->buildButton->text=L"Build";
 	this->buildButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
 	this->buildButton->offsets.make(-75,5,-40,25);
@@ -120,8 +123,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	this->buildButton->colorHovering=0x989898;
 	this->buildButton->colorPressing=0xa8a8a8;
 
-	this->buildButton->func=ptfCompileAndroidBuild;
-	this->buildButton->param=this;
+	this->buildButton->func=AndroidPluginGlobalFunctions::globalCompileButton;
 
 	this->buildButton->SetParent(&this->configurationPanel->rectsLayered);
 
@@ -131,86 +133,35 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 PluginSystem::Plugin* GetPlugin(PluginSystem*)
 {
-	allocatedAndroidPlugin=new AndroidPlugin;
-	return allocatedAndroidPlugin;
+	globalAllocatedAndroidPlugin=new AndroidPlugin;
+	return globalAllocatedAndroidPlugin;
 }
 void DestroyPlugin()
 {
-	SAFEDELETE(allocatedAndroidPlugin);
+	SAFEDELETE(globalAllocatedAndroidPlugin);
 }
 
 
-void gPackNonScriptResourceDir(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources)
+
+
+
+void AndroidPluginGlobalFunctions::globalCompileAndroidApk(AndroidPlugin* iAndroidPlugin)
 {
-	//store current dir
+	String& tApkname=iAndroidPlugin->Apkname;
+	String& tKeyname=iAndroidPlugin->Keyname;
 
-	if(iResDir->parent)
-	{
-		iCurrentDirectory+=iResDir->fileName.c_str();
-		iCurrentDirectory+=L"\\";
-	}
+	String& tAndroidSdkDir=iAndroidPlugin->AndroidSdkDir;
+	String& tAndroidDebugBridge=iAndroidPlugin->AndroidDebugBridge;
 
-	//if node contains files, process them, later process other dir nodes
+	String& tAndroidOutputDirectory=iAndroidPlugin->AndroidOutputDirectory;
 
-	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
-	{
-		File	tDataFile(Ide::GetInstance()->folderProject + iCurrentDirectory + (*tResFile)->fileName);
-		int		tDataFileStart;
-		size_t	tDataFileSize;
-		String	tFinalFileName;
+	String  tAndroidPlatform=tAndroidSdkDir + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory + L"\\" + iAndroidPlugin->AndroidPlatform;
+	String  tAndroidBuildTool=tAndroidSdkDir + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory + L"\\" + iAndroidPlugin->AndroidBuildTool;
 
-		if(tDataFile.path.Extension()==L"cpp")
-		{
-			//add sources to vector, later we'll build
-			iCollectSources.push_back(tDataFile.path);
-		}
-		else
-		{
-			tDataFileSize=tDataFile.Size();
-
-			if(tDataFile.Open())
-			{
-				tDataFileStart=ftell(iPackFile.data);
-
-				if(tDataFileSize)
-				{
-					unsigned char* tDataFileData=new unsigned char[tDataFileSize];
-					fread(tDataFileData,tDataFileSize,1,tDataFile.data);
-					fwrite(tDataFileData,tDataFileSize,1,iPackFile.data);
-					SAFEDELETEARRAY(tDataFileData);
-				}
-
-				tDataFile.Close();
-			}
-			else
-				DEBUG_BREAK();
-
-			tFinalFileName=iCurrentDirectory + tDataFile.path.File();
-
-			fwprintf(iTableFile.data,L"%s %d %d\n",tFinalFileName.c_str(),tDataFileStart,tDataFileSize);
-		}
-	}
-
-	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
-		gPackNonScriptResourceDir(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
-}
-
-
-bool CompilerAndroid::Compile()
-{
-	String tApkname=L"Engine";
-	String tKeyname=L"EngineKey";
-
-	String tAndroidSdkDir=L"C:\\Sdk\\android\\android-sdk";
-	String tAndroidPlatform=L"platforms\\android-27";
-	String tAndroidBuildTool=L"build-tools\\27.0.3";
-	String tAndroidDebugBridge=L"c:\\adb\\adb.exe";
-
-	String tAndroidOutputDirectory=Ide::GetInstance()->folderProject.PathUp(1) + L"\\android";
-	String tAndroidProjectDirectory=tAndroidOutputDirectory + L"\\project";
-	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + L"\\jni";
-	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + L"\\assets";
-	String tAndroidProjectResDirectory=tAndroidProjectDirectory + L"\\res";
+	String  tAndroidProjectDirectory=tAndroidOutputDirectory + L"\\project";
+	String  tAndroidProjectJniDirectory=tAndroidProjectDirectory + L"\\jni";
+	String  tAndroidProjectAssetDirectory=tAndroidProjectDirectory + L"\\assets";
+	String  tAndroidProjectResDirectory=tAndroidProjectDirectory + L"\\res";
 
 	String tAndroidProjectLibsDirectory=tAndroidProjectDirectory + L"\\libs\\armeabi-v7a";
 
@@ -221,28 +172,28 @@ bool CompilerAndroid::Compile()
 	String							tResourceDirectory=L"\\";
 
 	{
-		SECURITY_ATTRIBUTES sa={sizeof(SECURITY_ATTRIBUTES),0,false};
+		Subsystem* tSubsystem=Ide::GetInstance()->subsystem;
 
 		//create output directory
 
-		::CreateDirectory(tAndroidOutputDirectory.c_str(),&sa);
+		tSubsystem->CreateDirectory(tAndroidOutputDirectory);
 
 		//create android project directory
 
-		::CreateDirectory(tAndroidProjectDirectory.c_str(),&sa);
+		tSubsystem->CreateDirectory(tAndroidProjectDirectory);
 
 		//create android asset directory
 
-		::CreateDirectory(tAndroidProjectAssetDirectory.c_str(),&sa);
+		tSubsystem->CreateDirectory(tAndroidProjectAssetDirectory);
 
 		//create android jni project directory
 
-		::CreateDirectory(tAndroidProjectJniDirectory.c_str(),&sa);
+		tSubsystem->CreateDirectory(tAndroidProjectJniDirectory);
 
 		//create android res project directory
 
-		::CreateDirectory(tAndroidProjectResDirectory.c_str(),&sa);
-		::CreateDirectory((tAndroidProjectResDirectory + L"\\values").c_str(),&sa);
+		tSubsystem->CreateDirectory(tAndroidProjectResDirectory);
+		tSubsystem->CreateDirectory(tAndroidProjectResDirectory + L"\\values");
 	}
 
 	//pack data and table
@@ -261,7 +212,7 @@ bool CompilerAndroid::Compile()
 
 		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);
 
-		gPackNonScriptResourceDir(tResourceDirectory,tGuiProjectViewer[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
+		AndroidPluginGlobalFunctions::globalPackResources(tResourceDirectory,tGuiProjectViewer[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
 		tPackFile.Close();
 		tTableFile.Close();
@@ -403,8 +354,8 @@ bool CompilerAndroid::Compile()
 	//aapt add will register all file path, so call from current dir to avoid full path recording
 
 	String tBuildApk=   L"@echo off\n"
-		L"set PLATFORM=" + tAndroidSdkDir + L"\\" + tAndroidPlatform + L"\n"
-		L"set BUILDTOOL=" + tAndroidSdkDir + L"\\" + tAndroidBuildTool + L"\n"
+		L"set PLATFORM=" + tAndroidPlatform + L"\n"
+		L"set BUILDTOOL=" + tAndroidBuildTool + L"\n"
 		L"set LIBDIR=" + Ide::GetInstance()->compiler->ideLibPath + L"\n"
 		L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
 		L"set ADB=" + tAndroidDebugBridge + L"\n"
@@ -451,6 +402,141 @@ bool CompilerAndroid::Compile()
 
 	Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
 
+}
 
-	return true;
+
+
+
+
+GuiProperty<GuiComboBox>* AndroidPluginGlobalFunctions::globalAndroidPluginCreateComboBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
+{
+	GuiProperty<GuiComboBox>* pProp=iPanel->Property<GuiComboBox>(iLabel);
+
+	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
+
+	pProp->description->SetAllColors(GuiRect::COLOR_BACK+iColor);
+	pProp->description->margins.x=10;
+
+	pProp->property->string->SetStringMode(*iRef,true);
+	pProp->property->string->textColor=0x000000;
+
+	return pProp;
+}
+
+GuiProperty<GuiPath>* AndroidPluginGlobalFunctions::globalAndroidPluginCreatePathProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
+{
+	GuiProperty<GuiPath>* pProp=iPanel->Property<GuiPath>(iLabel);
+
+	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
+
+	pProp->description->SetAllColors(GuiRect::COLOR_BACK+iColor);
+	pProp->description->margins.x=10;
+
+	pProp->property->path->SetStringMode(*iRef,true);
+	pProp->property->path->textColor=0x000000;
+
+	return pProp;
+}
+
+void AndroidPluginGlobalFunctions::globalAndroidPluginCreateTextBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
+{
+	GuiProperty<GuiTextBox>* pProp=iPanel->Property<GuiTextBox>(iLabel);
+
+	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
+
+	pProp->description->SetAllColors(GuiRect::COLOR_BACK+iColor);
+	pProp->description->margins.x=10;
+
+	pProp->property->SetStringMode(*iRef,true);
+	pProp->property->offsets.make(0,2,0,-2);
+	pProp->property->textColor=0x000000;
+}
+
+void AndroidPluginGlobalFunctions::globalAndroidPluginFindPlatformDirectories(void* iData)
+{
+	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)iData;
+
+	String tSdkDirectory=tAndroidPlugin->sdkDirProperty->property->path->text;
+
+	std::vector<String> tPlatformsDirs;
+	std::vector<String> tBuildtoolDirs;
+
+	tPlatformsDirs=Ide::GetInstance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory);
+	tBuildtoolDirs=Ide::GetInstance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory);
+
+	tAndroidPlugin->sdkPlatform->property->items=tPlatformsDirs;
+	tAndroidPlugin->sdkBuildtool->property->items=tBuildtoolDirs;
+
+	tAndroidPlugin->sdkPlatform->property->RecreateList();
+	tAndroidPlugin->sdkBuildtool->property->RecreateList();
+}
+
+
+void AndroidPluginGlobalFunctions::globalPackResources(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources)
+{
+	//store current dir
+
+	if(iResDir->parent)
+	{
+		iCurrentDirectory+=iResDir->fileName.c_str();
+		iCurrentDirectory+=L"\\";
+	}
+
+	//if node contains files, process them, later process other dir nodes
+
+	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
+	{
+		File	tDataFile(Ide::GetInstance()->folderProject + iCurrentDirectory + (*tResFile)->fileName);
+		int		tDataFileStart;
+		size_t	tDataFileSize;
+		String	tFinalFileName;
+
+		if(tDataFile.path.Extension()==L"cpp")
+		{
+			//add sources to vector, later we'll build
+			iCollectSources.push_back(tDataFile.path);
+		}
+		else
+		{
+			tDataFileSize=tDataFile.Size();
+
+			if(tDataFile.Open())
+			{
+				tDataFileStart=ftell(iPackFile.data);
+
+				if(tDataFileSize)
+				{
+					unsigned char* tDataFileData=new unsigned char[tDataFileSize];
+					fread(tDataFileData,tDataFileSize,1,tDataFile.data);
+					fwrite(tDataFileData,tDataFileSize,1,iPackFile.data);
+					SAFEDELETEARRAY(tDataFileData);
+				}
+
+				tDataFile.Close();
+			}
+			else
+				DEBUG_BREAK();
+
+			tFinalFileName=iCurrentDirectory + tDataFile.path.File();
+
+			fwprintf(iTableFile.data,L"%s %d %d\n",tFinalFileName.c_str(),tDataFileStart,tDataFileSize);
+		}
+	}
+
+	for(std::list<ResourceNodeDir*>::iterator tResNodeDir=iResDir->dirs.begin();tResNodeDir!=iResDir->dirs.end();tResNodeDir++)
+	{
+		AndroidPluginGlobalFunctions::globalPackResources(iCurrentDirectory,*tResNodeDir,iPackFile,iTableFile,iAndroidTargetDirectory,iCollectSources);
+		iCurrentDirectory=FilePath(iCurrentDirectory).PathUp(2) + L"\\";
+	}
+}
+
+void AndroidPluginGlobalFunctions::globalCompileButton(void* tData)
+{
+	AndroidPluginGlobalFunctions::globalCompileAndroidApk(globalAllocatedAndroidPlugin);
+}
+
+void AndroidPluginGlobalFunctions::globalExitButton(void* tData)
+{
+	globalAllocatedAndroidPlugin->configurationPanel->Destroy();
+	Ide::GetInstance()->mainAppWindow->mainContainer->windowData->Enable(true);
 }
