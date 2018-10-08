@@ -7,6 +7,7 @@ struct DLLBUILD Entity;
 struct DLLBUILD Cluster;
 struct DLLBUILD Bone;
 struct DLLBUILD EntityScript;
+struct DLLBUILD AnimationController;
 
 struct DLLBUILD Renderer3DBase;
 struct DLLBUILD Shader;
@@ -140,7 +141,16 @@ struct DLLBUILD Serializer
 	static const int Entity=12;
 	static const int Material=13;
 	static const int Texture=14;
+	static const int Line=14;
+	static const int Skin=15;
 	static const int Unknown=0xffffffff;
+
+	enum Mode
+	{
+		MODE_SAVE=0,
+		MODE_LOAD,
+		MODE_UNKNOWN
+	};
 };
 
 enum EEntity
@@ -317,8 +327,8 @@ struct DLLBUILD Material
 
 struct DLLBUILD Influence
 {
-	int		*cpIdx;
-	int		nCpIdx;
+	unsigned int		*controlpointindex;
+	unsigned int		ncontrolpointindex;
 	float	weight;
 
 	Influence();
@@ -329,8 +339,8 @@ struct DLLBUILD Cluster
 {
 	Entity* bone;
 
-	Influence	*influences;
-	int			ninfluences;
+	Influence		*influences;
+	unsigned int	ninfluences;
 
 	mat4		offset;
 
@@ -340,7 +350,7 @@ struct DLLBUILD Cluster
 struct DLLBUILD Keyframe
 {
 	Keyframe();
-	float		 time;
+	float time;
 	float value;
 };
 
@@ -390,7 +400,7 @@ struct DLLBUILD Entity : EntityBase
 {
 	Entity*					parent;
 
-	std::vector<EntityComponent*> components;
+	std::list<EntityComponent*> components;
 	std::list<Entity*> childs;
 
 	mat4					local;
@@ -417,10 +427,10 @@ struct DLLBUILD Entity : EntityBase
 
 	template<class C> C* findComponent()
 	{
-		for(int i=0;i<(int)this->components.size();i++)
+		for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		{
-			if(dynamic_cast<C*>(this->components[i]))
-				return (C*)this->components[i];
+			if(dynamic_cast<C*>(*it))
+				return (C*)*it;
 		}
 
 		return 0;
@@ -430,10 +440,10 @@ struct DLLBUILD Entity : EntityBase
 	{
 		std::vector<C*> vecC;
 
-		for(int i=0;i<(int)this->components.size();i++)
+		for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		{
-			if(dynamic_cast<C*>(this->components[i]))
-				vecC.push_back((C*)this->components[i]);
+			if(dynamic_cast<C*>(*it))
+				vecC.push_back((C*)*it);
 		}
 
 		return vecC;
@@ -450,17 +460,20 @@ struct DLLBUILD Skeleton : EntityComponent
 
 struct DLLBUILD Animation : EntityComponent
 {
-	Animation();
-	~Animation();
-
-	Entity* entity;
-
+	AnimationController*    animationController;
+	unsigned int			animationControllerId;
+	
 	std::vector<AnimClip*> clips;
 
 	float	start;
 	float	end;
 
 	int index;
+
+	//Entity* entity;
+
+	Animation();
+	~Animation();
 };
 
 struct DLLBUILD Gizmo : EntityComponent
@@ -469,24 +482,33 @@ struct DLLBUILD Gizmo : EntityComponent
 
 struct DLLBUILD AnimationController : EntityComponent
 {
+	static AnimationController* GetById(unsigned int);
+	static unsigned int GetCount();
+	static unsigned int NormalizeIds();
+	static unsigned int GetFreeId();
+
+	unsigned int id;
+
 	std::vector<Animation*> animations;
 
 	float speed;
 	float cursor;
+
 	bool play;
 	bool looped;
 
 	float start;
 	float end;
 
-	int resolutionFps;
-
-	int frameTime;
+	unsigned int framesPerSecond;
+	unsigned int frameTime;
 
 	AnimationController();
 	~AnimationController();
 
-	void add(Animation* anim);
+	void AddAnimation(Animation*);
+
+	void SetId(unsigned int);
 
 	void Stop();
 	void Play();
@@ -546,23 +568,19 @@ struct DLLBUILD Mesh : EntityComponent
 	Mesh();
 	~Mesh();
 
+	unsigned int	  ncontrolpoints;
+	unsigned int	  nvertexindices;
+	unsigned int	  ntexcoord;
+	unsigned int	  nnormals;
+	unsigned int	  npolygons;
+
 	float (*controlpoints)[3];
-	int	  ncontrolpoints;
 
 	unsigned int *vertexindices;
-	int	  nvertexindices;
 
 	float (*texcoord)[2];
-	int	  ntexcoord;
-
 	float (*normals)[3];
-	int	  nnormals;
-
-	float (*colors)[3];
-	int	  ncolors;
-
-	int	  npolygons;
-
+	
 	bool  isCCW;
 
 	std::vector<Material*> materials;
@@ -594,20 +612,17 @@ struct DLLBUILD EntityScript
 
 struct DLLBUILD Skin : Mesh
 {
+	unsigned int	nclusters;
+	unsigned int	ntextures;
+
+	Texture			*textures;
+	Cluster			*clusters;
+
+	float			*vertexcache;
+
 	Skin();
 
 	virtual void		update();
-
-
-	Texture	    *textures;
-	int			ntextures;
-
-	Cluster		*clusters;
-	int			nclusters;
-
-
-	float*	    vertexcache;
-
 	void draw(Renderer3DBase*);
 };
 

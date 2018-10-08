@@ -16,6 +16,12 @@
 	delete [] _ptr;\
 	_ptr=0;}\
 
+#define GLOBALGETTERFUNC(funcName,globalVarName,returnType) \
+	DLLBUILD returnType funcName() \
+	{ \
+	return globalVarName; \
+	} 
+
 
 #include <vector>
 #include <list>

@@ -28,7 +28,7 @@ String FilePath::Name()
 	size_t tLast=this->rfind('.');
 
 	if(tFirst<tLast && tFirst!=std::string::npos && tLast!=std::string::npos && ++tFirst<this->size())
-		return String(*this,tFirst,tLast);
+		return String(*this,tFirst,tLast-tFirst);
 
 	return String();
 }

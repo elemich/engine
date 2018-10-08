@@ -5,6 +5,16 @@
 #include <cstdlib>
 
 
+///////////////////////////////
+///////////////////////////////
+////////////globals////////////
+///////////////////////////////
+///////////////////////////////
+
+std::list<AnimationController*> globalAnimationControllers;
+
+GLOBALGETTERFUNC(GlobalAnimationControllersInstance,globalAnimationControllers,std::list<AnimationController*>&);
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -464,7 +474,7 @@ Shader* Shader::Find(const char* iNameToFind,bool iExact)
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////////////////////////////////////
+/////////////////Keyframe///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
@@ -472,16 +482,28 @@ Shader* Shader::Find(const char* iNameToFind,bool iExact)
 Keyframe::Keyframe():time(0.0f),value(0){}
 
 Influence::Influence():
-cpIdx(0),
-	nCpIdx(0),
+controlpointindex(0),
+	ncontrolpointindex(0),
 	weight(0.0f)
 {}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////Cluster////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 Cluster::Cluster():
 bone(0),
 	influences(NULL),
 	ninfluences(0)
 {}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+/////////////////KeyCurve////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 KeyCurve::KeyCurve():
 	channel(INVALID_CHANNEL),
@@ -493,6 +515,11 @@ KeyCurve::~KeyCurve()
 {
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////AnimClip///////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 AnimClip::AnimClip():
 	start(-1),
@@ -501,8 +528,18 @@ AnimClip::AnimClip():
 
 AnimClip::~AnimClip(){}
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////Animation////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+
+
 Animation::Animation():
-	entity(0),
+	//entity(0),
+	animationController(0),
+	animationControllerId(-1),
 	index(0),
 	start(-1),
 	end(-1)
@@ -511,6 +548,12 @@ Animation::Animation():
 Animation::~Animation()
 {
 }
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////AnimationController////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 void copychannel(EChannel channel,float& val,float* poff,float* roff,float* soff)
 {
@@ -543,8 +586,52 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 	float x2 = x * x;
 	float x3 = x2 * x;
 
-
 	return P * x3 + Q * x2 + R * x + S;
+}
+
+AnimationController* AnimationController::GetById(unsigned int iId)
+{
+	for(std::list<AnimationController*>::iterator it=GlobalAnimationControllersInstance().begin();it!=GlobalAnimationControllersInstance().end();it++)
+	{	
+		if((*it)->id==iId)
+			return *it;
+	}
+
+	return false;
+}
+
+unsigned int AnimationController::GetCount()
+{
+	return GlobalAnimationControllersInstance().size();
+}
+
+unsigned int AnimationController::GetFreeId()
+{
+	unsigned int tId=0;
+
+	for(std::list<AnimationController*>::iterator iterAnimationController=GlobalAnimationControllersInstance().begin();iterAnimationController!=GlobalAnimationControllersInstance().end();iterAnimationController++)
+	{
+		AnimationController* tAnimationController=*iterAnimationController;
+
+		if(tId=!tAnimationController->id)
+			return tId;
+		
+		tId++;
+	}
+}
+
+unsigned int AnimationController::NormalizeIds()
+{
+	unsigned int tId=0;
+
+	for(std::list<AnimationController*>::iterator iterAnimationController=GlobalAnimationControllersInstance().begin();iterAnimationController!=GlobalAnimationControllersInstance().end();iterAnimationController++)
+	{
+		(*iterAnimationController)->SetId(tId);
+
+		tId++;
+	}
+
+	return tId;
 }
 
 AnimationController::AnimationController():
@@ -555,26 +642,44 @@ AnimationController::AnimationController():
 	start(0),
 	end(0),
 	frameTime(0),
-	resolutionFps(60)
-{}
+	framesPerSecond(60),
+	id(-1)
+{
+	GlobalAnimationControllersInstance().push_back(this);
+}
 
-AnimationController::~AnimationController(){}
+AnimationController::~AnimationController()
+{
+	GlobalAnimationControllersInstance().remove(this);
+}
 
 
-void AnimationController::add(Animation* anim)
+void AnimationController::SetId(unsigned int iId)
+{
+	this->id=iId;
+
+	for(std::vector<Animation*>::iterator iterAnimation=this->animations.begin();iterAnimation!=this->animations.end();iterAnimation++)
+	{
+		(*iterAnimation)->animationControllerId=this->id;
+	}
+}
+
+void AnimationController::AddAnimation(Animation* iAnimation)
 {
 	if(this->animations.empty())
 	{
-		this->start=anim->start;
-		this->end=anim->end;
+		this->start=iAnimation->start;
+		this->end=iAnimation->end;
 	}
 
-	this->animations.push_back(anim);
+	this->animations.push_back(iAnimation);
+	iAnimation->animationController=this;
+	iAnimation->animationControllerId=this->id;
 
 	if(!this->animations.empty())
 	{
-		this->start=anim->start>this->start ? anim->start : this->start;
-		this->end=anim->end<this->end ? anim->end : this->end;
+		this->start=iAnimation->start>this->start ? iAnimation->start : this->start;
+		this->end=iAnimation->end<this->end ? iAnimation->end : this->end;
 	}
 }
 
@@ -738,8 +843,14 @@ Line::~Line()
 
 void Line::draw(Renderer3DBase* renderer3d)
 {
-	for(std::list<vec3>::iterator i=this->points.begin(),j=i++;i!=this->points.end() && j!=this->points.end();i++,j++)
-		renderer3d->draw(*i,*j,vec3(1,1,1));
+	for(std::list<vec3>::iterator i=this->points.begin(),j;i!=this->points.end();i++)
+	{
+		j=i;
+		std::advance(j,1);
+
+		if(j!=this->points.end())
+			renderer3d->draw(*i,*j,vec3(1,1,1));
+	}
 }
 
 ///////////////////////////////////////////////
@@ -806,17 +917,18 @@ void Material::update(){};
 ///////////////////////////////////////////////
 
 Mesh::Mesh():
-	controlpoints(NULL),
 	ncontrolpoints(0),
-	vertexindices(0),
 	nvertexindices(0),
-	texcoord(0),
 	ntexcoord(0),
-	normals(NULL),
 	nnormals(0),
 	npolygons(0),
-	colors(NULL),
-	ncolors(0),
+
+	controlpoints(0),
+	vertexindices(0),
+	texcoord(0),
+	normals(0),
+	
+	
 	isCCW(true)
 {}
 
@@ -837,11 +949,11 @@ void Mesh::draw(Renderer3DBase* renderer3d)
 
 
 Skin::Skin():
-textures(NULL),
+	textures(0),
 	ntextures(0),
-	clusters(NULL),
+	clusters(0),
 	nclusters(0),
-	vertexcache(NULL)
+	vertexcache(0)
 {
 }
 
@@ -880,8 +992,8 @@ void Skin::update()
 		{
 			Influence &inf=clu->influences[nw];
 
-			src=this->controlpoints[inf.cpIdx[0]];
-			dst=&this->vertexcache[inf.cpIdx[0]*3];
+			src=this->controlpoints[inf.controlpointindex[0]];
+			dst=&this->vertexcache[inf.controlpointindex[0]*3];
 
 			if(inf.weight!=1.0f)
 			{
@@ -889,11 +1001,11 @@ void Skin::update()
 
 				Matrix::transform(v,skinmtx1,src);
 
-				wcache[inf.cpIdx[0]][0]+=v[0]*inf.weight;
-				wcache[inf.cpIdx[0]][1]+=v[1]*inf.weight;
-				wcache[inf.cpIdx[0]][2]+=v[2]*inf.weight;
+				wcache[inf.controlpointindex[0]][0]+=v[0]*inf.weight;
+				wcache[inf.controlpointindex[0]][1]+=v[1]*inf.weight;
+				wcache[inf.controlpointindex[0]][2]+=v[2]*inf.weight;
 
-				memcpy(dst,wcache[inf.cpIdx[0]],3*sizeof(float));
+				memcpy(dst,wcache[inf.controlpointindex[0]],3*sizeof(float));
 			}
 			else
 			{
@@ -902,9 +1014,9 @@ void Skin::update()
 
 			//dst=this->entity->local.transform(dst);
 
-			for(int i=1;i<inf.nCpIdx;i++)
+			for(int i=1;i<inf.ncontrolpointindex;i++)
 			{
-				memcpy(&this->vertexcache[inf.cpIdx[i]*3],dst,3*sizeof(float));
+				memcpy(&this->vertexcache[inf.controlpointindex[i]*3],dst,3*sizeof(float));
 
 			}
 		}
@@ -1016,7 +1128,7 @@ Entity::~Entity()
 {
 	this->SetParent(0);
 
-	for(std::vector<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();tCom++)
+	for(std::list<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();tCom++)
 		SAFEDELETE(*tCom);
 
 	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
@@ -1037,7 +1149,7 @@ void Entity::SetParent(Entity* iParent)
 
 void Entity::update()
 {
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
+	for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		(*it)->update();
 
 	this->parent ? this->world=(this->local * this->parent->world) : this->world;
@@ -1050,7 +1162,7 @@ void Entity::draw(Renderer3DBase* renderer)
 {
 	renderer->draw(this->local.position(),5,vec3(1,1,1));
 
-	for(std::vector<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
+	for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		(*it)->draw(renderer);
 
 	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
@@ -1064,3 +1176,13 @@ void Entity::draw(Renderer3DBase* renderer)
 ///////////////////////////////////////////////
 
 Scene::Scene():entityRoot(0){}
+
+
+
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+//////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+

@@ -71,15 +71,15 @@ void DestroyPlugin()
 
 
 
-FbxManager* fbxManager=0;
-const char* sceneFilename=0;
+FbxManager* globalFbxManager=0;
+const char* globalSceneFilename=0;
 
-std::map<FbxNode*,EditorEntity*>				mapFromNodeToEntity;
-std::map<FbxNode*,AnimationController*> mapFromNodeToAnimationController;
-std::map<FbxSurfaceMaterial*,Material*>	mapFromFbxMaterialToMaterial;
-std::map<FbxTexture*,Texture*>			mapFromFbxTextureToTexture;
+std::map<FbxNode*,EditorEntity*>				globalMapFromNodeToEntity;
+std::map<FbxNode*,AnimationController*> globalMapFromNodeToAnimationController;
+std::map<FbxSurfaceMaterial*,Material*>	globalMapFromFbxMaterialToMaterial;
+std::map<FbxTexture*,Texture*>			globalMapFromFbxTextureToTexture;
 
-EditorEntity* rootNode=0;
+EditorEntity* globalRootEntity=0;
 
 #define GENERATE_MISSING_KEYS 0
 #define GENERATE_INDEXED_GEOMETRY 1
@@ -190,83 +190,64 @@ FbxAMatrix GetGeometry(FbxNode* pNode)
 }
 
 
-EditorEntity* acquireNodeStructure(FbxNode* fbxNode,EditorEntity* parent)
+EditorEntity* acquireNodeStructure(FbxNode* iFbxNode,EditorEntity* iEntityParent)
 {
-	EditorEntity* entity=0;
+	EditorEntity* tEntity=new EditorEntity;
 
-	Bone* bone=0;
-
-	if(!parent)//create the root and add a child to it
+	if(!iEntityParent)//create the root and add a child to it
 	{
-		rootNode=entity=new EditorEntity;
-		
-		const char* begin=strrchr(sceneFilename,'\\');
-		const char* end=strrchr(begin,'.');
+		globalRootEntity=tEntity;
 
-		const char* bPtr=begin++;
-
-		int i=0;
-		while(++bPtr!=end)i++;
-
-		entity->name=StringUtils::ToWide(std::string(begin,i));
-
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(fbxNode,entity));
-	
-	}
-	else
-	{
-		entity=new EditorEntity;
-		mapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(fbxNode,entity));
+		tEntity->name=FilePath(StringUtils::ToWide(globalSceneFilename)).Name();
 	}
 	
+	globalMapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(iFbxNode,tEntity));
 
-	if(entity)
-	{
+	tEntity->OnPropertiesCreate();
 		
-		if(parent && !entity->name.size())
-			entity->name=StringUtils::ToWide(fbxNode->GetName());
+	if(iEntityParent && !tEntity->name.size())
+		tEntity->name=StringUtils::ToWide(iFbxNode->GetName());
 
-		entity->local=GetMatrix(fbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
+	tEntity->local=GetMatrix(iFbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
 
-		ExtractAnimations(fbxNode,entity);
-		entity->SetParent(parent);
+	ExtractAnimations(iFbxNode,tEntity);
+	tEntity->SetParent(iEntityParent);
 
-		if(fbxNode->GetScene()->GetRootNode()==fbxNode)
+	if(iFbxNode->GetScene()->GetRootNode()==iFbxNode)
+	{
+		FbxAxisSystem as=iFbxNode->GetScene()->GetGlobalSettings().GetAxisSystem();
+
+		int sign;
+
+		vec3 axes;
+
+		switch(as.GetUpVector(sign))
 		{
-			FbxAxisSystem as=fbxNode->GetScene()->GetGlobalSettings().GetAxisSystem();
-
-			int sign;
-
-			vec3 axes;
-
-			switch(as.GetUpVector(sign))
-			{
-			case FbxAxisSystem::eXAxis:
-				entity->local.rotate((float)sign * 90,0,0,1);
-				printf("upVector is X\n");
-				break;
-			case FbxAxisSystem::eYAxis:
-				entity->local.rotate(-90.0f,1,0,0);
-				printf("upVector is Y\n");
-				break;
-			case FbxAxisSystem::eZAxis:
+		case FbxAxisSystem::eXAxis:
+			tEntity->local.rotate((float)sign * 90,0,0,1);
+			printf("upVector is X\n");
+			break;
+		case FbxAxisSystem::eYAxis:
+			tEntity->local.rotate(-90.0f,1,0,0);
+			printf("upVector is Y\n");
+			break;
+		case FbxAxisSystem::eZAxis:
 				
-				/*axes=entity->local.axis(1,0,0);
-				entity->local.rotate((float)sign * 90,axes);*/
-				printf("upVector is Z\n");
-				break;
-			}
+			/*axes=entity->local.axis(1,0,0);
+			entity->local.rotate((float)sign * 90,axes);*/
+			printf("upVector is Z\n");
+			break;
 		}
-
-		entity->world = entity->parent ? (entity->local * entity->parent->world) : entity->local;
 	}
 
-	return entity;
+	tEntity->world = tEntity->parent ? (tEntity->local * tEntity->parent->world) : tEntity->local;
+
+	return tEntity;
 }
 
 EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 {
-	EditorEntity* entity=mapFromNodeToEntity[fbxNode];
+	EditorEntity* entity=globalMapFromNodeToEntity[fbxNode];
 
 	if(!entity)
 		return 0;
@@ -324,7 +305,7 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 
 		for(int i=0;i<fbxNode->GetMaterialCount();i++)
 		{
-			Material* material=(Material*)mapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
+			Material* material=(Material*)globalMapFromFbxMaterialToMaterial.at(fbxNode->GetMaterial(i));
 
 			if(!material)
 				DEBUG_BREAK();
@@ -432,17 +413,19 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 			animation->end=animEnd;
 			ParseAnimationCurve(animation);
 
-			AnimationController *animController=rootNode->findComponent<AnimationController>();
+			AnimationController *animController=globalRootEntity->findComponent<AnimationController>();
 
 			if(!animController)
-				animController=rootNode->CreateComponent<EditorAnimationController>();
-
+			{
+				animController=globalRootEntity->CreateComponent<EditorAnimationController>();
+				unsigned int tAnimationControllerFreeId=EditorAnimationController::GetFreeId();
+				animController->SetId(tAnimationControllerFreeId);
+			}
 			if(!animController)
 				DEBUG_BREAK();
 
 			if(animController)
-				animController->add(animation);
-				
+				animController->AddAnimation(animation);				
 		}
 	}
 }
@@ -455,7 +438,7 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 
 EditorEntity* Fbx::Import(const char* fname)
 {
-	rootNode=0;
+	globalRootEntity=0;
 
 	printf("Importing file %s\n",fname);
 
@@ -463,20 +446,20 @@ EditorEntity* Fbx::Import(const char* fname)
 	FbxImporter* fbxImporter=0;
 	FbxScene* fbxScene=0;
 
-	sceneFilename=fname;
+	globalSceneFilename=fname;
 
-	fbxManager=FbxManager::Create();
+	globalFbxManager=FbxManager::Create();
 
-	if(fbxManager)
-		fbxIOSettings = FbxIOSettings::Create(fbxManager, IOSROOT );
+	if(globalFbxManager)
+		fbxIOSettings = FbxIOSettings::Create(globalFbxManager, IOSROOT );
 
 	if(fbxIOSettings)
-		fbxManager->SetIOSettings(fbxIOSettings);
+		globalFbxManager->SetIOSettings(fbxIOSettings);
 
-	fbxImporter = FbxImporter::Create(fbxManager, "");
+	fbxImporter = FbxImporter::Create(globalFbxManager, "");
 
 	if(fbxImporter)
-		if(!fbxImporter->Initialize(fname, -1, fbxManager->GetIOSettings())) 
+		if(!fbxImporter->Initialize(fname, -1, globalFbxManager->GetIOSettings())) 
 		{
 			printf("Call to FbxImporter::Initialize() with %s failed.\n",fname);
 			printf("Error returned: %s\n", fbxImporter->GetStatus().GetErrorString());
@@ -484,7 +467,7 @@ EditorEntity* Fbx::Import(const char* fname)
 			return 0;
 		}
 
-	fbxScene = FbxScene::Create(fbxManager,"myScene");
+	fbxScene = FbxScene::Create(globalFbxManager,"myScene");
 
 	if(fbxScene)
 	{
@@ -513,13 +496,13 @@ EditorEntity* Fbx::Import(const char* fname)
 	if(fbxScene)fbxScene->Destroy(true);
 	if(fbxScene)fbxImporter->Destroy(true);
 	if(fbxScene)fbxIOSettings->Destroy(true);
-	if(fbxScene)fbxManager->Destroy();
+	if(fbxScene)globalFbxManager->Destroy();
 
-	mapFromNodeToEntity.clear();
-	mapFromFbxMaterialToMaterial.clear();
-	mapFromFbxTextureToTexture.clear();
+	globalMapFromNodeToEntity.clear();
+	globalMapFromFbxMaterialToMaterial.clear();
+	globalMapFromFbxTextureToTexture.clear();
 
-	return rootNode;
+	return globalRootEntity;
 }
 
 
@@ -627,7 +610,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 				
 				printf("error(polygon %d has %d vertices), retriangulate...",i,polygonSize);
 
-				FbxGeometryConverter triangulator(fbxManager);
+				FbxGeometryConverter triangulator(globalFbxManager);
 				triangulator.TriangulateInPlace(fbxNode);
 
 				printf("retriangulate ok...recheck...");
@@ -642,26 +625,25 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 
 	printf("done\n");
 
-	
-
 	int nLayers=fbxMesh->GetUVLayerCount();
 
 	mesh->npolygons=fbxMesh->GetPolygonCount();
 	mesh->ncontrolpoints=fbxMesh->GetControlPointsCount();
-	mesh->nvertexindices=fbxMesh->GetPolygonVertexCount();
 	mesh->ntexcoord=fbxMesh->GetTextureUVCount();
-
-	if(!mesh->nvertexindices)
-		DEBUG_BREAK();
 
 #if GENERATE_INDEXED_GEOMETRY
 	mesh->ntexcoord=mesh->npolygons*3;
 	mesh->nnormals=mesh->npolygons*3;
 	mesh->ncontrolpoints=mesh->npolygons*3;
+#else
+	mesh->nvertexindices=fbxMesh->GetPolygonVertexCount();
+	mesh->vertexindices=new unsigned int[mesh->nvertexindices];
+
+	if(!mesh->nvertexindices)
+		DEBUG_BREAK();
 #endif
 	
 	mesh->controlpoints=new float[mesh->ncontrolpoints][3];
-	mesh->vertexindices=new unsigned int[mesh->nvertexindices];
 	mesh->normals=new float[mesh->nnormals][3];
 	mesh->texcoord=new float[mesh->ntexcoord][2];
 
@@ -770,7 +752,7 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 		Cluster& cluster=(Cluster&)skin->clusters[i];
 
 
-		cluster.bone=mapFromNodeToEntity[fbxCluster->GetLink()];
+		cluster.bone=globalMapFromNodeToEntity[fbxCluster->GetLink()];
 
 		if(!cluster.bone)
 			continue;
@@ -813,15 +795,15 @@ void FillSkin(FbxNode* fbxNode,Skin* skin)
 		{
 			Influence& influence=cluster.influences[influenceIdx];
 
-			influence.nCpIdx=(int)finalIndices[influenceIdx].size();
+			influence.ncontrolpointindex=(int)finalIndices[influenceIdx].size();
 
-			if(!influence.nCpIdx)
+			if(!influence.ncontrolpointindex)
 				DEBUG_BREAK();
 
-			influence.cpIdx=new int[influence.nCpIdx];
+			influence.controlpointindex=new unsigned int[influence.ncontrolpointindex];
 
-			for(int i=0;i<influence.nCpIdx;i++)
-				influence.cpIdx[i]=finalIndices[influenceIdx][i];
+			for(int i=0;i<influence.ncontrolpointindex;i++)
+				influence.controlpointindex[i]=finalIndices[influenceIdx][i];
 
 			influence.weight=(float)weights[influenceIdx];
 		}
@@ -848,7 +830,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 		else
 			printf("failed open %s\n",texture->filename.c_str());
 
-		mapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxfiletexture,texture));
+		globalMapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxfiletexture,texture));
 	}
 
 	for(int i=0;i<lScene->GetSrcObjectCount<FbxLayeredTexture>();i++)
@@ -858,8 +840,8 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 
 		for(int j=0;j<fbxlayeredtexture->GetSrcObjectCount<FbxFileTexture>();j++)
 		{
-			layeredtexture->textures.push_back((Texture*)mapFromFbxTextureToTexture.at(fbxlayeredtexture->GetSrcObject<FbxFileTexture>(j)));
-			mapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxlayeredtexture,layeredtexture->textures[j]));
+			layeredtexture->textures.push_back((Texture*)globalMapFromFbxTextureToTexture.at(fbxlayeredtexture->GetSrcObject<FbxFileTexture>(j)));
+			globalMapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(fbxlayeredtexture,layeredtexture->textures[j]));
 		}
 	}
 
@@ -867,7 +849,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 	{
 		TextureProcedural* proceduraltexture=new TextureProcedural;
 
-		mapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(lScene->GetSrcObject<FbxProceduralTexture>(i),proceduraltexture));
+		globalMapFromFbxTextureToTexture.insert(std::pair<FbxTexture*,Texture*>(lScene->GetSrcObject<FbxProceduralTexture>(i),proceduraltexture));
 	}
 
 	////////////
@@ -906,7 +888,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 				material->freflection=(float)sp->ReflectionFactor.Get();
 			}
 
-			mapFromFbxMaterialToMaterial.insert(std::pair<FbxSurfaceMaterial*,Material*>(sl,material));
+			globalMapFromFbxMaterialToMaterial.insert(std::pair<FbxSurfaceMaterial*,Material*>(sl,material));
 
 			int foundtextures=0;
 			for(int j=0;j<FbxLayerElement::sTypeTextureCount;j++)
@@ -919,7 +901,7 @@ void ExtractTexturesandMaterials(FbxScene* lScene)
 
 				for (int k = 0; k < property.GetSrcObjectCount<FbxTexture>(); k++)
 				{
-					Texture* texture=(Texture*)mapFromFbxTextureToTexture.at(property.GetSrcObject<FbxTexture>(k));
+					Texture* texture=(Texture*)globalMapFromFbxTextureToTexture.at(property.GetSrcObject<FbxTexture>(k));
 
 					if(texture)
 						material->textures.push_back(texture);

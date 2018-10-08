@@ -6,10 +6,6 @@
 	#define AGGREGATECALL(Func,Arg) Func(&Arg)
 #endif
 
-#ifdef USEFBX
-	#include "fbxutil.h"
-#endif
-
 void ___saferelease(IUnknown* iPtr)
 {
 	if(0!=iPtr)
@@ -3622,9 +3618,12 @@ void TabWin32::SetCursor(int iCursorCode)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+extern std::list<GuiViewport*> globalViewports;
 
 GuiViewport::~GuiViewport()
 {
+	globalViewports.remove(this);
+
 	SAFERELEASE((ID2D1Bitmap*&)this->renderBitmap);
 }
 
@@ -3679,9 +3678,11 @@ void GuiViewport::Render(Tab* iTab)
 
 		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiEntityViewer>(tGuiEntityViewer);
 
+		EditorEntity* tEditorEntity;
+
 		for(std::vector<GuiEntityViewer*>::iterator it=tGuiEntityViewer.begin();it!=tGuiEntityViewer.end();it++)
 		{
-			EditorEntity* tEditorEntity=(EditorEntity*)(*it)->entity;
+			tEditorEntity=(EditorEntity*)(*it)->entity;
 
 			if(tEditorEntity && (*it)->tabContainer)
 				tEditorEntity->OnPropertiesUpdate((*it)->tabContainer);
@@ -4758,263 +4759,6 @@ bool CompilerWin32::UnloadScript(Script* iScript)
 
 	return true;
 }
-
-/*
-bool CompilerWin32::CreateAndroidTarget()
-{
-    String tApkname=L"Engine";
-    String tKeyname=L"EngineKey";
-
-    String tAndroidSdkDir=L"C:\\Sdk\\android\\android-sdk";
-    String tAndroidPlatform=L"platforms\\android-27";
-    String tAndroidBuildTool=L"build-tools\\27.0.3";
-    String tAndroidDebugBridge=L"c:\\adb\\adb.exe";
-
-	String tAndroidOutputDirectory=Ide::GetInstance()->folderProject.PathUp(1) + L"\\android";
-	String tAndroidProjectDirectory=tAndroidOutputDirectory + L"\\project";
-	String tAndroidProjectJniDirectory=tAndroidProjectDirectory + L"\\jni";
-	String tAndroidProjectAssetDirectory=tAndroidProjectDirectory + L"\\assets";
-    String tAndroidProjectResDirectory=tAndroidProjectDirectory + L"\\res";
-
-	String tAndroidProjectLibsDirectory=tAndroidProjectDirectory + L"\\libs\\armeabi-v7a";
-
-	std::vector<String>		        tSourcePaths;
-	std::vector<String>				tSourceFilesContent;
-	int								tPackFileSize=0;
-	int								tTableFileSize=0;
-	String							tResourceDirectory=L"\\";
-
-	{
-		SECURITY_ATTRIBUTES sa={sizeof(SECURITY_ATTRIBUTES),0,false};
-
-		//create output directory
-
-		::CreateDirectory(tAndroidOutputDirectory.c_str(),&sa);
-
-		//create android project directory
-
-		::CreateDirectory(tAndroidProjectDirectory.c_str(),&sa);
-
-		//create android asset directory
-
-		::CreateDirectory(tAndroidProjectAssetDirectory.c_str(),&sa);
-
-		//create android jni project directory
-
-		::CreateDirectory(tAndroidProjectJniDirectory.c_str(),&sa);
-
-		//create android res project directory
-
-		::CreateDirectory(tAndroidProjectResDirectory.c_str(),&sa);
-		::CreateDirectory((tAndroidProjectResDirectory + L"\\values").c_str(),&sa);
-	}
-
-	//pack data and table
-
-	File tPackFile(tAndroidProjectAssetDirectory + L"\\pack.pck");
-	File tTableFile(tAndroidProjectAssetDirectory + L"\\ptbl.txt");
-
-	tPackFile.Open(L"wb");
-	tTableFile.Open(L"wb");
-
-	if(tPackFile.IsOpen() && tTableFile.IsOpen())
-	{
-		//pack non-sources resources
-
-		gPackNonScriptResourceDir(tResourceDirectory,GuiProjectViewer::GetPool()[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
-
-		tPackFile.Close();
-		tTableFile.Close();
-	}
-
-	//build sources
-
-	String tAndroidMk=L"LOCAL_PATH := $(call my-dir)\n\n";
-
-    for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++)
-    {
-        tAndroidMk+=L"include $(CLEAR_VARS)\n"
-                    L"DSTDIR := " + tAndroidProjectDirectory + L"\n"
-                    L"LOCAL_C_INCLUDES := " + Ide::GetInstance()->compiler->ideSrcPath + L"\n"
-                    //"LOCAL_STATIC_LIBRARIES := -lEngine\n"
-                    L"LOCAL_MODULE := " + ((FilePath)(*si)).Name() + L"\n"
-                    L"LOCAL_SRC_FILES := " + (*si) + L"\n"
-                    L"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-                    L"LOCAL_LDLIBS := -L" + Ide::GetInstance()->compiler->ideLibPath + L" -lEngine -llog\n"
-                    L"include $(BUILD_SHARED_LIBRARY)\n\n";
-    }
-
-	StringUtils::WriteCharFile(tAndroidProjectJniDirectory + L"\\Android.mk",tAndroidMk);
-	
-	StringUtils::WriteCharFile(tAndroidProjectJniDirectory + L"\\Application.mk",L"APP_STL:=c++_static\nAPP_ABI:=armeabi-v7a\nAPP_CPPFLAGS := -frtti\nAPP_OPTIM := debug\n");
-	StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\project.properties",L"target=android-23\n");
-	StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\local.properties",L"sdk.dir=C:\\Sdk\\android\\android-sdk\n");
-
-	String tStringsXml= L"<resources>\n"
-                        L"\t<string name=\"Engine_activity\">Engine</string>\n"
-                        L"</resources>\n";
-
-    StringUtils::WriteCharFile(tAndroidProjectResDirectory + L"\\values\\strings.xml",tStringsXml);
-
-	String tBuildXml=	L"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                        L"<project name=\"EngineActivity\" default=\"help\">\n\n"
-                        L"\t<property file=\"local.properties\" />\n"
-                        L"\t<property file=\"ant.properties\" />\n\n"
-                        L"\t<property environment=\"env\" />\n"
-                        L"\t<condition property=\"sdk.dir\" value=\"${env.ANDROID_HOME}\">\n"
-                        L"\t\t<isset property=\"env.ANDROID_HOME\" />\n"
-                        L"\t</condition>\n\n"
-                        L"\t<loadproperties srcFile=\"project.properties\" />\n\n"
-                        L"\t<import file=\"custom_rules.xml\" optional=\"true\" />\n\n"
-                        L"\t<import file=\"${sdk.dir}/tools/ant/build.xml\" />\n\n"
-                        L"</project>\n";
-
-    StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\build.xml",tBuildXml);
-
-    String tManifestXml=    L"<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n"
-                            L"\tpackage=\"com.android.Engine\">\n\n"
-                            L"\t<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>\n"
-                            L"\t<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>\n\n"
-                            L"\t<application\n"
-                            L"\t\t\tandroid:label=\"@string/Engine_activity\"\n"
-                            L"\t\t\tandroid:debuggable=\"true\">\n\n"
-                            L"\t\t<activity android:name=\".EngineActivity\"\n"
-                            L"\t\t\tandroid:theme=\"@android:style/Theme.NoTitleBar.Fullscreen\"\n"
-                            L"\t\t\tandroid:launchMode=\"singleTask\"\n"
-                            L"\t\t\tandroid:configChanges=\"orientation|keyboardHidden\">\n\n"
-                            L"\t\t\t<intent-filter>\n"
-                            L"\t\t\t\t<action android:name=\"android.intent.action.MAIN\" />\n"
-                            L"\t\t\t\t<category android:name=\"android.intent.category.LAUNCHER\" />\n"
-                            L"\t\t\t</intent-filter>\n\n"
-                            L"\t\t</activity>\n"
-                            L"\t</application>\n\n"
-                            L"\t<uses-feature android:glEsVersion=\"0x00020000\"/>\n"
-                            L"\t<uses-sdk android:minSdkVersion=\"15\"/>\n\n"
-                            L"</manifest>\n";
-
-    StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\AndroidManifest.xml",tManifestXml);
-
-	//backup original source and append exports
-
-	for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++)
-	{
-		//backup
-		tSourceFilesContent.push_back(StringUtils::ReadCharFile(*si));
-
-		//append
-		StringUtils::WriteCharFile(
-									*si,
-									L"\n\nextern \"C\" __attribute__ ((dllexport)) EntityScript* Create(){return new " + ((FilePath)*si).Name() + L"_;}",
-									L"ab"
-									);
-
-		StringUtils::WriteCharFile(
-									*si,
-									L"\n\nextern \"C\" __attribute__ ((dllexport)) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}",
-									L"ab"
-									);
-	}
-
-	//build the native code
-
-    Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
-
-	//unroll exports (rewrite original script file)
-
-	int tSourceFilesContentIdx=0;
-	for(std::vector<String>::iterator si=tSourcePaths.begin();si!=tSourcePaths.end();si++,tSourceFilesContentIdx++)
-		StringUtils::WriteCharFile(*si,tSourceFilesContent[tSourceFilesContentIdx],L"wb");
-	
-	//write asset
-
-	tPackFileSize=tPackFile.Size();
-	tTableFileSize=tTableFile.Size();
-
-	File tAssetFile(tAndroidProjectAssetDirectory + L"\\asset.mp3");
-
-	tAssetFile.Open(L"wb");
-	tPackFile.Open(L"rb");
-	tTableFile.Open(L"rb");
-
-	if(tAssetFile.IsOpen() && tPackFile.IsOpen() && tTableFile.IsOpen())
-	{
-		fwrite(&tTableFileSize,sizeof(int),1,tAssetFile.data);
-		fwrite(&tPackFileSize,sizeof(int),1,tAssetFile.data);
-
-        unsigned char* tTableData=new unsigned char[tTableFileSize];
-        fread(tTableData,tTableFileSize,1,tTableFile.data);
-		fwrite(tTableData,tTableFileSize,1,tAssetFile.data);
-		SAFEDELETEARRAY(tTableData);
-
-        unsigned char* tPackData=new unsigned char[tPackFileSize];
-		fread(tPackData,tPackFileSize,1,tPackFile.data);
-		fwrite(tPackData,tPackFileSize,1,tAssetFile.data);
-        SAFEDELETEARRAY(tPackData);
-
-		tAssetFile.Close();
-		tPackFile.Close();
-		tTableFile.Close();
-	}
-
-	//File::Delete(tPackFile.path.c_str());
-	//File::Delete(tTableFile.path.c_str());
-
-	//paths in the apk must have the / separator otherwise LoadLibrary will not find the native so lib
-    //aapt add will register all file path, so call from current dir to avoid full path recording
-
-    String tBuildApk=   L"@echo off\n"
-                        L"set PLATFORM=" + tAndroidSdkDir + L"\\" + tAndroidPlatform + L"\n"
-                        L"set BUILDTOOL=" + tAndroidSdkDir + L"\\" + tAndroidBuildTool + L"\n"
-                        L"set LIBDIR=" + Ide::GetInstance()->compiler->ideLibPath + L"\n"
-                        L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
-                        L"set ADB=" + tAndroidDebugBridge + L"\n"
-                        L"set KEYSTORE=" + tKeyname + L"\n"
-                        L"SET APP_name=L" + tApkname + L"\n"
-                        L"set PREVDIR=%cd%\n\n"
-						
-                        L"SET ANDROID_AAPT_ADD=%BUILDTOOL%\\aapt.exe add\n"
-                        L"SET ANDROID_AAPT_PACK=%BUILDTOOL%\\aapt.exe package -v -f -I %PLATFORM%\\android.jar\n\n"
-						
-                        L"if exist \"%PROJDIR%\\lib\" rmdir \"%PROJDIR%\\lib\" /S /Q\n"
-                        L"mkdir \"%PROJDIR%\\lib\"\n"
-                        L"mkdir \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
-						
-                        L"copy \"%LIBDIR%\\classes.dex\" \"%PROJDIR%\"\n"
-                        L"copy \"%LIBDIR%\\libengine.so\" \"%PROJDIR%\\lib\\armeabi-v7a\"\n\n"
-						
-                        L"cd \"%PROJDIR%\"\n"
-						L"copy /Y libs\\armeabi-v7a\\*.so lib\\armeabi-v7a\n"
-                        L"call %ANDROID_AAPT_PACK% -M AndroidManifest.xml -A assets -S  res -F  %APP_NAME%.apk\n"
-                        L"call %ANDROID_AAPT_ADD% %APP_NAME%.apk classes.dex\n"
-						L"for %%f in (lib\\armeabi-v7a\\*.so) do (\n"
-						L"	call %ANDROID_AAPT_ADD% %APP_NAME%.apk lib/armeabi-v7a/%%~nxf\n"
-						L")\n\n"
-						
-                        L"if not exist \"%KEYSTORE%\" (\n"
-                        L"	call keytool -genkey -noprompt -alias emmegi -dname \"CN=emmegi.com, OU=emmegi, O=mg, L=SA, S=NA, C=IT\" -keystore %KEYSTORE% -storepass password -keypass password -validity 10000\n\n"
-						
-                        L"   if not exist \"%KEYSTORE%\" (\n"
-                        L"		echo key generation error\n"
-                        L"   ) else (\n"
-                        L"		echo key generated\n"
-                        L"   )\n"
-                        L") else (\n"
-                        L"	echo key already exists\n"
-                        L")\n\n"
-						
-                        L"echo signing key\n"
-                        L"call jarsigner -keystore %KEYSTORE% -signedjar %APP_NAME%.apk %APP_NAME%.apk emmegi -storepass password -keypass password\n\n"
-						
-                        L"call %ADB% install -r %APP_NAME%.apk\n";
-
-    StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\buildapk.bat",tBuildApk);
-
-    Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
-
-
-	return true;
-}
-*/
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

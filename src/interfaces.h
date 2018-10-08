@@ -854,6 +854,8 @@ template<typename T> struct DLLBUILD GuiProperty : GuiRect
 
 struct DLLBUILD GuiViewport : GuiRect
 {
+	static std::list<GuiViewport*>& GetPool();
+
 	EditorEntity* rootEntity;
 
 	GuiButton* playStopButton;
@@ -1503,7 +1505,6 @@ struct DLLBUILD Compiler
 	virtual String Compose(unsigned int iCompiler,Script*)=0;
 	virtual bool LoadScript(Script*)=0;
 	virtual bool UnloadScript(Script*)=0;
-	//virtual bool CreateAndroidTarget()=0;
 };
 
 struct DLLBUILD PluginSystem
@@ -1534,18 +1535,29 @@ struct DLLBUILD PluginSystem
 };
 
 
-struct DLLBUILD IdeViewerProperties
+
+struct DLLBUILD EditorObjectBase
+{
+	virtual GuiContainer* GetContainer()=0;
+
+	virtual void OnPropertiesCreate()=0;
+	virtual void OnResourcesCreate()=0;
+	virtual void OnPropertiesUpdate(Tab*)=0;
+};
+
+template<class T> struct DLLBUILD EditorObject : EditorObjectBase , T
 {
 	GuiContainer* container;
 
-	IdeViewerProperties();
+	EditorObject():container(0){}
+
+	GuiContainer* GetContainer(){return this->container;}
 
 	virtual void OnPropertiesCreate(){};
 	virtual void OnResourcesCreate(){};
 	virtual void OnPropertiesUpdate(Tab*){};
 };
 
-template<class T> struct DLLBUILD EditorObject : T , IdeViewerProperties{};
 
 struct DLLBUILD EditorEntity : EditorObject<Entity>
 {
@@ -1553,8 +1565,8 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 	bool					expanded;
 	int						level;
 
-	GuiContainer					entityViewerProperties;
-	GuiContainerRow<EditorEntity*>	sceneViewerLabel;
+	GuiContainer					entityViewerContainer;
+	GuiContainerRow<EditorEntity*>	sceneViewerRow;
 
 	EditorEntity();
 
