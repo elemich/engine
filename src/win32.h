@@ -89,7 +89,8 @@ struct DLLBUILD Direct2D
 
 	static void DrawText(Renderer2D*,const GuiFont*,unsigned int iColor,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
-	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float op=1.0f);
+	static void DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2,vec2,float iWidth=0.5f,float iOpacity=1.0f);
+	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float iOpacity=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 	static void DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush);
 
@@ -125,6 +126,7 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 
 	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
+	void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);
 	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
 	void DrawBitmap(Picture* iImage,float iX,float iY, float iW,float iH);
@@ -140,9 +142,6 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 
 	bool RecreateTarget(HWND);
 
-	void DrawCaret();
-	void SetCaretPos(float x,float y);
-	void EnableCaret(bool);
 };
 
 struct DLLBUILD Renderer3DOpenGL : Renderer3D
@@ -257,13 +256,10 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 
 struct DLLBUILD ShaderOpenGL : Shader
 {
-	Renderer3DOpenGL* renderer3DOpenGL;
+	Renderer3DOpenGL* renderer;
 
 	ShaderOpenGL(Renderer3DOpenGL*);
 	~ShaderOpenGL();
-
-	int GetProgram();
-	void SetProgram(int);
 
 	int GetUniform(int slot,char* var);
 	int GetAttrib(int slot,char* var);
@@ -543,16 +539,6 @@ struct DLLBUILD DebuggerWin32 : Debugger
 	void PrintThreadContext(void*);
 };
 
-
-struct DLLBUILD StringEditorWin32 : StringEditor
-{
-	ID2D1Bitmap* background;
-
-	StringEditorWin32();
-	~StringEditorWin32();
-
-	void Draw(Tab*);
-};
 
 struct DLLBUILD PluginSystemWin32 : PluginSystem
 {

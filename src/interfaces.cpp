@@ -20,6 +20,8 @@ GuiConsoleViewer*							globalGuiConsoleViewer=0;
 std::vector<GuiScriptViewer*>				globalScriptViewers;
 std::list<GuiViewport*>						globalViewports;
 
+
+
 GLOBALGETTERFUNC(GlobalGuiProjectViewerInstance,globalGuiProjectViewer,GuiProjectViewer*&);
 GLOBALGETTERFUNC(GlobalGuiSceneViewerInstance,globalGuiSceneViewer,GuiSceneViewer*&);
 GLOBALGETTERFUNC(GlobalGuiCompilerViewerInstance,globalGuiCompilerViewer,GuiCompilerViewer*&);
@@ -32,176 +34,48 @@ GLOBALGETTERFUNC(GlobalViewports,globalViewports,std::list<GuiViewport*>&);
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////SerialiserHelpers/////////////////
+///////////////SerializerHelpers///////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-/*
 
-namespace SerializerHelper
+namespace SerializerHelpers
 {
-	void LoadSave(Serializer::Mode iMode,int iSerializerCode,void*& iObject,FILE* iStream)
-	{
-		switch(iSerializerCode)
-		{
-		case Serializer::Root:
-		{
-			switch(iMode)
-			{
-				case Serializer::Mode::MODE_LOAD:
-				{
+	extern std::list<Skin*>							globalSkinsToBind;
+	extern std::list< std::list<unsigned int> >		globalSkinsClusterBoneIdToBind;
 
-				}
-				break:
-				case Serializer::Mode::MODE_SAVE:
-				{
+	extern std::list<AnimationController*>				globalAnimationControllersToBind;
+	extern std::list< std::list<unsigned int> >		globalAnimationControllersAnimationsIndicesToBind;
 
-				}
-				break:
-				default: 
-					DEBUG_BREAK();
-			}
-		}
-		break;
-		case Serializer::Skeleton:
-		{
-			switch(iMode)
-			{
-			case Serializer::Mode::MODE_LOAD:
-				{
+	extern void SetEntityId(Entity* iEntity,unsigned int& iId);
+	extern Entity* GetRootEntity(Entity* iEntity);
+	extern Entity* GetEntityById(Entity* iEntity,unsigned int iId);
 
-				}
-				break:
-			case Serializer::Mode::MODE_SAVE:
-				{
+	void			saveEntityRecursively(Entity* iEntity,FILE* iFile);
+	EditorEntity*	loadEntityRecursively(EditorEntity* iEntity,FILE* iFile);
 
-				}
-				break:
-			default: 
-				DEBUG_BREAK();
-			}
-		}
-		break;
-		case Serializer::Animation:
-		{
-			switch(iMode)
-			{
-			case Serializer::Mode::MODE_LOAD:
-				{
+	void Save(Mesh*,FILE*);
+	void Save(Skin*,FILE*);
+	void Save(Animation*,FILE*);
+	void Save(AnimationController*,FILE*);
+	void Save(Skin*,FILE*);
+	void Save(Line*,FILE*);
+	void Save(Script*,FILE*);
 
-				}
-				break:
-			case Serializer::Mode::MODE_SAVE:
-				{
+	extern void Load(Mesh*,FILE*);
+	extern void Load(Skin*,FILE*);
+	extern void Load(Animation*,FILE*);
+	extern void Load(AnimationController*,FILE*);
+	extern void Load(Skin*,FILE*);
+	extern void Load(Line*,FILE*);
+	extern void Load(Script*,FILE*);
 
-				}
-				break:
-			default: 
-				DEBUG_BREAK();
-			}
-		}
-		break;
-		case Serializer::Gizmo:
-		{
-			switch(iMode)
-			{
-			case Serializer::Mode::MODE_LOAD:
-				{
+	void Load(EditorLine*,FILE*);
 
-				}
-				break:
-			case Serializer::Mode::MODE_SAVE:
-				{
+	extern void BindSkinLinks(Entity* iEntityParent);
+	extern void BindAnimationLinks(Entity* iEntityParent);
 
-				}
-				break:
-			default: 
-				DEBUG_BREAK();
-			}
-		}
-		break;
-		case Serializer::AnimationController:
-		{
-			switch(iMode)
-			{
-				case Serializer::Mode::MODE_LOAD:
-				{
-
-				}
-				break:
-				case Serializer::Mode::MODE_SAVE:
-				{
-
-				}
-				break:
-				default: 
-					DEBUG_BREAK();
-			}
-		}
-		break;
-		case Serializer::Bone:
-		{
-
-		}
-		break;
-		case Serializer::Light:
-		{
-
-		}
-		break;
-		case Serializer::Mesh:
-		{
-
-		}
-		break;
-		case Serializer::Script:
-		{
-
-		}
-		break;
-		case Serializer::Camera:
-		{
-
-		}
-		break;
-		case Serializer::Project:
-		{
-
-		}
-		break;
-		case Serializer::Scene:
-		{
-
-		}
-		break;
-		case Serializer::Entity:
-		{
-
-		}
-		break;
-		case Serializer::Material:
-		{
-
-		}
-		break;
-		case Serializer::Texture:
-		{
-
-		}
-		break;
-		case Serializer::Line:
-		{
-
-		}
-		break;
-		case Serializer::Unknown:
-		{
-			DEBUG_BREAK();
-		}
-		break;
-		}
-	}
+	void WriteCode(int,FILE*);
 }
-*/
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -574,7 +448,7 @@ void Tab::Draw()
 					switch(tDrawInstance->code)
 					{
 					case 1:this->OnGuiPaint();break;
-					case 2:tDrawInstance->rect->OnPaint(GuiEvent(this,0,0));break;
+					case 2:tDrawInstance->rect->OnPaint(GuiEvent(this));break;
 					}
 
 					/*static unsigned int a=0;
@@ -608,15 +482,15 @@ void Tab::BroadcastToSelected(void (GuiRect::*iFunc)(const GuiEvent&),void* iDat
 	GuiRect* selectedTab=this->GetSelected();
 
 	if(selectedTab)
-		(selectedTab->*iFunc)(GuiEvent(this,selectedTab,0,iFunc,iData));
+		(selectedTab->*iFunc)(GuiEvent(this,iData));
 
-	this->rectsLayered.BroadcastToChilds(iFunc,GuiEvent(this,&this->rectsLayered,0,iFunc,iData));
+	this->rectsLayered.BroadcastToChilds(iFunc,GuiEvent(this,iData));
 }
 
 void Tab::BroadcastToAll(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
 {
-	(this->rects.*iFunc)(GuiEvent(this,&this->rects,0,iFunc,iData));
-	this->rectsLayered.BroadcastToChilds(iFunc,GuiEvent(this,&this->rectsLayered,0,iFunc,iData));
+	(this->rects.*iFunc)(GuiEvent(this,iData));
+	this->rectsLayered.BroadcastToChilds(iFunc,GuiEvent(this,iData));
 }
 
 
@@ -646,7 +520,7 @@ void Tab::SetSelection(GuiRect* iRect)
 
 void Tab::OnGuiSize(void* data)
 {
-	GuiEvent tEvent(this,0,0,0,data);
+	GuiEvent tEvent(this,data);
 
 	this->rects.OnSize(tEvent);
 	this->rectsLayered.BroadcastToChilds(&GuiRect::OnSize,tEvent);
@@ -660,7 +534,7 @@ void Tab::OnWindowPosChanging(void* data)
 {
 	this->resizeTarget=true;
 
-	GuiEvent tEvent(this,0,0,0,data);
+	GuiEvent tEvent(this,data);
 
 	this->rects.OnSize(tEvent);
 	this->rectsLayered.BroadcastToChilds(&GuiRect::OnSize,tEvent);
@@ -861,12 +735,12 @@ void Tab::OnGuiRecreateTarget(void* data)
 void Tab::SetFocus(GuiRect* iFocusedRect)
 {
 	if(Tab::focused)
-		Tab::focused->OnExitFocus(GuiEvent(Tab::focused->GetRootRect()->tab,Tab::focused,0,&GuiRect::OnExitFocus,Tab::focused));
+		Tab::focused->OnExitFocus(GuiEvent(Tab::focused->GetRootRect()->tab,Tab::focused));
 
 	Tab::focused=iFocusedRect;
 
 	if(Tab::focused)
-		Tab::focused->OnEnterFocus(GuiEvent(Tab::focused->GetRootRect()->tab,Tab::focused,0,&GuiRect::OnEnterFocus,Tab::focused));
+		Tab::focused->OnEnterFocus(GuiEvent(Tab::focused->GetRootRect()->tab,Tab::focused));
 }
 
 void Tab::SetHover(GuiRect* iHoveredRect)
@@ -945,9 +819,12 @@ StringEditor::StringEditor():
 	lastBlinkTime(0),
 	blinking(false),
 	enabled(false),
-	blinkingRate(BLINKRATE),
-	recalcBackground(false)
+	blinkingRate(BLINKRATE)
 {}
+
+StringEditor::~StringEditor()
+{
+}
 
 void StringEditor::Bind(GuiString* iString)
 {
@@ -1015,8 +892,6 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 				if(*pText=='\n' ||  *pText=='\r')
 					tCarriageReturn=true;
-
-				this->string->cursor->caret.z=tCharWidth;
 
 				if(pText==this->string->cursor->cursor)
 					break;
@@ -1271,14 +1146,43 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 	}
 
 	if(tMustResize)
-		this->string->OnSize(GuiEvent(this->tab,0,this->string,&GuiRect::OnSize,0));
+		this->string->OnSize(GuiEvent(this->tab,0));
 
-	this->recalcBackground=true;
-
-	this->tab->renderer2D->SetCaretPos(this->string->cursor->caret.x,this->string->cursor->caret.y);
+	this->caret=this->string->cursor->caret;
+	this->caretHeight=this->string->font->GetHeight();
 
 	//wprintf(L"cursor: %d,col: %d\n",this->string->cursor->cursor-this->string->text->c_str(),this->string->cursor->rowcol.y);
 }
+
+void StringEditor::Draw(Tab* iCallerTab)
+{
+	if(this->tab && iCallerTab==this->tab && this->enabled && this->string && iCallerTab->GetFocus()==this->string)
+	{
+		if(Ide::GetInstance()->timer->GetCurrent()-this->lastBlinkTime > this->blinkingRate)
+		{
+			vec2 p1(this->caret.x,this->caret.y);
+			vec2 p2(this->caret.x,this->caret.y + this->caretHeight);
+
+			if(this->tab->BeginDraw())
+			{
+				this->string->BeginClip(iCallerTab);
+
+				if(this->blinking)
+					this->tab->renderer2D->DrawLine(p1,p2,0x00000000,1);
+				else
+					this->tab->renderer2D->DrawLine(p1,p2,this->string->colorBackground,2);
+
+				this->string->EndClip(iCallerTab);
+
+				this->tab->EndDraw();
+			}
+
+			this->lastBlinkTime=Ide::GetInstance()->timer->GetCurrent();
+			this->blinking=!this->blinking;
+		}
+	}
+}
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1366,7 +1270,6 @@ vec2 Renderer2D::MeasureText(const wchar_t* iText,const GuiFont* iFont)
 {
 	return iFont->MeasureText(iText);
 }
-
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1501,11 +1404,8 @@ bool Renderer3D::LoadTexture(String iFilename,Texture* iTexture)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiEvent::GuiEvent(Tab* iTab,GuiRect* iSender,GuiRect* iTarget,void (GuiRect::*iFunction)(const GuiEvent&),void* iData):
+GuiEvent::GuiEvent(Tab* iTab,void* iData):
 	tab(iTab),
-	sender(iSender),
-	target(iTarget),
-	func(iFunction),
 	data(iData)
 {}
 
@@ -2168,8 +2068,6 @@ void GuiContainer::OnSizePost(Tab* iTab)
 
 		this->rect.w=tLastChild->edges.w-this->edges.y;
 		this->edges.w=tLastChild->edges.w;
-		
-		
 	}
 
 	GuiString::OnSizePost();
@@ -2833,7 +2731,9 @@ void GuiString::SetStringMode(void* iValuePointer1,unsigned int iValueType,void*
 
 	this->valueData=new StringValue(*this,iValuePointer1,iValueType,iValuePointer2,iValueParameter1,iValueParameter2);
 
-	this->text.SetStringMode(String(L""),false);
+	String tString(L"");
+
+	this->text.SetStringMode(tString,false);
 }
 
 void GuiString::OnSizePre(Tab* iTab)
@@ -2845,7 +2745,7 @@ void GuiString::OnSizePre(Tab* iTab)
 
 	wchar_t* tText=(wchar_t*)this->text->c_str();
 
-	this->textRect=iTab->renderer2D->MeasureText(this->text->c_str());
+	this->textRect=iTab->renderer2D->MeasureText(this->text->c_str(),this->font);
 
 	float tLeft=this->edges.x + (tWidth*this->textAlign.x) + this->margins.x - (this->textRect.x * this->textSpot.x);
 	float tTop=this->edges.y + (tHeight*this->textAlign.y) + this->margins.y - (this->textRect.y * this->textSpot.y);
@@ -2875,6 +2775,19 @@ void GuiString::OnSizePre(Tab* iTab)
 	}
 }
 
+void GuiString::OnSizePost()
+{
+	GuiRect::OnSizePost();
+
+	if(this->parent)
+	{
+		if(this->textEdges.z>this->parent->edges.z)
+			this->parent->content.x=this->textEdges.z;
+
+		if(this->textEdges.w>this->parent->edges.w)
+			this->parent->content.y=this->textEdges.w;
+	}
+}
 
 void GuiString::OnSize(const GuiEvent& iMsg)
 {
@@ -3241,7 +3154,7 @@ GuiTextBox::GuiTextBox()
 
 	this->offsets.make(0,2,0,-2);
 	this->SetAllColors(0xffffff,false);
-
+	this->textColor=0x00000000;
 
 	this->canEdit=true;
 	this->textSpot.make(0,0);
@@ -3369,7 +3282,7 @@ void GuiButton::OnLMouseUp(const GuiEvent& iMsg)
 
 		if(this->parent)
 		{
-			GuiEvent tMsg(iMsg.tab,this,0,&GuiRect::OnButtonPressed,this);
+			GuiEvent tMsg(iMsg.tab,this);
 			this->parent->OnButtonPressed(tMsg);
 		}	
 	}
@@ -3411,7 +3324,7 @@ void GuiScrollRect::OnLMouseDown(const GuiEvent& iMsg)
 {
 	vec2 tMpos=this->GetClippedMouse(*(vec2*)iMsg.data);
 
-	this->GuiRect::OnLMouseDown(GuiEvent(iMsg.tab,this,0,0,tMpos));
+	this->GuiRect::OnLMouseDown(GuiEvent(iMsg.tab,tMpos));
 
 	this->vScrollbar.OnLMouseDown(iMsg);
 	this->hScrollbar.OnLMouseDown(iMsg);
@@ -3421,7 +3334,7 @@ void GuiScrollRect::OnMouseMove(const GuiEvent& iMsg)
 {
 	vec2 tMpos=this->GetClippedMouse(*(vec2*)iMsg.data);
 
-	this->GuiRect::OnMouseMove(GuiEvent(iMsg.tab,this,0,0,tMpos));
+	this->GuiRect::OnMouseMove(GuiEvent(iMsg.tab,tMpos));
 
 	this->vScrollbar.OnMouseMove(iMsg);
 	this->hScrollbar.OnMouseMove(iMsg);
@@ -3499,14 +3412,14 @@ void GuiScrollRect::BeginClip(Tab* tabContainer)
 	{
 		vec4& tClipEdges=this->edges;
 		tabContainer->renderer2D->PushScissor(tClipEdges.x,tClipEdges.y,tClipEdges.z,tClipEdges.w);
-		tabContainer->renderer2D->Translate(0,-this->vScrollbar.scrollerPosition*(this->content.y-this->edges.y));
+		tabContainer->renderer2D->Translate(-this->hScrollbar.scrollerPosition*(this->content.x-this->edges.x),-this->vScrollbar.scrollerPosition*(this->content.y-this->edges.y));
 		this->clipped=true;
 	}
 }
 
 void GuiScrollRect::EndClip(Tab* iTab)
 {
-	iTab->renderer2D->DrawRectangle(this->rect.x+1,this->rect.y+1,this->rect.x+this->rect.z-1,this->rect.y+this->rect.w-1,0xffffff,false);
+	iTab->renderer2D->DrawRectangle(this->edges.x+1,this->edges.y+1,this->edges.z-1,this->edges.w-1,0x00000000,false);
 
 	if(this->clipped)
 	{
@@ -4290,431 +4203,15 @@ void GuiSceneViewer::OnKeyDown(const GuiEvent& iMsg)
 	GuiScrollRect::OnKeyDown(iMsg);
 }
 
-void saveEntityRecursively(Entity* iEntity,FILE* iFile)
-{
-	int childsSize=iEntity->childs.size();
-	int componentsSize=iEntity->components.size();
-	int nameCount=iEntity->name.size();
-
-	fwrite(&childsSize,sizeof(int),1,iFile);//4
-
-	fwrite(iEntity->local,sizeof(float),16,iFile);//64
-	fwrite(iEntity->world,sizeof(float),16,iFile);//64
-
-	StringUtils::WriteWstring(iFile,iEntity->name);
-
-	fwrite(iEntity->bbox.a,sizeof(float),3,iFile);//12
-	fwrite(iEntity->bbox.b,sizeof(float),3,iFile);//12
-
-	fwrite(&componentsSize,sizeof(int),1,iFile);//4
-
-	for(std::list<EntityComponent*>::iterator iteratorComponent=iEntity->components.begin();iteratorComponent!=iEntity->components.end();iteratorComponent++)
-	{
-		if((*iteratorComponent)->is<Script>())
-		{
-			Script* tScript=(Script*)(*iteratorComponent);
-
-			fwrite(&Serializer::Script,sizeof(int),1,iFile);//1
-
-			StringUtils::WriteWstring(iFile,tScript->file);
-		}
-		else if((*iteratorComponent)->is<Line>())
-		{
-			Line* tLine=(Line*)(*iteratorComponent);
-
-			fwrite(&Serializer::Line,sizeof(int),1,iFile);//1
-
-			unsigned int tPointSize=tLine->points.size();
-
-			fwrite(&tPointSize,sizeof(unsigned int),1,iFile);//1
-
-			for(std::list<vec3>::iterator it=tLine->points.begin();it!=tLine->points.end();it++)
-				fwrite(&(*it),sizeof(float)*3,1,iFile);
-		}
-		else if((*iteratorComponent)->is<Animation>())
-		{
-			Animation* tAnimation=(Animation*)(*iteratorComponent);
-
-			fwrite(&Serializer::Animation,sizeof(int),1,iFile);//1
-
-			//generate AnimationController ID if not exist
-
-			if(tAnimation->animationControllerId<0)
-			{
-				if(tAnimation->animationController)
-					tAnimation->animationController->SetId(EditorAnimationController::GetFreeId());
-				else
-					DEBUG_BREAK();
-			}
-
-			fwrite(&tAnimation->animationControllerId,sizeof(unsigned int),1,iFile);//1
-			fwrite(&tAnimation->start,sizeof(float),1,iFile);//1
-			fwrite(&tAnimation->end,sizeof(float),1,iFile);//1
-			fwrite(&tAnimation->index,sizeof(int),1,iFile);//1
-
-			unsigned int tAnimClipsSize=tAnimation->clips.size();
-
-			fwrite(&tAnimClipsSize,sizeof(unsigned int),1,iFile);//1
-
-			for(std::vector<AnimClip*>::iterator iterAnimClip=tAnimation->clips.begin();iterAnimClip!=tAnimation->clips.end();iterAnimClip++)
-			{
-				AnimClip* tAnimClip=*iterAnimClip;
-
-				fwrite(&tAnimClip->start,sizeof(float),1,iFile);//1
-				fwrite(&tAnimClip->end,sizeof(float),1,iFile);//1
-
-				unsigned int tKeyCurveSize=tAnimClip->curves.size();
-
-				fwrite(&tKeyCurveSize,sizeof(unsigned int),1,iFile);//1
-
-				for(std::vector<KeyCurve*>::iterator iterKeyCurve=tAnimClip->curves.begin();iterKeyCurve!=tAnimClip->curves.end();iterKeyCurve++)
-				{
-					KeyCurve* tKeyCurve=*iterKeyCurve;
-
-					fwrite(&tKeyCurve->channel,sizeof(unsigned int),1,iFile);//1
-					fwrite(&tKeyCurve->start,sizeof(float),1,iFile);//1
-					fwrite(&tKeyCurve->end,sizeof(float),1,iFile);//1
-
-					unsigned int tKeyframeSize=tKeyCurve->frames.size();
-
-					fwrite(&tKeyframeSize,sizeof(unsigned int),1,iFile);//1
-
-					for(std::vector<Keyframe*>::iterator iterKeyFrame=tKeyCurve->frames.begin();iterKeyFrame!=tKeyCurve->frames.end();iterKeyFrame++)
-					{
-						Keyframe* tKeyframe=*iterKeyFrame;
-
-						fwrite(&tKeyframe->time,sizeof(float),1,iFile);//1
-						fwrite(&tKeyframe->value,sizeof(float),1,iFile);//1
-					}
-				}
-			}
-		}
-		else if((*iteratorComponent)->is<AnimationController>())
-		{
-			AnimationController* tAnimationController=(AnimationController*)(*iteratorComponent);
-
-			fwrite(&Serializer::AnimationController,sizeof(int),1,iFile);//1
-			
-			//generate AnimationController ID if not exist
-
-			if(tAnimationController->id<0)
-				tAnimationController->SetId(EditorAnimationController::GetFreeId());
-
-			fwrite(&tAnimationController->id,sizeof(unsigned int),1,iFile);//1
-			fwrite(&tAnimationController->speed,sizeof(float),1,iFile);//1
-			fwrite(&tAnimationController->cursor,sizeof(float),1,iFile);//1
-			fwrite(&tAnimationController->play,sizeof(bool),1,iFile);//1
-			fwrite(&tAnimationController->looped,sizeof(bool),1,iFile);//1
-			fwrite(&tAnimationController->start,sizeof(float),1,iFile);//1
-			fwrite(&tAnimationController->end,sizeof(float),1,iFile);//1
-			fwrite(&tAnimationController->framesPerSecond,sizeof(unsigned int),1,iFile);//1
-			fwrite(&tAnimationController->frameTime,sizeof(unsigned int),1,iFile);//1
-		}
-		else if((*iteratorComponent)->is<Mesh>())
-		{
-			Mesh* tMesh=(Mesh*)(*iteratorComponent);
-
-			fwrite(&Serializer::Mesh,sizeof(int),1,iFile);
-
-			fwrite(&tMesh->ncontrolpoints,sizeof(unsigned int),1,iFile);
-			fwrite(&tMesh->nvertexindices,sizeof(unsigned int),1,iFile);
-			fwrite(&tMesh->ntexcoord,sizeof(unsigned int),1,iFile);
-			fwrite(&tMesh->nnormals,sizeof(unsigned int),1,iFile);
-			fwrite(&tMesh->npolygons,sizeof(unsigned int),1,iFile);
-			fwrite(&tMesh->isCCW,sizeof(bool),1,iFile);
-
-			for(int i=0;i<tMesh->ncontrolpoints;i++)
-				fwrite(&tMesh->controlpoints[i],sizeof(float)*3,1,iFile);
-			
-			if(tMesh->nvertexindices)
-				fwrite(&tMesh->vertexindices,sizeof(unsigned int)*tMesh->nvertexindices,1,iFile);
-
-			for(int i=0;i<tMesh->ntexcoord;i++)
-				fwrite(&tMesh->texcoord[i],sizeof(float)*2,1,iFile);
-
-			for(int i=0;i<tMesh->nnormals;i++)
-				fwrite(&tMesh->normals[i],sizeof(float)*3,1,iFile);
-		}
-		else if((*iteratorComponent)->is<Skin>())
-		{
-			Skin* tSkin=(Skin*)(*iteratorComponent);
-
-			fwrite(&Serializer::Skin,sizeof(int),1,iFile);
-
-			fwrite(&tSkin->nclusters,sizeof(unsigned int),1,iFile);
-			fwrite(&tSkin->ntextures,sizeof(unsigned int),1,iFile);
-
-			for(int clusterIdx=0;clusterIdx<tSkin->nclusters;clusterIdx++)
-			{
-				Cluster* tCluster=&tSkin->clusters[clusterIdx];
-
-				fwrite(&tCluster->ninfluences,sizeof(unsigned int),1,iFile);
-				fwrite(tCluster->offset,sizeof(float),16,iFile);
-
-				for(int influenceIdx=0;influenceIdx<tCluster->ninfluences;influenceIdx++)
-				{
-					Influence* tInfluence=&tCluster->influences[influenceIdx];
-
-					fwrite(&tInfluence->weight,sizeof(float),1,iFile);
-					fwrite(&tInfluence->ncontrolpointindex,sizeof(unsigned int),1,iFile);
-					fwrite(&tInfluence->controlpointindex,sizeof(unsigned int)*tInfluence->ncontrolpointindex,1,iFile);
-				}
-			}
-		}
-		else if((*iteratorComponent)->is<Bone>())
-		{
-			fwrite(&Serializer::Bone,sizeof(int),1,iFile);
-		}
-	}
-
-	if(childsSize)
-	{
-		for(std::list<Entity*>::iterator eIter=iEntity->childs.begin();eIter!=iEntity->childs.end();eIter++)
-			saveEntityRecursively(*eIter,iFile);
-	}
-}
-
-EditorEntity* loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFile)
-{
-	int nameCount;
-	int componentsSize;
-	int childsSize;
-	int componentCode;
-
-	EditorEntity* tEditorEntity=new EditorEntity;
-
-	tEditorEntity->SetParent(iEditorEntityParent);
-
-	fread(&childsSize,sizeof(int),1,iFile);//4
-
-	fread(tEditorEntity->local,sizeof(float),16,iFile);//64
-	fread(tEditorEntity->world,sizeof(float),16,iFile);//64
-
-	StringUtils::ReadWstring(iFile,tEditorEntity->name);
-
-	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);//12
-	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);//12
-
-	tEditorEntity->OnResourcesCreate();
-	tEditorEntity->OnPropertiesCreate();
-
-	fread(&componentsSize,sizeof(int),1,iFile);//4
-
-	for(int tComponentIndex=0;tComponentIndex<componentsSize;tComponentIndex++)
-	{
-		fread(&componentCode,sizeof(int),1,iFile);//1
-
-		switch(componentCode)
-		{
-			case Serializer::Script:
-			{
-				EditorScript* tScript=tEditorEntity->CreateComponent<EditorScript>();
-				StringUtils::ReadWstring(iFile,tScript->file);
-			}
-			break;
-			case Serializer::Line:
-			{
-				EditorLine* tLine=tEditorEntity->CreateComponent<EditorLine>();
-
-				unsigned int tPointSize;
-
-				fread(&tPointSize,sizeof(unsigned int),1,iFile);//1
-
-				for(int i=0;i<tPointSize;i++)
-				{
-					vec3 tPoint;
-					fread(&tPoint,sizeof(float)*3,1,iFile);//1
-					tLine->AddPoint(tPoint);
-				}
-			}
-			break;
-			case Serializer::Animation:
-			{
-				EditorAnimation* tAnimation=tEditorEntity->CreateComponent<EditorAnimation>();
-
-				fread(&tAnimation->animationControllerId,sizeof(unsigned int),1,iFile);//1
-
-				if(tAnimation->animationControllerId<0)
-					DEBUG_BREAK();
-
-				fread(&tAnimation->start,sizeof(float),1,iFile);//1
-				fread(&tAnimation->end,sizeof(float),1,iFile);//1
-				fread(&tAnimation->index,sizeof(int),1,iFile);//1
-
-				unsigned int tAnimClipsSize;
-
-				fread(&tAnimClipsSize,sizeof(unsigned int),1,iFile);//1
-
-				for(int iterAnimClip=0;iterAnimClip<tAnimClipsSize;iterAnimClip++)
-				{
-					AnimClip* tAnimClip=new AnimClip;
-
-					tAnimation->clips.push_back(tAnimClip);
-
-					fread(&tAnimClip->start,sizeof(float),1,iFile);//1
-					fread(&tAnimClip->end,sizeof(float),1,iFile);//1
-
-					unsigned int tKeyCurveSize;
-
-					fread(&tKeyCurveSize,sizeof(unsigned int),1,iFile);//1
-
-					for(int iterKeyCurve=0;iterKeyCurve<tKeyCurveSize;iterKeyCurve++)
-					{
-						KeyCurve* tKeyCurve=new KeyCurve;
-
-						tAnimClip->curves.push_back(tKeyCurve);
-
-						fread(&tKeyCurve->channel,sizeof(unsigned int),1,iFile);//1
-						fread(&tKeyCurve->start,sizeof(float),1,iFile);//1
-						fread(&tKeyCurve->end,sizeof(float),1,iFile);//1
-
-						unsigned int tKeyframeSize;
-
-						fread(&tKeyframeSize,sizeof(unsigned int),1,iFile);//1
-
-						for(int iterKeyFrame=0;iterKeyFrame<tKeyframeSize;iterKeyFrame++)
-						{
-							Keyframe* tKeyframe=new Keyframe;
-
-							tKeyCurve->frames.push_back(tKeyframe);
-
-							fread(&tKeyframe->time,sizeof(float),1,iFile);//1
-							fread(&tKeyframe->value,sizeof(float),1,iFile);//1
-						}
-					}
-				}
-
-				EditorAnimationController* tEditorAnimationController=(EditorAnimationController*)EditorAnimationController::GetById(tAnimation->animationControllerId);
-
-				if(!tEditorAnimationController)
-					DEBUG_BREAK();
-				else
-					tEditorAnimationController->AddAnimation(tAnimation);
-			}
-			break;
-			case Serializer::AnimationController:
-			{
-				EditorAnimationController* tAnimationController=tEditorEntity->CreateComponent<EditorAnimationController>();
-
-				unsigned int tAnimControllerId;
-
-				fread(&tAnimControllerId,sizeof(unsigned int),1,iFile);//1
-
-				if(tAnimationController->id<0)
-					DEBUG_BREAK();
-				else
-					tAnimationController->SetId(tAnimControllerId);
-
-				fread(&tAnimationController->speed,sizeof(float),1,iFile);//1
-				fread(&tAnimationController->cursor,sizeof(float),1,iFile);//1
-				fread(&tAnimationController->play,sizeof(bool),1,iFile);//1
-				fread(&tAnimationController->looped,sizeof(bool),1,iFile);//1
-				fread(&tAnimationController->start,sizeof(float),1,iFile);//1
-				fread(&tAnimationController->end,sizeof(float),1,iFile);//1
-				fread(&tAnimationController->framesPerSecond,sizeof(unsigned int),1,iFile);//1
-				fread(&tAnimationController->frameTime,sizeof(unsigned int),1,iFile);//1
-			}
-			break; 
-			case Serializer::Mesh:
-			{
-				EditorMesh* tMesh=tEditorEntity->CreateComponent<EditorMesh>();
-
-				fread(&tMesh->ncontrolpoints,sizeof(unsigned int),1,iFile);
-				fread(&tMesh->nvertexindices,sizeof(unsigned int),1,iFile);
-				fread(&tMesh->ntexcoord,sizeof(unsigned int),1,iFile);
-				fread(&tMesh->nnormals,sizeof(unsigned int),1,iFile);
-				fread(&tMesh->npolygons,sizeof(unsigned int),1,iFile);
-				fread(&tMesh->isCCW,sizeof(bool),1,iFile);
-
-				tMesh->controlpoints=new float[tMesh->ncontrolpoints][3];
-				
-				if(tMesh->nvertexindices)
-					tMesh->vertexindices=new unsigned int[tMesh->nvertexindices];
-				
-				tMesh->texcoord=new float[tMesh->ntexcoord][2];
-				tMesh->normals=new float[tMesh->nnormals][3];
-
-				for(int i=0;i<tMesh->ncontrolpoints;i++)
-					fread(&tMesh->controlpoints[i],sizeof(float)*3,1,iFile);
-
-				if(tMesh->nvertexindices)
-					fread(&tMesh->vertexindices,sizeof(unsigned int)*tMesh->nvertexindices,1,iFile);
-
-				for(int i=0;i<tMesh->ntexcoord;i++)
-					fread(&tMesh->texcoord[i],sizeof(float)*2,1,iFile);
-
-				for(int i=0;i<tMesh->nnormals;i++)
-					fread(&tMesh->normals[i],sizeof(float)*3,1,iFile);
-			}
-			break;
-		}
-	}
-
-	if(childsSize)
-	{
-		for(int i=0;i<childsSize;i++)
-			loadEntityRecursively(tEditorEntity,iFile);
-	}
-
-	return tEditorEntity;
-}
-
-
-/*fseek(iFile,sizeof(unsigned char),SEEK_SET);
-
-				unsigned int tMaterialSize;
-
-				fread(&tMaterialSize,sizeof(unsigned char),1,iFile);
-				
-
-				for(int i=0;i<tMaterialSize;i++)
-				{
-					Material* tMaterial=new Material;
-
-					tMesh->materials.push_back(tMaterial);
-
-					fread(&tMaterial->femissive,sizeof(float),1,iFile);
-					fread(&tMaterial->emissive,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fambient,sizeof(float),1,iFile);
-					fread(&tMaterial->ambient,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fdiffuse,sizeof(float),1,iFile);
-					fread(&tMaterial->diffuse,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->normalmap,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fbump,sizeof(float),1,iFile);
-					fread(&tMaterial->bump,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->ftransparent,sizeof(float),1,iFile);
-					fread(&tMaterial->transparent,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fdisplacement,sizeof(float),1,iFile);
-					fread(&tMaterial->displacement,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fspecular,sizeof(float),1,iFile);
-					fread(&tMaterial->specular,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fshininess,sizeof(float),1,iFile);
-
-					fread(&tMaterial->freflection,sizeof(float),1,iFile);
-					fread(&tMaterial->reflection,sizeof(float)*3,1,iFile);
-
-					for(int t=0;t<tMaterial->textures.size();t++)
-					{
-						//save the texture
-
-					}
-				}*/
-
 void GuiSceneViewer::Save(String iFilename)
 {
 	File tScriptFile(iFilename);
 
 	if(tScriptFile.Open(L"wb"))
 	{
-		saveEntityRecursively(this->entityRoot,tScriptFile);
+		unsigned int total=0;
+		SerializerHelpers::SetEntityId(this->entityRoot,total);
+		SerializerHelpers::saveEntityRecursively(this->entityRoot,tScriptFile);
 		tScriptFile.Close();
 	}
 }
@@ -4730,7 +4227,7 @@ void GuiSceneViewer::Load(String iFilename)
 		for(std::list<Entity*>::iterator i=this->entityRoot->childs.begin();i!=this->entityRoot->childs.end();)
 			i=this->entityRoot->childs.erase(i);
 
-		EditorEntity* tEntity=loadEntityRecursively(0,tScriptFile);
+		EditorEntity* tEntity=SerializerHelpers::loadEntityRecursively(0,tScriptFile);
 
 		std::list<Entity*> tChildsCopy=tEntity->childs;
 
@@ -4743,7 +4240,7 @@ void GuiSceneViewer::Load(String iFilename)
 		{
 			Tab* tab=this->GetRootRect()->tab;
 
-			this->OnSize(GuiEvent(tab,this,0,&GuiRect::OnSize,0));
+			this->OnSize(GuiEvent(tab,0));
 			tab->SetDraw(2,0,this);
 		}
 
@@ -5312,7 +4809,7 @@ void GuiScriptViewer::DrawBreakpoints(Tab* tabContainer)
 
 			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
 
-			tabContainer->renderer2D->DrawRectangle(this->rect.x + 1,tLineInsertion + 1,this->rect.x+this->editor.margins.x -1,tLineInsertion + tFontHeight - 1,tBreakColor,true);
+			tabContainer->renderer2D->DrawRectangle(this->rect.x + 1,tLineInsertion + 1,this->rect.x+this->editor->margins.x -1,tLineInsertion + tFontHeight - 1,tBreakColor,true);
 		}
 	}
 }
@@ -5336,18 +4833,22 @@ GuiScriptViewer::GuiScriptViewer():
 
 	this->name=L"ScriptViewer";
 
-	this->editor.font=GuiFont::GetFontPool()[3];
+	this->editor=new GuiTextBox;
+	this->lines=new GuiString;
 
-	this->lines.textAlign.make(0,0);
-	this->lines.textSpot.make(0,0);
+	this->editor->font=GuiFont::GetFontPool()[3];
+	this->offsets.make(0,0,0,0);
 
-	this->lines.SetParent(this);
-	this->editor.SetParent(this);
+	this->lines->textAlign.make(0,0);
+	this->lines->textSpot.make(0,0);
 
-	this->lines.SetEdges(0,0,&this->lines.edges.x,0);
-	this->lines.offsets.x=0;
+	this->lines->SetParent(this);
+	this->editor->SetParent(this);
 
-	this->editor.SetEdges(&this->lines.edges.z,0,0,0);
+	this->lines->SetEdges(0,0,&this->lines->edges.x,0);
+	this->lines->offsets.x=0;
+
+	this->editor->SetEdges(&this->lines->edges.z,0,0,0);
 
 }
 
@@ -5360,7 +4861,7 @@ void GuiScriptViewer::Open(Script* iScript)
 {
 	this->script=(EditorScript*)iScript;
 
-	this->editor.text=StringUtils::ReadCharFile(iScript->file);
+	this->editor->text=StringUtils::ReadCharFile(iScript->file);
 
 	this->script->scriptViewer=this;
 }
@@ -5373,7 +4874,7 @@ bool GuiScriptViewer::Save()
 
 		if(tScriptFile.Open(L"wb"))
 		{
-			tScriptFile.Write((void*)this->editor.text->c_str(),sizeof(wchar_t),this->editor.text->size());
+			tScriptFile.Write((void*)this->editor->text->c_str(),sizeof(wchar_t),this->editor->text->size());
 
 			tScriptFile.Close();
 
@@ -5432,9 +4933,9 @@ void GuiScriptViewer::OnLMouseDown(const GuiEvent& iMsg)
 
 	vec2 tMpos=*(vec2*)iMsg.data;
 
-	if(tMpos.x < this->editor.margins.x)
+	if(tMpos.x < this->editor->margins.x)
 	{
-		unsigned int tBreakOnLine=(tMpos.y-this->rect.y)/this->editor.font->GetHeight() + 1;
+		unsigned int tBreakOnLine=(tMpos.y-this->rect.y)/this->editor->font->GetHeight() + 1;
 
 		EditorScript* tEditorScript=(EditorScript*)this->script;
 
@@ -5463,7 +4964,7 @@ void GuiScriptViewer::OnLMouseDown(const GuiEvent& iMsg)
 		}
 	}
 
-	iMsg.tab->SetFocus(&this->editor);
+	iMsg.tab->SetFocus(this->editor);
 }
 
 void GuiScriptViewer::OnDeactivate(const GuiEvent& iMsg)
@@ -5481,7 +4982,7 @@ void GuiScriptViewer::OnMouseMove(const GuiEvent& iMsg)
 	{
 		vec2 tMpos=*(vec2*)iMsg.data;
 
-		if(tMpos.x < this->editor.margins.x)
+		if(tMpos.x < this->editor->margins.x)
 		{
 
 		}
@@ -5502,7 +5003,7 @@ void GuiScriptViewer::OnSize(const GuiEvent& iMsg)
 
 int GuiScriptViewer::CountScriptLines()
 {
-	const wchar_t* t=this->editor.text->c_str();
+	const wchar_t* t=this->editor->text->c_str();
 
 	int tLinesCount=!(*t) ? 0 : 1;
 
@@ -5858,7 +5359,7 @@ void editScriptEditorCallback(void* iData)
 	std::vector<GuiScriptViewer*>& tGuiScriptViewerInstances=GuiScriptViewer::GetInstances();
 
 	if(tGuiScriptViewerInstances.empty())
-		tabContainer->rects.childs.push_back(new GuiScriptViewer);
+		(new GuiScriptViewer)->SetParent(&tabContainer->rects);
 
 	GuiScriptViewer* guiScriptViewer= tGuiScriptViewerInstances[0];
 
@@ -6137,3 +5638,394 @@ void MainContainer::BroadcastToSelectedTabRects(void (GuiRect::*func)(const GuiE
 		(*tContainer)->BroadcastToSelectedTabRects(func,iData);
 }
 
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////SerializerHelpers impl//////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+void SerializerHelpers::Save(Mesh* tMesh,FILE* iFile)
+{
+	WriteCode(Serializer::Mesh,iFile);
+
+	fwrite(&tMesh->ncontrolpoints,sizeof(unsigned int),1,iFile);
+	fwrite(&tMesh->nvertexindices,sizeof(unsigned int),1,iFile);
+	fwrite(&tMesh->ntexcoord,sizeof(unsigned int),1,iFile);
+	fwrite(&tMesh->nnormals,sizeof(unsigned int),1,iFile);
+	fwrite(&tMesh->npolygons,sizeof(unsigned int),1,iFile);
+	fwrite(&tMesh->isCCW,sizeof(bool),1,iFile);
+
+	for(int i=0;i<tMesh->ncontrolpoints;i++)
+		fwrite(&tMesh->controlpoints[i],sizeof(float)*3,1,iFile);
+
+	if(tMesh->nvertexindices)
+		fwrite(&tMesh->vertexindices,sizeof(unsigned int)*tMesh->nvertexindices,1,iFile);
+
+	for(int i=0;i<tMesh->ntexcoord;i++)
+		fwrite(&tMesh->texcoord[i],sizeof(float)*2,1,iFile);
+
+	for(int i=0;i<tMesh->nnormals;i++)
+		fwrite(&tMesh->normals[i],sizeof(float)*3,1,iFile);
+}
+
+
+void SerializerHelpers::Save(Skin* tSkin,FILE* iFile)
+{
+	WriteCode(Serializer::Skin,iFile);
+
+	fwrite(&tSkin->nclusters,sizeof(unsigned int),1,iFile);
+	fwrite(&tSkin->ntextures,sizeof(unsigned int),1,iFile);
+
+	for(int clusterIdx=0;clusterIdx<tSkin->nclusters;clusterIdx++)
+	{
+		Cluster* tCluster=&tSkin->clusters[clusterIdx];
+
+		fwrite(&tCluster->bone->id,sizeof(unsigned int),1,iFile);
+		fwrite(&tCluster->ninfluences,sizeof(unsigned int),1,iFile);
+		fwrite(tCluster->offset,sizeof(float),16,iFile);
+
+		for(int influenceIdx=0;influenceIdx<tCluster->ninfluences;influenceIdx++)
+		{
+			Influence* tInfluence=&tCluster->influences[influenceIdx];
+
+			fwrite(&tInfluence->weight,sizeof(float),1,iFile);
+			fwrite(&tInfluence->ncontrolpointindex,sizeof(unsigned int),1,iFile);
+			fwrite(tInfluence->controlpointindex,sizeof(unsigned int)*tInfluence->ncontrolpointindex,1,iFile);
+		}
+	}
+
+	SerializerHelpers::Save((Mesh*)tSkin,iFile);
+}
+
+
+void SerializerHelpers::Save(Animation* tAnimation,FILE* iFile)
+{
+	WriteCode(Serializer::Animation,iFile);
+
+	fwrite(&tAnimation->start,sizeof(float),1,iFile);//1
+	fwrite(&tAnimation->end,sizeof(float),1,iFile);//1
+	fwrite(&tAnimation->index,sizeof(int),1,iFile);//1
+
+	unsigned int tAnimClipsSize=tAnimation->clips.size();
+
+	fwrite(&tAnimClipsSize,sizeof(unsigned int),1,iFile);//1
+
+	for(std::vector<AnimClip*>::iterator iterAnimClip=tAnimation->clips.begin();iterAnimClip!=tAnimation->clips.end();iterAnimClip++)
+	{
+		AnimClip* tAnimClip=*iterAnimClip;
+
+		fwrite(&tAnimClip->start,sizeof(float),1,iFile);//1
+		fwrite(&tAnimClip->end,sizeof(float),1,iFile);//1
+
+		unsigned int tKeyCurveSize=tAnimClip->curves.size();
+
+		fwrite(&tKeyCurveSize,sizeof(unsigned int),1,iFile);//1
+
+		for(std::vector<KeyCurve*>::iterator iterKeyCurve=tAnimClip->curves.begin();iterKeyCurve!=tAnimClip->curves.end();iterKeyCurve++)
+		{
+			KeyCurve* tKeyCurve=*iterKeyCurve;
+
+			fwrite(&tKeyCurve->channel,sizeof(unsigned int),1,iFile);//1
+			fwrite(&tKeyCurve->start,sizeof(float),1,iFile);//1
+			fwrite(&tKeyCurve->end,sizeof(float),1,iFile);//1
+
+			unsigned int tKeyframeSize=tKeyCurve->frames.size();
+
+			fwrite(&tKeyframeSize,sizeof(unsigned int),1,iFile);//1
+
+			for(std::vector<Keyframe*>::iterator iterKeyFrame=tKeyCurve->frames.begin();iterKeyFrame!=tKeyCurve->frames.end();iterKeyFrame++)
+			{
+				Keyframe* tKeyframe=*iterKeyFrame;
+
+				fwrite(&tKeyframe->time,sizeof(float),1,iFile);//1
+				fwrite(&tKeyframe->value,sizeof(float),1,iFile);//1
+			}
+		}
+	}
+}
+
+
+void SerializerHelpers::Save(AnimationController* tAnimationController,FILE* iFile)
+{
+	WriteCode(Serializer::AnimationController,iFile);
+
+	unsigned int tAnimationIdsSize=tAnimationController->animations.size();
+	fwrite(&tAnimationIdsSize,sizeof(unsigned int),1,iFile);
+
+	if(tAnimationIdsSize)
+	{
+		unsigned int *tAnimationIdsArray=new unsigned int[tAnimationIdsSize];
+
+		for(int i=0;i<tAnimationIdsSize;i++)
+			tAnimationIdsArray[i]=tAnimationController->animations[i]->entity->id;
+
+		fwrite(tAnimationIdsArray,sizeof(unsigned int)*tAnimationIdsSize,1,iFile);
+		SAFEDELETEARRAY(tAnimationIdsArray);
+	}
+
+	fwrite(&tAnimationController->speed,sizeof(float),1,iFile);//1
+	fwrite(&tAnimationController->cursor,sizeof(float),1,iFile);//1
+	fwrite(&tAnimationController->play,sizeof(bool),1,iFile);//1
+	fwrite(&tAnimationController->looped,sizeof(bool),1,iFile);//1
+	fwrite(&tAnimationController->start,sizeof(float),1,iFile);//1
+	fwrite(&tAnimationController->end,sizeof(float),1,iFile);//1
+	fwrite(&tAnimationController->framesPerSecond,sizeof(unsigned int),1,iFile);//1
+	fwrite(&tAnimationController->frameTime,sizeof(unsigned int),1,iFile);//1
+}
+
+
+void SerializerHelpers::Save(Line* tLine,FILE* iFile)
+{
+	WriteCode(Serializer::Line,iFile);
+
+	unsigned int tPointSize=tLine->points.size();
+
+	fwrite(&tPointSize,sizeof(unsigned int),1,iFile);//1
+
+	for(std::list<vec3>::iterator it=tLine->points.begin();it!=tLine->points.end();it++)
+		fwrite(&(*it),sizeof(float)*3,1,iFile);
+}
+
+void SerializerHelpers::Load(EditorLine* tLine,FILE* iFile)
+{
+	unsigned int tPointSize;
+
+	fread(&tPointSize,sizeof(unsigned int),1,iFile);//1
+
+	for(int i=0;i<tPointSize;i++)
+	{
+		vec3 tPoint;
+		fread(&tPoint,sizeof(float)*3,1,iFile);//1
+		tLine->AddPoint(tPoint);
+	}
+}
+
+void SerializerHelpers::Save(Script* tScript,FILE* iFile)
+{
+	WriteCode(Serializer::Script,iFile);
+
+	StringUtils::WriteWstring(iFile,tScript->file);
+}
+
+
+void SerializerHelpers::saveEntityRecursively(Entity* iEntity,FILE* iFile)
+{
+	unsigned int childsSize=iEntity->childs.size();
+	unsigned int componentsSize=iEntity->components.size();
+
+	if(iEntity->id<0)
+		DEBUG_BREAK();
+
+	iEntity->saved=true;
+
+	fwrite(&childsSize,sizeof(unsigned int),1,iFile);//4
+	fwrite(&iEntity->id,sizeof(unsigned int),1,iFile);//4
+
+	fwrite(iEntity->local,sizeof(float),16,iFile);//64
+	fwrite(iEntity->world,sizeof(float),16,iFile);//64
+
+	StringUtils::WriteWstring(iFile,iEntity->name);
+
+	fwrite(iEntity->bbox.a,sizeof(float),3,iFile);//12
+	fwrite(iEntity->bbox.b,sizeof(float),3,iFile);//12
+
+	fwrite(&componentsSize,sizeof(unsigned int),1,iFile);//4
+
+	for(std::list<EntityComponent*>::iterator iteratorComponent=iEntity->components.begin();iteratorComponent!=iEntity->components.end();iteratorComponent++)
+	{
+		if((*iteratorComponent)->is<Script>())
+		{
+			Script* tScript=(Script*)(*iteratorComponent);
+
+			SerializerHelpers::Save(tScript,iFile);
+		}
+		else if((*iteratorComponent)->is<Line>())
+		{
+			Line* tLine=(Line*)(*iteratorComponent);
+
+			SerializerHelpers::Save(tLine,iFile);
+		}
+		else if((*iteratorComponent)->is<Animation>())
+		{
+			Animation* tAnimation=(Animation*)(*iteratorComponent);
+
+			SerializerHelpers::Save(tAnimation,iFile);
+		}
+		else if((*iteratorComponent)->is<AnimationController>())
+		{
+			AnimationController* tAnimationController=(AnimationController*)(*iteratorComponent);
+
+			SerializerHelpers::Save(tAnimationController,iFile);
+		}
+		else if((*iteratorComponent)->is<Skin>())
+		{
+			Skin* tSkin=(Skin*)(*iteratorComponent);
+
+			SerializerHelpers::Save(tSkin,iFile);
+		}
+		else if((*iteratorComponent)->is<Mesh>())
+		{
+			Mesh* tMesh=(Mesh*)(*iteratorComponent);
+
+			SerializerHelpers::Save(tMesh,iFile);
+		}
+		else if((*iteratorComponent)->is<Bone>())
+		{
+			WriteCode(Serializer::Bone,iFile);
+		}
+		else
+			DEBUG_BREAK();
+	}
+
+	if(childsSize)
+	{
+		for(std::list<Entity*>::iterator eIter=iEntity->childs.begin();eIter!=iEntity->childs.end();eIter++)
+			saveEntityRecursively(*eIter,iFile);
+	}
+}
+
+
+
+EditorEntity* SerializerHelpers::loadEntityRecursively(EditorEntity* iEditorEntityParent,FILE* iFile)
+{
+	unsigned int componentsSize;
+	unsigned int childsSize;
+	int componentCode;
+
+	EditorEntity* tEditorEntity=new EditorEntity;
+
+	tEditorEntity->SetParent(iEditorEntityParent);
+
+	fread(&childsSize,sizeof(unsigned int),1,iFile);//4
+	fread(&tEditorEntity->id,sizeof(unsigned int),1,iFile);//4
+
+	fread(tEditorEntity->local,sizeof(float),16,iFile);//64
+	fread(tEditorEntity->world,sizeof(float),16,iFile);//64
+
+	StringUtils::ReadWstring(iFile,tEditorEntity->name);
+
+	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);//12
+	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);//12
+
+	tEditorEntity->OnResourcesCreate();
+	tEditorEntity->OnPropertiesCreate();
+
+	fread(&componentsSize,sizeof(unsigned int),1,iFile);//4
+
+	for(int tComponentIndex=0;tComponentIndex<componentsSize;tComponentIndex++)
+	{
+		fread(&componentCode,sizeof(int),1,iFile);//1
+
+		switch(componentCode)
+		{
+		case Serializer::Script:
+			{
+				EditorScript* tScript=tEditorEntity->CreateComponent<EditorScript>();
+				SerializerHelpers::Load(tScript,iFile);
+			}
+			break;
+		case Serializer::Line:
+			{
+				EditorLine* tLine=tEditorEntity->CreateComponent<EditorLine>();
+
+				SerializerHelpers::Load(tLine,iFile);
+			}
+			break;
+		case Serializer::Animation:
+			{
+				EditorAnimation* tAnimation=tEditorEntity->CreateComponent<EditorAnimation>();
+
+				SerializerHelpers::Load(tAnimation,iFile);
+			}
+			break;
+		case Serializer::AnimationController:
+			{
+				EditorAnimationController* tAnimationController=tEditorEntity->CreateComponent<EditorAnimationController>();
+
+				SerializerHelpers::Load(tAnimationController,iFile);
+			}
+			break; 
+		case Serializer::Mesh:
+			{
+				EditorMesh* tMesh=tEditorEntity->CreateComponent<EditorMesh>();
+
+				SerializerHelpers::Load(tMesh,iFile);
+			}
+			break;
+		case Serializer::Skin:
+			{
+				EditorSkin* tSkin=tEditorEntity->CreateComponent<EditorSkin>();
+
+				SerializerHelpers::Load(tSkin,iFile);
+			}
+			break;
+		/*default:
+			DEBUG_BREAK();*/
+		}
+	}
+
+	if(childsSize)
+	{
+		for(int i=0;i<childsSize;i++)
+			loadEntityRecursively(tEditorEntity,iFile);
+	}
+
+	BindSkinLinks(tEditorEntity);
+	BindAnimationLinks(tEditorEntity);
+
+	return tEditorEntity;
+}
+
+void SerializerHelpers::WriteCode(int iCode,FILE* iFile)
+{
+	fwrite(&iCode,sizeof(int),1,iFile);
+}
+
+
+/*fseek(iFile,sizeof(unsigned char),SEEK_SET);
+
+				unsigned int tMaterialSize;
+
+				fread(&tMaterialSize,sizeof(unsigned char),1,iFile);
+				
+
+				for(int i=0;i<tMaterialSize;i++)
+				{
+					Material* tMaterial=new Material;
+
+					tMesh->materials.push_back(tMaterial);
+
+					fread(&tMaterial->femissive,sizeof(float),1,iFile);
+					fread(&tMaterial->emissive,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->fambient,sizeof(float),1,iFile);
+					fread(&tMaterial->ambient,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->fdiffuse,sizeof(float),1,iFile);
+					fread(&tMaterial->diffuse,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->normalmap,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->fbump,sizeof(float),1,iFile);
+					fread(&tMaterial->bump,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->ftransparent,sizeof(float),1,iFile);
+					fread(&tMaterial->transparent,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->fdisplacement,sizeof(float),1,iFile);
+					fread(&tMaterial->displacement,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->fspecular,sizeof(float),1,iFile);
+					fread(&tMaterial->specular,sizeof(float)*3,1,iFile);
+
+					fread(&tMaterial->fshininess,sizeof(float),1,iFile);
+
+					fread(&tMaterial->freflection,sizeof(float),1,iFile);
+					fread(&tMaterial->reflection,sizeof(float)*3,1,iFile);
+
+					for(int t=0;t<tMaterial->textures.size();t++)
+					{
+						//save the texture
+
+					}
+				}*/

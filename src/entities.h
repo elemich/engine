@@ -144,120 +144,7 @@ struct DLLBUILD Serializer
 	static const int Line=14;
 	static const int Skin=15;
 	static const int Unknown=0xffffffff;
-
-	enum Mode
-	{
-		MODE_SAVE=0,
-		MODE_LOAD,
-		MODE_UNKNOWN
-	};
 };
-
-enum EEntity
-{
-	ENTITY_GENERIC=0,
-	ENTITY_IMAGE,
-	ENTITY_MESH,
-	ENTITY_SKIN,
-	ENTITY_BONE,
-	ENTITY_LIGHT,
-	ENTITY_CAMERA,
-	ENTITY_GUI,
-	ENTITY_MAX
-};
-
-enum EInterpolation
-{
-	INTERP_CONSTANT=0,
-	INTERP_ADDITIVE,
-	INTERP_MAX
-};
-
-enum EChannel
-{
-	SCALEX,
-	SCALEY,
-	SCALEZ,
-	TRANSLATEX,
-	TRANSLATEY,
-	TRANSLATEZ,
-	ROTATEX,
-	ROTATEY,
-	ROTATEZ,
-	INVALID_CHANNEL
-};
-
-enum EAnimationState
-{
-	ANIMSTATE_STOP,
-	ANIMSTATE_PLAY,
-	ANIMSTATE_PAUSE,
-	ANIMSTATE_MAX
-};
-
-enum EResourceId
-{
-	RESOURCE_TEXTURE,
-	RESOURCE_MATERIAL
-};
-
-enum ELight//as fbx enum
-{
-	LIGHT_POINT,
-	LIGHT_DIRECTIONAL,
-	LIGHT_SPOT,
-	LIGHT_AREA,
-	LIGHT_VOLUME,
-	LIGHT_MAX
-};
-
-enum EDecay//as fbx
-{
-	DECAY_NONE,
-	DECAY_LINEAR,
-	DECAY_QUADRATIC,
-	DECAY_CUBIC,
-	DECAY_MAX
-};
-
-enum EMaterial
-{
-	MATERIAL_DIFFUSE,
-	MATERIAL_AMBIENT,
-	MATERIAL_SPECULAR,
-	MATERIAL_SHININESS,
-	MATERIAL_BUMP,
-	MATERIAL_NORMALMAP,
-	MATERIAL_TRANSPARENT,
-	MATERIAL_REFLECTION,
-	MATERIAL_EMISSIVE,
-	MATERIAL_DISPLACEMENT,
-	MATERIAL_MAX
-};
-
-enum ETexture
-{
-	TEXTURE_GENERIC,
-	TEXTURE_FILE,
-	TEXTURE_LAYERED,
-	TEXTURE_PROCEDURAL,
-	TEXTURE_MAX
-};
-
-static const char *EnumEntityNames[ENTITY_MAX]=
-{
-	"ENTITY_GENERIC",
-	"ENTITY_IMAGE",
-	"ENTITY_MESH",
-	"ENTITY_SKIN",
-	"ENTITY_BONE",
-	"ENTITY_LIGHT",
-	"ENTITY_CAMERA",
-	"ENTITY_GUI"
-};
-
-
-
 
 struct DLLBUILD Resource
 {
@@ -286,9 +173,25 @@ struct DLLBUILD Texture
 
 struct DLLBUILD Material
 {
+	enum Type
+	{
+		MATERIAL_DIFFUSE,
+		MATERIAL_AMBIENT,
+		MATERIAL_SPECULAR,
+		MATERIAL_SHININESS,
+		MATERIAL_BUMP,
+		MATERIAL_NORMALMAP,
+		MATERIAL_TRANSPARENT,
+		MATERIAL_REFLECTION,
+		MATERIAL_EMISSIVE,
+		MATERIAL_DISPLACEMENT,
+		MATERIAL_MAX
+	};
+
+
 	std::vector<Texture*> textures;
 
-	EMaterial m_type;
+	Type m_type;
 
 	vec3 emissive;
 	float femissive;
@@ -327,14 +230,14 @@ struct DLLBUILD Material
 
 struct DLLBUILD Influence
 {
-	unsigned int		*controlpointindex;
 	unsigned int		ncontrolpointindex;
 	float	weight;
+
+	unsigned int		*controlpointindex;
 
 	Influence();
 };
 
-struct DLLBUILD Bone;
 struct DLLBUILD Cluster
 {
 	Entity* bone;
@@ -356,14 +259,28 @@ struct DLLBUILD Keyframe
 
 struct DLLBUILD KeyCurve
 {
+	enum Channel
+	{
+		SCALEX,
+		SCALEY,
+		SCALEZ,
+		TRANSLATEX,
+		TRANSLATEY,
+		TRANSLATEZ,
+		ROTATEX,
+		ROTATEY,
+		ROTATEZ,
+		INVALID_CHANNEL
+	};
+
 	KeyCurve();
 	~KeyCurve();
 
 	std::vector<Keyframe*> frames;
 
-	EChannel		channel;
-	float			start;
-	float			end;
+	Channel	channel;
+	float	start;
+	float	end;
 };
 
 
@@ -402,6 +319,10 @@ struct DLLBUILD Entity : EntityBase
 
 	std::list<EntityComponent*> components;
 	std::list<Entity*> childs;
+
+	unsigned int			id;
+
+	bool					saved;
 
 	mat4					local;
 	mat4					world;
@@ -460,17 +381,12 @@ struct DLLBUILD Skeleton : EntityComponent
 
 struct DLLBUILD Animation : EntityComponent
 {
-	AnimationController*    animationController;
-	unsigned int			animationControllerId;
-	
 	std::vector<AnimClip*> clips;
 
 	float	start;
 	float	end;
 
 	int index;
-
-	//Entity* entity;
 
 	Animation();
 	~Animation();
@@ -482,12 +398,7 @@ struct DLLBUILD Gizmo : EntityComponent
 
 struct DLLBUILD AnimationController : EntityComponent
 {
-	static AnimationController* GetById(unsigned int);
-	static unsigned int GetCount();
-	static unsigned int NormalizeIds();
-	static unsigned int GetFreeId();
-
-	unsigned int id;
+	static const std::list<AnimationController*> GetPool();
 
 	std::vector<Animation*> animations;
 
@@ -540,27 +451,47 @@ struct DLLBUILD Line : EntityComponent
 
 struct DLLBUILD Light : EntityComponent
 {
+	struct Type
+	{
+		static const int POINT=0;
+		static const int DIRECTIONAL=1;
+		static const int SPOT=2;
+		static const int AREA=3;
+		static const int VOLUME=4;
+		static const int UNKNOWN=5;
+	};
+
+	struct Decay
+	{
+		static const int NONE=0;
+		static const int LINEAR=1;
+		static const int QUADRATIC=2;
+		static const int CUBIC=3;
+		static const int UNKNOWN=4;
+	};
+
 	Light();
 
-	ELight	light_type;
-	EDecay	light_decaytype;
-	bool    light_cast;
-	bool    light_volumetric;
-	bool    light_groundprojection;
-	bool    light_nearattenuation;
-	bool    light_farattenuation;
-	bool    light_shadows;
-	vec3	light_color;
-	vec3	light_shadowcolor;
-	float	light_intensity;
-	float	light_innerangle;
-	float	light_outerangle;
-	float   light_fog;
-	float	light_decaystart;
-	float	light_nearstart;
-	float	light_nearend;
-	float	light_farstart;
-	float	light_farend;
+	unsigned int	type;
+	unsigned int	decaytype;
+
+	bool    cast;
+	bool    volumetric;
+	bool    groundprojection;
+	bool    nearattenuation;
+	bool    farattenuation;
+	bool    shadows;
+	vec3	color;
+	vec3	shadowcolor;
+	float	intensity;
+	float	innerangle;
+	float	outerangle;
+	float   fog;
+	float	decaystart;
+	float	nearstart;
+	float	nearend;
+	float	farstart;
+	float	farend;
 };
 
 struct DLLBUILD Mesh : EntityComponent
@@ -684,6 +615,10 @@ struct DLLBUILD Renderer3DBase
 {
 	Renderer3DBase();
 	virtual ~Renderer3DBase();
+
+	virtual int		CreateShader(const char* name,int shader_type, const char* shader_src)=0;
+	virtual Shader* CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh)=0;
+	virtual Shader* CreateShaderProgram(const char* name,const char* pix,const char* frag)=0;
 
 	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;

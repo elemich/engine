@@ -340,11 +340,10 @@ void Direct2D::DrawText(Renderer2D* iRenderer,const GuiFont* iFont,unsigned int 
 	tRenderer->renderer->DrawText(iText.c_str(),iText.size(),tFont->texter,D2D1::RectF(x1,y1,x2,y2),tRenderer->SetColorWin32(iColor),D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_NATURAL);
 }
 
-void Direct2D::DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush)
+void Direct2D::DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2 p1,vec2 p2,float iWidth,float iOpacity)
 {
-	renderer->DrawGeometry(caret,iBrush);
+	renderer->DrawLine(D2D1::Point2F(p1.x,p1.y),D2D1::Point2F(p2.x,p2.y),brush,iWidth);
 }
-
 
 void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill,float op)
 {
@@ -518,6 +517,11 @@ void Renderer2DWin32::DrawText(const String& iText,float left,float top, float r
 	Direct2D::DrawText(this,iFont,iColor,iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 }
 
+void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,float iOpacity)
+{
+	Direct2D::DrawLine(this->renderer,this->SetColorWin32(iColor),p1,p2,iWidth,iOpacity);
+}
+
 void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill,float op)
 {
 	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill,op);
@@ -575,18 +579,6 @@ ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color,float opaque)
 	return this->brush;
 }
 
-void Renderer2DWin32::DrawCaret()
-{
-	//this->renderer->DrawGeometry(this->caret,this->SetColorWin32(0x000000));
-}
-
-void Renderer2DWin32::SetCaretPos(float x,float y)
-{
-	/*this->caretPos.left=x;
-	this->caretPos.top=y;
-	this->caretPos.right=x+1;
-	this->caretPos.bottom=y+13.33f;*/
-}
 
 
 ///////////////////////////////////////////////
@@ -1382,7 +1374,7 @@ processHandle(0)
 
 	InitSplitter();
 
-	this->stringEditor=new StringEditorWin32;
+	this->stringEditor=new StringEditor;
 
 	{
 		this->timer=new TimerWin32;
@@ -1803,16 +1795,11 @@ Shader* Renderer3DOpenGL::CreateShaderProgram(const char* name,const char* pix,c
 	return shader;
 }
 
-ShaderOpenGL::ShaderOpenGL(Renderer3DOpenGL* iRenderer3DOpenGL):
-	Shader(iRenderer3DOpenGL),
-	renderer3DOpenGL(iRenderer3DOpenGL)
-{
-
-}
+ShaderOpenGL::ShaderOpenGL(Renderer3DOpenGL* iRenderer):Shader(iRenderer),renderer(iRenderer){}
 
 ShaderOpenGL::~ShaderOpenGL()
 {
-	renderer3DOpenGL->glDeleteProgram(this->programId);
+	renderer->glDeleteProgram(this->programId);
 }
 
 
@@ -1824,11 +1811,11 @@ unsigned int& ShaderOpenGL::GetBufferObject()
 
 int ShaderOpenGL::GetUniform(int slot,char* var)
 {
-	return renderer3DOpenGL->glGetUniformLocation(slot,var);glCheckError();
+	return renderer->glGetUniformLocation(slot,var);glCheckError();
 }
 int ShaderOpenGL::GetAttrib(int slot,char* var)
 {
-	return renderer3DOpenGL->glGetAttribLocation(slot,var);glCheckError();
+	return renderer->glGetAttribLocation(slot,var);glCheckError();
 }
 
 void ShaderOpenGL::SetProjectionMatrix(float* pm)
@@ -1852,7 +1839,7 @@ void ShaderOpenGL::SetMatrices(float* view,float* mdl)
 
 void ShaderOpenGL::Use()
 {
-	renderer3DOpenGL->glUseProgram(programId);glCheckError();
+	renderer->glUseProgram(programId);glCheckError();
 }
 
 const char* ShaderOpenGL::GetPixelShader(){return 0;}
@@ -1872,13 +1859,13 @@ int ShaderOpenGL::init()
 
 int ShaderOpenGL::GetAttribute(const char* attrib)
 {
-	int location=renderer3DOpenGL->glGetAttribLocation(programId,attrib);glCheckError();
+	int location=renderer->glGetAttribLocation(programId,attrib);glCheckError();
 	return location;
 }
 
 int ShaderOpenGL::GetUniform(const char* uniform)
 {
-	int location=renderer3DOpenGL->glGetUniformLocation(programId,uniform);glCheckError();
+	int location=renderer->glGetUniformLocation(programId,uniform);glCheckError();
 	return location;
 }
 
@@ -1951,12 +1938,12 @@ void ShaderOpenGL::SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectSi
 			float fcz=clr1[1]/255.0f;
 			float fcw=clr1[0]/255.0f;
 
-			renderer3DOpenGL->glUniform4f(_ptrclr,fcx,fcy,fcz,fcw);
+			renderer->glUniform4f(_ptrclr,fcx,fcy,fcz,fcw);
 		}
-		else renderer3DOpenGL->glUniform4f(_ptrclr,0,0,0,0);
+		else renderer->glUniform4f(_ptrclr,0,0,0,0);
 
 		if(_mousepos>=0)
-			renderer3DOpenGL->glUniform2f(_mousepos,iMpos.x/iRectSize.x,iMpos.y/iRectSize.y);
+			renderer->glUniform2f(_mousepos,iMpos.x/iRectSize.x,iMpos.y/iRectSize.y);
 	}
 }
 
@@ -1965,7 +1952,7 @@ bool ShaderOpenGL::SetMatrix4f(int slot,float* mtx)
 	if(slot<0)
 		return false;
 
-	renderer3DOpenGL->glUniformMatrix4fv(slot,1,0,mtx);glCheckError();
+	renderer->glUniformMatrix4fv(slot,1,0,mtx);glCheckError();
 	return true;
 }
 
@@ -3698,7 +3685,8 @@ void GuiViewport::Render(Tab* iTab)
 	glScissor((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w);glCheckError();
 
 	{
-		char* pGuiRectColorBack=(char*)&GuiRect::COLOR_BACK;
+		int tGuiRectColorBack=GuiRect::COLOR_BACK;
+		char* pGuiRectColorBack=(char*)&tGuiRectColorBack;
 
 		glClearColor(pGuiRectColorBack[2]/255.0f,pGuiRectColorBack[1]/255.0f,pGuiRectColorBack[0]/255.0f,0.0f);glCheckError();
 		//glClearColor(1,0,0,0);glCheckError();
@@ -4273,6 +4261,14 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 	si.cb = sizeof(STARTUPINFO);
 	si.wShowWindow = true;
 
+	const int tOldCurrentPathSize=1024;
+	wchar_t tOldCurrentPath[tOldCurrentPathSize];
+
+	GetCurrentDirectory(tOldCurrentPathSize,tOldCurrentPath);
+	SetCurrentDirectory(iPath.c_str());
+
+	String tCommandLine=L"cmd.exe /V /C " + iCmdLine;
+
 	int tOutputFileSize=iOutputFile.size();
 
 	if(tOutputFileSize && (iInput || iError || iOutput))
@@ -4294,10 +4290,6 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		si.hStdOutput = iOutput ? tFileOutput : GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
-	SetCurrentDirectory(iPath.c_str());
-
-	String tCommandLine=L"cmd.exe /V /C " + iCmdLine;
-
 	if(!CreateProcess(0,(wchar_t*)tCommandLine.c_str(),0,0,!iNewConsole,0,0,0,&si,&pi))
 		return false;
 
@@ -4309,6 +4301,8 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		DEBUG_BREAK();
 	if(tFileOutput && !CloseHandle( tFileOutput ))
 		DEBUG_BREAK();
+
+	SetCurrentDirectory(tOldCurrentPath);
 
 	return true;
 }
@@ -5048,85 +5042,6 @@ void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctio
 
 }
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-/////////////////DebuggerWin32/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-StringEditorWin32::StringEditorWin32():
-	background(0)
-{}
-
-StringEditorWin32::~StringEditorWin32()
-{
-	SAFERELEASE(this->background);
-}
-
-void StringEditorWin32::Draw(Tab* iCallerTab)
-{
-	if(!this->tab || iCallerTab!=this->tab)
-		return;
-
-	if(this->enabled && this->string && iCallerTab->GetFocus()==this->string)
-	{
-		vec4 tCaret=this->string->cursor->caret;
-		bool tRecalcBackground=this->recalcBackground;
-
-		if(!this->background || tRecalcBackground)
-		{
-			Renderer2DWin32* tRenderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
-
-			this->lastBlinkTime=Ide::GetInstance()->timer->GetCurrent()+this->blinkingRate;
-			this->blinking=true;
-
-			SAFERELEASE(this->background);
-
-			D2D1_BITMAP_PROPERTIES tBitmapProperties=D2D1::BitmapProperties();
-
-			//tRenderer2DWin32->renderer->GetPixelFormat(&tBitmapProperties.pixelFormat);
-			AGGREGATECALL(tRenderer2DWin32->renderer->GetPixelFormat,tBitmapProperties.pixelFormat);
-
-			HRESULT tResult=tRenderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(tCaret.z,tCaret.w),tBitmapProperties,&this->background);
-
-			if(S_OK!=tResult || !this->background)
-				DEBUG_BREAK();
-
-			D2D1_POINT_2U tPoint=D2D1::Point2U(0,0);
-			D2D1_RECT_U tRect=D2D1::RectU(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w);
-
-			tResult=this->background->CopyFromRenderTarget(&tPoint,tRenderer2DWin32->renderer,&tRect);
-
-			if(S_OK!=tResult || !this->background)
-				DEBUG_BREAK();
-
-			this->recalcBackground=false;
-		}
-
-		if(this->string && this->background && (Ide::GetInstance()->timer->GetCurrent()-this->lastBlinkTime > this->blinkingRate))
-		{
-			Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)this->tab->renderer2D;
-
-			if(renderer2DWin32->tab->BeginDraw())
-			{
-				this->string->BeginClip(iCallerTab);
-
-				if(this->blinking)
-					renderer2DWin32->renderer->DrawLine(D2D1::Point2F(tCaret.x+1,tCaret.y),D2D1::Point2F(tCaret.x+1,tCaret.y+this->string->font->GetHeight()),renderer2DWin32->SetColorWin32(0x00000000),2.0f);
-				else
-					renderer2DWin32->renderer->DrawBitmap(this->background,D2D1::Rect(tCaret.x,tCaret.y,tCaret.x+tCaret.z,tCaret.y+tCaret.w));
-
-				this->string->EndClip(iCallerTab);
-
-				renderer2DWin32->tab->EndDraw();
-			}
-
-			this->lastBlinkTime=Ide::GetInstance()->timer->GetCurrent();
-			this->blinking=!this->blinking;
-		}
-	}
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

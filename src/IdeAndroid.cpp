@@ -347,6 +347,9 @@ void AndroidPluginGlobalFunctions::globalCompileAndroidApk(AndroidPlugin* iAndro
 		tTableFile.Close();
 	}
 
+	Ide::GetInstance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tPackFile.path.File() + L" ..",L"",true,true,true);
+	Ide::GetInstance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tTableFile.path.File() + L" ..",L"",true,true,true);
+
 	//File::Delete(tPackFile.path.c_str());
 	//File::Delete(tTableFile.path.c_str());
 

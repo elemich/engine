@@ -7,6 +7,9 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+struct Renderer3DAndroid;
+struct ShaderAndroid;
+
 extern "C" {
 	JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env, jobject obj,  jint width, jint height);
 	JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobject obj);
@@ -20,8 +23,9 @@ bool JniInit();
 
 struct ShaderAndroid : Shader
 {
-	static Shader* Create(const char* shader_name,const char* pixel_shader,const char* fragment_shader);
+	Renderer3DAndroid* renderer;
 
+	ShaderAndroid(Renderer3DAndroid*);
 	~ShaderAndroid();
 
 	int GetUniform(int slot,char* var);
@@ -51,7 +55,7 @@ struct ShaderAndroid : Shader
 	int GetHoveringSlot();
 	int GetPointSize();
 
-	void SetSelectionColor(bool pick,void* ptr,vec2 mposNrm);
+	void SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectSize);
 
 	bool SetMatrix4f(int slot,float* mtx);
 
@@ -64,6 +68,11 @@ struct ShaderAndroid : Shader
 
 struct Renderer3DAndroid : Renderer3DBase
 {
+	PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
+	PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
+	PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
+	PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
+
 	GLuint vertexArrayObject;
 	GLuint vertexBufferObject;
 	GLuint textureBufferObject;
@@ -77,6 +86,10 @@ struct Renderer3DAndroid : Renderer3DBase
 
 	Renderer3DAndroid();
 	~Renderer3DAndroid();
+
+	int		CreateShader(const char* name,int shader_type, const char* shader_src);
+	Shader* CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh);
+	Shader* CreateShaderProgram(const char* name,const char* pix,const char* frag);
 
 	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
 	void draw(vec2);

@@ -154,6 +154,7 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 	FilePath				folderProject;
 	FilePath				pathExecutable;
 	FilePath				folderAppData;
+	FilePath				folderApplication;
 	
 	unsigned int            caretLastTime;
 	unsigned int			processId;
@@ -267,25 +268,27 @@ struct DLLBUILD StringEditor
 	{
 		const wchar_t*  cursor;
 		vec2			rowcol;
-		vec4			caret;
+		vec2			caret;
 
 		Cursor();
 	};
+
 protected:
+
 	GuiString*		string;
 	Tab*			tab;
 
 	unsigned int	blinkingRate;
 	unsigned int	lastBlinkTime;
 	bool			blinking;
-
-	vec4			newCaret;
-
+	vec2			caret;
+	float			caretHeight;
 	bool			enabled;
 
-	bool			recalcBackground;
 public:
+
 	StringEditor();
+	~StringEditor();
 
 	bool EditText(unsigned int iCaretOp,void* iParam);
 
@@ -294,7 +297,7 @@ public:
 	GuiString* Binded();
 	bool Enabled();
 	
-	virtual void Draw(Tab*)=0;
+	virtual void Draw(Tab*);
 };
 
 
@@ -334,12 +337,9 @@ struct DLLBUILD PictureFile : Picture
 struct GuiEvent
 {
 	Tab* tab;
-	GuiRect* sender;
-	GuiRect* target;
-	void (GuiRect::*func)(const GuiEvent&);
 	void* data;
 
-	GuiEvent(Tab* iTab,GuiRect* iSender=0,GuiRect* iTarget=0,void (GuiRect::*iFunction)(const GuiEvent&)=0,void* iData=0);
+	GuiEvent(Tab* iTab,void* iData=0);
 };
 
 struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
@@ -580,6 +580,7 @@ struct DLLBUILD GuiString : GuiRect
 	void SetStringMode(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=StringValue::scDefaultParameter1,unsigned int iValueParameter2=StringValue::scDefaultParameter2);
 
 	virtual void OnSizePre(Tab*);
+	virtual void OnSizePost();
 	void DrawTheText(Tab*);
 
 	bool ParseKeyInput(const GuiEvent&);
@@ -908,8 +909,8 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect
 {
 	EditorScript* script;
 
-	GuiTextBox editor;
-	GuiString lines;
+	GuiTextBox* editor;
+	GuiString* lines;
 
 	bool		lineNumbers;
 	int			lineCount;
@@ -1712,6 +1713,7 @@ struct DLLBUILD Renderer2D
 
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
+	virtual void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f)=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
 	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
 	virtual void DrawBitmap(Picture* bitmap,float x,float y, float w,float h)=0;
@@ -1724,11 +1726,10 @@ struct DLLBUILD Renderer2D
 	virtual void Translate(float,float)=0;
 	virtual void Identity()=0;
 
-	
 	virtual vec2 MeasureText(const wchar_t*,const GuiFont* iFont=GuiFont::GetDefaultFont());
 
-	virtual void DrawCaret()=0;
-	virtual void SetCaretPos(float x,float y)=0;
+	static void EnableCaret();
+	static void DrawCaret();
 };
 
 struct DLLBUILD Renderer3D : Renderer3DBase

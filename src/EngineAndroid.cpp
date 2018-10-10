@@ -1,10 +1,4 @@
-#include "android.h"
-
-void glCheckError();
-void __debugbreak()
-{
-	assert(0);
-}
+#include "EngineAndroid.h"
 
 const char*     current_dir=NULL;
 
@@ -32,8 +26,9 @@ mat4 projection;
 mat4 modelview;
 mat4 view;
 
-ShaderAndroid*     shader=0;
 Renderer3DAndroid* renderer3D=0;
+
+void glCheckError();
 
 int asset_read(void* iFile,char* iBuffer,int iCount)
 {
@@ -199,7 +194,6 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobje
 	screenWidth=width;
 	screenHeight=height;
 
-	shader=new ShaderAndroid;
 	renderer3D=new Renderer3DAndroid;
 	
 	projection.perspective(90,16/9,1,1000);
@@ -251,108 +245,7 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineView_SetTouchEvent(JNIEnv *
 
 #include "shaders.cpp"
 
-int simple_shader(const char* name,int shader_type, const char* shader_src)
-{
-	GLint compile_success = 0;
-	GLchar message[1024];
-	int len=0;
-	int shader_id;
-
-	shader_id = glCreateShader(shader_type);glCheckError();
-
-	if(!shader_id)
-	{
-		wprintf(L"glCreateShader error for %d,%s\n",shader_type,shader_src);glCheckError();
-		__debugbreak();
-		return 0;
-	}
-
-	glShaderSource(shader_id, 1, &shader_src,NULL);glCheckError();
-	glCompileShader(shader_id);glCheckError();
-	glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_success);glCheckError();
-
-	if (GL_FALSE==compile_success)
-	{
-		sprintf(message,"glCompileShader[%s] error:\n",name);
-		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
-		wprintf(L"simple_shader error: %s",message);
-		__debugbreak();
-	}
-
-	return shader_id;
-}
-
-
-ShaderAndroid* create_program(const char* name,const char* vertexsh,const char* fragmentsh)
-{
-	GLint tLinkSuccess=0;
-	GLint tProgramId=0;
-	GLint tVertexShader=0;
-	GLint tFragmentShader=0;
-	GLchar tMessage[1024]={0};
-	GLint tLength=0;
-
-	tProgramId = glCreateProgram();glCheckError();
-
-	if(!tProgramId)
-	{
-		wprintf(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
-		__debugbreak();
-		return false;
-	}
-
-	tVertexShader=simple_shader(name,GL_VERTEX_SHADER, vertexsh);
-	tFragmentShader=simple_shader(name,GL_FRAGMENT_SHADER, fragmentsh);
-
-	glAttachShader(tProgramId, tVertexShader);glCheckError();
-	glAttachShader(tProgramId, tFragmentShader);glCheckError();
-	glLinkProgram(tProgramId);glCheckError();
-	glGetProgramiv(tProgramId, GL_LINK_STATUS, &tLinkSuccess);glCheckError();
-
-	if (GL_FALSE==tLinkSuccess)
-	{
-		wprintf(L"glLinkProgram error for %s\n",tMessage);
-		__debugbreak();
-		return false;
-	}
-
-	glDetachShader(tProgramId,tVertexShader);
-	glDetachShader(tProgramId,tFragmentShader);
-
-	glGetProgramInfoLog(tProgramId,sizeof(tMessage),&tLength,tMessage);glCheckError();
-
-	ShaderAndroid* ___shader=0;
-
-	if(tProgramId && GL_FALSE!=tLinkSuccess)
-	{
-		___shader=new ShaderAndroid;
-
-		___shader->name=StringUtils::ToWide(name);
-		___shader->programId=tProgramId;
-		___shader->vertexShaderId=tVertexShader;
-		___shader->fragmentShaderId=tFragmentShader;
-	}
-
-	return ___shader;
-}
-
-
-
-Shader* ShaderAndroid::Create(const char* name,const char* pix,const char* frag)
-{
-	Shader* shader=create_program(name,pix,frag);
-
-	if(shader)
-	{
-		shader->Use();
-		shader->init();
-	}
-	else
-		wprintf(L"error creating shader %s\n",name);
-
-	return shader;
-}
-
+ShaderAndroid::ShaderAndroid(Renderer3DAndroid* iRenderer):Shader(iRenderer),renderer(iRenderer){}
 
 ShaderAndroid::~ShaderAndroid()
 {
@@ -479,7 +372,7 @@ int ShaderAndroid::GetPointSize()
 	return GetUniform("pointsize");
 }
 
-void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectDim)
+void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectSize)
 {
 	int _mousepos=this->GetMouseSlot();
 	int _ptrclr=this->GetUniform("ptrclr");
@@ -500,7 +393,7 @@ void ShaderAndroid::SetSelectionColor(bool pick,void* ptr,vec2 iMpos,vec2 iRectD
 		else glUniform4f(_ptrclr,0,0,0,0);
 
 		if(_mousepos>=0)
-			glUniform2f(_mousepos,iMpos.x/iRectDim.x,iMpos.y/iRectDim.y);
+			glUniform2f(_mousepos,iMpos.x/iRectSize.x,iMpos.y/iRectSize.y);
 	}
 }
 
@@ -520,19 +413,125 @@ bool ShaderAndroid::SetMatrix4f(int slot,float* mtx)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
-PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
-PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
-PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
+
 
 void glCheckError()
 {
 	GLenum err=glGetError();
 	if(err!=GL_NO_ERROR)
 	{
-		__debugbreak();
+		DEBUG_BREAK();
 	}
 }
+
+
+int Renderer3DAndroid::CreateShader(const char* name,int shader_type, const char* shader_src)
+{
+	GLint compile_success = 0;
+	GLchar message[1024];
+	int len=0;
+	int shader_id;
+
+	shader_id = glCreateShader(shader_type);glCheckError();
+
+	if(!shader_id)
+	{
+		wprintf(L"glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
+		DEBUG_BREAK();
+		return 0;
+	}
+
+	glShaderSource(shader_id, 1, &shader_src,NULL);glCheckError();
+	glCompileShader(shader_id);glCheckError();
+	glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compile_success);glCheckError();
+
+	if (GL_FALSE==compile_success)
+	{
+		sprintf(message,"glCompileShader[%s] error:\n",name);
+		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
+		printf("Renderer3DAndroid::CreateShader: %s\n",message);
+		DEBUG_BREAK();
+	}
+
+	return shader_id;
+}
+
+
+Shader* Renderer3DAndroid::CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh)
+{
+	GLint tLinkSuccess=0;
+	GLint tProgram=0;
+	GLint tVertexShader=0;
+	GLint tFragmentShader=0;
+	GLchar tMessage[1024]={0};
+	GLint tLength=0;
+
+	tProgram = glCreateProgram();glCheckError();
+
+	if(!tProgram)
+	{
+		printf("Renderer3DAndroid::CreateProgram: %s,%s\n",vertexsh,fragmentsh);
+		DEBUG_BREAK();
+		return 0;
+	}
+
+	tVertexShader=CreateShader(name,GL_VERTEX_SHADER, vertexsh);
+	tFragmentShader=CreateShader(name,GL_FRAGMENT_SHADER, fragmentsh);
+
+	glAttachShader(tProgram, tVertexShader);glCheckError();
+	glAttachShader(tProgram, tFragmentShader);glCheckError();
+	glLinkProgram(tProgram);glCheckError();
+	glGetProgramiv(tProgram, GL_LINK_STATUS, &tLinkSuccess);glCheckError();
+
+	if (GL_FALSE==tLinkSuccess)
+	{
+		printf("Renderer3DAndroid::CreateProgram: %s\n",tMessage);
+		DEBUG_BREAK();
+	}
+
+	glGetProgramInfoLog(tProgram,sizeof(tMessage),&tLength,tMessage);glCheckError();
+
+	glDetachShader(tProgram,tVertexShader);
+	glDetachShader(tProgram,tFragmentShader);
+
+	glDeleteShader(tVertexShader);
+	glDeleteShader(tFragmentShader);
+
+	ShaderAndroid* ___shader=0;
+
+	if(tProgram && GL_FALSE!=tLinkSuccess)
+	{
+		___shader=new ShaderAndroid(this);
+
+		___shader->name=StringUtils::ToWide(name);
+		___shader->programId=tProgram;
+		___shader->vertexShaderId=tVertexShader;
+		___shader->fragmentShaderId=tFragmentShader;
+
+		this->shaders.push_back(___shader);
+	}
+
+	return ___shader;
+}
+
+
+
+Shader* Renderer3DAndroid::CreateShaderProgram(const char* name,const char* pix,const char* frag)
+{
+	Shader* shader=this->CreateProgram(name,pix,frag);
+
+	if(shader)
+	{
+		shader->Use();
+		shader->init();
+	}
+	else
+		wprintf(L"error creating shader %s\n",name);
+
+	return shader;
+}
+
+
 Renderer3DAndroid::~Renderer3DAndroid()
 {
 	SAFEDELETE(this->shader_font);
@@ -574,14 +573,14 @@ Renderer3DAndroid::Renderer3DAndroid()
 
 	glGenBuffers(1, &pixelBuffer);
 
-	wprintf(L"Status: Using GL %s\n", glGetString(GL_VERSION));
-	wprintf(L"Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
+	printf("Status: Using GL %s\n", glGetString(GL_VERSION));
+	printf("Status: GLSL ver %s\n",glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-	this->shader_unlit=ShaderAndroid::Create("unlit",unlit_vert,unlit_frag);
-	this->shader_unlit_color=ShaderAndroid::Create("unlit_color",unlit_color_vert,unlit_color_frag);
-	this->shader_unlit_texture=ShaderAndroid::Create("unlit_texture",unlit_texture_vs,unlit_texture_fs);
-	this->shader_font=ShaderAndroid::Create("font",font_pixsh,font_frgsh);
-	this->shader_shaded_texture=ShaderAndroid::Create("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
+	this->shader_unlit=this->CreateShaderProgram("unlit",unlit_vert,unlit_frag);
+	this->shader_unlit_color=this->CreateShaderProgram("unlit_color",unlit_color_vert,unlit_color_frag);
+	this->shader_unlit_texture=this->CreateShaderProgram("unlit_texture",unlit_texture_vs,unlit_texture_fs);
+	this->shader_font=this->CreateShaderProgram("font",font_pixsh,font_frgsh);
+	this->shader_shaded_texture=this->CreateShaderProgram("shaded_texture",texture_vertex_shaded_vert,texture_vertex_shaded_frag);
 
 	this->shaders.push_back(this->shader_unlit);
 	this->shaders.push_back(this->shader_unlit_color);
@@ -590,7 +589,7 @@ Renderer3DAndroid::Renderer3DAndroid()
 	this->shaders.push_back(this->shader_shaded_texture);
 }
 
-void Renderer3DAndroid::drawLight(Light*)
+void Renderer3DAndroid::draw(Light*)
 {
 
 }

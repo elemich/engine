@@ -11,7 +11,7 @@ LOCAL_LDLIBS := -llog -landroid -lEGL -lGLESv2 -latomic
 
 LOCAL_SRC_FILES  = $(MY_SOURCE_PATH)/primitives.cpp \
 				   $(MY_SOURCE_PATH)/entities.cpp \
-				   $(MY_SOURCE_PATH)/android.cpp
+				   $(MY_SOURCE_PATH)/EngineAndroid.cpp
 
 include $(BUILD_SHARED_LIBRARY)
 

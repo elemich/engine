@@ -41,10 +41,13 @@
 		#define DLLBUILD // __declspec(dllimport)
 	#endif
 
-	#define DEBUG_BREAK __debugbreak
+	#define DEBUG_BREAK() \
+		__debugbreak()
 #else
 	#define DLLBUILD
-	#define DEBUG_BREAK __builtin_trap
+
+	#define DEBUG_BREAK() \
+			__builtin_trap()
 
 	#ifdef __ANDROID__
 

@@ -92,7 +92,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh);
 void FillMaterial(FbxNode*,Material*);
 void FillLight(FbxNode* fbxNode,Light* light);
 
-void StoreKeyframes(float& animationStart,float& animationEnd,AnimClip* animation,EChannel channel,FbxAnimCurve* fbxAnimCurve);
+void StoreKeyframes(float& animationStart,float& animationEnd,AnimClip* animation,KeyCurve::Channel channel,FbxAnimCurve* fbxAnimCurve);
 void ExtractAnimations(FbxNode*,EditorEntity*);
 void ExtractTexturesandMaterials(FbxScene*);
 void GetSceneDetails(FbxScene*);
@@ -389,15 +389,15 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 		{
 			FbxAnimLayer* layer=fbxNode->GetScene()->GetSrcObject<FbxAnimStack>(animStackIdx)->GetSrcObject<FbxAnimLayer>(animLayerIdx);
 
-			StoreKeyframes(animStart,animEnd,curvegroup,TRANSLATEX,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
-			StoreKeyframes(animStart,animEnd,curvegroup,TRANSLATEY,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
-			StoreKeyframes(animStart,animEnd,curvegroup,TRANSLATEZ,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
-			StoreKeyframes(animStart,animEnd,curvegroup,ROTATEX,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
-			StoreKeyframes(animStart,animEnd,curvegroup,ROTATEY,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
-			StoreKeyframes(animStart,animEnd,curvegroup,ROTATEZ,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
-			StoreKeyframes(animStart,animEnd,curvegroup,SCALEX,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
-			StoreKeyframes(animStart,animEnd,curvegroup,SCALEY,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
-			StoreKeyframes(animStart,animEnd,curvegroup,SCALEZ,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::TRANSLATEX,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::TRANSLATEY,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::TRANSLATEZ,fbxNode->LclTranslation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::ROTATEX,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::ROTATEY,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::ROTATEZ,fbxNode->LclRotation.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::SCALEX,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_X));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::SCALEY,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Y));
+			StoreKeyframes(animStart,animEnd,curvegroup,KeyCurve::Channel::SCALEZ,fbxNode->LclScaling.GetCurve(layer,FBXSDK_CURVENODE_COMPONENT_Z));
 
 			
 			//DONTCANCEL AnimationTake(layer,fbxNode,animation,animname);
@@ -416,11 +416,8 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 			AnimationController *animController=globalRootEntity->findComponent<AnimationController>();
 
 			if(!animController)
-			{
 				animController=globalRootEntity->CreateComponent<EditorAnimationController>();
-				unsigned int tAnimationControllerFreeId=EditorAnimationController::GetFreeId();
-				animController->SetId(tAnimationControllerFreeId);
-			}
+			
 			if(!animController)
 				DEBUG_BREAK();
 
@@ -491,8 +488,6 @@ EditorEntity* Fbx::Import(const char* fname)
 			printf("error\n");
 	}
 
-	
-
 	if(fbxScene)fbxScene->Destroy(true);
 	if(fbxScene)fbxImporter->Destroy(true);
 	if(fbxScene)fbxIOSettings->Destroy(true);
@@ -507,7 +502,7 @@ EditorEntity* Fbx::Import(const char* fname)
 
 
 
-void StoreKeyframes(float& animation_start,float& animation_end,AnimClip* curvegroup,EChannel channel,FbxAnimCurve* fbxAnimCurve)
+void StoreKeyframes(float& animation_start,float& animation_end,AnimClip* curvegroup,KeyCurve::Channel channel,FbxAnimCurve* fbxAnimCurve)
 {
 	if(fbxAnimCurve && fbxAnimCurve->KeyGetCount())
 	{	
@@ -553,27 +548,28 @@ void FillLight(FbxNode* fbxNode,Light* light)
 
 		Light* light=new Light;
 			
-		light->light_type=(ELight)(int)fbxLight->LightType.Get();
-		light->light_decaytype=(EDecay)(int)fbxLight->DecayStart.Get();
+		light->type=(unsigned int)fbxLight->LightType.Get();
+		light->decaytype=(unsigned int)(int)fbxLight->DecayStart.Get();
 			   
-		light->light_cast,fbxLight->CastLight.Get();
-		light->light_volumetric,fbxLight->DrawVolumetricLight.Get();
-		light->light_groundprojection,fbxLight->DrawGroundProjection.Get();
-		light->light_shadows,fbxLight->CastShadows.Get();
-		light->light_farattenuation,fbxLight->EnableFarAttenuation.Get();
-		light->light_nearattenuation,fbxLight->EnableNearAttenuation.Get();
+		light->cast,fbxLight->CastLight.Get();
+		light->volumetric,fbxLight->DrawVolumetricLight.Get();
+		light->groundprojection,fbxLight->DrawGroundProjection.Get();
+		light->shadows,fbxLight->CastShadows.Get();
+		light->farattenuation,fbxLight->EnableFarAttenuation.Get();
+		light->nearattenuation,fbxLight->EnableNearAttenuation.Get();
 			
-		GetVec3(light->light_color,fbxLight->Color.Get());
-		GetVec3(light->light_shadowcolor,fbxLight->ShadowColor.Get());
-		light->light_intensity,fbxLight->Intensity.Get();
-		light->light_innerangle,fbxLight->InnerAngle.Get();
-		light->light_outerangle,fbxLight->OuterAngle.Get();
-		light->light_fog,fbxLight->Fog.Get();
-		light->light_decaystart,fbxLight->DecayStart.Get();
-		light->light_nearstart,fbxLight->NearAttenuationStart.Get();
-		light->light_nearend,fbxLight->NearAttenuationEnd.Get();
-		light->light_farstart,fbxLight->FarAttenuationStart.Get();
-		light->light_farend,fbxLight->FarAttenuationEnd.Get();
+		GetVec3(light->color,fbxLight->Color.Get());
+		GetVec3(light->shadowcolor,fbxLight->ShadowColor.Get());
+
+		light->intensity,fbxLight->Intensity.Get();
+		light->innerangle,fbxLight->InnerAngle.Get();
+		light->outerangle,fbxLight->OuterAngle.Get();
+		light->fog,fbxLight->Fog.Get();
+		light->decaystart,fbxLight->DecayStart.Get();
+		light->nearstart,fbxLight->NearAttenuationStart.Get();
+		light->nearend,fbxLight->NearAttenuationEnd.Get();
+		light->farstart,fbxLight->FarAttenuationStart.Get();
+		light->farend,fbxLight->FarAttenuationEnd.Get();
 	}
 }
 
