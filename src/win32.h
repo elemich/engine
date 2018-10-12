@@ -484,7 +484,10 @@ struct DLLBUILD IdeWin32 : Ide
 	HANDLE processThreadHandle;
 	HANDLE processHandle;
 
+	bool projectDirHasChanged;
+
 	void Run();
+	void ProjectDirHasChangedFunc();
 
 	void ScanDir(String,ResourceNodeDir*);
 	void Sleep(int iMilliseconds=1);

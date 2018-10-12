@@ -303,14 +303,14 @@ struct DLLBUILD EntityBase
 
 struct DLLBUILD EntityComponent : EntityBase
 {
-	Entity* entity;
+	Entity*			entity;
 
-	EntityComponent():entity(0){}
+	EntityComponent();
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
-	virtual void update(){}
-	virtual void draw(Renderer3DBase*){}
+	virtual void update();
+	virtual void draw(Renderer3DBase*);
 };
 
 struct DLLBUILD Entity : EntityBase

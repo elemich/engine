@@ -1565,22 +1565,16 @@ void Thread::Block(bool iBlock)
 {
 	this->pause=iBlock;
 
-	if(iBlock)
-	{
-		while(this->executing)
-			this->pause=iBlock;
-	}
+	while((bool)this->executing!=iBlock)
+		{return;}
 }
 
 void Task::Block(bool iBlock)
 {
 	this->pause=iBlock;
 
-	if(iBlock)
-	{
-		while(this->executing)
-			this->pause=iBlock;
-	}
+	while(this->executing!=iBlock)
+		{return;}
 }
 
 

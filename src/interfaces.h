@@ -161,6 +161,7 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 	unsigned int			processThreadId;
 
 	Thread*					timerThread;
+	Thread*					projectDirChangedThread;
 
 private:
 	Tab*					popup;
@@ -182,6 +183,7 @@ public:
 	virtual ~Ide();
 
 	virtual void Run()=0;
+	virtual void ProjectDirHasChangedFunc()=0;
 
 	virtual void ScanDir(String,ResourceNodeDir*)=0;
 
@@ -383,7 +385,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	GuiScrollRect* clip;
 
-	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0,vec2 _alignPos=vec2(0,0),vec2 _alignRect=vec2(1,1));
+	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0);
 	virtual ~GuiRect();
 
 	virtual void SetEdges(float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
@@ -966,6 +968,8 @@ struct DLLBUILD ResourceNode
 	int level;
 	bool isDir;
 
+	String BuildPath();
+
 	ResourceNode();
 	virtual ~ResourceNode();
 };
@@ -979,7 +983,9 @@ struct DLLBUILD ResourceNodeDir : ResourceNode
 
 	GuiContainerRow<ResourceNodeDir*> directoryViewerRow;
 
-	String BuildPath();
+	static ResourceNodeDir*	FindDirNode(String);
+	static ResourceNode*	FindFileNode(String);
+	static ResourceNodeDir* GetRootDirNode();
 
 	ResourceNodeDir();
 	virtual ~ResourceNodeDir();
@@ -1058,8 +1064,6 @@ private:
 
 	struct DLLBUILD DirViewer : GuiScrollRect
 	{
-		GuiProjectViewer* projectViewer;
-
 		ResourceNodeDir* projectDirectory;
 
 		std::vector<ResourceNodeDir*> selectedDirs;
@@ -1069,8 +1073,6 @@ private:
 
 	struct DLLBUILD FileViewer : GuiScrollRect
 	{
-		GuiProjectViewer* projectViewer;
-
 		ResourceNodeDir* currentDirectory;
 
 		std::vector<ResourceNodeDir*> selectedDirs;
@@ -1085,7 +1087,6 @@ private:
 
 	struct DLLBUILD DataViewer : GuiScrollRect
 	{
-		GuiProjectViewer* projectViewer;
 	};
 
 public:
@@ -1104,8 +1105,12 @@ public:
 
 	~GuiProjectViewer();
 
+	void RefreshAll();
+
 	static GuiProjectViewer* GetInstance();
 	static bool IsInstanced();
+
+	void Delete(Tab*,GuiContainerRow<ResourceNode*>*);
 
 	void OnPaint(const GuiEvent&);
 	void OnLMouseDown(const GuiEvent&);
@@ -1168,15 +1173,11 @@ struct DLLBUILD WindowData
 
 struct DLLBUILD DrawInstance
 {
-	int		 code;
-	bool	 frame;
 	GuiRect* rect;
-	String	 name;
 	bool	 skip;
+	bool	 remove;
 
-	bool remove;
-
-	DrawInstance(int iNoneAllRect,bool iFrame,GuiRect* iRect,String iname,bool iRemove=true,bool iSkip=false);
+	DrawInstance(GuiRect* iRect,bool iRemove=true,bool iSkip=false);
 };
 
 struct DLLBUILD Tab
@@ -1235,7 +1236,8 @@ struct DLLBUILD Tab
 
 	bool hasFrame;
 
-	std::list<DrawInstance*> drawInstances;
+	std::list<DrawInstance*>			drawInstances;
+	std::list< std::function<void()> >  concurrentInstances;
 
 	Task*	 drawTask;
 
@@ -1244,8 +1246,6 @@ struct DLLBUILD Tab
 	unsigned int lastFrameTime;
 
 	Thread* thread;
-
-	//std::list< std::function<void()> > evtQueue;
 
 	Tab(float x,float y,float w,float h);
 	virtual ~Tab();
@@ -1311,6 +1311,8 @@ struct DLLBUILD Tab
 	}
 
 	void Draw();
+	void DrawBlock(bool);
+	
 
 	virtual bool BeginDraw()=0;
 	virtual void EndDraw()=0;
@@ -1318,7 +1320,7 @@ struct DLLBUILD Tab
 	virtual void Create3DRenderer()=0;
 	virtual void Destroy3DRenderer()=0;
 
-	DrawInstance* SetDraw(int iNoneAllRect=1,bool iFrame=true,GuiRect* iRect=0,String iName=L"",bool iRemove=true,bool iSkip=false);
+	DrawInstance* SetDraw(GuiRect* iRect=0,bool iRemove=true,bool iSkip=false);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
@@ -1655,9 +1657,10 @@ struct DLLBUILD EditorLight : EditorObject<Light>
 };
 struct DLLBUILD EditorScript : EditorObject<Script>
 {
-	GuiButton* buttonLaunch;
+	GuiButton*			buttonLaunch;
 
-	GuiScriptViewer* scriptViewer;
+	GuiScriptViewer*	scriptViewer;
+	ResourceNode*		resourceNode;
 
 	EditorScript();
 
@@ -1670,6 +1673,8 @@ struct DLLBUILD EditorScript : EditorObject<Script>
 	{
 		this->runtime ? Ide::GetInstance()->debugger->RunDebuggeeFunction(this,1),true : false;
 	}
+
+	void SaveScript();
 };
 struct DLLBUILD EditorCamera : EditorObject<Camera>
 {

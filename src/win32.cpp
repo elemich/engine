@@ -44,13 +44,12 @@ DWORD WINAPI threadFunc(LPVOID data)
 
 			if(!pThread->pause && !pTask->pause && pTask->owner==pThread)
 			{
+				pTask->executing=true;
 				pThread->executing=pTask;
-
+				
 				if(pTask->func)
 				{
-					pTask->executing=true;
 					pTask->func();
-					pTask->executing=false;
 				}
 				if(pTask->remove)
 				{
@@ -58,9 +57,13 @@ DWORD WINAPI threadFunc(LPVOID data)
 					taskIter=pThread->tasks.erase(taskIter);
 				}
 				else
+				{
+					pTask->executing=false;
 					taskIter++;
+				}
 
 				pThread->executing=0;
+				
 			}
 			else
 				taskIter++;
@@ -1081,7 +1084,12 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		}
 		break;
 		default:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+				/*if(tab)
+					tab->Draw();*/
+			}
+			
 
 	}
 
@@ -1093,6 +1101,14 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 		tabWin32->windowDataWin32->lparam=0;
 	}
 
+	if(tab && tab->concurrentInstances.size())
+	{
+		for(std::list< std::function<void()> >::iterator iterConcurrentInstances=tab->concurrentInstances.begin();iterConcurrentInstances!=tab->concurrentInstances.end();)
+		{
+			(*iterConcurrentInstances)();
+			iterConcurrentInstances=tab->concurrentInstances.erase(iterConcurrentInstances);
+		}
+	}
 	
 
 	return result;
@@ -1281,9 +1297,12 @@ bool WindowDataWin32::FindAndGrowSibling()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+
+
 IdeWin32::IdeWin32():
 processThreadHandle(0),
-processHandle(0)
+processHandle(0),
+projectDirHasChanged(false)
 {
 	HRESULT result;
 
@@ -1383,6 +1402,9 @@ processHandle(0)
 		this->timerThread->NewTask(std::function<void()>(std::bind(&Timer::update,this->timer)),false);
 	}
 
+	this->projectDirChangedThread=new ThreadWin32;
+	this->projectDirChangedThread->NewTask(std::function<void()>(std::bind(&Ide::ProjectDirHasChangedFunc,this)),false);
+
 	this->mainAppWindow=new MainContainerWin32;
 
 	this->mainAppWindow->Initialize();
@@ -1390,6 +1412,8 @@ processHandle(0)
 	this->pluginSystem=new PluginSystemWin32;
 
 	this->pluginSystem->ScanPluginsDirectory();
+
+	
 }
 
 IdeWin32::~IdeWin32()
@@ -1560,12 +1584,41 @@ void IdeWin32::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
+
+		if(this->projectDirHasChanged)
+		{
+			this->projectDirHasChanged=false;
+
+			Tab* tTab=GuiProjectViewer::GetInstance()->GetRootRect()->tab;
+
+			tTab->DrawBlock(true);
+
+			GuiEvent tChangeDirEvent(tTab,0);
+
+			GuiProjectViewer::GetInstance()->OnDeactivate(tChangeDirEvent);
+			GuiProjectViewer::GetInstance()->OnActivate(tChangeDirEvent);
+
+			tTab->DrawBlock(false);
+
+			tTab->SetDraw();
+		}
 	}
 }
 
 void IdeWin32::Sleep(int iMilliseconds)
 {
 	::Sleep(iMilliseconds);
+}
+
+void IdeWin32::ProjectDirHasChangedFunc()
+{
+	HANDLE tProjectDirChangeHandle=FindFirstChangeNotification(this->folderProject.c_str(),true,
+		FILE_NOTIFY_CHANGE_FILE_NAME|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_ATTRIBUTES|FILE_NOTIFY_CHANGE_SIZE|FILE_NOTIFY_CHANGE_LAST_WRITE|FILE_NOTIFY_CHANGE_SECURITY);
+	DWORD tProjectDirectoryIsChanged=WaitForSingleObject(tProjectDirChangeHandle,INFINITE); 
+
+	this->projectDirHasChanged = WAIT_OBJECT_0==tProjectDirectoryIsChanged ? true : false;
+
+	FindCloseChangeNotification(tProjectDirChangeHandle);
 }
 
 
@@ -4994,7 +5047,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
-	tEditorScript->scriptViewer->GetRootRect()->tab->SetDraw(2,0,tEditorScript->scriptViewer);
+	tEditorScript->scriptViewer->GetRootRect()->tab->SetDraw(tEditorScript->scriptViewer);
 
 	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }
@@ -5055,6 +5108,8 @@ PluginSystemWin32::PluginSystemWin32()
 
 void PluginSystemWin32::ScanPluginsDirectory()
 {
+	Ide::GetInstance()->projectDirChangedThread->Block(true);
+
 	PluginSystem::Plugin* (*ptfGetPluginPrototypeFunction)(PluginSystem*)=0;
 
 	HANDLE			tScanHandle;
@@ -5110,6 +5165,8 @@ void PluginSystemWin32::ScanPluginsDirectory()
 				FreeLibrary(tPluginDll);
 		}
 	}
+
+	Ide::GetInstance()->projectDirChangedThread->Block(false);
 }
 
 
