@@ -278,24 +278,28 @@ int File::Size(String iFilename)
 
 void StringUtils::WriteWstring(FILE* iFile,String& iWstring)
 {
-	int nameCount=iWstring.size();
+	std::string		tCharString=StringUtils::ToChar(iWstring);
+	unsigned int	tNameCount=tCharString.size();
 
-	fwrite(&nameCount,sizeof(int),1,iFile);
-	fwrite(iWstring.c_str(),sizeof(wchar_t),nameCount,iFile);
+	fwrite(&tNameCount,sizeof(int),1,iFile);
+	fwrite(tCharString.c_str(),sizeof(char),tNameCount,iFile);
 }
 
 void StringUtils::ReadWstring(FILE* iFile,String& iWstring)
 {
-	int nameCount=0;
+	int		tNameCount=0;
+	char*	tNameBuf=0;
 
-	fread(&nameCount,sizeof(int),1,iFile);
+	fread(&tNameCount,sizeof(int),1,iFile);
 
+	if(tNameCount)
 	{
-		wchar_t* tNameBuf=new wchar_t[nameCount+1];
-		fread(tNameBuf,sizeof(wchar_t),nameCount,iFile);
-		tNameBuf[nameCount]='\0';
+		tNameBuf=new char[tNameCount+1];
+		tNameBuf[tNameCount]='\0';
 
-		iWstring=tNameBuf;
+		fread(tNameBuf,sizeof(char),tNameCount,iFile);
+		
+		iWstring=StringUtils::ToWide(tNameBuf);
 
 		SAFEDELETEARRAY(tNameBuf);
 	}

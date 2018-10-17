@@ -20,9 +20,7 @@ x86d:
  
  if not exist $(DIRSRC)\targets\android\obj mkdir $(DIRSRC)\targets\android\obj
  
-# C:\Sdk\android\android-sdk\build-tools\27.0.3 C:\Sdk\android\android-sdk\platforms\android-27
- 
- @c:\sdk\android\android-ndk-r16b_x86_64\ndk-build APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
+ @c:\sdk\android\android-ndk-r16b_x86_64\ndk-build NDK_DEBUG=1 APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRSRC=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
  @javac -verbose -g -d $(DIRSRC)\targets\android\obj  $(ANDROIDSRC)\EngineActivity.java -sourcepath $(ANDROIDSRC)\*.java -classpath C:\Sdk\android\android-sdk\platforms\android-27\android.jar
  @C:\Sdk\android\android-sdk\build-tools\27.0.3\dx --verbose --dex --output=$(DIRDST)\classes.dex $(DIRSRC)\targets\android\obj
  

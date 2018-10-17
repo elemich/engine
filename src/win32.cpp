@@ -174,7 +174,7 @@ GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 	if(S_OK!=res || !tFontFace)
 		DEBUG_BREAK();
 
-	wchar_t*				tGlyphs=L" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~\0";//" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
+	wchar_t*				tGlyphs=L" \t!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~\0";//" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_'abcdefghijklmnopqrstuvwxyz{|}~";
 	
 	DWRITE_FONT_METRICS		tFontMetrics;
 	
@@ -230,7 +230,6 @@ GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 
 	tGuiFont->height=(tAscent+tDescent);
 
-	//set unhandleds
 	for(int i=0;i<255;i++)
 		tGuiFont->widths[i]=-1;
 
@@ -240,6 +239,8 @@ GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 
 		tGuiFont->widths[tGlyphs[i]]=tTexter->GetFontSize() * tAdvanceWidth;
 	}
+
+	tGuiFont->widths['\t']*=tGuiFont->tabSpaces;
 
 	globalFontPool.push_back(tGuiFont);
 
@@ -1350,6 +1351,7 @@ projectDirHasChanged(false)
 			DEBUG_BREAK();
 
 		this->pathExecutable=ch;
+		this->folderPlugins=this->pathExecutable.Path() + L"\\plugins";
 
 		String pathExecutablePath=this->pathExecutable.Path();
 
@@ -1413,7 +1415,7 @@ projectDirHasChanged(false)
 
 	this->pluginSystem->ScanPluginsDirectory();
 
-	
+	wprintf(L"sizeof(wchar_t): %d,sizeof(bool): %d",sizeof(wchar_t),sizeof(bool));
 }
 
 IdeWin32::~IdeWin32()
@@ -5110,6 +5112,32 @@ void PluginSystemWin32::ScanPluginsDirectory()
 {
 	Ide::GetInstance()->projectDirChangedThread->Block(true);
 
+	File tPluginsFile=Ide::GetInstance()->folderPlugins + L"\\plugins.cfg";
+
+	std::vector<String> tPluginStates;
+
+	if(tPluginsFile.Open(L"rb"))
+	{
+		const unsigned int _strDim=1024;
+		char _str[_strDim];
+
+		while(!feof(tPluginsFile.data) && fgets(_str,_strDim,tPluginsFile.data))
+		{
+			char* _Del=strstr(_str,"\n");
+
+			_Del ? *_Del=0 : 0;
+
+			_Del=strstr(_str,"\r");
+
+			_Del ? *_Del=0 : 0;
+
+			String _Wstr=StringUtils::ToWide(_str);
+			tPluginStates.push_back(_Wstr);
+		}
+
+		tPluginsFile.Close();
+	}
+
 	PluginSystem::Plugin* (*ptfGetPluginPrototypeFunction)(PluginSystem*)=0;
 
 	HANDLE			tScanHandle;
@@ -5156,6 +5184,12 @@ void PluginSystemWin32::ScanPluginsDirectory()
 				{
 					this->tPluginDlls.push_back(tPluginDll);
 					this->plugins.push_back(tPlugin);
+
+					for(size_t i=0;i<tPluginStates.size();i++)
+					{
+						if(tPlugin->name==tPluginStates[i])
+							tPlugin->Load();
+					}
 
 					wprintf(L"%s plugin loaded\n",tPlugin->name.c_str());
 				}

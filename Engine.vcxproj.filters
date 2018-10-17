@@ -4,9 +4,6 @@
     <Filter Include="Common">
       <UniqueIdentifier>{ebef4071-7a9b-4075-9f2c-050673031288}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Android">
-      <UniqueIdentifier>{a70132d0-a52b-452f-91cc-421d934c4eb2}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Win32">
       <UniqueIdentifier>{e87e9899-61f2-4f14-bb02-b3bd0e7a8cdb}</UniqueIdentifier>
     </Filter>
@@ -15,6 +12,9 @@
     </Filter>
     <Filter Include="Plugins">
       <UniqueIdentifier>{cc9487c7-84e5-415f-a8b8-cd99d51acc1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\Android">
+      <UniqueIdentifier>{a70132d0-a52b-452f-91cc-421d934c4eb2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -46,7 +46,7 @@
       <Filter>Win32</Filter>
     </ClCompile>
     <ClCompile Include="src\EngineAndroid.cpp">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </ClCompile>
     <ClCompile Include="src\fbxutil_fbx.cpp">
       <Filter>Plugins</Filter>
@@ -55,7 +55,7 @@
       <Filter>Plugins</Filter>
     </ClCompile>
     <ClCompile Include="src\IdeAndroid.cpp">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -81,24 +81,24 @@
       <Filter>Win32</Filter>
     </ClInclude>
     <ClInclude Include="src\EngineAndroid.h">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </ClInclude>
     <ClInclude Include="src\fbxutil.h">
       <Filter>Plugins</Filter>
     </ClInclude>
     <ClInclude Include="src\IdeAndroid.h">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </None>
     <None Include="src\targets\android\src\com\android\Engine\EngineLib.java">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </None>
     <None Include="src\targets\android\src\com\android\Engine\EngineView.java">
-      <Filter>Android</Filter>
+      <Filter>Plugins\Android</Filter>
     </None>
     <None Include="makefile">
       <Filter>Makefiles</Filter>

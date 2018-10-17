@@ -155,6 +155,7 @@ struct DLLBUILD Ide : TStaticInstance<Ide>
 	FilePath				pathExecutable;
 	FilePath				folderAppData;
 	FilePath				folderApplication;
+	FilePath				folderPlugins;
 	
 	unsigned int            caretLastTime;
 	unsigned int			processId;
@@ -284,6 +285,7 @@ protected:
 	unsigned int	lastBlinkTime;
 	bool			blinking;
 	vec2			caret;
+	vec2			caretPast;
 	float			caretHeight;
 	bool			enabled;
 
@@ -1693,11 +1695,13 @@ struct DLLBUILD GuiFont
 	String	name;
 	float	widths[255];
 	float	height;
+	float	tabSpaces;
+
+	GuiFont();
 
 	float GetHeight()const;
 	vec2 MeasureText(const wchar_t*)const;
 	float GetCharWidth(wchar_t)const;
-
 
 	static const GuiFont* GetDefaultFont();
 	static const std::vector<GuiFont*>& GetFontPool();

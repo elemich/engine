@@ -37,7 +37,7 @@ int asset_read(void* iFile,char* iBuffer,int iCount)
 
 int asset_write(void* iFile,const char* iBuffer,int iCount)
 {
-    wprintf(L"fwrite not implemented\n");
+    printf("fwrite not implemented\n");
     return 0;
 }
 
@@ -56,11 +56,11 @@ FILE* asset_open(const char* iFilename,const char* iMode)
 {
     if(0!=strstr(iMode,"w") || 0!=strstr(iMode,"W"))
     {
-        wprintf(L"error: trying to open asset in r mode\n");
+        printf("error: trying to open asset in r mode\n");
         return 0;
     }
 
-    AAsset* tAsset=AAssetManager_open(globalAssetManager,iFilename,AASSET_MODE_STREAMING);
+    AAsset* tAsset=AAssetManager_open(globalAssetManager,iFilename,AASSET_MODE_RANDOM);
 
     if(tAsset)
     {
@@ -78,11 +78,11 @@ jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
 
 	globalJvm = iJavaVM;
 
-	wprintf(L"Engine: JNI_OnLoad\n");
+	printf("Engine: JNI_OnLoad\n");
 
 	if (globalJvm->GetEnv((void**)&globalJniEnv, tJVer) != JNI_OK)
 	{
-		wprintf(L"Engine: JNI_OnLoad() failed to get the JVM\n");
+		printf("Engine: JNI_OnLoad() failed to get the JVM\n");
 		return -1;
 	}
 
@@ -91,7 +91,7 @@ jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
 
 	if(!tActivityClass)
 	{
-		wprintf(L"Engine: JNI_OnLoad() failed to get %s class reference through JVM\n",tJavaActivityPath);
+		printf("Engine: JNI_OnLoad() failed to get %s class reference through JVM\n",tJavaActivityPath);
 		return -1;
 	}
 
@@ -105,7 +105,7 @@ jint JNI_OnLoad(JavaVM* iJavaVM, void* aReserved)
 
 bool JniInit()
 {
-    wprintf(L"Engine: JniInit\n");
+    printf("Engine: JniInit, sizeof(wchar_t): %d, sizeof(bool): %d, sizeof(float): %d\n",sizeof(wchar_t),sizeof(bool),sizeof(float));
 
 	jmethodID   pfAssetManagerFunction=NULL;
 	jmethodID   pfCurrentPathFunction=NULL;
@@ -122,7 +122,7 @@ bool JniInit()
 			current_dir = globalJniEnv->GetStringUTFChars((jstring)globalJniEnv->CallStaticObjectMethod(tEngineViewClass, pfCurrentPathFunction ), 0);
 		else
         {
-            wprintf(L"Engine: JniInit() failed to GetCurrentPath from JVM\n");
+            printf("Engine: JniInit() failed to GetCurrentPath from JVM\n");
             return false;
         }
 
@@ -138,7 +138,7 @@ bool JniInit()
 
             if(resourceData)
             {
-                wprintf(L"Resource: loading asset\n");
+                printf("Resource: loading asset\n");
 
                 fread(&resourceTableSize,sizeof(int),1,resourceData);
                 fread(&resourceDataSize,sizeof(int),1,resourceData);
@@ -148,38 +148,16 @@ bool JniInit()
                 resourceDataStart=resourceTableEnd;
                 resourceDataEnd=resourceDataStart + resourceDataSize;
 
-                wprintf(L"Resource: asset table size is %d\n",resourceTableSize);
-                wprintf(L"Resource: asset data size is %d\n",resourceDataSize);
-
-                {
-                    String tResource=L"\\pippo\\1.txt";
-                    String tResource2=L"\\pippo\\peppo\\2.txt";
-
-                    char* tBuffer=(char*)Resource::Load(tResource);
-                    char* tBuffer2=(char*)Resource::Load(tResource2);
-
-                    if(tBuffer && tBuffer2)
-                    {
-                        wprintf(L"resource %s %s found\n",tResource.c_str(),tResource2.c_str());
-
-                        wprintf(L"result %s %s \n",tBuffer,tBuffer2);
-
-                        SAFEDELETE(tBuffer);
-                        SAFEDELETE(tBuffer2);
-                    }
-                    else
-                        wprintf(L"resource %s not found\n",tResource.c_str());
-
-
-                }
+                printf("Resource: asset table size is %d\n",resourceTableSize);
+                printf("Resource: asset data size is %d\n",resourceDataSize);
             }
             else
-                wprintf(L"error opening asset file\n");
+                printf("error opening asset file\n");
 
         }
 		else
         {
-            wprintf(L"Engine: JniInit() failed to GetAssetManager from JVM\n");
+            printf("Engine: JniInit() failed to GetAssetManager from JVM\n");
             return false;
         }
 
@@ -204,7 +182,7 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobje
 	glEnable(GL_DEPTH_TEST);
 
 	//load scene
-	currentScene=(Scene*)Resource::Load(L"\\Scene.engineScene");
+	currentScene=(Scene*)Resource::Load(L"\\DefaultScene.engineScene");
 }
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobject obj)
@@ -436,7 +414,7 @@ int Renderer3DAndroid::CreateShader(const char* name,int shader_type, const char
 
 	if(!shader_id)
 	{
-		wprintf(L"glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
+		printf("glCreateShader error for %d,%s\n",shader_type,shader_src);glCheckError();
 		DEBUG_BREAK();
 		return 0;
 	}
@@ -526,7 +504,7 @@ Shader* Renderer3DAndroid::CreateShaderProgram(const char* name,const char* pix,
 		shader->init();
 	}
 	else
-		wprintf(L"error creating shader %s\n",name);
+		printf("error creating shader %s\n",name);
 
 	return shader;
 }

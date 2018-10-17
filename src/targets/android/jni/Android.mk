@@ -15,7 +15,7 @@ LOCAL_SRC_FILES  = $(MY_SOURCE_PATH)/primitives.cpp \
 
 include $(BUILD_SHARED_LIBRARY)
 
-all: $(DIRDST)/$(notdir $(LOCAL_BUILT_MODULE))
+all: copyAllFiles
 
-$(DIRDST)/$(notdir $(LOCAL_BUILT_MODULE)): $(LOCAL_BUILT_MODULE)
-	@move /Y "$(subst /,\,$<)" "$(subst /,\,$@)"
+copyAllFiles:
+	@copy $(DIRSRC)\libs\$(APP_ABI) $(DIRDST)

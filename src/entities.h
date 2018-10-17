@@ -261,7 +261,7 @@ struct DLLBUILD KeyCurve
 {
 	enum Channel
 	{
-		SCALEX,
+		SCALEX=0,
 		SCALEY,
 		SCALEZ,
 		TRANSLATEX,
@@ -278,9 +278,9 @@ struct DLLBUILD KeyCurve
 
 	std::vector<Keyframe*> frames;
 
-	Channel	channel;
-	float	start;
-	float	end;
+	unsigned int	channel;
+	float			start;
+	float			end;
 };
 
 

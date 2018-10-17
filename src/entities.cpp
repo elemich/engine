@@ -34,7 +34,7 @@ namespace SerializerHelpers
 	Entity* GetRootEntity(Entity* iEntity);
 	Entity* GetEntityById(Entity* iEntity,unsigned int iId);
 
-	Entity* loadEntityRecursively(Entity* iEntity,FILE* iFile);
+	Entity* loadSceneEntityRecursively(Entity* iEntity,FILE* iFile);
 
 	void Load(Mesh*,FILE*);
 	void Load(Skin*,FILE*);
@@ -47,78 +47,6 @@ namespace SerializerHelpers
 	void BindSkinLinks(Entity* iEntityParent);
 	void BindAnimationLinks(Entity* iEntityParent);
 }
-
-Entity* loadEntityRecursively(Entity* iEntityParent,FILE* iFile,std::vector<EntityComponent*>& iComponents)
-{
-	int nameCount;
-	int componentsSize;
-	int childsSize;
-	unsigned char componentCode;
-
-	Entity* tEntity=new Entity;
-
-	tEntity->SetParent(iEntityParent);
-
-	wprintf(L"-------creating new entity-------\n");
-
-	fread(&childsSize,sizeof(int),1,iFile);//4
-
-	wprintf(L"childsize %d\n",childsSize);
-
-	fread(tEntity->local,sizeof(float),16,iFile);//64
-	fread(tEntity->world,sizeof(float),16,iFile);//64
-
-	wprintf(L"local,world matrices\n");
-
-	fread(&nameCount,sizeof(int),1,iFile);//4
-
-	wprintf(L"name count %d\n",nameCount);
-
-	StringUtils::ReadWstring(iFile,tEntity->name);
-
-	wprintf(L"name: %s\n",tEntity->name.c_str());
-
-	fread(tEntity->bbox.a,sizeof(float),3,iFile);//12
-	fread(tEntity->bbox.b,sizeof(float),3,iFile);//12
-
-	wprintf(L"bounding box\n");
-
-	fread(&componentsSize,sizeof(int),1,iFile);//4
-
-	wprintf(L"componentsSize %d\n",componentsSize);
-
-	for(int i=0;i<componentsSize;i++)
-	{
-		fread(&componentCode,sizeof(unsigned char),1,iFile);//1
-
-		wprintf(L"componentsCode %d\n",componentCode);
-
-		if(componentCode==Serializer::Script)
-		{
-			Script* tScript=tEntity->CreateComponent<Script>();
-
-			fread(&nameCount,sizeof(int),1,iFile);//4
-
-			StringUtils::ReadWstring(iFile,tScript->file);
-
-			wprintf(L"componentName %s\n",tScript->file.c_str());
-
-			iComponents.push_back(tScript);
-		}
-	}
-
-	if(childsSize)
-	{
-		for(int i=0;i<childsSize;i++)
-			loadEntityRecursively(tEntity,iFile,iComponents);
-	}
-	else
-		wprintf(L"---loadEntityRecursively end---\n");
-
-	return tEntity;
-}
-
-
 
 
 #ifndef EDITORBUILD
@@ -135,20 +63,16 @@ unsigned int resourceDataEnd=0;
 Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 {
 	Scene* tScene=new Scene;
-	std::vector<EntityComponent*> tComponents;
-
 	//assign the file name to the scene name
 	tScene->name=iSceneResource.Name();
 
-	wprintf(L"loading scene %s\n",tScene->name.c_str());
+	printf("loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
 
-	tScene->entityRoot=SerializerHelpers::loadEntityRecursively(tScene->entityRoot,resourceData);
+	tScene->entityRoot=SerializerHelpers::loadSceneEntityRecursively(tScene->entityRoot,resourceData);
 
 	//barely load entities and components
 	if(!tScene->entityRoot)
-		wprintf(L"error loading scene %s\n",tScene->name.c_str());
-	else
-		wprintf(L"approaching to load %d component(s)\n",tComponents.size());
+		printf("error loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
 
 	return tScene;
 }
@@ -157,7 +81,7 @@ void* Resource::Load(FilePath iResourceName)
 {
     fseek(resourceData,resourceTableStart,SEEK_SET);
 
-    wchar_t         tFilePath[500];
+    char	        tFilePath[500];
     unsigned int    tFileStart=0;
     unsigned int    tFileSize=0;
 
@@ -165,11 +89,9 @@ void* Resource::Load(FilePath iResourceName)
 
     while(ftell(resourceData)<resourceTableEnd)
     {
-        fwscanf(resourceData,L"%s",tFilePath);
-        fwscanf(resourceData,L"%u",&tFileStart);
-        fwscanf(resourceData,L"%u",&tFileSize);
+        fscanf(resourceData,"%s %u %u",tFilePath,&tFileStart,&tFileSize);
 
-        if(iResourceName==String(tFilePath))
+        if(iResourceName==StringUtils::ToWide(tFilePath))
         {
             tFileFound=true;
             break;
@@ -178,9 +100,16 @@ void* Resource::Load(FilePath iResourceName)
 
     if(tFileFound)
     {
+		printf("Resource::Load: %s found",StringUtils::ToChar(iResourceName).c_str());
+
 		fseek(resourceData,resourceDataStart+tFileStart,SEEK_SET);
 
-		if(iResourceName.Extension()==String(L"engineScene"))
+		String tFileExtension=iResourceName.Extension();
+		String tSceneExtension(L"engineScene");
+
+		printf("tFileExtension: %s , tSceneExtension: %s",StringUtils::ToChar(tFileExtension).c_str(),StringUtils::ToChar(tSceneExtension).c_str());
+
+		if(tFileExtension==tSceneExtension)
 		{
 			return LoadScene(iResourceName,resourceData);
 		}
@@ -192,6 +121,8 @@ void* Resource::Load(FilePath iResourceName)
 			return rBuffer;
 		}
     }
+	else
+		printf("Resource::Load: %s not found",StringUtils::ToChar(iResourceName).c_str());
 
     return 0;
 }
@@ -520,7 +451,7 @@ Animation::~Animation()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-void copychannel(KeyCurve::Channel channel,float& val,float* poff,float* roff,float* soff)
+void copychannel(unsigned int channel,float& val,float* poff,float* roff,float* soff)
 {
 	if(!val)
 		return;
@@ -1106,12 +1037,11 @@ Scene::Scene():entityRoot(0){}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-
 void SerializerHelpers::SetEntityId(Entity* iEntity,unsigned int& iId)
 {
 	iEntity->id=iId;
 
-	wprintf(L"counter: %i\n",iId);
+	wprintf(L"entity %s, id %i\n",iEntity->name.c_str(),iId);
 
 	for(std::list<Entity*>::iterator entityIter=iEntity->childs.begin();entityIter!=iEntity->childs.end();entityIter++)
 		SetEntityId(*entityIter,++iId);
@@ -1147,25 +1077,29 @@ void SerializerHelpers::Load(Mesh* tMesh,FILE* iFile)
 	fread(&tMesh->npolygons,sizeof(unsigned int),1,iFile);
 	fread(&tMesh->isCCW,sizeof(bool),1,iFile);
 
-	tMesh->controlpoints=new float[tMesh->ncontrolpoints][3];
+	if(tMesh->ncontrolpoints)
+	{
+		tMesh->controlpoints=new float[tMesh->ncontrolpoints][3];
+		fread(tMesh->controlpoints,sizeof(float)*3*tMesh->ncontrolpoints,1,iFile);
+	}
 
 	if(tMesh->nvertexindices)
+	{
 		tMesh->vertexindices=new unsigned int[tMesh->nvertexindices];
+		fread(tMesh->vertexindices,sizeof(unsigned int)*tMesh->nvertexindices,1,iFile);
+	}
 
-	tMesh->texcoord=new float[tMesh->ntexcoord][2];
-	tMesh->normals=new float[tMesh->nnormals][3];
-
-	for(int i=0;i<tMesh->ncontrolpoints;i++)
-		fread(&tMesh->controlpoints[i],sizeof(float)*3,1,iFile);
-
-	if(tMesh->nvertexindices)
-		fread(&tMesh->vertexindices,sizeof(unsigned int)*tMesh->nvertexindices,1,iFile);
-
-	for(int i=0;i<tMesh->ntexcoord;i++)
-		fread(&tMesh->texcoord[i],sizeof(float)*2,1,iFile);
-
-	for(int i=0;i<tMesh->nnormals;i++)
-		fread(&tMesh->normals[i],sizeof(float)*3,1,iFile);
+	if(tMesh->ntexcoord)
+	{
+		tMesh->texcoord=new float[tMesh->ntexcoord][2];
+		fread(tMesh->texcoord,sizeof(float)*2*tMesh->ntexcoord,1,iFile);
+	}
+	
+	if(tMesh->nnormals)
+	{
+		tMesh->normals=new float[tMesh->nnormals][3];
+		fread(tMesh->normals,sizeof(float)*3*tMesh->nnormals,1,iFile);
+	}
 }
 
 
@@ -1291,27 +1225,27 @@ void SerializerHelpers::Load(AnimationController* tAnimationController,FILE* iFi
 		SAFEDELETEARRAY(tAnimationIdsArray);
 	}
 
-	fread(&tAnimationController->speed,sizeof(float),1,iFile);//1
-	fread(&tAnimationController->cursor,sizeof(float),1,iFile);//1
-	fread(&tAnimationController->play,sizeof(bool),1,iFile);//1
-	fread(&tAnimationController->looped,sizeof(bool),1,iFile);//1
-	fread(&tAnimationController->start,sizeof(float),1,iFile);//1
-	fread(&tAnimationController->end,sizeof(float),1,iFile);//1
-	fread(&tAnimationController->framesPerSecond,sizeof(unsigned int),1,iFile);//1
-	fread(&tAnimationController->frameTime,sizeof(unsigned int),1,iFile);//1
+	fread(&tAnimationController->speed,sizeof(float),1,iFile);
+	fread(&tAnimationController->cursor,sizeof(float),1,iFile);
+	fread(&tAnimationController->play,sizeof(bool),1,iFile);
+	fread(&tAnimationController->looped,sizeof(bool),1,iFile);
+	fread(&tAnimationController->start,sizeof(float),1,iFile);
+	fread(&tAnimationController->end,sizeof(float),1,iFile);
+	fread(&tAnimationController->framesPerSecond,sizeof(unsigned int),1,iFile);
+	fread(&tAnimationController->frameTime,sizeof(unsigned int),1,iFile);
 }
 
 
 void SerializerHelpers::Load(Line* tLine,FILE* iFile)
 {
-	unsigned int tPointSize;
+	unsigned int	tPointSize;
+	vec3			tPoint;
 
-	fread(&tPointSize,sizeof(unsigned int),1,iFile);//1
+	fread(&tPointSize,sizeof(unsigned int),1,iFile);
 
 	for(int i=0;i<tPointSize;i++)
 	{
-		vec3 tPoint;
-		fread(&tPoint,sizeof(float)*3,1,iFile);//1
+		fread(&tPoint,sizeof(float)*3,1,iFile);
 		tLine->points.push_back(tPoint);
 	}
 }
@@ -1384,72 +1318,74 @@ void SerializerHelpers::BindAnimationLinks(Entity* iEntity)
 	}
 }
 
-Entity* SerializerHelpers::loadEntityRecursively(Entity* iEntityParent,FILE* iFile)
+Entity* SerializerHelpers::loadSceneEntityRecursively(Entity* iEntityParent,FILE* iFile)
 {
 	unsigned int componentsSize;
 	unsigned int childsSize;
 	int componentCode;
 
-	Entity* tEditorEntity=new Entity;
+	Entity* tEntity=new Entity;
 
-	tEditorEntity->SetParent(iEntityParent);
+	tEntity->SetParent(iEntityParent);
 
-	fread(&childsSize,sizeof(unsigned int),1,iFile);//4
-	fread(&tEditorEntity->id,sizeof(unsigned int),1,iFile);//4
+	fread(&childsSize,sizeof(unsigned int),1,iFile);
+	fread(&tEntity->id,sizeof(unsigned int),1,iFile);
 
-	fread(tEditorEntity->local,sizeof(float),16,iFile);//64
-	fread(tEditorEntity->world,sizeof(float),16,iFile);//64
+	fread(tEntity->local,sizeof(float),16,iFile);
+	fread(tEntity->world,sizeof(float),16,iFile);
 
-	StringUtils::ReadWstring(iFile,tEditorEntity->name);
+	StringUtils::ReadWstring(iFile,tEntity->name);
 
-	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);//12
-	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);//12
+	printf("Entity: %s, id: %d\n",StringUtils::ToChar(tEntity->name).c_str(),tEntity->id);
 
-	fread(&componentsSize,sizeof(unsigned int),1,iFile);//4
+	fread(tEntity->bbox.a,sizeof(float),3,iFile);
+	fread(tEntity->bbox.b,sizeof(float),3,iFile);
+
+	fread(&componentsSize,sizeof(unsigned int),1,iFile);
 
 	for(int tComponentIndex=0;tComponentIndex<componentsSize;tComponentIndex++)
 	{
-		fread(&componentCode,sizeof(int),1,iFile);//1
+		fread(&componentCode,sizeof(int),1,iFile);
 
 		switch(componentCode)
 		{
 		case Serializer::Script:
 			{
-				Script* tScript=tEditorEntity->CreateComponent<Script>();
+				Script* tScript=tEntity->CreateComponent<Script>();
 				SerializerHelpers::Load(tScript,iFile);
 			}
 			break;
 		case Serializer::Line:
 			{
-				Line* tLine=tEditorEntity->CreateComponent<Line>();
+				Line* tLine=tEntity->CreateComponent<Line>();
 
 				SerializerHelpers::Load(tLine,iFile);
 			}
 			break;
 		case Serializer::Animation:
 			{
-				Animation* tAnimation=tEditorEntity->CreateComponent<Animation>();
+				Animation* tAnimation=tEntity->CreateComponent<Animation>();
 
 				SerializerHelpers::Load(tAnimation,iFile);
 			}
 			break;
 		case Serializer::AnimationController:
 			{
-				AnimationController* tAnimationController=tEditorEntity->CreateComponent<AnimationController>();
+				AnimationController* tAnimationController=tEntity->CreateComponent<AnimationController>();
 
 				SerializerHelpers::Load(tAnimationController,iFile);
 			}
 			break; 
 		case Serializer::Mesh:
 			{
-				Mesh* tMesh=tEditorEntity->CreateComponent<Mesh>();
+				Mesh* tMesh=tEntity->CreateComponent<Mesh>();
 
 				SerializerHelpers::Load(tMesh,iFile);
 			}
 			break;
 		case Serializer::Skin:
 			{
-				Skin* tSkin=tEditorEntity->CreateComponent<Skin>();
+				Skin* tSkin=tEntity->CreateComponent<Skin>();
 
 				SerializerHelpers::Load(tSkin,iFile);
 			}
@@ -1462,62 +1398,12 @@ Entity* SerializerHelpers::loadEntityRecursively(Entity* iEntityParent,FILE* iFi
 	if(childsSize)
 	{
 		for(int i=0;i<childsSize;i++)
-			loadEntityRecursively(tEditorEntity,iFile);
+			loadSceneEntityRecursively(tEntity,iFile);
 	}
 
-	BindSkinLinks(tEditorEntity);
-	BindAnimationLinks(tEditorEntity);
+	BindSkinLinks(tEntity);
+	BindAnimationLinks(tEntity);
 
-	return tEditorEntity;
+	return tEntity;
 }
 
-
-
-
-/*fseek(iFile,sizeof(unsigned char),SEEK_SET);
-
-				unsigned int tMaterialSize;
-
-				fread(&tMaterialSize,sizeof(unsigned char),1,iFile);
-				
-
-				for(int i=0;i<tMaterialSize;i++)
-				{
-					Material* tMaterial=new Material;
-
-					tMesh->materials.push_back(tMaterial);
-
-					fread(&tMaterial->femissive,sizeof(float),1,iFile);
-					fread(&tMaterial->emissive,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fambient,sizeof(float),1,iFile);
-					fread(&tMaterial->ambient,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fdiffuse,sizeof(float),1,iFile);
-					fread(&tMaterial->diffuse,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->normalmap,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fbump,sizeof(float),1,iFile);
-					fread(&tMaterial->bump,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->ftransparent,sizeof(float),1,iFile);
-					fread(&tMaterial->transparent,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fdisplacement,sizeof(float),1,iFile);
-					fread(&tMaterial->displacement,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fspecular,sizeof(float),1,iFile);
-					fread(&tMaterial->specular,sizeof(float)*3,1,iFile);
-
-					fread(&tMaterial->fshininess,sizeof(float),1,iFile);
-
-					fread(&tMaterial->freflection,sizeof(float),1,iFile);
-					fread(&tMaterial->reflection,sizeof(float)*3,1,iFile);
-
-					for(int t=0;t<tMaterial->textures.size();t++)
-					{
-						//save the texture
-
-					}
-				}*/
