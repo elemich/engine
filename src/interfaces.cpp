@@ -331,8 +331,8 @@ void	Ide::DestroyPopup()
 		GuiEvent tDeactivate(this->popup);
 		this->popup->rects.OnDeactivate(tDeactivate);
 
-		for(int i=0;i<this->popup->rects.childs.size();i++)
-			this->popup->rects.childs[i]->SetParent(0);
+		for(std::list<GuiRect*>::iterator i=this->popup->rects.childs.begin();i!=this->popup->rects.childs.end();i++)
+			(*i)->SetParent(0);
 
 		this->popup->Destroy();
 		this->popup=0;
@@ -497,7 +497,7 @@ Tab::~Tab()
 
 GuiRect* Tab::GetSelected()
 {
-	return selected<rects.childs.size() ? rects.childs[selected] : 0;
+	return selected;
 }
 
 
@@ -597,14 +597,7 @@ void Tab::SetSelection(GuiRect* iRect)
 {
 	this->BroadcastToSelected(&GuiRect::OnDeactivate);
 
-	for(size_t i=0;i<this->rects.childs.size();i++)
-	{
-		if(iRect==this->rects.childs[i])
-		{
-			this->selected=i;
-			break;
-		}
-	}
+	this->selected=iRect;
 
 	this->BroadcastToSelected(&GuiRect::OnActivate);
 	this->BroadcastToSelected(&GuiRect::OnSize);
@@ -686,24 +679,24 @@ void Tab::OnGuiLMouseDown(void* data)
 		float &x=this->mouse.x;
 		float &y=this->mouse.y;
 
-		int tPreviousTabSelected=selected;
+		GuiRect* tPreviousTabSelected=this->GetSelected();
 
 		vec2 tDim(0,LABEL_LEFT_OFFSET);
 
-		for(int i=0;i<(int)rects.childs.size();i++)
+		for(std::list<GuiRect*>::iterator i=this->rects.childs.begin();i!=this->rects.childs.end();i++)
 		{
-			vec2 tTextSize = this->renderer2D->MeasureText(this->rects.childs[i]->name.c_str());
+			vec2 tTextSize = this->renderer2D->MeasureText((*i)->name.c_str());
 
 			tDim.x = tDim.y;
 			tDim.y = tDim.x + tTextSize.x + LABEL_RIGHT_OFFSET;
 
 			bool tMouseContained = (x>tDim.x && x< tDim.y) && (y>(BAR_HEIGHT-LABEL_HEIGHT) &&  y<BAR_HEIGHT);
-
-			if(tMouseContained && i!=tPreviousTabSelected)
+			
+			if(tMouseContained && (*i)!=tPreviousTabSelected)
 			{
 				mouseDown=true;
 
-				this->SetSelection(rects.childs[i]);
+				this->SetSelection(*i);
 
 				break;
 			}
@@ -759,17 +752,17 @@ void Tab::DrawFrame()
 	vec2 tDim(0,LABEL_LEFT_OFFSET);
 
 	//render label text
-	for(size_t i=0;i<rects.childs.size();i++)
+	for(std::list<GuiRect*>::iterator i=this->rects.childs.begin();i!=this->rects.childs.end();i++)
 	{
-		vec2 tTextSize = this->renderer2D->MeasureText(this->rects.childs[i]->name.c_str());
+		vec2 tTextSize = this->renderer2D->MeasureText((*i)->name.c_str());
 
 		tDim.x = tDim.y;
 		tDim.y = tDim.x + tTextSize.x + LABEL_RIGHT_OFFSET;
 
-		if(this->selected==i)
+		if(this->selected==*i)
 			this->renderer2D->DrawRectangle(tDim.x,(float)(BAR_HEIGHT-LABEL_HEIGHT),tDim.y,(float)((BAR_HEIGHT-LABEL_HEIGHT)+LABEL_HEIGHT),Tab::COLOR_LABEL);
 
-		this->renderer2D->DrawText(rects.childs[i]->name,tDim.x,(float)BAR_HEIGHT-LABEL_HEIGHT,tDim.y,(float)(BAR_HEIGHT-LABEL_HEIGHT) + (float)LABEL_HEIGHT,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
+		this->renderer2D->DrawText((*i)->name,tDim.x,(float)BAR_HEIGHT-LABEL_HEIGHT,tDim.y,(float)(BAR_HEIGHT-LABEL_HEIGHT) + (float)LABEL_HEIGHT,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
 	}
 }
 
@@ -889,7 +882,7 @@ splitterSize(4)
 	floatingTabRef=0;
 	floatingTab=0;
 	floatingTabTarget=0;
-	floatingTabRefTabIdx=-1;
+	floatingSelectedTebGuiRect=0;
 	floatingTabRefTabCount=-1;
 	floatingTabTargetAnchorPos=-1;
 	floatingTabTargetAnchorTabIndex=-1;
@@ -1521,7 +1514,8 @@ GuiEvent::GuiEvent(Tab* iTab,void* iData):
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih):
+GuiRect::GuiRect():
+	parent(0),
 	colorBackground(GuiRect::COLOR_BACK),
 	colorHovering(GuiRect::COLOR_BACK),
 	colorPressing(GuiRect::COLOR_BACK),
@@ -1540,8 +1534,6 @@ GuiRect::GuiRect(GuiRect* iParent,float ix, float iy, float iw,float ih):
 	clip(0)
 {
 	this->SetEdges();
-	this->SetParent(iParent);
-	this->fixed.make(ix,iy,iw,ih);
 }
 
 GuiRect::~GuiRect()
@@ -1663,7 +1655,7 @@ void GuiRect::SetClip(GuiScrollRect* iScrollingRect)
 {
 	this->clip=iScrollingRect;
 
-	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+	for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
 		(*tRect)->SetClip(iScrollingRect);
 }
 
@@ -1690,7 +1682,7 @@ void GuiRect::SetColors(unsigned int iBack,unsigned int iHover,unsigned int iPre
 
 	if(iPropagate)
 	{
-		for(std::vector<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		for(std::list<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 			(*it)->SetColors(iBack,iHover,iPress,iCheck,iPropagate);
 	}
 }
@@ -1704,7 +1696,7 @@ void GuiRect::SetAllColors(unsigned int iColor,bool iPropagate)
 
 	if(iPropagate)
 	{
-		for(std::vector<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		for(std::list<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 			(*it)->SetColors(iColor,iPropagate);
 	}
 }
@@ -1756,7 +1748,7 @@ bool GuiRect::Contains(vec4& quad,vec2 point)
 
 void GuiRect::BroadcastToChilds(void (GuiRect::*func)(const GuiEvent&),const GuiEvent& iMsg)
 {
-	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+	for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
 		((*tRect)->*func)(iMsg);
 }
 
@@ -2004,7 +1996,7 @@ template<typename T> GuiContainerRow<T>* GuiRect::ContainerRow(T iData)
 
 void GuiRect::DestroyChilds()
 {
-	for(std::vector<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+	for(std::list<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 		SAFEDELETE(*it);
 
 	this->childs.clear();
@@ -2559,7 +2551,7 @@ template<typename T> void GuiContainerRow<T>::UnselectAll(GuiRect* iRect)
 	iRect->checked=false;
 	iRect->pressing=false;
 
-	for(std::vector<GuiRect*>::iterator tRect=iRect->childs.begin();tRect!=iRect->childs.end();tRect++)
+	for(std::list<GuiRect*>::iterator tRect=iRect->childs.begin();tRect!=iRect->childs.end();tRect++)
 		this->UnselectAll(*tRect);
 }
 
@@ -3610,7 +3602,7 @@ void GuiTextBox::SetColors(unsigned int iBack,unsigned int iHover,unsigned int i
 
 	if(iPropagate)
 	{
-		for(std::vector<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		for(std::list<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 			(*it)->SetColors(iBack,iHover,iPress,iCheck,iPropagate);
 	}
 }
@@ -3627,7 +3619,7 @@ void GuiTextBox::SetAllColors(unsigned int iColor,bool iPropagate)
 
 	if(iPropagate)
 	{
-		for(std::vector<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
+		for(std::list<GuiRect*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
 			(*it)->SetColors(iColor,iPropagate);
 	}
 }
@@ -3779,7 +3771,7 @@ void GuiScrollRect::SetClip(GuiScrollRect* iScrollingRect)
 {
 	this->clip=iScrollingRect;
 
-	for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+	for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
 		(*tRect)->SetClip(this);
 }
 

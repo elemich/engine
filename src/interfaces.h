@@ -347,8 +347,11 @@ struct GuiEvent
 	GuiEvent(Tab* iTab,void* iData=0);
 };
 
-struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
+struct DLLBUILD GuiRect
 {
+	GuiRect*			parent;
+	std::list<GuiRect*> childs;
+
 	static const int ROW_HEIGHT=20;
 	static const int ROW_ADVANCE=GuiRect::ROW_HEIGHT;
 
@@ -388,7 +391,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 
 	GuiScrollRect* clip;
 
-	GuiRect(GuiRect* iParent=0,float ix=0, float iy=0, float iw=0,float ih=0);
+	GuiRect();
 	virtual ~GuiRect();
 
 	virtual void SetEdges(float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
@@ -451,7 +454,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 		if(isaC)
 			(this->*func)(iMsg);
 
-		for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+		for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
 			((*tRect)->*func)(iMsg);
 	}
 
@@ -462,7 +465,7 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 		if(isaC)
 			iRects.push_back(isaC);
 
-		for(std::vector<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
+		for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
 			(*tRect)->Get(iRects);
 	}
 
@@ -1224,7 +1227,7 @@ struct DLLBUILD Tab
 	PictureRef* iconFolder;
 	PictureRef* iconFile;
 
-	unsigned int selected;
+	GuiRect* selected;
 	bool mouseDown;
 	bool isRender;
 	bool recreateTarget;
@@ -1361,7 +1364,7 @@ struct DLLBUILD Splitter
 	Tab* floatingTabRef;
 	Tab* floatingTab;
 	Tab* floatingTabTarget;
-	int  floatingTabRefTabIdx;
+	GuiRect*  floatingSelectedTebGuiRect;
 	int  floatingTabRefTabCount;
 	int  floatingTabTargetAnchorPos;
 	int	 floatingTabTargetAnchorTabIndex;

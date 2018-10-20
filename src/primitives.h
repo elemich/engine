@@ -66,22 +66,6 @@ struct DLLBUILD  mat4;
 struct DLLBUILD  ThreadPool;
 struct DLLBUILD  Thread;
 
-template <typename T> struct DLLBUILD THierarchy
-{
-	T* parent;
-	THierarchy():parent(0){}
-};
-
-template <typename T> struct DLLBUILD  THierarchyVector : THierarchy<T>
-{
-	std::vector<T*> childs;
-};
-
-template <typename T> struct DLLBUILD  THierarchyList : THierarchy<T>
-{
-	
-};
-
 template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 {
 	T v[size];

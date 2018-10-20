@@ -3521,7 +3521,6 @@ void TabWin32::OnGuiRMouseUp(void* data)
 		{
 			if(x>(i*LABEL_WIDTH) && x< (i*LABEL_WIDTH+LABEL_WIDTH) && y > (BAR_HEIGHT-LABEL_HEIGHT) &&  y<BAR_HEIGHT)
 			{
-
 				int menuResult=this->TrackTabMenuPopup();
 
 				switch(menuResult)
@@ -3529,26 +3528,20 @@ void TabWin32::OnGuiRMouseUp(void* data)
 					case 1:
 						if(this->container->tabs.size()>1)
 						{
-							wprintf(L"total TabContainer before destroying: %d\n",this->container->tabs.size());
 							this->Destroy();
-							wprintf(L"total TabContainer after destroying: %d\n",this->container->tabs.size());
 						}
 					break;
 					case 2:
-						this->CreateViewer<GuiViewport>();
-						this->selected=this->rects.childs.size()-1;
+						this->selected=this->CreateViewer<GuiViewport>();
 					break;
 					case 3:
-						this->CreateSingletonViewer<GuiSceneViewer>();
-						this->selected=this->rects.childs.size()-1;
+						this->selected=this->CreateSingletonViewer<GuiSceneViewer>();
 					break;
 					case 4:
-						this->CreateViewer<GuiEntityViewer>();
-						this->selected=this->rects.childs.size()-1;
+						this->selected=this->CreateViewer<GuiEntityViewer>();
 					break;
 					case 5:
-						this->CreateSingletonViewer<GuiProjectViewer>();
-						this->selected=this->rects.childs.size()-1;
+						this->selected=this->CreateSingletonViewer<GuiProjectViewer>();
 					break;
 					case 6:
 						/*this->tabs.ScriptViewer();
@@ -3950,12 +3943,12 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 
 						newTabContainer=this->currentTabContainerWin32->containerWin32->CreateTab((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
 
-						GuiRect* reparentTab=floatingTabRef->rects.childs[floatingTabRefTabIdx];
+						GuiRect* reparentTab=floatingSelectedTebGuiRect;
 						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
 						floatingTabRef->OnGuiActivate();
 						reparentTab->SetParent(&newTabContainer->rects);
 
-						newTabContainer->selected=newTabContainer->rects.childs.size()-1;
+						newTabContainer->selected=floatingSelectedTebGuiRect;
 
 						SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
 
@@ -4209,7 +4202,7 @@ void SplitterWin32::CreateFloatingTab(Tab* tab)
 		return;
 
 	floatingTabRef=tab;
-	floatingTabRefTabIdx=tab->selected;
+	floatingSelectedTebGuiRect=tab->selected;
 	floatingTabRefTabCount=(int)tab->rects.childs.size();
 
 	HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
