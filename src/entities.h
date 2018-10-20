@@ -306,6 +306,7 @@ struct DLLBUILD EntityComponent : EntityBase
 	Entity*			entity;
 
 	EntityComponent();
+	virtual ~EntityComponent();
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
@@ -332,7 +333,7 @@ struct DLLBUILD Entity : EntityBase
 	AABB					bbox;
 
 	Entity();
-	~Entity();
+	virtual ~Entity();
 
 	virtual void SetParent(Entity* iParent);
 	virtual void update();
@@ -415,7 +416,7 @@ struct DLLBUILD AnimationController : EntityComponent
 	unsigned int frameTime;
 
 	AnimationController();
-	~AnimationController();
+	virtual ~AnimationController();
 
 	void AddAnimation(Animation*);
 
@@ -523,8 +524,8 @@ struct DLLBUILD Script : EntityComponent
 {
 	FilePath file;
 	EntityScript* runtime;
-	FilePath module;
-
+	void* handle;
+	
 	Script();
 
 	void update();
@@ -564,9 +565,18 @@ struct DLLBUILD Camera : EntityComponent
 	float Near;
 	float Far;
 
-	mat4 matrix;
+	bool  perspective;
+
+	Camera();
+	Camera(vec3 pos,vec3 target,vec3 up,float iFov,float iRatio,float iNear,float iFar,bool iPerspective);
+
+	mat4 projection;
+	mat4 view;
+	mat4 model;
 
 	vec3 target;
+
+	void update();
 };
 
 struct DLLBUILD TextureFile : Texture

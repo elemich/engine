@@ -27,6 +27,7 @@ mat4 modelview;
 mat4 view;
 
 Renderer3DAndroid* renderer3D=0;
+TimerAndroid timer;
 
 void glCheckError();
 
@@ -187,6 +188,8 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_init(JNIEnv * env,jobje
 
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobject obj)
 {
+	timer.update();
+
 	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
@@ -212,6 +215,64 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 JNIEXPORT void JNICALL Java_com_android_Engine_EngineView_SetTouchEvent(JNIEnv * env, jobject obj,jint action,jint id,jint idx,jfloat x,jfloat y)
 {
 
+
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////////SerializerHelpers//////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+namespace SerializerHelpers
+{
+	void LoadScriptModule(Script* iScript)
+	{
+		if(iScript->file.size())
+		{
+			String tLibFile=L"lib" + iScript->file.Name() + L".so";
+
+			iScript->handle=dlopen(StringUtils::ToChar(tLibFile).c_str(), 1 /*RTLD_LAZY*/);
+
+			if(iScript->handle)
+			{
+				EntityScript* (*tCreateFunction)()=0;
+
+				tCreateFunction=(EntityScript* (*)())dlsym(iScript->handle,"Create");
+
+				if(tCreateFunction)
+				{
+					iScript->runtime=tCreateFunction();
+
+					if(iScript->runtime)
+					{
+						iScript->runtime->entity=iScript->entity;
+						iScript->runtime->init();
+					}
+				}
+			}
+		}
+	}
+
+	void UnloadScriptModule(Script* iScript)
+	{
+		if(iScript->handle)
+		{
+			dlclose(iScript->handle);
+			iScript->handle=0;
+		}
+	}
+}
+
+void TimerAndroid::update()
+{
+	lastFrameTime=currentFrameTime;
+
+	timespec res;
+	clock_gettime(CLOCK_REALTIME, &res);
+	currentFrameTime=(1000.0 * res.tv_sec + (double) res.tv_nsec / 1e6);
+
+	currentFrameDeltaTime=currentFrameTime-lastFrameTime;
 
 }
 

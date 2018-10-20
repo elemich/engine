@@ -236,11 +236,13 @@ GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 	for(int i=0;i<tGlyphsCount;i++)
 	{	
 		float tAdvanceWidth=(float)tGlyphMetrics[i].advanceWidth/(float)tFontMetrics.designUnitsPerEm;
-
+	
 		tGuiFont->widths[tGlyphs[i]]=tTexter->GetFontSize() * tAdvanceWidth;
 	}
 
-	tGuiFont->widths['\t']*=tGuiFont->tabSpaces;
+	tGuiFont->widths['\t']=tGuiFont->widths[' ']*tGuiFont->tabSpaces;
+
+	tTexter->SetIncrementalTabStop(tGuiFont->widths['\t']);
 
 	globalFontPool.push_back(tGuiFont);
 
@@ -725,6 +727,13 @@ int MenuInterface::Menu(String iName,bool tPopup)
 
 	int tItemId=-1;
 
+	int tFirstLevel=0;
+	for (int i=0;i<iName.size();i++)tFirstLevel+=iName[i]==L'\\' ? 1 : 0;
+
+	tFirstLevel=!(bool)tFirstLevel;
+
+	bool tFirstLevelQuestionMark=false;
+
 	while(tBegin)
 	{
 		tEnd=wcsstr(tBegin,L"\\");
@@ -736,13 +745,17 @@ int MenuInterface::Menu(String iName,bool tPopup)
 
 		wchar_t menuName[CHAR_MAX]={0};
 		bool found=false;
-
+		
 		while(GetMenuString(tMenu,menuIdx,menuName,CHAR_MAX,MF_BYPOSITION))
 		{
+			if(String(menuName)==String(L"?"))
+				tFirstLevelQuestionMark=true;
+
 			if(searchMenu==menuName)
 			{
 				tMenu=GetSubMenu(tMenu,menuIdx);
 				found=true;
+				break;
 			}
 
 			menuIdx++;
@@ -768,7 +781,8 @@ int MenuInterface::Menu(String iName,bool tPopup)
 				mitem.fMask|=MIIM_ID;
 				mitem.wID=tItemId=this->IncrementMenuId();
 
-				::InsertMenuItem(tMenu,menuIdx,true,&mitem);
+				::InsertMenuItem(tMenu,tFirstLevelQuestionMark ? menuIdx-1 : menuIdx,true,&mitem);
+				::DrawMenuBar((HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle());
 			}
 		}
 
@@ -1362,9 +1376,7 @@ projectDirHasChanged(false)
 	}
 
 	this->subsystem=new SubsystemWin32;
-	this->compiler=new CompilerWin32;
-
-
+	this->compiler=new Compiler;
 
 	this->debugger=new DebuggerWin32;
 
@@ -4467,346 +4479,31 @@ bool SubsystemWin32::CreateDirectory(String iDir)
 	return ::CreateDirectory(iDir.c_str(),&sa);
 }
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////CompilerWin32///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-String CompilerWin32::Compose(unsigned int iCompiler,Script* iScript)
+bool SubsystemWin32::DirectoryExist(String iDir)
 {
-	CompilerWin32*		icplr=(CompilerWin32*)Ide::GetInstance()->compiler;
-	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
+	DWORD tFileAttributes=GetFileAttributes(iDir.c_str());
 
-    String tOutputModule=iScript->module + L"\\" + iScript->file.Name() + L".dll ";
-	String tScriptSource=Ide::GetInstance()->folderProject + L"\\" + iScript->file.File();
-	String tIdeSourcePath=Ide::GetInstance()->compiler->ideSrcPath +  L" ";
-	String tEngineLibrary=icplr->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
-	String tKernelLib=L" -lkernel32";
-
-	String tCompilerExecutableString;
-
-	if(iCompiler==Compiler::COMPILER_MS)
-		tCompilerExecutableString=L"vcvars32.bat && ";
-
-	tCompilerExecutableString+=cplr.compilerFile;
-
-	String	tComposedOutput=tCompilerExecutableString +
-							cplr.compilerFlags +
-							cplr.includeHeaders +
-							tIdeSourcePath +
-							tScriptSource +
-							cplr.linkerFlags +
-							cplr.outputFlag +
-							tOutputModule +
-							tEngineLibrary +
-							tKernelLib;
-
-	return	tComposedOutput;
+	return (tFileAttributes!=INVALID_FILE_ATTRIBUTES && (tFileAttributes & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-String gfCreateRandomString(int iCount)
+void* SubsystemWin32::LoadLibrary(String iLibName)
 {
-	const wchar_t tSymbolsAlphabet[]={L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
-
-	wchar_t* tRandomString=new wchar_t[iCount+1];
-
-	unsigned int tFeed=*(unsigned int*)&tRandomString;
-	unsigned int tSymbol=sizeof(tSymbolsAlphabet);
-
-	srand(tFeed);
-
-	for(int i=0;i<iCount;i++)
-	{
-		tRandomString[i]=tSymbolsAlphabet[std::rand() % tSymbol];
-	}
-
-	tRandomString[iCount]='\0';
-
-	String tReturnString(tRandomString);
-
-	SAFEDELETEARRAY(tRandomString);
-
-	return tReturnString;
-}
-
-
-String gfCreateRandomDir(String iDirWhere)
-{
-	String tRandomWorkingDirectoryName;
-	String tRandomWorkingDirectory;
-
-	DWORD res;
-
-	while(true)
-	{
-		tRandomWorkingDirectoryName=gfCreateRandomString(8);
-
-		String tFullRandomDirName=iDirWhere + L"\\" + tRandomWorkingDirectoryName;
-
-		DWORD res=::GetFileAttributes(tFullRandomDirName.c_str());
-
-		if((res & INVALID_FILE_ATTRIBUTES) || (res & FILE_ATTRIBUTE_DIRECTORY))
-			break;
-	}
-
-	tRandomWorkingDirectory=iDirWhere + L"\\" + tRandomWorkingDirectoryName;
-
-	if(!::CreateDirectory(tRandomWorkingDirectory.c_str(),0))
-	{
-		DWORD lastError=GetLastError();
-		DEBUG_BREAK();
-	}
-
-	if(!(FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(tRandomWorkingDirectory.c_str())))
-		DEBUG_BREAK();
-
-	return tRandomWorkingDirectory;
-}
-
-bool CompilerWin32::Compile(Script* iScript)
-{
-	if(iScript->runtime)
-		return false;
-
-	bool retVal;
-
-	File tScriptFile(iScript->file);
-
-	String tSourceFileContent=StringUtils::ReadCharFile(iScript->file);
-	File tCompilerTextOutput=Ide::GetInstance()->folderAppData + L"\\error.output";
-
-
-	//delete error.output
-
-	if(tCompilerTextOutput.Exist())
-	{
-		if(!tCompilerTextOutput.Delete())
-			DEBUG_BREAK();
-	}
-
-	//create random directory for the module if not exist yet
-
-	if(iScript->module.empty())
-		iScript->module=gfCreateRandomDir(Ide::GetInstance()->folderAppData);
-
-	//append exports to source
-
-	if(tScriptFile.Open(L"ab"))
-	{
-		String tExporterClassDeclaration=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + L"_;}";
-		String tExporterDeleterDeclaration=L"\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}";
-
-		tScriptFile.Write((void*)tExporterClassDeclaration.c_str(),sizeof(wchar_t),tExporterClassDeclaration.size());
-		tScriptFile.Write((void*)tExporterDeleterDeclaration.c_str(),sizeof(wchar_t),tExporterDeleterDeclaration.size());
-		tScriptFile.Close();
-	}
-
-	//compose the compiler command line
-
-	unsigned int tCompiler=Compiler::COMPILER_MINGW;
-
-	String tCommandLineMingW=this->Compose(tCompiler,iScript);
-
-	//execute compilation
-
-	bool tExecuteWithSuccess=Ide::GetInstance()->subsystem->Execute(iScript->module,tCommandLineMingW,tCompilerTextOutput.path,true,true,true);
-
-	if(!tExecuteWithSuccess)
-		DEBUG_BREAK();
-
-	//unroll exports
-
-	if(tScriptFile.Open(L"wb"))
-	{
-		tScriptFile.Write((void*)tSourceFileContent.c_str(),sizeof(wchar_t),tSourceFileContent.size());
-		tScriptFile.Close();
-	}
-
-	//convert compiler output to readable locale
-
-	String tWideCharCompilationOutput=StringUtils::ReadCharFile(tCompilerTextOutput.path);
-
-	//extract and parse breakpoint line addresses
-
-	File tLineAddressesOutput=iScript->module + L"\\laddrss.output";
-
-	String tScriptFileName=iScript->file.Name();
-
-	String tSharedObjectFileName=tScriptFileName + L".dll";
-	String tSharedObjectSourceName=tScriptFileName + L".cpp";
-
-	String tParseLineAddressesCommandLine=L"objdump --dwarf=decodedline " + tSharedObjectFileName + L" | find \""+ tSharedObjectSourceName + L"\" | find /V \":\"";
-
-	tExecuteWithSuccess=Ide::GetInstance()->subsystem->Execute(iScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
-
-	if(!tExecuteWithSuccess)
-		DEBUG_BREAK();
-
-	if(tLineAddressesOutput.Open(L"rb"))
-	{
-		EditorScript* tEditorScript=(EditorScript*)iScript;
-
-		int tNumberOfLines=tLineAddressesOutput.CountOccurrences('\n');
-
-		char c[500];
-		unsigned int line;
-
-		for(int i=0;i<tNumberOfLines;i++)
-		{
-			fscanf(tLineAddressesOutput.data,"%s",c);
-			fscanf(tLineAddressesOutput.data,"%u",&line);
-			fscanf(tLineAddressesOutput.data,"%s",&c);
-
-			if(i>7)//skip source exports
-			{
-				Debugger::Breakpoint tLineAddress;
-
-				sscanf(c,"%lx", &tLineAddress.address);
-				tLineAddress.line=line;
-				tLineAddress.script=iScript;
-
-
-				Ide::GetInstance()->debugger->allAvailableBreakpoints.push_back(tLineAddress);
-			}
-		}
-
-		tLineAddressesOutput.Close();
-
-		if(!tLineAddressesOutput.Delete())
-			DEBUG_BREAK();
-	}
-
-	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
-
-	EditorScript* tEditorScript=(EditorScript*)iScript;
-	std::vector<GuiCompilerViewer*> tGuiCompilerViewers;
-	MainContainer* tMainContainer=Ide::GetInstance()->mainAppWindow;
-
-	//get all compiler viewers
-	tMainContainer->GetTabRects<GuiCompilerViewer>(tGuiCompilerViewers);
-
-	//if a compilerviewer not exist create one
-	GuiCompilerViewer* tGuiCompilerViewer=tGuiCompilerViewers.empty() ? tMainContainer->mainContainer->tabs[0]->CreateSingletonViewer<GuiCompilerViewer>() : tGuiCompilerViewers[0];
-
-	bool noErrors=tGuiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
-
-	/*
-	guiCompilerViewer->OnSize(tabContainer);
-	guiCompilerViewer->OnActivate(tabContainer);
-
-	if(false==noErrors)
-		tabContainer->SetSelection(guiCompilerViewer);
-	*/
-
-	wprintf(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.c_str());
-
-	return retVal;
-}
-
-bool CompilerWin32::LoadScript(Script* iScript)
-{
-	if(!iScript->module.size())
-		return false;
-
-	HMODULE*		tModule=0;
-	EntityScript*	(*tCreateModuleClassFunction)()=0;
-	String          tModuleFile=iScript->module + L"\\" + iScript->file.Name() + L".dll";
-
-	tModule=this->ideScriptSourceModules.find(iScript)!=this->ideScriptSourceModules.end() ? this->ideScriptSourceModules[iScript] : 0;
+	void* tModule=::LoadLibrary(iLibName.c_str());
 
 	if(!tModule)
-	{
-		tModule=new HMODULE;
-		this->ideScriptSourceModules.insert(std::pair<Script*,HMODULE*>(iScript,tModule));
-	}
+		wprintf(L"SubsystemWin32::LoadLibrary: error %d loading module %s\n",GetLastError(),iLibName.c_str());
 
-	*tModule=(HMODULE)LoadLibrary(tModuleFile.c_str());
-
-	if(!*tModule)
-	{
-		DWORD err=GetLastError();
-		wprintf(L"error(%d) loading module %s\n",err,tModuleFile.c_str());
-		return false;
-	}
-
-	tCreateModuleClassFunction=(EntityScript* (*)())GetProcAddress(*tModule,"Create");
-
-	if(tCreateModuleClassFunction)
-	{
-		iScript->runtime=tCreateModuleClassFunction();
-		iScript->runtime->entity=iScript->entity;
-
-		Ide::GetInstance()->debugger->RunDebuggeeFunction(iScript,0);
-
-		return true;
-	}
-	else
-	{
-		wprintf(L"error creating module %s\n",tModuleFile.c_str());
-
-		SAFEDELETEARRAY(iScript->runtime);
-
-		if(*tModule && FreeLibrary(*tModule))
-			DEBUG_BREAK();
-
-
-		SAFEDELETE(tModule);
-		this->ideScriptSourceModules.erase(iScript);
-	}
-
-	return false;
+	return tModule;
 }
 
-bool CompilerWin32::UnloadScript(Script* iScript)
+bool SubsystemWin32::FreeLibrary(void* iModule)
 {
-	const bool tDestroyInTheDLL=false;
+	return ::FreeLibrary((HMODULE)iModule);
+}
 
-	if(iScript->runtime)
-	{
-		HMODULE* tModule=this->ideScriptSourceModules.find(iScript)!=this->ideScriptSourceModules.end() ? this->ideScriptSourceModules[iScript] : 0;
-
-		if(!tModule)
-			return false;
-
-		//iScript->runtime->deinit();
-		Ide::GetInstance()->debugger->RunDebuggeeFunction(iScript,2);
-
-		if(!FreeLibrary(*tModule))
-			return false;
-		else
-		{
-			SAFEDELETE(tModule);
-			this->ideScriptSourceModules.erase(iScript);
-		}
-
-		if(tDestroyInTheDLL)
-		{
-			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))GetProcAddress(*tModule,"Destroy");
-
-			std::vector<GuiViewport*> tGuiViewport;
-
-			Ide::GetInstance()->mainAppWindow->GetTabRects<GuiViewport>(tGuiViewport);
-
-			Tab* tabContainerRunningUpdater=tGuiViewport[0]->GetRootRect()->tab;
-
-			tabContainerRunningUpdater->drawTask->pause=true;
-
-			while(tabContainerRunningUpdater->drawTask->executing);
-
-			DestroyScript(iScript->runtime);
-			iScript->runtime=0;
-
-			tabContainerRunningUpdater->drawTask->pause=false;
-		}
-		else
-			iScript->runtime=0;
-
-		return true;
-	}
-
-	return true;
+void* SubsystemWin32::GetProcAddress(void* iModule,String iAddress)
+{
+	return (void*)::GetProcAddress((HMODULE)iModule,StringUtils::ToChar(iAddress).c_str());
 }
 
 ///////////////////////////////////////////////

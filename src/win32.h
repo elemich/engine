@@ -22,7 +22,7 @@
 #include <TlHelp32.h>
 
 #include <array>
-#include <map>
+
 
 #include <gl/gl.h> //platform dependent
 #include <gl/glext.h>
@@ -502,18 +502,10 @@ struct DLLBUILD SubsystemWin32 : Subsystem
 	String FileChooser(String iDescription,String iExtension);
 	std::vector<String> ListDirectories(String iDir);
 	bool CreateDirectory(String);
-};
-
-
-struct DLLBUILD CompilerWin32 : Compiler
-{
-	std::map<Script*,HMODULE*> ideScriptSourceModules;
-
-	bool Compile(Script*);
-	String Compose(unsigned int iCompiler,Script*);
-	bool LoadScript(Script*);
-	bool UnloadScript(Script*);
-	
+	bool DirectoryExist(String);
+	void* LoadLibrary(String);
+	bool FreeLibrary(void*);
+	void* GetProcAddress(void*,String);
 };
 
 struct DLLBUILD DebuggerWin32 : Debugger

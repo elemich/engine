@@ -2030,7 +2030,9 @@ Compiler::Compiler()
 						 L" /OUT:",
 						 L"enginelibMS",
 						 L".lib ",
-						 L" /I"
+						 L" /I",
+						 L" ",
+						 L"kernel32.lib"
 						};
 
 	COMPILER mingwCompiler={L"mingw",
@@ -2066,6 +2068,259 @@ Compiler::Compiler()
 Compiler::~Compiler(){}
 
 
+String Compiler::Compose(unsigned int iCompiler,EditorScript* iScript)
+{
+	Compiler*			icplr=Ide::GetInstance()->compiler;
+	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
+
+	String tOutputModule=iScript->module + L"\\" + iScript->file.Name() + L".dll ";
+	String tScriptSource=Ide::GetInstance()->folderProject + L"\\" + iScript->file.File();
+	String tIdeSourcePath=Ide::GetInstance()->compiler->ideSrcPath +  L" ";
+	String tEngineLibrary=icplr->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
+
+
+	String tCompilerExecutableString;
+
+	if(iCompiler==Compiler::COMPILER_MS)
+		tCompilerExecutableString=L"vcvars32.bat && ";
+
+	tCompilerExecutableString+=cplr.compilerExecutable;
+
+	String	tComposedOutput=tCompilerExecutableString +
+		cplr.compilerFlags +
+		cplr.includeHeadersPrefix +
+		tIdeSourcePath +
+		tScriptSource +
+		cplr.linkerFlags +
+		cplr.outputCommand +
+		tOutputModule +
+		tEngineLibrary +
+		cplr.includeLibPrefix + 
+		cplr.additionalLibs;
+
+	return	tComposedOutput;
+}
+
+bool Compiler::Compile(EditorScript* iScript)
+{
+	if(iScript->runtime)
+		return false;
+
+	bool retVal;
+
+	String tOriginalScriptSource=iScript->LoadScript();
+	String tCompileScriptSource=tOriginalScriptSource;
+
+	{
+		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->entity->name + L"_;}";
+		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}\n\n";
+	}
+
+	File tCompilerErrorOutput=Ide::GetInstance()->folderAppData + L"\\error.output";
+
+
+	//delete error.output
+
+	if(tCompilerErrorOutput.Exist())
+	{
+		if(!tCompilerErrorOutput.Delete())
+			DEBUG_BREAK();
+	}
+
+	//create random directory for the module if not exist yet
+
+	if(iScript->module.empty())
+		iScript->module=Ide::GetInstance()->subsystem->RandomDir(Ide::GetInstance()->folderAppData,8);
+
+	//append exports to source
+
+	iScript->SaveScript(tCompileScriptSource);
+
+	//compose the compiler command line
+
+	unsigned int tCompiler=Compiler::COMPILER_MS;
+
+	String tCommandLineMingW=this->Compose(tCompiler,iScript);
+
+	//execute compilation
+
+	bool tExecuteWithSuccess=Ide::GetInstance()->subsystem->Execute(iScript->module,tCommandLineMingW,tCompilerErrorOutput.path,true,true,true);
+
+	if(!tExecuteWithSuccess)
+		DEBUG_BREAK();
+
+	//unroll exports
+
+	iScript->SaveScript(tOriginalScriptSource);
+
+	//convert compiler output to readable locale
+
+	String tWideCharCompilationOutput=StringUtils::ReadCharFile(tCompilerErrorOutput.path,L"rb");
+
+	//extract and parse breakpoint line addresses
+
+	File tLineAddressesOutput=iScript->module + L"\\laddrss.output";
+
+	String tScriptFileName=iScript->file.Name();
+
+	String tSharedObjectFileName=tScriptFileName + L".dll";
+	String tSharedObjectSourceName=tScriptFileName + L".cpp";
+
+	String tParseLineAddressesCommandLine=L"objdump --dwarf=decodedline " + tSharedObjectFileName + L" | find \""+ tSharedObjectSourceName + L"\" | find /V \":\"";
+
+	tExecuteWithSuccess=Ide::GetInstance()->subsystem->Execute(iScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+
+	if(!tExecuteWithSuccess)
+		DEBUG_BREAK();
+
+	if(tLineAddressesOutput.Open(L"rb"))
+	{
+		EditorScript* tEditorScript=(EditorScript*)iScript;
+
+		int tNumberOfLines=tLineAddressesOutput.CountOccurrences('\n');
+
+		char c[500];
+		unsigned int line;
+
+		for(int i=0;i<tNumberOfLines;i++)
+		{
+			fscanf(tLineAddressesOutput.data,"%s",c);
+			fscanf(tLineAddressesOutput.data,"%u",&line);
+			fscanf(tLineAddressesOutput.data,"%s",&c);
+
+			if(i>7)//skip source exports
+			{
+				Debugger::Breakpoint tLineAddress;
+
+				sscanf(c,"%lx", &tLineAddress.address);
+				tLineAddress.line=line;
+				tLineAddress.script=iScript;
+
+
+				Ide::GetInstance()->debugger->allAvailableBreakpoints.push_back(tLineAddress);
+			}
+		}
+
+		tLineAddressesOutput.Close();
+
+		if(!tLineAddressesOutput.Delete())
+			DEBUG_BREAK();
+	}
+
+	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
+
+	EditorScript* tEditorScript=(EditorScript*)iScript;
+	std::vector<GuiCompilerViewer*> tGuiCompilerViewers;
+	MainContainer* tMainContainer=Ide::GetInstance()->mainAppWindow;
+
+	//get all compiler viewers
+	tMainContainer->GetTabRects<GuiCompilerViewer>(tGuiCompilerViewers);
+
+	//if a compilerviewer not exist create one
+	GuiCompilerViewer* tGuiCompilerViewer=tGuiCompilerViewers.empty() ? tMainContainer->mainContainer->tabs[0]->CreateSingletonViewer<GuiCompilerViewer>() : tGuiCompilerViewers[0];
+
+	bool noErrors=tGuiCompilerViewer->ParseCompilerOutputFile(tWideCharCompilationOutput);
+
+	/*
+	guiCompilerViewer->OnSize(tabContainer);
+	guiCompilerViewer->OnActivate(tabContainer);
+
+	if(false==noErrors)
+		tabContainer->SetSelection(guiCompilerViewer);
+	*/
+
+	wprintf(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.c_str());
+
+	return retVal;
+}
+
+
+bool Compiler::LoadScript(EditorScript* iScript)
+{
+	if(!iScript->module.size())
+		return false;
+
+	EntityScript*	(*tCreateModuleClassFunction)()=0;
+	String          tModuleFile=iScript->module + L"\\" + iScript->file.Name() + L".dll";
+
+	if(!iScript->handle)
+	{
+		iScript->handle=Ide::GetInstance()->subsystem->LoadLibrary(tModuleFile.c_str());
+
+		if(!iScript->handle)
+			return false;
+
+	}
+
+	tCreateModuleClassFunction=(EntityScript* (*)())Ide::GetInstance()->subsystem->GetProcAddress(iScript->handle,L"Create");
+
+	if(tCreateModuleClassFunction)
+	{
+		iScript->runtime=tCreateModuleClassFunction();
+		iScript->runtime->entity=iScript->entity;
+
+		Ide::GetInstance()->debugger->RunDebuggeeFunction(iScript,0);
+
+		return true;
+	}
+	else
+	{
+		wprintf(L"error creating module %s\n",tModuleFile.c_str());
+
+		SAFEDELETEARRAY(iScript->runtime);
+
+		if(iScript->handle && Ide::GetInstance()->subsystem->FreeLibrary(iScript->handle))
+			DEBUG_BREAK();
+	}
+
+	return false;
+}
+
+bool Compiler::UnloadScript(EditorScript* iScript)
+{
+	const bool tDestroyInTheDLL=false;
+
+	if(iScript->runtime)
+	{
+		if(!iScript->handle)
+			return false;
+
+		//iScript->runtime->deinit();
+		Ide::GetInstance()->debugger->RunDebuggeeFunction(iScript,2);
+
+		if(!Ide::GetInstance()->subsystem->FreeLibrary(iScript->handle))
+			return false;
+		else
+			iScript->handle=0;
+
+		if(tDestroyInTheDLL)
+		{
+			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))Ide::GetInstance()->subsystem->GetProcAddress(iScript->handle,L"Destroy");
+
+			std::vector<GuiViewport*> tGuiViewport;
+
+			Ide::GetInstance()->mainAppWindow->GetTabRects<GuiViewport>(tGuiViewport);
+
+			Tab* tabContainerRunningUpdater=tGuiViewport[0]->GetRootRect()->tab;
+
+			tabContainerRunningUpdater->drawTask->pause=true;
+
+			while(tabContainerRunningUpdater->drawTask->executing);
+
+			DestroyScript(iScript->runtime);
+			iScript->runtime=0;
+
+			tabContainerRunningUpdater->drawTask->pause=false;
+		}
+		else
+			iScript->runtime=0;
+
+		return true;
+	}
+
+	return true;
+}
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////EditorEntity////////////////
@@ -2077,13 +2332,39 @@ EditorEntity::EditorEntity():
 	expanded(false),
 	level(0)
 {
+	//this->entityViewerContainer=new GuiContainer;
 	this->entityViewerContainer.name=L"EntityRootProperties";
 	this->entityViewerContainer.SetStringMode(this->Entity::name,true);
 	this->entityViewerContainer.userData=this;
 	this->entityViewerContainer.state=true;
 
+	//this->sceneViewerRow=new GuiContainerRow<EditorEntity*>;
 	this->sceneViewerRow.SetStringMode(this->Entity::name,true);
 	this->sceneViewerRow.userData=this;
+}
+
+
+EditorEntity::~EditorEntity()
+{
+	this->DestroyChilds();
+}
+
+void EditorEntity::DestroyChilds()
+{
+	this->SetParent(0);
+
+	for(std::list<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();)
+	{
+		SAFEDELETE(*tCom);
+		tCom=this->components.erase(tCom);
+	}
+
+	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
+	{
+		EditorEntity* tEditorEntity=(EditorEntity*)*tEn;
+		SAFEDELETE(tEditorEntity);
+	}
+
 }
 
 void EditorEntity::SetParent(Entity* iParent)
@@ -3375,9 +3656,6 @@ void GuiButton::OnLMouseUp(const GuiEvent& iMsg)
 
 	if(this->hovering)
 	{
-		if(this->func)
-			this->func(this->param);
-
 		if(this->value)
 		{
 			switch(this->mode)
@@ -3388,11 +3666,8 @@ void GuiButton::OnLMouseUp(const GuiEvent& iMsg)
 			}
 		}
 
-		if(this->parent)
-		{
-			GuiEvent tMsg(iMsg.tab,this);
-			this->parent->OnButtonPressed(tMsg);
-		}	
+		if(this->func)
+			this->func(this->param);
 	}
 }
 
@@ -3688,6 +3963,11 @@ void GuiSlider::OnMouseMove(const GuiEvent& iMsg)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+namespace GuiAnimationControllerHelper
+{
+	void OnButtonPressed(void* iData);
+}
+
 GuiAnimationController::GuiAnimationController(AnimationController& iAnimationController)
 	:animationController(iAnimationController)
 {
@@ -3711,6 +3991,8 @@ GuiAnimationController::GuiAnimationController(AnimationController& iAnimationCo
 	this->play->offsets.make(10,2.5f,-5,-2.5f);
 	this->play->colorBackground+=0x151515;
 	this->play->text=L"Play";
+	this->play->func=GuiAnimationControllerHelper::OnButtonPressed;
+	this->play->param=this;
 
 	this->stop->SetParent(this);
 	this->stop->SetEdges(&this->play->edges.z,&this->slider->edges.w);
@@ -3718,6 +4000,8 @@ GuiAnimationController::GuiAnimationController(AnimationController& iAnimationCo
 	this->stop->offsets.make(10,2.5f,-10,-2.5f);
 	this->stop->colorBackground+=0x151515;
 	this->stop->text=L"Stop";
+	this->stop->func=GuiAnimationControllerHelper::OnButtonPressed;
+	this->stop->param=this;
 
 	this->play->mode=1;
 	this->stop->mode=0;//set 0 onlyif 1
@@ -3736,14 +4020,16 @@ void GuiAnimationController::OnMouseMove(const GuiEvent& iMsg)
 	}
 }
 
-void GuiAnimationController::OnButtonPressed(const GuiEvent& iMsg)
+void GuiAnimationControllerHelper::OnButtonPressed(void* iData)
 {
-	if(iMsg.data==&this->play)
-		this->animationController.Play();
+	GuiAnimationController* tGuiAnimContr=(GuiAnimationController*)iData;
 
-	if(iMsg.data==&this->stop)
-		this->animationController.Stop();
+	if(tGuiAnimContr->animationController.play)
+		tGuiAnimContr->animationController.Play();
+	else
+		tGuiAnimContr->animationController.Stop();
 }
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3902,7 +4188,7 @@ void GuiViewport::OnActivate(const GuiEvent& iMsg)
 #if ENABLE_RENDERER
 	iMsg.tab->Create3DRenderer();
 	iMsg.tab->OnGuiSize();
-	this->renderDrawInstance=iMsg.tab->SetDraw(this,L"",false);
+	this->renderDrawInstance=iMsg.tab->SetDraw(this,false);
 #endif
 }
 void GuiViewport::OnDeactivate(const GuiEvent& iMsg)
@@ -4178,6 +4464,8 @@ GuiSceneViewer::GuiSceneViewer():entityRoot((EditorEntity*&)scene.entityRoot)
 GuiSceneViewer::GuiSceneViewer(GuiSceneViewer const& gsv):entityRoot((EditorEntity*&)gsv.scene.entityRoot){}
 
 
+
+
 GuiSceneViewer::~GuiSceneViewer()
 {
 	wprintf(L"destroying treeview %p\n",this);
@@ -4187,36 +4475,41 @@ void GuiSceneViewer::OnRMouseUp(const GuiEvent& iMsg)
 {
 	GuiRect::OnRMouseUp(iMsg);
 
-	GuiContainer*	tSelectedRect=dynamic_cast<GuiContainer*>(iMsg.tab->GetFocus());
+	GuiContainerRow<EditorEntity*>*		tFocusedSceneLabel=0;
+	EditorEntity*						tSelectedSceneEntity=0;
+	EditorObjectBase*					tCreatedEditorObject=0;
 
-	EditorEntity* tEditorEntity=tSelectedRect ? (EditorEntity*)tSelectedRect->userData : 0;
+	tFocusedSceneLabel=dynamic_cast< GuiContainerRow<EditorEntity*>* >(iMsg.tab->GetFocus());
+	tSelectedSceneEntity=tFocusedSceneLabel ? tFocusedSceneLabel->rowData : this->entityRoot;
 
-	int tChosedMenuIndex=iMsg.tab->TrackGuiSceneViewerPopup(tSelectedRect ? true : false);
+	int tChosedMenuIndex=iMsg.tab->TrackGuiSceneViewerPopup(tFocusedSceneLabel ? true : false);
 
 	switch(tChosedMenuIndex)
 	{
-	case 1:
+		case 1:
 		{
-			EditorEntity* tNewEntity=new EditorEntity;
+			EditorEntity* tNewEntity=0;
+			
+			tCreatedEditorObject=tNewEntity=new EditorEntity;
 
 			tNewEntity->name=L"EntityPippo";
-
-			tNewEntity->bbox.a.make(-1,-1,-1);
-			tNewEntity->bbox.b.make(1,1,1);
+			tNewEntity->sceneViewerRow.canEdit=true;
+			tNewEntity->SetParent(tSelectedSceneEntity);
 
 			tNewEntity->OnPropertiesCreate();
-
-			tNewEntity->sceneViewerRow.canEdit=true;
-
-			tNewEntity->SetParent(tEditorEntity ? tEditorEntity : this->entityRoot);
 		}
 		break;
-	case 2:tEditorEntity->parent->childs.erase(std::find(tEditorEntity->parent->childs.begin(),tEditorEntity->parent->childs.end(),tEditorEntity));break;
-	case 3:tEditorEntity->CreateComponent<EditorLight>();break;
-	case 4:tEditorEntity->CreateComponent<EditorMesh>();break;
-	case 5:tEditorEntity->CreateComponent<EditorCamera>();break;
-	case 14:tEditorEntity->CreateComponent<EditorScript>();break;
+		case 2:
+			tSelectedSceneEntity->DestroyChilds();
+		break;
+		case 3:tCreatedEditorObject=tSelectedSceneEntity->CreateComponent<EditorLight>();break;
+		case 4:tCreatedEditorObject=tSelectedSceneEntity->CreateComponent<EditorMesh>();break;
+		case 5:tCreatedEditorObject=tSelectedSceneEntity->CreateComponent<EditorCamera>();break;
+		case 14:tCreatedEditorObject=tSelectedSceneEntity->CreateComponent<EditorScript>();break;
 	}
+
+	if(tCreatedEditorObject)
+		tCreatedEditorObject->OnResourcesCreate();
 
 	this->OnSize(iMsg);
 	iMsg.tab->SetDraw(this);
@@ -4785,20 +5078,21 @@ void GuiProjectViewer::FileViewer::OnRMouseUp(const GuiEvent& iMsg)
 			case 3://load
 				if(tHoveredContainerRow->rowData->fileName.PointedExtension() == Ide::GetInstance()->GetSceneExtension())
 				{
-					std::vector<GuiSceneViewer*> tGuiSceneViewers;
-
-					Ide::GetInstance()->mainAppWindow->GetTabRects<GuiSceneViewer>(tGuiSceneViewers);
-
-					if(tGuiSceneViewers.size())
+					if(GuiSceneViewer::GetInstance())
 					{
+						Tab* tTab=GuiSceneViewer::GetInstance()->GetRootRect()->tab;
+						
+						iMsg.tab->DrawBlock(true);
+						tTab->DrawBlock(true);
+
 						String tHoveredNodeFilename=tHoveredContainerRow->rowData->BuildPath();
 
-						tGuiSceneViewers[0]->Load(tHoveredNodeFilename.c_str());
-						tGuiSceneViewers[0]->GetRootRect()->tab->SetDraw(tGuiSceneViewers[0]);
-					}
+						GuiSceneViewer::GetInstance()->Load(tHoveredNodeFilename.c_str());
+						tTab->SetDraw(GuiSceneViewer::GetInstance());
 
-					this->OnSize(iMsg);
-					iMsg.tab->SetDraw(this);
+						tTab->DrawBlock(false);
+						iMsg.tab->DrawBlock(false);
+					}
 				}
 				break;
 			}
@@ -4927,7 +5221,7 @@ void GuiScriptViewer::Open(Script* iScript)
 {
 	this->script=(EditorScript*)iScript;
 
-	this->editor->text=StringUtils::ReadCharFile(iScript->file);
+	this->editor->text=this->script->LoadScript();
 
 	this->script->scriptViewer=this;
 }
@@ -4935,20 +5229,7 @@ void GuiScriptViewer::Open(Script* iScript)
 bool GuiScriptViewer::Save()
 {
 	if(this->script)
-	{
-		File tScriptFile(this->script->file);
-
-		if(tScriptFile.Open(L"wb"))
-		{
-			tScriptFile.Write((void*)this->editor->text->c_str(),sizeof(wchar_t),this->editor->text->size());
-
-			tScriptFile.Close();
-
-			return true;
-		}
-		else
-			DEBUG_BREAK();
-	}
+		this->script->SaveScript(this->editor->text);
 
 	return false;
 }
@@ -5358,10 +5639,12 @@ void EditorAnimationController::OnPropertiesCreate()
 
 void EditorAnimationController::OnPropertiesUpdate(Tab* tab)
 {
-	if(this->oldCursor!=this->cursor)
+	if(this->container->state && this->oldCursor!=this->cursor)
+	{
 		tab->SetDraw(guiAnimationController->slider);
 
-	this->oldCursor=this->cursor;
+		this->oldCursor=this->cursor;
+	}
 }
 
 void EditorLine::OnPropertiesCreate()
@@ -5503,35 +5786,37 @@ void EditorScript::OnPropertiesUpdate(Tab* tab)
 {
 }
 
-void EditorScript::SaveScript()
+void EditorScript::SaveScript(String& iString)
 {
-	StringUtils::WriteCharFile(
-		this->file,
-		L"#include \"entities.h\"\n\nstruct " + this->entity->name + L"_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n",
-		L"wb"
-		);
+	StringUtils::WriteCharFile(this->file,iString,L"wb");
+}
+
+String EditorScript::LoadScript()
+{
+	return StringUtils::ReadCharFile(this->file,L"rb");
 }
 
 void EditorScript::OnResourcesCreate()
 {
-	this->file=Ide::GetInstance()->folderProject + L"\\" + this->entity->name + L".cpp";
-
+	if(this->file.empty())
+		this->file=Ide::GetInstance()->folderProject + L"\\" + this->entity->name + L".cpp";
+	
 	if(!File::Exist(this->file))
 	{
 		if(!File::Create(this->file))
 			DEBUG_BREAK();
 
-		this->SaveScript();
+		String tDefaultScript=L"#include \"entities.h\"\n\nstruct " + this->entity->name + L"_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
 
-		GuiProjectViewer::GetInstance()->RefreshAll();
-
-		this->resourceNode=ResourceNodeDir::FindFileNode(this->file);
-
-		if(!this->resourceNode)
-			DEBUG_BREAK();
+		this->SaveScript(tDefaultScript);
 	}
 
-	
+	GuiProjectViewer::GetInstance()->RefreshAll();
+
+	this->resourceNode=ResourceNodeDir::FindFileNode(this->file);
+
+	if(!this->resourceNode)
+		DEBUG_BREAK();
 }
 
 void EditorCamera::OnPropertiesCreate()
@@ -5716,6 +6001,38 @@ void MainContainer::BroadcastToSelectedTabRects(void (GuiRect::*func)(const GuiE
 {
 	for(std::vector<Container*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
 		(*tContainer)->BroadcastToSelectedTabRects(func,iData);
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+////////////////////Subsystem//////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+
+String Subsystem::RandomDir(String iWhere,int iSize,String iAlphabet)
+{
+	String tRandomWorkingDirectoryName;
+	String tRandomWorkingDirectory;
+
+	while(true)
+	{
+		tRandomWorkingDirectoryName=StringUtils::RandomString(iSize,iAlphabet);
+
+		String tFullRandomDirName=iWhere + L"\\" + tRandomWorkingDirectoryName;
+
+		if(!this->DirectoryExist(tRandomWorkingDirectory.c_str()))
+			break;
+	}
+
+	tRandomWorkingDirectory=iWhere + L"\\" + tRandomWorkingDirectoryName;
+
+	if(!this->CreateDirectory(tRandomWorkingDirectory.c_str()))
+		DEBUG_BREAK();
+
+	if(!this->DirectoryExist(tRandomWorkingDirectory.c_str()))
+		DEBUG_BREAK();
+
+	return tRandomWorkingDirectory;
 }
 
 ///////////////////////////////////////////////
@@ -5916,46 +6233,13 @@ void SerializerHelpers::saveSceneEntityRecursively(Entity* iEntity,FILE* iFile)
 
 	for(std::list<EntityComponent*>::iterator iteratorComponent=iEntity->components.begin();iteratorComponent!=iEntity->components.end();iteratorComponent++)
 	{
-		if((*iteratorComponent)->is<Script>())
-		{
-			Script* tScript=(Script*)(*iteratorComponent);
-
-			SerializerHelpers::Save(tScript,iFile);
-		}
-		else if((*iteratorComponent)->is<Line>())
-		{
-			Line* tLine=(Line*)(*iteratorComponent);
-
-			SerializerHelpers::Save(tLine,iFile);
-		}
-		else if((*iteratorComponent)->is<Animation>())
-		{
-			Animation* tAnimation=(Animation*)(*iteratorComponent);
-
-			SerializerHelpers::Save(tAnimation,iFile);
-		}
-		else if((*iteratorComponent)->is<AnimationController>())
-		{
-			AnimationController* tAnimationController=(AnimationController*)(*iteratorComponent);
-
-			SerializerHelpers::Save(tAnimationController,iFile);
-		}
-		else if((*iteratorComponent)->is<Skin>())
-		{
-			Skin* tSkin=(Skin*)(*iteratorComponent);
-
-			SerializerHelpers::Save(tSkin,iFile);
-		}
-		else if((*iteratorComponent)->is<Mesh>())
-		{
-			Mesh* tMesh=(Mesh*)(*iteratorComponent);
-
-			SerializerHelpers::Save(tMesh,iFile);
-		}
-		else if((*iteratorComponent)->is<Bone>())
-		{
-			WriteComponentCode(Serializer::Bone,iFile);
-		}
+		if((*iteratorComponent)->is<Script>()) SerializerHelpers::Save((Script*)(*iteratorComponent),iFile);
+		else if((*iteratorComponent)->is<Line>()) SerializerHelpers::Save((Line*)(*iteratorComponent),iFile);
+		else if((*iteratorComponent)->is<Animation>()) SerializerHelpers::Save((Animation*)(*iteratorComponent),iFile);
+		else if((*iteratorComponent)->is<AnimationController>()) SerializerHelpers::Save((AnimationController*)(*iteratorComponent),iFile);
+		else if((*iteratorComponent)->is<Skin>()) SerializerHelpers::Save((Skin*)(*iteratorComponent),iFile);
+		else if((*iteratorComponent)->is<Mesh>()) SerializerHelpers::Save((Mesh*)(*iteratorComponent),iFile);
+		else if((*iteratorComponent)->is<Bone>()) WriteComponentCode(Serializer::Bone,iFile);
 		else
 			DEBUG_BREAK();
 	}
@@ -5990,9 +6274,6 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);
 	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);
 
-	tEditorEntity->OnResourcesCreate();
-	tEditorEntity->OnPropertiesCreate();
-
 	fread(&componentsSize,sizeof(unsigned int),1,iFile);
 
 	for(int tComponentIndex=0;tComponentIndex<componentsSize;tComponentIndex++)
@@ -6001,49 +6282,22 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 
 		switch(componentCode)
 		{
-		case Serializer::Script:
-			{
-				EditorScript* tScript=tEditorEntity->CreateComponent<EditorScript>();
-				SerializerHelpers::Load(tScript,iFile);
-			}
-			break;
-		case Serializer::Line:
-			{
-				EditorLine* tLine=tEditorEntity->CreateComponent<EditorLine>();
+			case Serializer::Script: SerializerHelpers::Load(tEditorEntity->CreateComponent<EditorScript>(),iFile); break;
+			case Serializer::Line: SerializerHelpers::Load(tEditorEntity->CreateComponent<EditorLine>(),iFile); break;
+			case Serializer::Animation: SerializerHelpers::Load(tEditorEntity->CreateComponent<EditorAnimation>(),iFile); break;
+			case Serializer::AnimationController: SerializerHelpers::Load(tEditorEntity->CreateComponent<EditorAnimationController>(),iFile); break; 
+			case Serializer::Mesh: SerializerHelpers::Load(tEditorEntity->CreateComponent<EditorMesh>(),iFile); break;
+			case Serializer::Skin: SerializerHelpers::Load(tEditorEntity->CreateComponent<EditorSkin>(),iFile); break;
+			/*default:
+				DEBUG_BREAK();*/
+		}
 
-				SerializerHelpers::Load(tLine,iFile);
-			}
-			break;
-		case Serializer::Animation:
-			{
-				EditorAnimation* tAnimation=tEditorEntity->CreateComponent<EditorAnimation>();
-
-				SerializerHelpers::Load(tAnimation,iFile);
-			}
-			break;
-		case Serializer::AnimationController:
-			{
-				EditorAnimationController* tAnimationController=tEditorEntity->CreateComponent<EditorAnimationController>();
-
-				SerializerHelpers::Load(tAnimationController,iFile);
-			}
-			break; 
-		case Serializer::Mesh:
-			{
-				EditorMesh* tMesh=tEditorEntity->CreateComponent<EditorMesh>();
-
-				SerializerHelpers::Load(tMesh,iFile);
-			}
-			break;
-		case Serializer::Skin:
-			{
-				EditorSkin* tSkin=tEditorEntity->CreateComponent<EditorSkin>();
-
-				SerializerHelpers::Load(tSkin,iFile);
-			}
-			break;
-		/*default:
-			DEBUG_BREAK();*/
+		if(tEditorEntity->components.back())
+		{
+			EditorObjectBase* tEditorObjectBase=dynamic_cast<EditorObjectBase*>(tEditorEntity->components.back());
+			
+			if(tEditorObjectBase)
+				tEditorObjectBase->OnResourcesCreate();
 		}
 	}
 
@@ -6055,6 +6309,9 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 
 	BindSkinLinks(tEditorEntity);
 	BindAnimationLinks(tEditorEntity);
+
+	tEditorEntity->OnResourcesCreate();
+	tEditorEntity->OnPropertiesCreate();
 
 	return tEditorEntity;
 }

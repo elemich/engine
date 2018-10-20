@@ -2,6 +2,7 @@
 #define INTERFACES_H
 
 #include "entities.h"
+#include <map>
 
 struct DLLBUILD EditorEntity;
 
@@ -424,8 +425,6 @@ struct DLLBUILD GuiRect : THierarchyVector<GuiRect>
 	virtual void OnEnterFocus(const GuiEvent&);
 	virtual void OnExitFocus(const GuiEvent&);
 
-	virtual void OnButtonPressed(const GuiEvent&){}
-
 	virtual void DrawBackground(Tab*);
 
 	virtual GuiRect* GetRoot();
@@ -814,8 +813,6 @@ struct DLLBUILD GuiAnimationController : GuiRect
 	GuiSlider* slider;
 
 	virtual void OnMouseMove(const GuiEvent&);
-
-	void OnButtonPressed(const GuiEvent&);
 };
 
 
@@ -1470,6 +1467,11 @@ struct DLLBUILD Subsystem
 	virtual String FileChooser(String iDescription,String iExtension)=0;
 	virtual std::vector<String> ListDirectories(String iDir)=0;
 	virtual bool CreateDirectory(String)=0;
+	virtual bool DirectoryExist(String)=0;
+	String RandomDir(String iWhere,int iSize,String iAlphabet=L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+	virtual void* LoadLibrary(String)=0;
+	virtual bool FreeLibrary(void*)=0;
+	virtual void* GetProcAddress(void*,String)=0;
 };
 
 struct DLLBUILD Compiler
@@ -1481,15 +1483,16 @@ struct DLLBUILD Compiler
 	{
 		String name;
 		String version;
-		String compilerFile;
-		String linkerFile;
+		String compilerExecutable;
+		String linkerExecutable;
 		String compilerFlags;
 		String linkerFlags;
-		String outputFlag;
+		String outputCommand;
 		String engineLibraryName;
 		String engineLibraryExtension;
-		String includeHeaders;
-		String includeLib;
+		String includeHeadersPrefix;
+		String includeLibPrefix;
+		String additionalLibs;
 	};
 
 	std::vector<COMPILER> compilers;
@@ -1506,10 +1509,10 @@ struct DLLBUILD Compiler
 
 	String outputDirectory;
 
-	virtual bool Compile(Script*)=0;
-	virtual String Compose(unsigned int iCompiler,Script*)=0;
-	virtual bool LoadScript(Script*)=0;
-	virtual bool UnloadScript(Script*)=0;
+	bool Compile(EditorScript*);
+	String Compose(unsigned int iCompiler,EditorScript*);
+	bool LoadScript(EditorScript*);
+	bool UnloadScript(EditorScript*);
 };
 
 struct DLLBUILD PluginSystem
@@ -1555,6 +1558,7 @@ template<class T> struct DLLBUILD EditorObject : EditorObjectBase , T
 	GuiContainer* container;
 
 	EditorObject():container(0){}
+	virtual ~EditorObject(){/*this->container->DestroyChilds();*/}
 
 	GuiContainer* GetContainer(){return this->container;}
 
@@ -1574,6 +1578,9 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 	GuiContainerRow<EditorEntity*>	sceneViewerRow;
 
 	EditorEntity();
+	~EditorEntity();
+
+	void DestroyChilds();
 
 	void OnPropertiesCreate();
 
@@ -1583,7 +1590,7 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 	template<class C> C* CreateComponent()
 	{
 		C* component=this->Entity::CreateComponent<C>();
-		component->OnResourcesCreate();
+		//component->OnResourcesCreate();
 		component->OnPropertiesCreate();
 		return component;
 	}
@@ -1659,6 +1666,8 @@ struct DLLBUILD EditorLight : EditorObject<Light>
 };
 struct DLLBUILD EditorScript : EditorObject<Script>
 {
+	FilePath			module;
+
 	GuiButton*			buttonLaunch;
 
 	GuiScriptViewer*	scriptViewer;
@@ -1676,7 +1685,8 @@ struct DLLBUILD EditorScript : EditorObject<Script>
 		this->runtime ? Ide::GetInstance()->debugger->RunDebuggeeFunction(this,1),true : false;
 	}
 
-	void SaveScript();
+	void	SaveScript(String&);
+	String	LoadScript();
 };
 struct DLLBUILD EditorCamera : EditorObject<Camera>
 {

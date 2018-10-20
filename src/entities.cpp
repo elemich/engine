@@ -44,6 +44,9 @@ namespace SerializerHelpers
 	void Load(Line*,FILE*);
 	void Load(Script*,FILE*);
 
+	extern void LoadScriptModule(Script*);
+	extern void UnloadScriptModule(Script*);
+
 	void BindSkinLinks(Entity* iEntityParent);
 	void BindAnimationLinks(Entity* iEntityParent);
 }
@@ -537,6 +540,25 @@ void AnimationController::Play()
 	this->play=true;
 }
 
+
+void AnimationController::update()
+{
+	if(this->play)
+	{
+		this->SetFrame(this->cursor);
+
+		int		tCurrentTime=Timer::GetInstance()->GetCurrent();
+
+		float	tCurrentDelta=	this->frameTime ? (tCurrentTime-this->frameTime)/1000.0f : 0;
+
+		this->cursor+=tCurrentDelta*this->speed;
+		this->frameTime=tCurrentTime;
+
+		if(this->cursor>this->end)
+			this->cursor=this->cursor-this->end;
+	}
+}
+
 void AnimationController::SetFrame(float iFrame)
 {
 	for(size_t i=0;i<this->animations.size();i++)
@@ -619,23 +641,6 @@ void AnimationController::SetFrame(float iFrame)
 	}
 }
 
-void AnimationController::update()
-{
-	if(this->play)
-	{
-		this->SetFrame(this->cursor);
-
-		int		tCurrentTime=Timer::GetInstance()->GetCurrent();
-
-		float	tCurrentDelta=	this->frameTime ? (tCurrentTime-this->frameTime)/1000.0f : 0;
-
-		this->cursor+=tCurrentDelta*this->speed;
-		this->frameTime=tCurrentTime;
-
-		if(this->cursor>this->end)
-			this->cursor=this->cursor-this->end;
-	}
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -878,7 +883,7 @@ void Skin::draw(Renderer3DBase* renderer3d)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-Script::Script():runtime(0){}
+Script::Script():runtime(0),handle(0){}
 
 void Script::update()
 {
@@ -891,8 +896,24 @@ void Script::update()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+Camera::Camera():fov(90),ratio(16/9.0f),Near(1),Far(1000.0f),perspective(true){}
+Camera::Camera(vec3 pos,vec3 target,vec3 up,float iFov,float iRatio,float iNear,float iFar,bool iPerspective):fov(iFov),ratio(iRatio),Near(iNear),Far(iFar),perspective(iPerspective)
+{
+	this->projection= !perspective ? this->projection : this->projection.perspective(90,16/9,1,1000);
+	this->view.move(pos);
+	this->view.lookat(target,up);
+}
 
+void Camera::update()
+{
 
+}
+
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 ////TEXTURE
 
@@ -952,6 +973,7 @@ TextureProcedural::TextureProcedural(){}
 ///////////////////////////////////////////////
 
 EntityComponent::EntityComponent():entity(0){}
+EntityComponent::~EntityComponent(){}
 
 void EntityComponent::update(){}
 void EntityComponent::draw(Renderer3DBase*){}
@@ -1253,6 +1275,10 @@ void SerializerHelpers::Load(Line* tLine,FILE* iFile)
 void SerializerHelpers::Load(Script* tScript,FILE* iFile)
 {
 	StringUtils::ReadWstring(iFile,tScript->file);
+
+#ifndef EDITORBUILD
+	LoadScriptModule(tScript);
+#endif
 }
 
 void SerializerHelpers::BindSkinLinks(Entity* iEntity)
@@ -1349,49 +1375,14 @@ Entity* SerializerHelpers::loadSceneEntityRecursively(Entity* iEntityParent,FILE
 
 		switch(componentCode)
 		{
-		case Serializer::Script:
-			{
-				Script* tScript=tEntity->CreateComponent<Script>();
-				SerializerHelpers::Load(tScript,iFile);
-			}
-			break;
-		case Serializer::Line:
-			{
-				Line* tLine=tEntity->CreateComponent<Line>();
-
-				SerializerHelpers::Load(tLine,iFile);
-			}
-			break;
-		case Serializer::Animation:
-			{
-				Animation* tAnimation=tEntity->CreateComponent<Animation>();
-
-				SerializerHelpers::Load(tAnimation,iFile);
-			}
-			break;
-		case Serializer::AnimationController:
-			{
-				AnimationController* tAnimationController=tEntity->CreateComponent<AnimationController>();
-
-				SerializerHelpers::Load(tAnimationController,iFile);
-			}
-			break; 
-		case Serializer::Mesh:
-			{
-				Mesh* tMesh=tEntity->CreateComponent<Mesh>();
-
-				SerializerHelpers::Load(tMesh,iFile);
-			}
-			break;
-		case Serializer::Skin:
-			{
-				Skin* tSkin=tEntity->CreateComponent<Skin>();
-
-				SerializerHelpers::Load(tSkin,iFile);
-			}
-			break;
-		/*default:
-			DEBUG_BREAK();*/
+			case Serializer::Script: SerializerHelpers::Load(tEntity->CreateComponent<Script>(),iFile); break;
+			case Serializer::Line: SerializerHelpers::Load(tEntity->CreateComponent<Line>(),iFile); break;
+			case Serializer::Animation: SerializerHelpers::Load(tEntity->CreateComponent<Animation>(),iFile); break;
+			case Serializer::AnimationController: SerializerHelpers::Load(tEntity->CreateComponent<AnimationController>(),iFile); break; 
+			case Serializer::Mesh: SerializerHelpers::Load(tEntity->CreateComponent<Mesh>(),iFile); break;
+			case Serializer::Skin: SerializerHelpers::Load(tEntity->CreateComponent<Skin>(),iFile); break;
+			/*default:
+				DEBUG_BREAK();*/
 		}
 	}
 

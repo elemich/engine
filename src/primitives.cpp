@@ -388,13 +388,13 @@ String StringUtils::Float(float& iFloat,int iBefore,int iAfter)
 
 bool StringUtils::WriteWideFile(String iFilename,String iContent,String iMode)
 {
-	File tFileToWrite=iFilename;
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),StringUtils::ToChar(iMode).c_str());
 
-	if(tFileToWrite.Open(iMode.c_str()))
+	if(tFile)
 	{
-		fwrite(iContent.c_str(),sizeof(wchar_t),iContent.size(),tFileToWrite);
+		fwrite(iContent.c_str(),sizeof(wchar_t),iContent.size(),tFile);
 
-		tFileToWrite.Close();
+		fclose(tFile);
 
 		return true;
 	}
@@ -406,14 +406,19 @@ bool StringUtils::WriteWideFile(String iFilename,String iContent,String iMode)
 String ReadWideFile(String iFilename,String iMode)
 {
 	String tContent;
-	File tFile=iFilename;
+	
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),StringUtils::ToChar(iMode).c_str());
 
-	if(tFile.Open(iMode.c_str()))
+	if(tFile)
 	{
-		int tSize=tFile.Size();
+		fseek(tFile,0,SEEK_END);
+
+		int tSize=ftell(tFile);
 
 		if(tSize>0)
 		{
+			fseek(tFile,0,SEEK_SET);
+
 			wchar_t* tWideArray=new wchar_t[tSize+1];
 			fread(tWideArray,sizeof(wchar_t),tSize,tFile);
 			tWideArray[tSize]='\0';
@@ -421,7 +426,7 @@ String ReadWideFile(String iFilename,String iMode)
 			SAFEDELETEARRAY(tWideArray);
 		}
 
-		tFile.Close();
+		fclose(tFile);
 	}
 
 	return tContent;
@@ -429,15 +434,15 @@ String ReadWideFile(String iFilename,String iMode)
 
 bool StringUtils::WriteCharFile(String iFilename,String iContent,String iMode)
 {
-	File tFileToWrite=iFilename;
-
 	std::string iCharContent=StringUtils::ToChar(iContent);
 
-	if(tFileToWrite.Open(iMode.c_str()))
-	{
-		fwrite(iCharContent.c_str(),sizeof(char),iCharContent.size(),tFileToWrite);
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),StringUtils::ToChar(iMode).c_str());
 
-		tFileToWrite.Close();
+	if(tFile)
+	{
+		fwrite(iCharContent.c_str(),sizeof(char),iCharContent.size(),tFile);
+
+		fclose(tFile);
 
 		return true;
 	}
@@ -449,26 +454,53 @@ String StringUtils::ReadCharFile(String iFilename,String iMode)
 {
 	String tContent;
 
-	File tFile=iFilename;
+	FILE* tFile=fopen(StringUtils::ToChar(iFilename).c_str(),StringUtils::ToChar(iMode).c_str());
 
-	if(tFile.Open(iMode.c_str()))
+	if(tFile)
 	{
-		int tSize=tFile.Size();
+		fseek(tFile,0,SEEK_END);
+
+		int tSize=ftell(tFile);
 
 		if(tSize>0)
 		{
+			fseek(tFile,0,SEEK_SET);
+
 			char* tCharArray=new char[tSize+1];
-			fread(tCharArray,sizeof(char),tSize,tFile.data);
+			fread(tCharArray,sizeof(char),tSize,tFile);
 			tCharArray[tSize]='\0';
+
 			tContent=ToWide(tCharArray);
 			SAFEDELETEARRAY(tCharArray);
 		}
 
-		tFile.Close();
+		fclose(tFile);
 	}
 
 	return tContent;
 }
+
+String StringUtils::RandomString(int iSize,String iAlphabet)
+{
+	wchar_t* tRandomString=new wchar_t[iSize+1];
+	tRandomString[iSize]='\0';
+
+	unsigned int tFeed=*(unsigned int*)&tRandomString;
+
+	srand(tFeed);
+
+	for(int i=0;i<iSize;i++)
+	{
+		tRandomString[i]=iAlphabet[std::rand() % iAlphabet.size()];
+	}
+
+	String tReturnString(tRandomString);
+
+	SAFEDELETEARRAY(tRandomString);
+
+	return tReturnString;
+}
+
 
 //---------------------------------
 

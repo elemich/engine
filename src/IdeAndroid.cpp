@@ -45,6 +45,9 @@ void AndroidPlugin::Load()
 	if(!this->loaded)
 	{
 		this->MenuActionBuild=this->Menu(L"Build\\Android",false);
+		this->Menu(L"Adb",true);
+		this->MenuActionInstall=this->Menu(L"Adb\\Install",false);
+		this->MenuActionUninstall=this->Menu(L"Adb\\Uninstall",false);
 
 		this->loaded=true;
 	}
@@ -61,6 +64,10 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 {
 	if(iIdx==this->MenuActionBuild)
 		this->ShowConfigurationPanel();
+	if(iIdx==this->MenuActionInstall)
+		Ide::GetInstance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" install " + this->Apkname + L".apk");
+	if(iIdx==this->MenuActionUninstall)
+		Ide::GetInstance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" uninstall " + this->Apkname + L".apk");
 }
 
 
@@ -369,7 +376,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 		L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
 		L"set ADB=" + tAndroidDebugBridge + L"\n"
 		L"set KEYSTORE=" + tKeyname + L"\n"
-		L"SET APP_name=L" + tApkname + L"\n"
+		L"SET APP_name=" + tApkname + L"\n"
 		L"set PREVDIR=%cd%\n\n"
 
 		L"SET ANDROID_AAPT_ADD=%BUILDTOOL%\\aapt.exe add\n"
@@ -413,6 +420,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 	Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
 
+	Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"move " + tApkname + L".apk ..");
 }
 
 

@@ -21,6 +21,11 @@ jint JNI_OnLoad(JavaVM*, void*);
 bool JniInit();
 
 
+struct TimerAndroid : Timer
+{
+	void update();
+};
+
 struct ShaderAndroid : Shader
 {
 	Renderer3DAndroid* renderer;

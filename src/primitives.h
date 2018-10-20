@@ -22,7 +22,6 @@
 	return globalVarName; \
 	} 
 
-
 #include <vector>
 #include <list>
 #include <functional>
@@ -52,6 +51,7 @@
 	#ifdef __ANDROID__
 
 		#include <wchar.h>
+		#include <time.h>
 		#include <dlfcn.h>
 		#include <android/log.h>
 		#define  LOG_TAG    "Engine"
@@ -79,7 +79,7 @@ template <typename T> struct DLLBUILD  THierarchyVector : THierarchy<T>
 
 template <typename T> struct DLLBUILD  THierarchyList : THierarchy<T>
 {
-	std::list<T*> childs;
+	
 };
 
 template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
@@ -122,6 +122,8 @@ namespace StringUtils
 	String DLLBUILD ReadCharFile(String iFilename,String iMode=L"r");
 	bool DLLBUILD WriteWideFile(String iFilename,String iContent,String iMode=L"w");
 	String DLLBUILD ReadWideFile(String iFilename,String iMode=L"r");
+
+	String RandomString(int iSize,String iAlphabet=L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 }
 
 struct DLLBUILD FilePath : String

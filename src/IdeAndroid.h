@@ -3,6 +3,8 @@
 struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 {
 	int MenuActionBuild;
+	int MenuActionInstall;
+	int MenuActionUninstall;
 
 	Tab* configurationPanel;
 
