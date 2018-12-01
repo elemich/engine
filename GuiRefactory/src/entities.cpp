@@ -71,10 +71,10 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 
 	printf("loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
 
-	tScene->entityRoot=SerializerHelpers::loadSceneEntityRecursively(tScene->entityRoot,resourceData);
+	tScene->entities=SerializerHelpers::loadSceneEntityRecursively(tScene->entities,resourceData);
 
 	//barely load entities and components
-	if(!tScene->entityRoot)
+	if(!tScene->entities)
 		printf("error loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
 
 	return tScene;
@@ -999,25 +999,11 @@ Entity::Entity():
 
 Entity::~Entity()
 {
-	this->SetParent(0);
-
-	for(std::list<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();tCom++)
-		SAFEDELETE(*tCom);
-
-	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
-		SAFEDELETE(*tEn);
 }
 
 void Entity::SetParent(Entity* iParent)
 {
-	Entity* oldParent=this->parent;
-	this->parent=iParent;
 
-	if(oldParent)
-		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
-
-	if(this->parent)
-		this->parent->childs.push_back(this);
 }
 
 void Entity::update()
@@ -1048,10 +1034,7 @@ void Entity::draw(Renderer3DBase* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Scene::Scene():entityRoot(0){}
-
-
-
+Scene::Scene():entities(0){}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

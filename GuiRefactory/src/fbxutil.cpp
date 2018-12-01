@@ -39,7 +39,8 @@ void Fbx::OnMenuPressed(int iIdx)
 		if(tFbxFile.size())
 		{
 			EditorEntity* importedEntities=this->Import(StringUtils::ToChar(tFbxFile).c_str());
-			Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToTabs(&Tab::OnEntitiesChange,importedEntities);
+			GuiSceneViewer::GetInstance()->scene.entities=importedEntities;
+			GuiSceneViewer::GetInstance()->Insert(0,&importedEntities->sceneLabel);
 		}
 	}
 	else if(iIdx==MenuActionExport)
@@ -203,15 +204,15 @@ EditorEntity* acquireNodeStructure(FbxNode* iFbxNode,EditorEntity* iEntityParent
 	
 	globalMapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(iFbxNode,tEntity));
 
-	tEntity->OnPropertiesCreate();
-		
 	if(iEntityParent && !tEntity->name.size())
 		tEntity->name=StringUtils::ToWide(iFbxNode->GetName());
 
 	tEntity->local=GetMatrix(iFbxNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO));
 
 	ExtractAnimations(iFbxNode,tEntity);
-	tEntity->SetParent(iEntityParent);
+	
+	if(iEntityParent)
+		iEntityParent->AddEntity(tEntity);
 
 	if(iFbxNode->GetScene()->GetRootNode()==iFbxNode)
 	{
@@ -240,7 +241,9 @@ EditorEntity* acquireNodeStructure(FbxNode* iFbxNode,EditorEntity* iEntityParent
 		}
 	}
 
-	tEntity->world = tEntity->parent ? (tEntity->local * tEntity->parent->world) : tEntity->local;
+	tEntity->world = tEntity->GetParent() ? (tEntity->local * tEntity->GetParent()->world) : tEntity->local;
+
+	tEntity->OnPropertiesCreate();
 
 	return tEntity;
 }

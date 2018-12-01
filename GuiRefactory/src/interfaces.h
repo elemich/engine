@@ -10,11 +10,12 @@ struct DLLBUILD Renderer2D;
 struct DLLBUILD Renderer3D;
 
 struct DLLBUILD GuiFont;
-struct DLLBUILD GuiRect;
+struct DLLBUILD Gui;
+struct DLLBUILD GuiRoot;
+struct DLLBUILD GuiTreeViewItem;
 struct DLLBUILD GuiRootRect;
 struct DLLBUILD GuiContainer;
-template<typename T> struct DLLBUILD GuiContainerRow;
-template<typename T> struct DLLBUILD GuiProperty;
+template <typename T> struct DLLBUILD GuiProperty;
 struct DLLBUILD GuiString;
 struct DLLBUILD GuiButton;
 struct DLLBUILD Picture;
@@ -23,7 +24,7 @@ struct DLLBUILD GuiScrollBar;
 struct DLLBUILD GuiScrollRect;
 struct DLLBUILD GuiPropertyString;
 struct DLLBUILD GuiPropertySlider;
-struct DLLBUILD GuiAnimationController;
+struct DLLBUILD AnimationProperty;
 struct DLLBUILD GuiLabel;
 struct DLLBUILD GuiViewport;
 struct DLLBUILD GuiPanel;
@@ -172,9 +173,6 @@ public:
 	static Ide* GetInstance();
 	static bool IsInstanced();
 
-	Tab* CreatePopup(Container*,float,float,float,float);
-	void DestroyPopup();
-	Tab* GetPopup();
 
 protected:
 	Ide();
@@ -339,162 +337,495 @@ struct DLLBUILD PictureFile : Picture
 	PictureFile(String iFilename);
 };
 
-struct GuiEvent
+struct DLLBUILD Event{};
+struct DLLBUILD EventMouse : Event{vec2 mouse;int  button;};
+struct DLLBUILD EventKey : Event{char key;};
+
+
+struct DLLBUILD Gui
 {
-	Tab* tab;
-	void* data;
-
-	GuiEvent(Tab* iTab,void* iData=0);
-};
-
-struct DLLBUILD GuiRect
-{
-	GuiRect*			parent;
-	std::list<GuiRect*> childs;
-
-	static const int ROW_HEIGHT=20;
-	static const int ROW_ADVANCE=GuiRect::ROW_HEIGHT;
-
 	static const int COLOR_BACK=0x505050;
-	static const int COLOR_HOVERED=0x101010;
-	static const int COLOR_PRESSED=0x151515;
-	static const int COLOR_CHECKED=0x202020;
 
-	String name;
+protected:
+	String						name;
+	Gui*						owner;
+	Gui*						parent;
+	std::list<Gui*>				childs;
+	bool						pressing;
+	bool						hovering;		
+	bool						active;
+	Gui*						clip;
+public:
+	virtual void						AddChild(Gui*);
+	virtual void						RemoveChild(Gui*);
+	virtual void						RemoveAllChilds();
 
-	struct Edges{float *left,*top,*right,*bottom;};
-	Edges refedges;
-	vec2 minimums;
-	vec4 offsets;
-	vec4 scalars;
-	vec4 fixed;
-	vec4 edges;
-	vec4 rect;
-	vec2 content;
+	virtual vec4						GetEdges();
+	virtual String						GetName();
+	virtual float						GetWidth();
+	virtual float						GetHeight();
+	const Gui*							GetParent();
+	const std::list<Gui*>&				GetChilds();
+	Gui*								GetOwner();
+	GuiRoot*							GetRoot();
+	unsigned int						GetColor();
 
-	unsigned int colorBackground;
-	unsigned int colorHovering;
-	unsigned int colorPressing;
-	unsigned int colorChecked;
+	virtual void						SetEdges(vec4){};
+	virtual void						SetName(String);
+	void								SetOwner(Gui*);
+	void								SetActive(bool);
 
-	Picture* pictureBackGround;
-	Picture* pictureHovering;
-	Picture* picturePressing;
-	Picture* pictureChecked;
+	bool								IsHovering();
+	bool								IsPressing();
+	bool								IsActive();
+	template <typename T> bool			Is(){return dynamic_cast<T*>(this);}
 
-	bool pressing;
-	bool hovering;
-	bool checked;
+	virtual bool						Contains(const vec2&);
 
-	bool active;
-	void* userData;
+	vec2								GetClippedMouse(const vec2& iMouse){return iMouse;}
 
-	GuiScrollRect* clip;
+	Gui();
+	virtual ~Gui();
 
-	GuiRect();
-	virtual ~GuiRect();
+	virtual void FindHover(Tab*,vec2&,Gui*&){};
 
-	virtual void SetEdges(float* iLeft=0,float* iTop=0,float* iRight=0,float* iBottom=0);
-
-	virtual void SetParent(GuiRect*);
-
-	virtual void OnSizePre();
-	virtual void OnSizePost();
-
-	virtual void Insert(GuiRect* iProperty);
-
-	virtual void OnRecreateTarget(const GuiEvent&){}
-	virtual void OnPaint(const GuiEvent&);
-	virtual void OnEntitiesChange(const GuiEvent&);
-	virtual void OnSize(const GuiEvent&);
-	virtual void OnLMouseDown(const GuiEvent&);
-	virtual void OnDLMouseDown(const GuiEvent&);
-	virtual void OnLMouseUp(const GuiEvent&);
-	virtual void OnRMouseUp(const GuiEvent&);
-	virtual void OnMouseMove(const GuiEvent&);
-	virtual void OnUpdate(const GuiEvent&);
-	virtual void OnReparent(const GuiEvent&);
-	virtual void OnSelected(const GuiEvent&);
-	virtual void OnRender(const GuiEvent&);
-	virtual void OnMouseWheel(const GuiEvent&);
-	virtual void OnActivate(const GuiEvent&);
-	virtual void OnDeactivate(const GuiEvent&);
-	virtual void OnEntitySelected(const GuiEvent&);
-	virtual void OnExpandos(const GuiEvent&);
-	virtual void OnKeyDown(const GuiEvent&);
-	virtual void OnKeyUp(const GuiEvent&);
-	virtual void OnMouseEnter(const GuiEvent&);
-	virtual void OnMouseExit(const GuiEvent&);
-	virtual void OnEnterFocus(const GuiEvent&);
-	virtual void OnExitFocus(const GuiEvent&);
-
-	virtual void DrawBackground(Tab*);
-
-	virtual GuiRect* GetRoot();
-	virtual GuiRootRect* GetRootRect();
-
-	virtual void SetClip(GuiScrollRect*);
-	virtual void BeginClip(Tab*);
-	virtual void EndClip(Tab*);
-
-	virtual void SetColors(unsigned int iBack=COLOR_BACK,unsigned int iHover=COLOR_HOVERED,unsigned int iPressed=COLOR_PRESSED,unsigned int iCheck=COLOR_CHECKED,bool iPropagate=false);
-	virtual void SetAllColors(unsigned int iColor,bool iPropagate=false);
-
-	bool Contains(vec4& quad,vec2);
-
-	unsigned int GetColor();
-
-	virtual void BroadcastToChilds(void (GuiRect::*func)(const GuiEvent&),const GuiEvent&);
-	virtual void BroadcastToRoot(void (GuiRect::*func)(const GuiEvent&),const GuiEvent&);
-
-	template<class C> void BroadcastTo(void (GuiRect::*func)(const GuiEvent&),const GuiEvent& iMsg)
-	{
-		C* isaC=dynamic_cast<C*>(this);
-
-		if(isaC)
-			(this->*func)(iMsg);
-
-		for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
-			((*tRect)->*func)(iMsg);
-	}
-
-	template<class C> void Get(std::vector<C*>& iRects)
-	{
-		C* isaC=dynamic_cast<C*>(this);
-
-		if(isaC)
-			iRects.push_back(isaC);
-
-		for(std::list<GuiRect*>::iterator tRect=this->childs.begin();tRect!=this->childs.end();tRect++)
-			(*tRect)->Get(iRects);
-	}
-
-	GuiContainer* Container(String iText);
-	template<typename T> GuiContainerRow<T>* ContainerRow(T);
-
-	GuiString* Text(String str);
-
-	template<typename T> GuiProperty<T>* Property(String iDescription,T* iProperty=0)
-	{
-		GuiProperty<T>* tProperty=new GuiProperty<T>(iDescription,iProperty);
-		this->Insert(tProperty);
-		return tProperty;
-	}
-
-	void DestroyChilds();
+	//mouse
+	virtual void OnMouseMove(Tab* iTab,EventMouse* iData=0){}
+	virtual void OnDoubleClick(Tab* iTab,EventMouse* iData=0){}
+	virtual void OnButtonDown(Tab* iTab,EventMouse* iData=0){if(iData->button==1)this->pressing=true;}
+	virtual void OnButtonUp(Tab* iTab,EventMouse* iData=0){if(iData->button==1)this->pressing=false;}
+	virtual void OnMouseWheel(Tab* iTab,EventMouse* iData=0){}
+	virtual void OnMouseEnter(Tab* iTab,EventMouse* iData=0){this->hovering=true;}
+	virtual void OnMouseExit(Tab* iTab,EventMouse* iData=0){this->hovering=false;}
+	
+	virtual void OnDestroy(Tab*,Event* iData=0){}
+	virtual void OnBeginClip(Tab*,Event* iData=0){}
+	virtual void OnEndClip(Tab*,Event* iData=0){}
+	virtual void OnRecreateTarget(Tab*,Event* iData=0){}
+	virtual void OnPaint(Tab*,Event* iData=0){}
+	virtual void OnEntitiesChange(Tab*,Event* iData=0){}
+	virtual void OnResize(Tab*,Event* iData=0){}
+	
+	
+	virtual void OnUpdate(Tab*,Event* iData=0){}
+	virtual void OnReparent(Tab*,Event* iData=0){}
+	virtual void OnSelected(Tab*,Event* iData=0){}
+	
+	virtual void OnActivate(Tab* iTab,Event* iData=0){this->SetActive(false);}
+	virtual void OnDeactivate(Tab*,Event* iData=0){this->SetActive(false);}
+	virtual void OnEntitySelected(Tab*,Event* iData=0){}
+	virtual void OnExpandos(Tab*,Event* iData=0){}
+	virtual void OnKeyDown(Tab*,Event* iData=0){}
+	virtual void OnKeyUp(Tab*,Event* iData=0){}
+	
+	virtual void OnEnterFocus(Tab*,Event* iData=0){}
+	virtual void OnExitFocus(Tab*,Event* iData=0){}
 };
 
-struct DLLBUILD GuiRootRect : GuiRect
+struct DLLBUILD GuiRect : Gui
 {
-	Tab* tab;
+	vec4 edges;
 
-	GuiRootRect(Tab* t);
-	~GuiRootRect();
+	virtual void		SetEdges(vec4 iEdges){this->edges=iEdges;}
+	virtual vec4		GetEdges(){return this->edges;}
 
-	virtual void OnSize(const GuiEvent&);
+	virtual void		FindHover(Tab* iTab,vec2& iMouse,Gui*& iGui){if(iMouse.x>this->edges.x && iMouse.x<this->edges.z && iMouse.y>this->edges.y && iMouse.y<this->edges.w)iGui=this;};
 };
 
-struct DLLBUILD StringValue
+struct DLLBUILD GuiRoot : GuiRect
+{
+private:
+	friend Tab;
+	Tab* tab;
+public:
+
+	GuiRoot(Tab*);
+
+	Tab*		 GetTab();
+	void		 OnResize(Tab*,Event* iData=0);
+	void		 FindHover(Tab*,vec2&,Gui*&);
+};
+
+struct DLLBUILD GuiContainer : GuiRect
+{
+	bool		expanded;
+	String		description;
+
+	GuiContainer();
+	GuiContainer(String);
+
+	void Insert(Gui* iGui);
+
+	//void OnMouseMove(Tab*,Event* iData=0);
+	void OnButtonDown(Tab* iTab,EventMouse* iData=0);
+	void OnResize(Tab*,Event* iData=0);
+	void OnPaint(Tab*,Event* iData=0);
+};
+
+
+struct DLLBUILD GuiString : GuiRect
+{
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
+
+	String			text;
+	GuiFont*		font;
+	unsigned int	color;
+	vec2			spot;
+	vec2			align;
+
+	GuiString();
+
+	void OnPaint(Tab*,Event* iData=0);
+};
+
+struct DLLBUILD GuiTextBox : GuiString
+{
+	StringEditor::Cursor* cursor;
+
+	GuiTextBox();
+	~GuiTextBox();
+
+	bool ParseKeyInput(Tab*,Event* iData=0);
+
+	virtual void OnPaint(Tab*,Event* iData=0);
+	virtual void OnLMouseDown(Tab* iTab,EventMouse* iData=0);
+	virtual void OnKeyDown(Tab*,Event* iData=0);
+};
+
+struct DLLBUILD GuiComboBox : Gui
+{
+	GuiString*          string;
+	GuiButton*			button;
+	GuiScrollRect*	    list;
+
+	Tab*				popupPointer;
+
+	int					selectedItem;
+
+	std::vector<String> items;
+
+	void RecreateList();
+
+	GuiComboBox();
+	~GuiComboBox();
+};
+
+struct GuiImage : Gui
+{
+	Picture* image;
+
+	GuiImage();
+	GuiImage(unsigned char* iRefData,float iWidth,float iHeight);
+	GuiImage(String iFilename);
+	~GuiImage();
+
+	void OnPaint(Tab*,Event* iData=0);
+	void OnActivate(Tab*,Event* iData=0);
+};
+
+
+
+struct DLLBUILD GuiButton : GuiString
+{
+	GuiButton();
+
+	void (*func)(Event*);
+	void* param;
+
+	bool*	value;
+	int		mode;
+
+	
+	virtual void OnPaint(Tab*,Event* iData=0);
+	virtual void OnMouseEnter(Tab*,EventMouse* iData=0);
+	virtual void OnMouseExit(Tab*,EventMouse* iData=0);
+	virtual void OnButtonDown(Tab*,EventMouse* iData=0);
+	virtual void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+};
+
+
+struct DLLBUILD GuiScrollBar : GuiRect
+{
+	static const int COLOR_BACK=0x404040;
+	static const int TICK=20;
+	static const int SCROLL=10;
+
+	enum ScrollBarType
+	{
+		SCROLLBAR_VERTICAL=0,
+		SCROLLBAR_HORIZONTAL,
+		SCROLLBAR_INVALID
+	};
+
+private:
+
+	ScrollBarType scrollbarType;
+
+	float position;
+	float ratio;
+	float scrollerPressed;
+	float contentLength;
+	float containerLength;
+	
+	float GetContainerLength();
+	float GetContainerBegin();
+	float GetContainerEnd();
+	float GetScrollerBegin();
+	float GetScrollerEnd();
+	float GetScrollerLength();
+
+	void Scroll(Tab*,float upOrDown);
+
+public:
+
+	GuiScrollBar(ScrollBarType iScrollbarType=SCROLLBAR_VERTICAL);
+	~GuiScrollBar();
+
+	void			SetType(ScrollBarType iScrollbarType);
+	ScrollBarType	GetType(){return this->scrollbarType;}
+
+	void SetRatio(float contentHeight,float containerHeight);
+	void SetPosition(float contentHeight);
+	
+	bool IsVisible();
+	float GetPosition();
+
+	void OnButtonDown(Tab* iTab,EventMouse* iData=0);
+	void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+	void OnMouseMove(Tab* iTab,EventMouse* iData=0);
+	void OnPaint(Tab*,Event* iData=0);
+	
+};
+
+struct DLLBUILD GuiTreeView : GuiRect
+{
+	struct DLLBUILD Item : Gui
+	{
+	private:
+		friend GuiTreeView;
+
+		GuiTreeView*	treeview;
+
+		float						top;
+		bool						expanded;
+		int							level;
+		bool						selected;
+		String						name;
+	public:
+		Item();
+
+		vec4 GetEdges();
+		vec4 GetExpandosEdges();
+		float GetLeadEdge();
+
+		bool ExpandosContains(const vec2& iMouse);
+
+		virtual void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+		virtual void OnButtonDown(Tab* iTab,EventMouse* iData=0);
+		virtual void OnMouseEnter(Tab* iTab,EventMouse* iData=0);
+		virtual void OnMouseExit(Tab* iTab,EventMouse* iData=0);
+		virtual	void OnPaint(Tab*,Event* iData=0);
+		virtual	void OnBeginClip(Tab*,Event* iData=0);
+		virtual	void OnEndClip(Tab*,Event* iData=0);
+
+		virtual void SetName(String);
+		virtual void Insert(Item&);
+		virtual GuiTreeView* GetTreeView();
+	};
+private:
+	GuiScrollBar vscroll;
+	GuiScrollBar hscroll;
+
+	float contentWidth;
+	float contentHeight;
+
+	vec4 clippedEdges;
+
+	float leftEdge;
+
+	bool clipped;
+
+	void BeginClip(Tab*);
+	void EndClip(Tab*);
+
+	void	RecalcScrollBars();
+	void	RecalcItems();
+
+	void		SetContentWidth(float);
+	void		SetContentHeight(float);
+	const float GetContentWidth();
+	const float GetContentHeight();
+
+	void SetContent(GuiTreeView::Item* iLabel,float& iTop,unsigned int iLevel,GuiRoot*);
+	void FindItemHovered(Tab* iTab,vec2& iMouse,Item* iItem,Gui*& iGui);
+	void DrawItems(Tab* iTab,Item*);
+
+	Gui::AddChild;
+public:
+
+	GuiTreeView();
+
+	void	Insert(Item* iWhere,Item* iElement);
+	
+	const vec4& GetClippedEdges();
+
+	vec2 GetClippedMouse(const vec2& iMouse);
+
+	virtual void OnPaint(Tab*,Event* iData=0);
+	virtual void OnResize(Tab*,Event* iData=0);
+	virtual void FindHover(Tab*,vec2&,Gui*&);
+};
+
+struct DLLBUILD GuiPropertyTree : GuiRect
+{
+	struct DLLBUILD Container : Gui
+	{
+		struct DLLBUILD Property;
+
+		struct DLLBUILD PropertyContainer : Gui
+		{
+		private:
+			Gui::AddChild;
+
+			friend		GuiPropertyTree;
+			friend		Container;
+
+			Container*			container;
+			String				description;
+			float				top;
+			Property*			property;
+		public:
+			PropertyContainer(Property*);
+			PropertyContainer(String,Property*);
+
+			vec4 GetEdges();
+			float GetLeadEdge();
+
+			const Container* GetContainer();
+
+			virtual void OnBeginClip(Tab*,Event* iData=0);
+			virtual void OnEndClip(Tab*,Event* iData=0);
+			virtual void OnResize(Tab*,Event* iData=0);
+			virtual void OnPaint(Tab*,Event* iData=0);
+			virtual void OnMouseEnter(Tab* iTab,EventMouse* iData=0);
+			virtual void OnMouseExit(Tab* iTab,EventMouse* iData=0);
+			virtual void OnButtonDown(Tab* iTab,EventMouse* iData=0);
+			virtual void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+			virtual void OnMouseMove(Tab* iTab,EventMouse* iData=0);
+
+			virtual void FindHover(Tab* iTab,vec2& iMouse,Gui*& iGui);
+		};
+
+		struct DLLBUILD Property : Gui
+		{
+		private:
+			friend GuiPropertyTree;
+
+			PropertyContainer propertyContainer;
+		public:
+			Property();
+			Property(String);
+
+			vec4 GetEdges();
+
+			virtual float GetHeight(){return 0;}
+			virtual bool  HasDescription(){return true;}
+
+			virtual void OnPaint(Tab*,Event* iData=0);
+			virtual void OnMouseEnter(Tab* iTab,EventMouse* iData=0);
+			virtual void OnMouseExit(Tab* iTab,EventMouse* iData=0);
+
+			virtual void FindHover(Tab*,vec2&,Gui*&);
+		};
+
+	private:
+		friend GuiPropertyTree;
+		friend PropertyContainer;
+
+		Gui::AddChild;
+
+		GuiPropertyTree*	propertytree;
+		bool				expanded;
+		float				top;
+		int					level;
+		String				name;
+		float				splitter;
+		float				expandedHeight;
+	public:
+		Container();
+
+		vec4 GetEdges();
+		vec4 GetExpandosEdges();
+		float GetLeadEdge()const;
+		float GetSplitterEdge()const;
+
+		bool ExpandosContains(const vec2& iMouse);
+
+		virtual void FindHover(Tab* iTab,vec2& iMouse,Gui*& iGui);
+
+		virtual void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+		virtual void OnMouseEnter(Tab* iTab,EventMouse* iData=0);
+		virtual void OnMouseExit(Tab* iTab,EventMouse* iData=0);
+		virtual	void OnBeginClip(Tab*,Event* iData=0);
+		virtual	void OnEndClip(Tab*,Event* iData=0);
+		virtual	void OnPaint(Tab*,Event* iData=0);
+
+		virtual void SetName(String);
+
+		virtual Container*	InsertContainer(Container*);
+		virtual Property*	InsertProperty(Property*);
+
+		virtual GuiPropertyTree* GetPropertyTree();
+
+		bool IsExpanded();
+	};
+private:
+	GuiScrollBar vscroll;
+	GuiScrollBar hscroll;
+
+	Container* splitterPressed;
+
+	float contentWidth;
+	float contentHeight;
+
+	vec4 clippedEdges;
+
+	float leftEdge;
+
+	bool clipped;
+
+	void BeginClip(Tab*);
+	void EndClip(Tab*);
+
+	void	RecalcScrollBars();
+
+	void		SetContentWidth(float);
+	void		SetContentHeight(float);
+	const float GetContentWidth();
+	const float GetContentHeight();
+
+	void SetContent(Gui* iParent,Gui* iGui,float& iTop,unsigned int iLevel,GuiRoot*);
+	void ResizeProperties(Tab*,Gui* iGui);
+	void DrawRecursive(Tab*,Gui* iGui);
+	virtual void FindHover(Tab* iTab,vec2& iMouse,Gui*& iGui);
+
+	Gui::AddChild;
+public:
+
+	GuiPropertyTree();
+
+	Container*	InsertContainer(Container* iWhere,Container* iElement);
+	void		RecalcItems();
+
+	const vec4& GetClippedEdges();
+	vec2 GetClippedMouse(const vec2& iMouse);
+	virtual void OnPaint(Tab*,Event* iData=0);
+	virtual void OnResize(Tab*,Event* iData=0);
+	
+};
+
+
+struct DLLBUILD StringProperty : GuiPropertyTree::Container::Property
 {
 	static const unsigned int scDefaultParameter1=2;
 	static const unsigned int scDefaultParameter2=2;
@@ -502,6 +833,7 @@ struct DLLBUILD StringValue
 	enum
 	{
 		BOOL=0,
+		STRING,
 		BOOLPTR,
 		INT,
 		FLOAT,
@@ -520,247 +852,31 @@ struct DLLBUILD StringValue
 		MAXVALUE
 	};
 
-	GuiString& guiString;
 	void* valuePointer1;
 	void* valuePointer2;
 	unsigned int valueType;
 	unsigned char valueParameter1;
 	unsigned char valueParameter2;
 
-	StringValue(GuiString& iGuiString,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
-	~StringValue();
+	StringProperty(String iDescription,void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
 
-	void RefreshReference(Tab*);
+	float	GetHeight();
+	bool	HasDescription();
+
+	void OnPaint(Tab*,Event* iData=0);
 };
 
 
-struct DLLBUILD GuiString : GuiRect
+template <typename T> struct DLLBUILD GuiProperty : Gui
 {
-	static const unsigned int COLOR_TEXT=0xFFFFFF;
+	String		description;
+	T*			property;
 
-	struct DLLBUILD GuiStringBase
+	GuiProperty(String iDescription,T* iProperty)
 	{
-	private:
-		String* _______text;
-		bool ________dtor;
-	public:
-		GuiStringBase();
-		~GuiStringBase();
-	
-		void SetStringMode(String&,bool isReference);
-
-		String& Text();
-
-		operator String&();
-		String& operator=(const String& iString);
-		String* operator->();
-	};
-
-	GuiStringBase text;
-
-	StringValue* valueData;
-
-	vec4 margins;
-	vec4 textEdges;
-	vec2 textRect;
-
-	vec2 textSpot;
-	vec2 textAlign;
-
-	bool canEdit;
-	bool adaptRect;
-
-	int textColor;
-
-	StringEditor::Cursor* cursor;
-
-	GuiFont* font;
-
-	GuiString();
-	GuiString(String);
-	GuiString(String*);
-	GuiString(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=StringValue::scDefaultParameter1,unsigned int iValueParameter2=StringValue::scDefaultParameter2);
-	virtual ~GuiString();
-
-	void SetStringMode(String&,bool isReference);
-	void SetStringMode(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=StringValue::scDefaultParameter1,unsigned int iValueParameter2=StringValue::scDefaultParameter2);
-
-	virtual void OnSizePre(Tab*);
-	virtual void OnSizePost();
-	void DrawTheText(Tab*);
-
-	bool ParseKeyInput(const GuiEvent&);
-
-	virtual void OnPaint(const GuiEvent&);
-	virtual void OnLMouseDown(const GuiEvent&);
-	virtual void OnKeyDown(const GuiEvent&);
-	virtual void OnSize(const GuiEvent&);
-};
-
-struct DLLBUILD GuiComboBox : GuiRect
-{
-	GuiString*          string;
-	GuiButton*			button;
-	GuiScrollRect*	    list;
-
-	Tab*				popupPointer;
-
-	int					selectedItem;
-
-	std::vector<String> items;
-
-	void RecreateList();
-
-	GuiComboBox();
-	~GuiComboBox();
-};
-
-struct GuiImage : GuiRect
-{
-	Picture* image;
-
-	GuiImage();
-	GuiImage(unsigned char* iRefData,float iWidth,float iHeight);
-	GuiImage(String iFilename);
-	~GuiImage();
-
-	void OnPaint(const GuiEvent&);
-	void OnActivate(const GuiEvent&);
-};
-
-struct DLLBUILD GuiTextBox : GuiString
-{
-	GuiTextBox();
-	~GuiTextBox();
-
-	virtual void OnKeyDown(const GuiEvent&);
-	virtual void OnLMouseDown(const GuiEvent&);
-
-	virtual void SetAllColors(unsigned int iColor,bool iPropagate=false);
-	virtual void SetColors(unsigned int iBack=COLOR_BACK,unsigned int iHover=COLOR_HOVERED,unsigned int iPressed=COLOR_PRESSED,unsigned int iCheck=COLOR_CHECKED,bool iPropagate=false);
-};
-
-
-struct DLLBUILD GuiContainer : GuiString
-{
-	bool		state;
-
-	GuiContainer();
-
-	virtual void OnSizePre(Tab*);
-	virtual void OnSizePost(Tab*);
-
-	void Insert(GuiRect* iProperty);
-
-	void BroadcastToChilds(void (GuiRect::*iFunction)(const GuiEvent&),const GuiEvent&);
-	
-	void OnLMouseDown(const GuiEvent&);
-	void OnSize(const GuiEvent&);
-	void OnPaint(const GuiEvent&);
-};
-
-template<typename TPointer> struct DLLBUILD GuiContainerRow : GuiContainer
-{
-	TPointer rowData;
-
-	GuiContainerRow();
-
-	void UnselectAll(GuiRect*);
-	virtual void OnSizePre(Tab*);
-	void DrawBackground(const GuiEvent&);
-	void OnPaint(const GuiEvent&);
-	void OnSize(const GuiEvent&);
-	void OnMouseMove(const GuiEvent&);
-	void OnLMouseUp(const GuiEvent&);
-	vec4 GetRowRectangle();
-};
-
-
-struct DLLBUILD GuiButton : GuiString
-{
-	GuiButton();
-
-	void (*func)(void*);
-	void* param;
-
-	bool*	value;
-	int		mode;
-
-	virtual void OnLMouseUp(const GuiEvent&);
-};
-
-
-struct DLLBUILD GuiScrollBar : GuiRect
-{
-	static const int SCROLLBAR_TICK=20;
-	static const int SCROLLBAR_TIP_SIZE=SCROLLBAR_TICK;
-	static const int SCROLLBAR_SCROLL_AMOUNT=10;
-
-	enum
-	{
-		SCROLLBAR_VERTICAL=0,
-		SCROLLBAR_HORIZONTAL,
-		SCROLLBAR_INVALID
-	};
-
-	unsigned int scrollbarType;
-
-	float scrollerPosition;
-	float scrollerRatio;
-	float scrollerPressed;
-
-	GuiRect* guiRect;
-
-	GuiScrollBar(unsigned int iScrollbarType=SCROLLBAR_VERTICAL);
-	~GuiScrollBar();
-
-	void SetType(unsigned int iScrollbarType);
-
-	void SetScrollerRatio(float contentHeight,float containerHeight);
-	void SetScrollerPosition(float contentHeight);
-	void Scroll(Tab*,float upOrDown);
-	bool IsVisible();
-
-	void OnLMouseDown(const GuiEvent&);
-	void OnLMouseUp(const GuiEvent&);
-	void OnMouseMove(const GuiEvent&);
-	void OnPaint(const GuiEvent&);
-
-	float GetContainerLength();
-	float GetContainerBegin();
-	float GetContainerEnd();
-	float GetScrollerBegin();
-	float GetScrollerEnd();
-	float GetScrollerLength();
-
-	void SetRect(GuiRect*);
-};
-
-struct DLLBUILD GuiScrollRect : GuiRect
-{
-	GuiScrollRect();
-	~GuiScrollRect();
-
-	GuiScrollBar	vScrollbar;
-	GuiScrollBar	hScrollbar;
-
-	bool clipped;
-
-	vec2 GetClippedMouse(vec2&);
-
-	virtual void BroadcastToChilds(void (GuiRect::*iFunction)(const GuiEvent&),const GuiEvent&);
-
-	virtual void OnSize(const GuiEvent&);
-	virtual void OnPaint(const GuiEvent&);
-	virtual void OnLMouseDown(const GuiEvent&);
-	virtual void OnMouseMove(const GuiEvent&);
-	virtual void OnMouseWheel(const GuiEvent&);
-	virtual void OnExpandos(const GuiEvent&);
-
-	virtual void BeginClip(Tab*);
-	virtual void EndClip(Tab*);
-
-	void SetClip(GuiScrollRect*);
+		this->description=iDescription;
+		this->property=iProperty;
+	}
 };
 
 struct DLLBUILD GuiSlider : GuiRect
@@ -770,21 +886,46 @@ struct DLLBUILD GuiSlider : GuiRect
 	float* minimum;
 	float* maximum;
 
-	GuiSlider();
 	GuiSlider(float* iRef,float* iMin,float* iMax);
 
-	virtual void OnPaint(const GuiEvent&);
-	virtual void OnMouseMove(const GuiEvent&);
-
-	void DrawSliderTip(Tab*,void* data=0);
+	virtual void OnPaint(Tab*,Event* iData=0);
+	virtual void OnMouseMove(Tab* iTab,EventMouse* iData=0);
 };
 
-struct DLLBUILD GuiListBox : GuiScrollRect
+struct DLLBUILD SliderProperty : GuiPropertyTree::Container::Property
+{
+	GuiSlider slider;
+
+	SliderProperty(String iDescription,float* iRef,float* iMin,float* iMax);
+
+	float GetHeight();
+	virtual void OnResize(Tab*,Event* iData=0);
+};
+
+struct DLLBUILD AnimationProperty : GuiPropertyTree::Container::Property
+{
+	AnimationController& animationController;
+
+	AnimationProperty(String iDescription,AnimationController&);
+
+	GuiButton      play;
+	GuiButton      stop;
+
+	GuiSlider  slider;
+
+	float GetHeight();
+	bool HasDescription();
+
+	virtual void OnResize(Tab*,Event* iData=0);
+};
+
+
+struct DLLBUILD GuiListBox// : GuiScrollRect
 {
 	GuiButton* selection;
 
 	void AddItem(String);
-	void AddItem(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=StringValue::scDefaultParameter1,unsigned int iValueParameter2=StringValue::scDefaultParameter2);
+	void AddItem(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=StringProperty::scDefaultParameter1,unsigned int iValueParameter2=StringProperty::scDefaultParameter2);
 	
 	void DestroyItems();
 
@@ -792,7 +933,7 @@ struct DLLBUILD GuiListBox : GuiScrollRect
 	~GuiListBox();
 };
 
-struct DLLBUILD GuiPath : GuiRect
+struct DLLBUILD GuiPath : Gui
 {
 	GuiTextBox* path;
 	GuiButton*  button;
@@ -804,19 +945,6 @@ struct DLLBUILD GuiPath : GuiRect
 	~GuiPath();
 };
 
-struct DLLBUILD GuiAnimationController : GuiRect
-{
-	AnimationController& animationController;
-
-	GuiAnimationController(AnimationController&);
-
-	GuiButton* play;
-	GuiButton* stop;
-
-	GuiSlider* slider;
-
-	virtual void OnMouseMove(const GuiEvent&);
-};
 
 
 
@@ -826,25 +954,7 @@ struct DLLBUILD GuiAnimationController : GuiRect
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-template<typename T> struct DLLBUILD GuiProperty : GuiRect
-{
-	GuiString*	description;
-	T*			property;
 
-	GuiProperty(String iDescription,T* iProperty=0)
-	{
-		this->description=new GuiString;
-		this->description->scalars.make(1,1,0.5f,1);
-		this->description->text=iDescription;
-		this->description->SetParent(this);
-
-		this->property=iProperty ? iProperty : new T;
-		this->property->refedges.left=&this->description->edges.z;
-		this->property->SetParent(this);
-
-		this->fixed.w=this->property->fixed.w;
-	}
-};
 
 
 
@@ -890,14 +1000,14 @@ struct DLLBUILD GuiViewport : GuiRect
 	GuiViewport(vec3 pos,vec3 target,vec3 up,bool perspective);
 	virtual ~GuiViewport();
 
-	virtual void OnPaint(const GuiEvent&);
-	virtual void OnSize(const GuiEvent&);
-	virtual void OnMouseWheel(const GuiEvent&);
-	virtual void OnMouseMove(const GuiEvent&);
-	virtual void OnActivate(const GuiEvent&);
-	virtual void OnDeactivate(const GuiEvent&);
-	virtual void OnReparent(const GuiEvent&);
-	virtual void OnLMouseUp(const GuiEvent&);
+	virtual void OnPaint(Tab*,Event* iData=0);
+	virtual void OnResize(Tab*,Event* iData=0);
+	virtual void OnMouseWheel(Tab* iTab,EventMouse* iData=0);
+	virtual void OnMouseMove(Tab* iTab,EventMouse* iData=0);
+	virtual void OnActivate(Tab*,Event* iData=0);
+	virtual void OnDeactivate(Tab*,Event* iData=0);
+	virtual void OnReparent(Tab*,Event* iData=0);
+	virtual void OnButtonUp(Tab* iTab,EventMouse* iData=0);
 
 	virtual void Render(Tab*);
 	virtual void DrawBuffer(Tab*,vec4&);
@@ -909,12 +1019,12 @@ struct DLLBUILD GuiViewport : GuiRect
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-struct DLLBUILD GuiScriptViewer : GuiScrollRect
+struct DLLBUILD GuiScriptViewer : GuiRect//: GuiScrollRect
 {
-	EditorScript* script;
+	std::list<EditorScript*> scripts;
 
 	GuiTextBox* editor;
-	GuiString* lines;
+	GuiString*	lines;
 
 	bool		lineNumbers;
 	int			lineCount;
@@ -926,22 +1036,22 @@ struct DLLBUILD GuiScriptViewer : GuiScrollRect
 	bool Save();
 	bool Compile();
 
-	void OnKeyDown(const GuiEvent&);
-	void OnKeyUp(const GuiEvent&);
-	void OnLMouseDown(const GuiEvent&);
-	void OnMouseMove(const GuiEvent&);
-	void OnSize(const GuiEvent&);
-	void OnDeactivate(const GuiEvent&);
+	void OnKeyDown(Tab*,Event* iData=0);
+	void OnKeyUp(Tab*,Event* iData=0);
+	void OnButtonDown(Tab*,Event* iData=0);
+	void OnMouseMove(Tab*,Event* iData=0);
+	void OnSize(Tab*,Event* iData=0);
+	void OnDeactivate(Tab*,Event* iData=0);
 
 	int CountScriptLines();
 
 	void DrawLineNumbers(Tab*);
 	void DrawBreakpoints(Tab*);
 	
-	static std::vector<GuiScriptViewer*>& GetInstances();
+	static std::list<GuiScriptViewer*>& GetInstances();
 };
 
-struct DLLBUILD GuiCompilerViewer : GuiScrollRect
+struct DLLBUILD GuiCompilerViewer// : GuiScrollRect
 {
 	static GuiCompilerViewer* GetInstance();
 	static bool IsInstanced();
@@ -956,55 +1066,20 @@ public:
 
 	bool ParseCompilerOutputFile(String);
 
-	void OnSize(const GuiEvent&);
+	void OnSize(Tab*,Event* iData=0);
 };
 
-struct DLLBUILD ResourceNode
+struct DLLBUILD GuiSceneViewer : GuiTreeView
 {
-	ResourceNode* parent;
+	struct DLLBUILD SceneLabel : Item
+	{
+		EditorEntity* entity;
 
-	FilePath fileName;
+		void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+	};
 
-	bool selectedLeft;
-	bool selectedRight;
-	int level;
-	bool isDir;
-
-	String BuildPath();
-
-	ResourceNode();
-	virtual ~ResourceNode();
-};
-
-struct DLLBUILD ResourceNodeDir : ResourceNode
-{
-	bool expanded;
-
-	std::list<ResourceNodeDir*> dirs;
-	std::list<ResourceNode*> files;
-
-	GuiContainerRow<ResourceNodeDir*> directoryViewerRow;
-
-	static ResourceNodeDir*	FindDirNode(String);
-	static ResourceNode*	FindFileNode(String);
-	static ResourceNodeDir* GetRootDirNode();
-
-	ResourceNodeDir();
-	virtual ~ResourceNodeDir();
-};
-
-struct DLLBUILD GuiPanel : GuiScrollRect
-{
-	GuiPanel();
-};
-
-
-struct DLLBUILD GuiSceneViewer : GuiScrollRect
-{
 	Scene						scene;
-	EditorEntity*&				entityRoot;
-	std::vector<EditorEntity*>	selection;
-
+	
 private:
 	GuiSceneViewer();
 	GuiSceneViewer(GuiSceneViewer const&);
@@ -1016,82 +1091,74 @@ public:
 
 	~GuiSceneViewer();
 
-	void OnLMouseDown(const GuiEvent&);
-	void OnEntitiesChange(const GuiEvent&);
-	void OnEntitySelected(const GuiEvent&);
-	void OnRMouseUp(const GuiEvent&);
-	void OnKeyDown(const GuiEvent&);
+	void OnActivate(Tab* iTab,Event* iData=0);
+	void OnDeactivate(Tab* iTab,Event* iData=0);
+	void OnButtonDown(Tab* iTab,EventMouse* iData=0);
+	void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+	void OnMouseMove(Tab* iTab,EventMouse* iData=0);
 
 	void Save(String);
 	void Load(String);
 };
 
-struct DLLBUILD GuiEntityViewer : GuiScrollRect
+struct DLLBUILD GuiEntityViewer : GuiPropertyTree
 {
+	Tab* tab;
+
+	GuiScrollBar	vscroll;
+	EditorEntity*	entity;
+
 	GuiEntityViewer();
 	~GuiEntityViewer();
 
-	EditorEntity* entity;
+	static const std::list<GuiEntityViewer*>& GetInstances();
 
-	Tab* tabContainer;
-
-	void OnActivate(const GuiEvent&);
-
-	virtual void OnEntitySelected(const GuiEvent&);
-	virtual void OnExpandos(const GuiEvent&);
+	virtual void OnEntitySelected(Tab*,Event* iData=0);
+	virtual void OnExpandos(Tab*,Event* iData=0);
 };
 
-struct DLLBUILD GuiConsoleViewer : GuiScrollRect
+struct DLLBUILD GuiConsoleViewer// : GuiScrollRect
 {
-
 	static GuiConsoleViewer* GetInstance();
 	static bool IsInstanced();
-
 private:
 	GuiConsoleViewer();
 	GuiConsoleViewer(GuiConsoleViewer const&){};
 	void operator=(GuiConsoleViewer const&){}
 public:
-
 	~GuiConsoleViewer();
 };
 
 struct DLLBUILD GuiProjectViewer : GuiRect
 {
 private:
-
 	GuiProjectViewer();
 	GuiProjectViewer(GuiProjectViewer const&);
 	void operator=(GuiProjectViewer const&){}
-
-	struct DLLBUILD DirViewer : GuiScrollRect
-	{
-		ResourceNodeDir* projectDirectory;
-
-		std::vector<ResourceNodeDir*> selectedDirs;
-
-		void OnLMouseDown(const GuiEvent&);
-	};
-
-	struct DLLBUILD FileViewer : GuiScrollRect
-	{
-		ResourceNodeDir* currentDirectory;
-
-		std::vector<ResourceNodeDir*> selectedDirs;
-		std::vector<ResourceNode*> selectedFiles;
-
-		void SetDirectory(ResourceNodeDir*);
-
-		void OnLMouseDown(const GuiEvent&);
-		void OnRMouseUp(const GuiEvent&);
-		void OnDLMouseDown(const GuiEvent&);
-	};
-
-	struct DLLBUILD DataViewer : GuiScrollRect
-	{
-	};
-
 public:
+	struct DLLBUILD DirViewer : GuiTreeView
+	{
+		struct DLLBUILD DirLabel : Item 
+		{
+			ResourceNode* resource;
+		};
+	};
+
+	struct DLLBUILD FileViewer : GuiTreeView
+	{
+		struct DLLBUILD FileLabel : Item 
+		{
+			ResourceNode* resource;
+
+			void OnButtonUp(Tab*,EventMouse* iData=0);
+		};
+	};
+
+	struct DLLBUILD DataViewer : GuiRect
+	{
+
+		void OnPaint(Tab*,Event* iData=0);
+	};
 
 	DirViewer dirViewer;
 	FileViewer fileViewer;
@@ -1112,41 +1179,54 @@ public:
 	static GuiProjectViewer* GetInstance();
 	static bool IsInstanced();
 
-	void Delete(Tab*,GuiContainerRow<ResourceNode*>*);
+	void Delete(Tab*,ResourceNode*);
 
-	void OnPaint(const GuiEvent&);
-	void OnLMouseDown(const GuiEvent&);
-	void OnLMouseUp(const GuiEvent&);
-	void OnMouseMove(const GuiEvent&);
-	void OnReparent(const GuiEvent&);
-	void OnActivate(const GuiEvent&);
-	void OnDeactivate(const GuiEvent&);
-	void OnSize(const GuiEvent&);
+	void FindHover(Tab* iTab,vec2&,Gui*&);
 
-	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,String iExtension)
-	{
-		if(iResourceNode->isDir)
-		{
-			ResourceNodeDir* tResourceNodeDir=(ResourceNodeDir*)iResourceNode;
+	void OnMouseMove(Tab* iTab,EventMouse* iData=0);
+	void OnButtonDown(Tab* iTab,EventMouse* iData=0);
+	void OnButtonUp(Tab* iTab,EventMouse* iData=0);
+	void OnReparent(Tab*,Event* iData=0);
+	void OnActivate(Tab*,Event* iData=0);
+	void OnDeactivate(Tab*,Event* iData=0);
+	void OnResize(Tab*,Event* iData=0);
+	void OnPaint(Tab*,Event* iData=0);
 
-			for(std::list<ResourceNode*>::iterator nCh=tResourceNodeDir->files.begin();nCh!=tResourceNodeDir->files.end();nCh++)
-				this->findResources(oResultArray,*nCh,iExtension);
+	void SetEdges(vec4);
 
-			for(std::list<ResourceNodeDir*>::iterator nCh=tResourceNodeDir->dirs.begin();nCh!=tResourceNodeDir->dirs.end();nCh++)
-				this->findResources(oResultArray,*nCh,iExtension);
-		}
-		else if(iResourceNode->fileName.PointedExtension()==iExtension)
-				oResultArray.push_back(iResourceNode);
-	}
+	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,String iExtension);
 
-	std::vector<ResourceNode*> findResources(String iExtension)
-	{
-		std::vector<ResourceNode*> oResultArray;
+	std::vector<ResourceNode*> findResources(String iExtension);
+};
 
-		this->findResources(oResultArray,this->projectDirectory,iExtension);
+struct DLLBUILD ResourceNode
+{
+	ResourceNode* parent;
 
-		return oResultArray;
-	}
+	FilePath fileName;
+	bool isDir;
+
+	GuiProjectViewer::FileViewer::FileLabel fileLabel;
+
+	String BuildPath();
+
+	ResourceNode();
+	virtual ~ResourceNode();
+};
+
+struct DLLBUILD ResourceNodeDir : ResourceNode
+{
+	std::list<ResourceNodeDir*> dirs;
+	std::list<ResourceNode*> files;
+
+	GuiProjectViewer::DirViewer::DirLabel dirLabel;
+
+	static ResourceNodeDir*	FindDirNode(String);
+	static ResourceNode*	FindFileNode(String);
+	static ResourceNodeDir* GetRootDirNode();
+
+	ResourceNodeDir();
+	virtual ~ResourceNodeDir();
 };
 
 struct DLLBUILD WindowData
@@ -1175,11 +1255,11 @@ struct DLLBUILD WindowData
 
 struct DLLBUILD DrawInstance
 {
-	GuiRect* rect;
-	bool	 skip;
-	bool	 remove;
+	Gui*		rect;
+	bool		skip;
+	bool		remove;
 
-	DrawInstance(GuiRect* iRect,bool iRemove=true,bool iSkip=false);
+	DrawInstance(Gui* iRect,bool iRemove=true,bool iSkip=false);
 };
 
 struct DLLBUILD Tab
@@ -1189,8 +1269,7 @@ struct DLLBUILD Tab
 	Container* container;
 
 	static const int COLOR_BACK=0x707070;
-	static const int COLOR_LABEL=GuiRect::COLOR_BACK;
-
+	
 	static const int BAR_HEIGHT=30;
 	static const int LABEL_WIDTH=80;
 	static const int LABEL_HEIGHT=25;
@@ -1208,12 +1287,12 @@ struct DLLBUILD Tab
 	static unsigned char rawFolder[];
 	static unsigned char rawFile[];
 
-	GuiRootRect	rects;
-	GuiRootRect	rectsLayered;
+	GuiRoot				 guiRoot;
+	Gui*				 viewerSelected;
 
-	GuiRect* focused;
-	GuiRect* hovered;
-	GuiRect* pressed;
+	Gui* focused;
+	Gui* hovered;
+	Gui* pressed;
 
 	Splitter* splitterContainer;
 
@@ -1227,7 +1306,7 @@ struct DLLBUILD Tab
 	PictureRef* iconFolder;
 	PictureRef* iconFile;
 
-	GuiRect* selected;
+	
 	bool mouseDown;
 	bool isRender;
 	bool recreateTarget;
@@ -1263,7 +1342,6 @@ struct DLLBUILD Tab
 	virtual void OnGuiMouseMove(void* data=0);
 	virtual void OnGuiRMouseUp(void* data=0);
 	virtual void OnGuiUpdate(void* data=0);
-	virtual void OnGuiRender(void* data=0);
 	virtual void OnGuiMouseWheel(void* data=0);
 	virtual void OnResizeContainer(void* data=0);
 	virtual void OnEntitiesChange(void* data=0);
@@ -1273,7 +1351,8 @@ struct DLLBUILD Tab
 	virtual void OnGuiKeyDown(void* data=0);
 	virtual void OnGuiKeyUp(void* data=0);
 
-	virtual vec2 Size();
+	virtual vec2 GetSize();
+	virtual vec4 GetEdges();
 
 	virtual void PaintBackground();
 	virtual void DrawFrame();
@@ -1281,14 +1360,14 @@ struct DLLBUILD Tab
 
 	virtual void OnGuiRecreateTarget(void* data=0);
 
-	GuiRect* GetSelected();
+	Gui* GetSelected();
 
-	virtual void BroadcastToSelected(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
-	virtual void BroadcastToAll(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
+	virtual void BroadcastToSelected(void (Gui::*func)(Tab*,Event* iData),Event* iData);
+	virtual void BroadcastToAll(void (Gui::*func)(Tab*,Event* iData),Event* iData);
 
-	template<class C> void BroadcastToSelected(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
+	template<class C> void BroadcastToSelected(void (Gui::*iFunc)(Tab*,Event* iData),Event* iData)
 	{
-		GuiRect* selectedTab=this->GetSelected();
+		Gui* selectedTab=this->GetSelected();
 
 		if(selectedTab)
 			selectedTab->BroadcastTo<C>(iFunc,iData);
@@ -1296,21 +1375,12 @@ struct DLLBUILD Tab
 		this->rectsLayered.BroadcastTo<C>(iFunc,iData);
 	}
 
-	template<class C> void BroadcastToAll(void (GuiRect::*iFunc)(const GuiEvent&),void* iData)
+	template<class C> void BroadcastToAll(void (Gui::*iFunc)(Tab*,Event* iData),Event* iData)
 	{
-		this->rects.BroadcastTo<C>(iFunc,iData);
+		this->guiRoot.BroadcastTo<C>(iFunc,iData);
 		this->rectsLayered.BroadcastTo<C>(iFunc,iData);
 	}
 
-	template<class C> void GetRects(std::vector<C*>& iRects)
-	{
-		GuiRect* selectedRect=this->GetSelected();
-
-		if(selectedRect)
-			selectedRect->Get(iRects);
-
-		this->rectsLayered.Get(iRects);
-	}
 
 	void Draw();
 	void DrawBlock(bool);
@@ -1322,39 +1392,22 @@ struct DLLBUILD Tab
 	virtual void Create3DRenderer()=0;
 	virtual void Destroy3DRenderer()=0;
 
-	DrawInstance* SetDraw(GuiRect* iRect=0,bool iRemove=true,bool iSkip=false);
+	DrawInstance* SetDraw(Gui* iRect=0,bool iRemove=true,bool iSkip=false);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected)=0;
 	virtual int TrackTabMenuPopup()=0;
 	virtual int TrackProjectFileViewerPopup(ResourceNode*)=0;
 
-	void SetSelection(GuiRect* iRect);
+	void SetSelection(Gui* iRect);
 
 	virtual void SetCursor(int)=0;
 
-	void SetFocus(GuiRect*);
-	void SetHover(GuiRect*);
-	void SetPressed(GuiRect*);
-	GuiRect* GetFocus();
-	GuiRect* GetHover();
-	GuiRect* GetPressed();
-
-	template<typename T> T* CreateViewer(T* iViewer=0)
-	{
-		T* tViewer=iViewer ? iViewer : new T;
-
-		tViewer->SetParent(&this->rects);
-		return tViewer;
-	}
-
-	template<typename T> T* CreateSingletonViewer()
-	{
-		bool tWasInstanced=T::IsInstanced();
-		T* tViewer=T::GetInstance();
-		if(!tWasInstanced)
-			tViewer->SetParent(&this->rects);
-		return tViewer;
-	}
+	void SetFocus(Gui*);
+	void SetHover(Gui*);
+	void SetPressed(Gui*);
+	Gui* GetFocus();
+	Gui* GetHover();
+	Gui* GetPressed();
 };
 
 struct DLLBUILD Splitter
@@ -1364,7 +1417,7 @@ struct DLLBUILD Splitter
 	Tab* floatingTabRef;
 	Tab* floatingTab;
 	Tab* floatingTabTarget;
-	GuiRect*  floatingSelectedTebGuiRect;
+	Gui*  floatingSelectedTebGuiRect;
 	int  floatingTabRefTabCount;
 	int  floatingTabTargetAnchorPos;
 	int	 floatingTabTargetAnchorTabIndex;
@@ -1384,14 +1437,9 @@ struct DLLBUILD Container
 {
 	std::vector<Tab*> tabs;
 
-	void BroadcastToTabs(void (Tab::*func)(void*),void* data=0);
-	void BroadcastToSelectedTabRects(void (GuiRect::*func)(const GuiEvent&),void* iData=0);
+	void BroadcastToTabs(void (Tab::*func)(void*),void* iData=0);
+	void BroadcastToSelectedTabRects(void (Gui::*func)(Tab*,Event* iData),Event* iData=0);
 	
-	template<typename T> void GetTabRects(std::vector<T*>& iRects)
-	{
-		for(std::vector<Tab*>::iterator tTab=this->tabs.begin();tTab!=this->tabs.end();tTab++)
-			(*tTab)->GetRects(iRects);
-	}
 
 	WindowData* windowData;
 	Splitter* splitter;
@@ -1452,13 +1500,8 @@ struct DLLBUILD MainContainer : MenuInterface
 	void OnMenuPressed(int iIdx);
 	
 	void BroadcastToTabs(void (Tab::*func)(void*),void* data);
-	void BroadcastToSelectedTabRects(void (GuiRect::*func)(const GuiEvent&),void* iData);
+	//void BroadcastToSelectedTabRects(void (GuiInterface::*func)(Tab*,Event* iData=0),const GuiEvent*);
 
-	template<typename T> void GetTabRects(std::vector<T*>& iRects)
-	{
-		for(std::vector<Container*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
-			(*tContainer)->GetTabRects(iRects);
-	}
 };
 
 struct DLLBUILD Subsystem
@@ -1549,7 +1592,7 @@ struct DLLBUILD PluginSystem
 
 struct DLLBUILD EditorObjectBase
 {
-	virtual GuiContainer* GetContainer()=0;
+	virtual GuiPropertyTree::Container* GetContainer()=0;
 
 	virtual void OnPropertiesCreate()=0;
 	virtual void OnResourcesCreate()=0;
@@ -1558,12 +1601,12 @@ struct DLLBUILD EditorObjectBase
 
 template<class T> struct DLLBUILD EditorObject : EditorObjectBase , T
 {
-	GuiContainer* container;
+	GuiPropertyTree::Container container;
 
-	EditorObject():container(0){}
-	virtual ~EditorObject(){/*this->container->DestroyChilds();*/}
+	EditorObject(){}
+	virtual ~EditorObject(){}
 
-	GuiContainer* GetContainer(){return this->container;}
+	GuiPropertyTree::Container* GetContainer(){return &this->container;}
 
 	virtual void OnPropertiesCreate(){};
 	virtual void OnResourcesCreate(){};
@@ -1573,22 +1616,31 @@ template<class T> struct DLLBUILD EditorObject : EditorObjectBase , T
 
 struct DLLBUILD EditorEntity : EditorObject<Entity>
 {
-	bool					selected;
-	bool					expanded;
-	int						level;
+	GuiSceneViewer::SceneLabel		sceneLabel;
 
-	GuiContainer					entityViewerContainer;
-	GuiContainerRow<EditorEntity*>	sceneViewerRow;
+private:
+	Entity::childs;
+	Entity::parent;
+	Entity::components;
+public:
 
 	EditorEntity();
 	~EditorEntity();
 
-	void DestroyChilds();
+	EditorEntity*							GetParent();
+	const std::list<EditorEntity*>&			Childs();
+	const std::list<EntityComponent*>&		Components();
 
-	void OnPropertiesCreate();
+	EditorEntity*							AddEntity(EditorEntity*);
+	void									RemoveEntity(EditorEntity*);
 
-	void SetParent(Entity*);
-	void SetLevel(EditorEntity*);
+	EntityComponent*						AddComponent(EntityComponent*);
+	void									RemoveComponent(EntityComponent*);
+	
+
+	void									DestroyChilds();
+	void									OnPropertiesCreate();
+	void									OnPropertiesUpdate(Tab*);
 
 	template<class C> C* CreateComponent()
 	{
@@ -1597,8 +1649,6 @@ struct DLLBUILD EditorEntity : EditorObject<Entity>
 		component->OnPropertiesCreate();
 		return component;
 	}
-
-	void OnPropertiesUpdate(Tab*);
 };
 
 
@@ -1608,7 +1658,7 @@ struct DLLBUILD EditorAnimationController : EditorObject<AnimationController>
 	float minSpeed;
 	float maxSpeed;
 
-	GuiAnimationController*  guiAnimationController;
+	AnimationProperty*  guiAnimationController;
 
 	EditorAnimationController();
 	~EditorAnimationController();
@@ -1733,7 +1783,6 @@ struct DLLBUILD Renderer2D
 	Renderer2D(Tab*);
 	~Renderer2D();
 
-	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f)=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;

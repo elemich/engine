@@ -662,8 +662,8 @@ struct DLLBUILD Renderer3DBase
 
 struct DLLBUILD Scene
 {
-	Entity* entityRoot;
-	String name;
+	Entity* entities;
+	String  name;
 
 	Scene();
 };

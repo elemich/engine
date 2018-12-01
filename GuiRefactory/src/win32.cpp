@@ -338,12 +338,29 @@ bool Direct2D::CreateRawBitmap(const wchar_t* fname,bool iAction,ID2D1RenderTarg
 }
 
 
-void Direct2D::DrawText(Renderer2D* iRenderer,const GuiFont* iFont,unsigned int iColor,const String& iText,float x1,float y1, float x2,float y2,float iAlignPosX,float iAlignPosY,bool iClip)
+void Direct2D::DrawText(Renderer2D* iRenderer,const GuiFont* iFont,unsigned int iColor,const String& iText,float left,float top, float right,float bottom,vec2& iSpot,vec2& iAlign)
 {
 	Renderer2DWin32* tRenderer=(Renderer2DWin32*)iRenderer;
 	GuiFontWin32* tFont=(GuiFontWin32*)iFont;
 
-	tRenderer->renderer->DrawText(iText.c_str(),iText.size(),tFont->texter,D2D1::RectF(x1,y1,x2,y2),tRenderer->SetColorWin32(iColor),D2D1_DRAW_TEXT_OPTIONS_NONE,DWRITE_MEASURING_MODE_NATURAL);
+	vec4 tRect(left,top,right-left,bottom-top);
+
+	vec2 tTextSize=iFont->MeasureText(iText.c_str());
+
+	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
+	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
+
+	Direct2D::PushScissor(tRenderer->renderer,left,top,right,bottom);
+	tRenderer->renderer->DrawText(
+		iText.c_str(),
+		iText.size(),
+		tFont->texter,
+		D2D1::RectF(tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y),
+		tRenderer->SetColorWin32(iColor),
+		D2D1_DRAW_TEXT_OPTIONS_NONE,
+		DWRITE_MEASURING_MODE_NATURAL
+		);
+	Direct2D::PopScissor(tRenderer->renderer);
 }
 
 void Direct2D::DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2 p1,vec2 p2,float iWidth,float iOpacity)
@@ -506,21 +523,9 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	return true;
 }
 
-void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor,const GuiFont* iFont)
-{
-	Direct2D::DrawText(this,iFont,iColor,iText,left,top,right,bottom);
-}
-
 void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor,const GuiFont* iFont)
 {
-	vec4 tRect(left,top,right-left,bottom-top);
-
-	vec2 tTextSize=iFont->MeasureText(iText.c_str());
-
-	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
-	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
-
-	Direct2D::DrawText(this,iFont,iColor,iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
+	Direct2D::DrawText(this,iFont,iColor,iText,left,top,right,bottom,iSpot,iAlign);
 }
 
 void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,float iOpacity)
@@ -632,9 +637,6 @@ TabWin32* ContainerWin32::CreateModalTab(float x,float y,float w,float h)
 	SetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE,(LONG)tLong);
 
 	SetParent(result->windowDataWin32->hwnd,0);
-
-	Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
-	Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
 
 	return result;
 }
@@ -850,18 +852,21 @@ void MainContainerWin32::Initialize()
 	TabWin32* tabContainer2=this->mainContainerWin32->CreateTab(0.0f,204.0f,(float)300,(float)200);
 	TabWin32* tabContainer3=this->mainContainerWin32->CreateTab(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408));
 	TabWin32* tabContainer4=this->mainContainerWin32->CreateTab(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top);
+	
+	tabContainer1->guiRoot.AddChild(GuiSceneViewer::GetInstance());
+	tabContainer1->guiRoot.AddChild(new Gui);
+	tabContainer1->guiRoot.AddChild(new Gui);
+	tabContainer1->SetSelection(tabContainer1->guiRoot.GetChilds().front());
 
+	tabContainer2->guiRoot.AddChild(new GuiEntityViewer);
+	tabContainer2->guiRoot.AddChild(new Gui);
+	tabContainer2->guiRoot.AddChild(new Gui);
+	tabContainer2->SetSelection(tabContainer2->guiRoot.GetChilds().front());
 
-
-	GuiSceneViewer* tScene=tabContainer1->CreateSingletonViewer<GuiSceneViewer>();
-	tabContainer2->CreateViewer<GuiEntityViewer>();
-	tabContainer3->CreateSingletonViewer<GuiProjectViewer>();
-	GuiViewport* tViewport=tabContainer4->CreateViewer<GuiViewport>(new GuiViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
-
-	tViewport->rootEntity=tScene->entityRoot;
-
-	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
-	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
+	tabContainer3->guiRoot.AddChild(GuiProjectViewer::GetInstance());
+	tabContainer3->guiRoot.AddChild(new Gui);
+	tabContainer3->guiRoot.AddChild(new Gui);
+	tabContainer3->SetSelection(tabContainer3->guiRoot.GetChilds().front());
 
 	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
 }
@@ -1553,17 +1558,20 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				iParent->dirs.push_back(dirNode);
 				dirNode->parent=iParent;
 				dirNode->fileName=tCreateNodeFilename;
-				dirNode->level = iParent ? iParent->level+1 : 0;
-				dirNode->selectedLeft=tSelectedLeft;
-				dirNode->selectedRight=tSelectedRight;
-				dirNode->expanded=tExpanded;
 				dirNode->isDir=tIsDir;
 
 				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)dirNode->parent;
 
-				dirNode->directoryViewerRow.SetStringMode(dirNode->fileName,true);
-				dirNode->directoryViewerRow.rowData=dirNode;
-				dirNodeParent->directoryViewerRow.Insert(&dirNode->directoryViewerRow);
+				dirNode->dirLabel.resource=dirNode;
+				dirNode->dirLabel.SetName(dirNode->fileName);
+				if(dirNodeParent)
+					dirNodeParent->dirLabel.Insert(dirNode->dirLabel);
+
+				dirNode->fileLabel.resource=dirNode;
+				dirNode->fileLabel.SetName(dirNode->fileName);
+				if(dirNodeParent)
+					dirNodeParent->fileLabel.Insert(dirNode->fileLabel);
+
 
 				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
 			}
@@ -1574,10 +1582,14 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				iParent->files.push_back(fileNode);
 				fileNode->parent=iParent;
 				fileNode->fileName=tCreateNodeFilename;
-				fileNode->level = iParent ? iParent->level+1 : 0;
-				fileNode->selectedLeft=tSelectedLeft;
-				fileNode->selectedRight=tSelectedRight;
 				fileNode->isDir=tIsDir;
+
+				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)fileNode->parent;
+
+				fileNode->fileLabel.resource=fileNode;
+				fileNode->fileLabel.SetName(fileNode->fileName);
+				if(dirNodeParent)
+					dirNodeParent->fileLabel.Insert(fileNode->fileLabel);
 			}
 		}
 	}
@@ -1603,14 +1615,12 @@ void IdeWin32::Run()
 		{
 			this->projectDirHasChanged=false;
 
-			Tab* tTab=GuiProjectViewer::GetInstance()->GetRootRect()->tab;
+			Tab* tTab=GuiProjectViewer::GetInstance()->GetRoot()->GetTab();
 
 			tTab->DrawBlock(true);
 
-			GuiEvent tChangeDirEvent(tTab,0);
-
-			GuiProjectViewer::GetInstance()->OnDeactivate(tChangeDirEvent);
-			GuiProjectViewer::GetInstance()->OnActivate(tChangeDirEvent);
+			GuiProjectViewer::GetInstance()->OnDeactivate(tTab);
+			GuiProjectViewer::GetInstance()->OnActivate(tTab);
 
 			tTab->DrawBlock(false);
 
@@ -2359,7 +2369,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(this->picking,0,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,0,this->tab->mouse,this->tab->GetSize());
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -2502,7 +2512,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->GetSize());
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -2577,7 +2587,7 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->GetSize());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2913,7 +2923,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
 
 
-	shader->SetSelectionColor(this->picking,mesh->entity,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,mesh->entity,this->tab->mouse,this->tab->GetSize());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2988,7 +2998,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
 
 
-	shader->SetSelectionColor(this->picking,skin->entity,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,skin->entity,this->tab->mouse,this->tab->GetSize());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -3071,7 +3081,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	shader->SetSelectionColor(this->picking,bone->entity,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,bone->entity,this->tab->mouse,this->tab->GetSize());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -3395,6 +3405,7 @@ namespace FileViewerActions
 	const unsigned char Delete=1;
 	const unsigned char Create=2;
 	const unsigned char Load=3;
+	const unsigned char EditScript=4;
 }
 
 int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
@@ -3434,7 +3445,7 @@ bool TabWin32::BeginDraw()
 		}
 		else if(this->resizeTarget)
 		{
-			vec2 tTabSize=this->Size();
+			vec2 tTabSize=this->GetSize();
 
 			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU(tTabSize.x,tTabSize.y));
 
@@ -3502,8 +3513,6 @@ void TabWin32::OnGuiMouseWheel(void* data)
 {
 	float factor=GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)<0 ? -1.0f : 0);
 
-	if(!this->hasFrame || this->mouse.y>Tab::BAR_HEIGHT)
-		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
 }
 
 
@@ -3515,9 +3524,9 @@ void TabWin32::OnGuiRMouseUp(void* data)
 		float &x=this->mouse.x;
 		float &y=this->mouse.y;
 
-		int tabNumberHasChanged=this->rects.childs.size();
+		int tabNumberHasChanged=this->guiRoot.GetChilds().size();
 
-		for(int i=0;i<(int)rects.childs.size();i++)
+		for(int i=0;i<(int)this->guiRoot.GetChilds().size();i++)
 		{
 			if(x>(i*LABEL_WIDTH) && x< (i*LABEL_WIDTH+LABEL_WIDTH) && y > (BAR_HEIGHT-LABEL_HEIGHT) &&  y<BAR_HEIGHT)
 			{
@@ -3531,7 +3540,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 							this->Destroy();
 						}
 					break;
-					case 2:
+					/*case 2:
 						this->selected=this->CreateViewer<GuiViewport>();
 					break;
 					case 3:
@@ -3542,7 +3551,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 					break;
 					case 5:
 						this->selected=this->CreateSingletonViewer<GuiProjectViewer>();
-					break;
+					break;*/
 					case 6:
 						/*this->tabs.ScriptViewer();
 						this->selected=this->tabs.childs.size()-1;*/
@@ -3553,19 +3562,20 @@ void TabWin32::OnGuiRMouseUp(void* data)
 			}
 		}
 
-		if(tabNumberHasChanged!=this->rects.childs.size())
+		if(tabNumberHasChanged!=this->guiRoot.GetChilds().size())
 			this->SetDraw(0,true);
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnRMouseUp,this->mouse);
+		EventMouse tEvent;
+
+		tEvent.mouse=this->mouse;
+		tEvent.button=3;
+
+		if(this->hovered)
+			this->hovered->OnButtonUp(this,&tEvent);
 	}
 }
-
-
-
-
-
 
 void TabWin32::OnResizeContainer(void* data)
 {
@@ -3685,7 +3695,7 @@ void GuiViewport::DrawBuffer(Tab* iTab,vec4& iVec)
 }
 void GuiViewport::Render(Tab* iTab)
 {
-	vec4 tCanvas=this->rect;
+	vec4 tCanvas=this->edges;
 	vec2 tMouse(iTab->mouse);
 
 	Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
@@ -3721,7 +3731,7 @@ void GuiViewport::Render(Tab* iTab)
 
 		this->rootEntity->update();
 
-		std::vector<GuiEntityViewer*> tGuiEntityViewer;
+		/*std::vector<GuiEntityViewer*> tGuiEntityViewer;
 
 		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiEntityViewer>(tGuiEntityViewer);
 
@@ -3733,7 +3743,7 @@ void GuiViewport::Render(Tab* iTab)
 
 			if(tEditorEntity && (*it)->tabContainer)
 				tEditorEntity->OnPropertiesUpdate((*it)->tabContainer);
-		}
+		}*/
 	}
 
 	iTab->renderer3D->ChangeContext();
@@ -3745,7 +3755,7 @@ void GuiViewport::Render(Tab* iTab)
 	glScissor((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w);glCheckError();
 
 	{
-		int tGuiRectColorBack=GuiRect::COLOR_BACK;
+		int tGuiRectColorBack=0;
 		char* pGuiRectColorBack=(char*)&tGuiRectColorBack;
 
 		glClearColor(pGuiRectColorBack[2]/255.0f,pGuiRectColorBack[1]/255.0f,pGuiRectColorBack[0]/255.0f,0.0f);glCheckError();
@@ -3897,7 +3907,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 					HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
 					HWND& floatingTabHwnd=floatingTabWin32->windowDataWin32->hwnd;
 
-					if(1==(int)floatingTabRef->rects.childs.size())
+					if(1==(int)floatingTabRef->guiRoot.GetChilds().size())
 					{
 						newTabContainer=floatingTabRefWin32;
 
@@ -3943,12 +3953,12 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 
 						newTabContainer=this->currentTabContainerWin32->containerWin32->CreateTab((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
 
-						GuiRect* reparentTab=floatingSelectedTebGuiRect;
-						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
+						Gui* reparentTab=floatingSelectedTebGuiRect;
+						floatingTabRef->viewerSelected>0 ? floatingTabRef->viewerSelected-=1 : floatingTabRef->viewerSelected=0;
 						floatingTabRef->OnGuiActivate();
-						reparentTab->SetParent(&newTabContainer->rects);
+						/*reparentTab->SetParent(&newTabContainer->rects);*/
 
-						newTabContainer->selected=floatingSelectedTebGuiRect;
+						//newTabContainer->viewerSelected=floatingSelectedTebGuiRect;
 
 						SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
 
@@ -4202,8 +4212,8 @@ void SplitterWin32::CreateFloatingTab(Tab* tab)
 		return;
 
 	floatingTabRef=tab;
-	floatingSelectedTebGuiRect=tab->selected;
-	floatingTabRefTabCount=(int)tab->rects.childs.size();
+	floatingSelectedTebGuiRect=tab->viewerSelected;
+	floatingTabRefTabCount=(int)tab->guiRoot.GetChilds().size();
 
 	HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
 	HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
@@ -4422,10 +4432,16 @@ String SubsystemWin32::FileChooser(String iDescription,String iExtension)
 {
 	wchar_t charpretval[5000]={0};
 
+	String tFilter=iDescription;
+	tFilter.push_back('\0');
+	tFilter.append(iExtension);
+	tFilter.push_back('\0');
+	tFilter.push_back('\0');
+
 	OPENFILENAME openfilename={0};
 	openfilename.lStructSize=sizeof(OPENFILENAME);
 	openfilename.hwndOwner=(HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle();
-	openfilename.lpstrFilter=(iDescription + L"\0" + iExtension + L"\0\0").c_str();
+	openfilename.lpstrFilter=tFilter.c_str();
 	openfilename.nFilterIndex=1;
 	openfilename.lpstrFile=charpretval;
 	openfilename.nMaxFile=5000;
@@ -4739,7 +4755,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
-	tEditorScript->scriptViewer->GetRootRect()->tab->SetDraw(tEditorScript->scriptViewer);
+	//tEditorScript->scriptViewer->GetRootRect()->tab->SetDraw(tEditorScript->scriptViewer);
 
 	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }

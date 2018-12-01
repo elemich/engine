@@ -87,7 +87,7 @@ struct DLLBUILD Direct2D
 
 	static bool CreateRawBitmap(const wchar_t* fname,bool iAction,ID2D1RenderTarget* renderer,ID2D1Bitmap* iBitmap,unsigned char** buffer,float* width,float* height);
 
-	static void DrawText(Renderer2D*,const GuiFont*,unsigned int iColor,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
+	static void DrawText(Renderer2D*,const GuiFont*,unsigned int iColor,const String& text,float x,float y, float w,float h,vec2& iSpot,vec2& iAlign);
 
 	static void DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2,vec2,float iWidth=0.5f,float iOpacity=1.0f);
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float iOpacity=1.0f);
@@ -124,7 +124,6 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	Renderer2DWin32(Tab*,HWND);
 	~Renderer2DWin32();
 
-	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);

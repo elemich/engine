@@ -17,7 +17,7 @@ namespace AndroidHelpers
 	GuiProperty<GuiComboBox>*	createComboBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor);
 	GuiProperty<GuiPath>*		createPathProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor);
 	void						createTextBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor);
-	void						findPlatformDirectories(void* iData);
+	void						findPlatformDirectories(Event* iData);
 
 	void packResources(String& iCurrentDirectory,ResourceNodeDir* iResDir,File& iPackFile,File& iTableFile,String& iAndroidTargetDirectory,std::vector<String>& iCollectSources);
 
@@ -89,7 +89,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	this->configurationPanel=tContainer->CreateModalTab(tTabPos.x,tTabPos.y,tTabSize.x,tTabSize.y);
 
-	GuiPanel* tPanel=this->configurationPanel->CreateViewer<GuiPanel>();
+	/*GuiPanel* tPanel=this->configurationPanel->CreateViewer<GuiPanel>();
 	tPanel->offsets.w=-30;
 
 	tPanel->name=L"Android Builder";
@@ -140,7 +140,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	AndroidHelpers::findPlatformDirectories(this);
 
-	this->configurationPanel->OnGuiActivate();
+	this->configurationPanel->OnGuiActivate();*/
 }
 
 
@@ -221,11 +221,12 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	{
 		//pack non-sources resources
 
-		std::vector<GuiProjectViewer*> tGuiProjectViewer;
+		ResourceNodeDir* tfir=0;
+		/*std::vector<GuiProjectViewer*> tGuiProjectViewer;
 
-		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);
+		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);*/
 
-		AndroidHelpers::packResources(tResourceDirectory,tGuiProjectViewer[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
+		AndroidHelpers::packResources(tResourceDirectory,tfir,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
 		tPackFile.Close();
 		tTableFile.Close();
@@ -429,7 +430,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 GuiProperty<GuiComboBox>* AndroidHelpers::createComboBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
-	GuiProperty<GuiComboBox>* pProp=iPanel->Property<GuiComboBox>(iLabel);
+	GuiProperty<GuiComboBox>* pProp=0;/*iPanel->Property<GuiComboBox>(iLabel);
 
 	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
 
@@ -437,14 +438,14 @@ GuiProperty<GuiComboBox>* AndroidHelpers::createComboBoxProperty(GuiPanel* iPane
 	pProp->description->margins.x=10;
 
 	pProp->property->string->SetStringMode(*iRef,true);
-	pProp->property->string->textColor=0x000000;
+	pProp->property->string->textColor=0x000000;*/
 
 	return pProp;
 }
 
 GuiProperty<GuiPath>* AndroidHelpers::createPathProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
-	GuiProperty<GuiPath>* pProp=iPanel->Property<GuiPath>(iLabel);
+	GuiProperty<GuiPath>* pProp=0;/*iPanel->Property<GuiPath>(iLabel);
 
 	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
 
@@ -452,14 +453,14 @@ GuiProperty<GuiPath>* AndroidHelpers::createPathProperty(GuiPanel* iPanel,String
 	pProp->description->margins.x=10;
 
 	pProp->property->path->SetStringMode(*iRef,true);
-	pProp->property->path->textColor=0x000000;
+	pProp->property->path->textColor=0x000000;*/
 
 	return pProp;
 }
 
 void AndroidHelpers::createTextBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
-	GuiProperty<GuiTextBox>* pProp=iPanel->Property<GuiTextBox>(iLabel);
+	GuiProperty<GuiTextBox>* pProp=0;/*iPanel->Property<GuiTextBox>(iLabel);
 
 	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
 
@@ -468,10 +469,10 @@ void AndroidHelpers::createTextBoxProperty(GuiPanel* iPanel,String iLabel,String
 
 	pProp->property->SetStringMode(*iRef,true);
 	pProp->property->offsets.make(0,2,0,-2);
-	pProp->property->textColor=0x000000;
+	pProp->property->textColor=0x000000;*/
 }
 
-void AndroidHelpers::findPlatformDirectories(void* iData)
+void AndroidHelpers::findPlatformDirectories(Event* iData)
 {
 	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)iData;
 
