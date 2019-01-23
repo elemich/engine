@@ -16,11 +16,12 @@
 	delete [] _ptr;\
 	_ptr=0;}\
 
-#define GLOBALGETTERFUNC(funcName,globalVarName,returnType) \
-	DLLBUILD returnType funcName() \
+#define GLOBALGETTERFUNC(funcName,dataType) \
+	DLLBUILD dataType& funcName() \
 	{ \
-	return globalVarName; \
-	} 
+	static dataType funcName##Instance; \
+	return funcName##Instance; \
+	} \
 
 #include <vector>
 #include <list>
@@ -177,13 +178,6 @@ namespace Vector
 	DLLBUILD float* maximum(float *c,const float *a,const float *b,int dim);
 	DLLBUILD bool equal(const float *a,const float *b,int dim);
 	DLLBUILD void print(float* v);
-};
-
-struct DLLBUILD  edges : TNumberedVectorInterface<float*,4>
-{
-	float &left,&top,&right,&bottom;
-
-	edges();
 };
 
 struct DLLBUILD  vec2 : TNumberedVectorInterface<float,2>

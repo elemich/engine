@@ -135,9 +135,6 @@ void Direct2D::Init()
 	}
 }
 
-extern GuiFont* globalDefaultFont;
-extern std::vector<GuiFont*> globalFontPool;
-
 GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 {
 	IDWriteFontCollection*	tFontCollection=0;
@@ -244,10 +241,10 @@ GuiFont* Direct2D::CreateFont(String iFontName,float iFontSize)
 
 	tTexter->SetIncrementalTabStop(tGuiFont->widths['\t']);
 
-	globalFontPool.push_back(tGuiFont);
+	GuiFont::GetFontPool().push_back(tGuiFont);
 
-	if(!globalDefaultFont)
-		globalDefaultFont=tGuiFont;
+	if(!GuiFont::GetDefaultFont())
+		GuiFont::SetDefaultFont(tGuiFont);
 
 	SAFEDELETE(tGlyphsCodePoints);
 	SAFEDELETE(tGlyphsIndices);
@@ -520,7 +517,11 @@ void Renderer2DWin32::DrawText(const String& iText,float left,float top, float r
 	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
 	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
 
+	this->PushScissor(left,top,right,bottom);
+
 	Direct2D::DrawText(this,iFont,iColor,iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
+
+	this->PopScissor();
 }
 
 void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,float iOpacity)
@@ -533,9 +534,14 @@ void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigne
 	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill,op);
 }
 
+void Renderer2DWin32::DrawRectangle(const vec4& iEdges,unsigned int iColor,bool iFill,float op)
+{
+	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iEdges.x,iEdges.y,iEdges.z,iEdges.w,iFill,op);
+}
+
 void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
 {
-	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.x+iXYWH.z,iXYWH.y+iXYWH.w,iFill);
+	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.z,iXYWH.w,iFill);
 }
 
 void Renderer2DWin32::DrawBitmap(Picture* iBitmap,float iX,float iY, float iW,float iH)
@@ -632,10 +638,6 @@ TabWin32* ContainerWin32::CreateModalTab(float x,float y,float w,float h)
 	SetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE,(LONG)tLong);
 
 	SetParent(result->windowDataWin32->hwnd,0);
-
-	Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
-	Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
-
 	return result;
 }
 
@@ -782,7 +784,7 @@ int MenuInterface::Menu(String iName,bool tPopup)
 				mitem.wID=tItemId=this->IncrementMenuId();
 
 				::InsertMenuItem(tMenu,tFirstLevelQuestionMark ? menuIdx-1 : menuIdx,true,&mitem);
-				::DrawMenuBar((HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle());
+				::DrawMenuBar((HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle());
 			}
 		}
 
@@ -853,15 +855,12 @@ void MainContainerWin32::Initialize()
 
 
 
-	GuiSceneViewer* tScene=tabContainer1->CreateSingletonViewer<GuiSceneViewer>();
-	tabContainer2->CreateViewer<GuiEntityViewer>();
-	tabContainer3->CreateSingletonViewer<GuiProjectViewer>();
-	GuiViewport* tViewport=tabContainer4->CreateViewer<GuiViewport>(new GuiViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
+	GuiSceneViewer* tScene=(GuiSceneViewer*)tabContainer1->rects.Append(GuiSceneViewer::Instance());
+	tabContainer2->rects.Append(new GuiEntityViewer);
+	tabContainer3->rects.Append(GuiProjectViewer::Instance());
+	GuiViewport* tViewport=(GuiViewport*)tabContainer4->rects.Append(new GuiViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
 
-	tViewport->rootEntity=tScene->entityRoot;
-
-	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnSize);
-	this->mainContainer->BroadcastToSelectedTabRects(&GuiRect::OnActivate);
+	tViewport->rootEntity=(EditorEntity*)tScene->scene.entity;
 
 	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
 }
@@ -1012,7 +1011,7 @@ LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,W
 				InputManager::mouseInput.left=true;
 
 				unsigned int tOldTime=InputManager::mouseInput.lastLeft;
-				InputManager::mouseInput.lastLeft=Ide::GetInstance()->timer->GetCurrent();
+				InputManager::mouseInput.lastLeft=Ide::Instance()->timer->GetCurrent();
 
 				if(tabWin32->windowDataWin32->hwnd!=::GetFocus())
 					::SetFocus(tabWin32->windowDataWin32->hwnd);
@@ -1427,7 +1426,7 @@ projectDirHasChanged(false)
 
 	this->pluginSystem->ScanPluginsDirectory();
 
-	wprintf(L"sizeof(wchar_t): %d,sizeof(bool): %d",sizeof(wchar_t),sizeof(bool));
+	wprintf(L"sizeof(GuiRect): %d",sizeof(GuiRect));
 }
 
 IdeWin32::~IdeWin32()
@@ -1460,7 +1459,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 	else
 		FindNextFile(tHandle,&tData);
 
-	int tEngineExtensionCharSize=Ide::GetInstance()->GetEntityExtension().size();
+	int tEngineExtensionCharSize=Ide::Instance()->GetEntityExtension().size();
 
 	File tFile;
 
@@ -1483,7 +1482,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 		tCreateNode=false;
 
-		if(wcsstr(tData.cFileName,Ide::GetInstance()->GetEntityExtension().c_str()))
+		if(wcsstr(tData.cFileName,Ide::Instance()->GetEntityExtension().c_str()))
 		{
 			//if filename not exists delete it
 
@@ -1515,7 +1514,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 		}
 		else
 		{
-			String engineFile = iDirectory + L"\\" + String(tData.cFileName) + Ide::GetInstance()->GetEntityExtension();
+			String engineFile = iDirectory + L"\\" + String(tData.cFileName) + Ide::Instance()->GetEntityExtension();
 
 			if(!PathFileExists(engineFile.c_str()))
 			{
@@ -1553,17 +1552,20 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				iParent->dirs.push_back(dirNode);
 				dirNode->parent=iParent;
 				dirNode->fileName=tCreateNodeFilename;
-				dirNode->level = iParent ? iParent->level+1 : 0;
-				dirNode->selectedLeft=tSelectedLeft;
-				dirNode->selectedRight=tSelectedRight;
-				dirNode->expanded=tExpanded;
 				dirNode->isDir=tIsDir;
 
 				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)dirNode->parent;
 
-				dirNode->directoryViewerRow.SetStringMode(dirNode->fileName,true);
-				dirNode->directoryViewerRow.rowData=dirNode;
-				dirNodeParent->directoryViewerRow.Insert(&dirNode->directoryViewerRow);
+				dirNode->dirLabel.resource=dirNode;
+				dirNode->dirLabel.SetName(dirNode->fileName);
+				if(dirNodeParent)
+					dirNodeParent->dirLabel.Insert(dirNode->dirLabel);
+
+				dirNode->fileLabel.resource=dirNode;
+				dirNode->fileLabel.SetName(dirNode->fileName);
+				if(dirNodeParent)
+					dirNodeParent->fileLabel.Insert(dirNode->fileLabel);
+
 
 				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
 			}
@@ -1574,10 +1576,14 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				iParent->files.push_back(fileNode);
 				fileNode->parent=iParent;
 				fileNode->fileName=tCreateNodeFilename;
-				fileNode->level = iParent ? iParent->level+1 : 0;
-				fileNode->selectedLeft=tSelectedLeft;
-				fileNode->selectedRight=tSelectedRight;
 				fileNode->isDir=tIsDir;
+
+				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)fileNode->parent;
+
+				fileNode->fileLabel.resource=fileNode;
+				fileNode->fileLabel.SetName(fileNode->fileName);
+				if(dirNodeParent)
+					dirNodeParent->fileLabel.Insert(fileNode->fileLabel);
 			}
 		}
 	}
@@ -1603,14 +1609,14 @@ void IdeWin32::Run()
 		{
 			this->projectDirHasChanged=false;
 
-			Tab* tTab=GuiProjectViewer::GetInstance()->GetRootRect()->tab;
+			Tab* tTab=GuiProjectViewer::Instance()->GetRoot()->GetTab();
 
 			tTab->DrawBlock(true);
 
-			GuiEvent tChangeDirEvent(tTab,0);
+			Msg tChangeDirEvent;
 
-			GuiProjectViewer::GetInstance()->OnDeactivate(tChangeDirEvent);
-			GuiProjectViewer::GetInstance()->OnActivate(tChangeDirEvent);
+			GuiProjectViewer::Instance()->OnDeactivate(tTab,tChangeDirEvent);
+			GuiProjectViewer::Instance()->OnActivate(tTab,tChangeDirEvent);
 
 			tTab->DrawBlock(false);
 
@@ -3405,7 +3411,7 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	{
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,L"Delete");
 
-		if(iResourceNode->fileName.PointedExtension() == Ide::GetInstance()->GetSceneExtension())
+		if(iResourceNode->fileName.PointedExtension() == Ide::Instance()->GetSceneExtension())
 			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,L"Load");
 	}
 	else
@@ -3503,7 +3509,7 @@ void TabWin32::OnGuiMouseWheel(void* data)
 	float factor=GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)<0 ? -1.0f : 0);
 
 	if(!this->hasFrame || this->mouse.y>Tab::BAR_HEIGHT)
-		this->BroadcastToSelected(&GuiRect::OnMouseWheel,&factor);
+		this->Broadcast(GuiRect::ONMOUSEWHEEL,Msg(&factor));
 }
 
 
@@ -3515,9 +3521,9 @@ void TabWin32::OnGuiRMouseUp(void* data)
 		float &x=this->mouse.x;
 		float &y=this->mouse.y;
 
-		int tabNumberHasChanged=this->rects.childs.size();
+		int tabNumberHasChanged=this->rects.Childs().size();
 
-		for(int i=0;i<(int)rects.childs.size();i++)
+		for(int i=0;i<(int)rects.Childs().size();i++)
 		{
 			if(x>(i*LABEL_WIDTH) && x< (i*LABEL_WIDTH+LABEL_WIDTH) && y > (BAR_HEIGHT-LABEL_HEIGHT) &&  y<BAR_HEIGHT)
 			{
@@ -3532,16 +3538,16 @@ void TabWin32::OnGuiRMouseUp(void* data)
 						}
 					break;
 					case 2:
-						this->selected=this->CreateViewer<GuiViewport>();
+						this->selected=this->rects.Append(new GuiViewport);
 					break;
 					case 3:
-						this->selected=this->CreateSingletonViewer<GuiSceneViewer>();
+						this->selected=this->rects.Append(GuiSceneViewer::Instance());
 					break;
 					case 4:
-						this->selected=this->CreateViewer<GuiEntityViewer>();
+						this->selected=this->rects.Append(new GuiEntityViewer);
 					break;
 					case 5:
-						this->selected=this->CreateSingletonViewer<GuiProjectViewer>();
+						this->selected=this->rects.Append(GuiProjectViewer::Instance());
 					break;
 					case 6:
 						/*this->tabs.ScriptViewer();
@@ -3553,12 +3559,12 @@ void TabWin32::OnGuiRMouseUp(void* data)
 			}
 		}
 
-		if(tabNumberHasChanged!=this->rects.childs.size())
+		if(tabNumberHasChanged!=this->rects.Childs().size())
 			this->SetDraw(0,true);
 	}
 	else
 	{
-		this->BroadcastToSelected(&GuiRect::OnRMouseUp,this->mouse);
+		this->Broadcast(GuiRect::ONBUTTONUP,Msg(this->mouse));
 	}
 }
 
@@ -3665,16 +3671,14 @@ void TabWin32::SetCursor(int iCursorCode)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-extern std::list<GuiViewport*> globalViewports;
-
 GuiViewport::~GuiViewport()
 {
-	globalViewports.remove(this);
+	GuiViewport::Pool().remove(this);
 
 	SAFERELEASE((ID2D1Bitmap*&)this->renderBitmap);
 }
 
-void GuiViewport::DrawBuffer(Tab* iTab,vec4& iVec)
+void GuiViewport::DrawBuffer(Tab* iTab,vec4 iVec)
 {
 	if(this->renderBuffer)
 	{
@@ -3685,7 +3689,7 @@ void GuiViewport::DrawBuffer(Tab* iTab,vec4& iVec)
 }
 void GuiViewport::Render(Tab* iTab)
 {
-	vec4 tCanvas=this->rect;
+	vec4 tCanvas=this->Edges();
 	vec2 tMouse(iTab->mouse);
 
 	Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
@@ -3723,7 +3727,7 @@ void GuiViewport::Render(Tab* iTab)
 
 		std::vector<GuiEntityViewer*> tGuiEntityViewer;
 
-		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiEntityViewer>(tGuiEntityViewer);
+		Ide::Instance()->mainAppWindow->GetTabRects<GuiEntityViewer>(tGuiEntityViewer);
 
 		EditorEntity* tEditorEntity;
 
@@ -3731,8 +3735,8 @@ void GuiViewport::Render(Tab* iTab)
 		{
 			tEditorEntity=(EditorEntity*)(*it)->entity;
 
-			if(tEditorEntity && (*it)->tabContainer)
-				tEditorEntity->OnPropertiesUpdate((*it)->tabContainer);
+			if(tEditorEntity && (*it)->GetRoot()->GetTab())
+				tEditorEntity->OnPropertiesUpdate((Tab*)(*it)->GetRoot()->GetTab());
 		}
 	}
 
@@ -3897,7 +3901,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 					HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
 					HWND& floatingTabHwnd=floatingTabWin32->windowDataWin32->hwnd;
 
-					if(1==(int)floatingTabRef->rects.childs.size())
+					if(1==(int)floatingTabRef->rects.Childs().size())
 					{
 						newTabContainer=floatingTabRefWin32;
 
@@ -3946,7 +3950,7 @@ void SplitterWin32::OnLButtonUp(HWND hwnd)
 						GuiRect* reparentTab=floatingSelectedTebGuiRect;
 						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
 						floatingTabRef->OnGuiActivate();
-						reparentTab->SetParent(&newTabContainer->rects);
+						newTabContainer->rects.Append(reparentTab);
 
 						newTabContainer->selected=floatingSelectedTebGuiRect;
 
@@ -4090,7 +4094,7 @@ void SplitterWin32::OnMouseMove(HWND hwnd,LPARAM lparam)
 	{
 		if(!GetCapture())
 		{
-			Ide::GetInstance()->mainAppWindow->mainContainer->BroadcastToTabs(&Tab::OnGuiMouseMove,(void*)0);
+			Ide::Instance()->mainAppWindow->mainContainer->Broadcast(GuiRect::ONMOUSEMOVE);
 
 			int pixelDistance=6;
 
@@ -4203,7 +4207,7 @@ void SplitterWin32::CreateFloatingTab(Tab* tab)
 
 	floatingTabRef=tab;
 	floatingSelectedTebGuiRect=tab->selected;
-	floatingTabRefTabCount=(int)tab->rects.childs.size();
+	floatingTabRefTabCount=(int)tab->rects.Childs().size();
 
 	HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
 	HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
@@ -4311,7 +4315,7 @@ bool InitSplitter()
 bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
 {
 	if(iPath==L"none")
-		iPath=Ide::GetInstance()->folderProject;
+		iPath=Ide::Instance()->folderProject;
 
 	STARTUPINFO si={0};
 	PROCESS_INFORMATION pi={0};
@@ -4397,7 +4401,7 @@ String SubsystemWin32::DirectoryChooser(String iDescription,String iExtension)
 	wchar_t _pszDisplayName[MAX_PATH]=L"";
 
 	BROWSEINFO bi={0};
-	bi.hwndOwner=(HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle();
+	bi.hwndOwner=(HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle();
 	bi.pszDisplayName=_pszDisplayName;
 	bi.lpszTitle=L"Select Directory";
 
@@ -4424,7 +4428,7 @@ String SubsystemWin32::FileChooser(String iDescription,String iExtension)
 
 	OPENFILENAME openfilename={0};
 	openfilename.lStructSize=sizeof(OPENFILENAME);
-	openfilename.hwndOwner=(HWND)Ide::GetInstance()->mainAppWindow->mainContainer->GetWindowHandle();
+	openfilename.hwndOwner=(HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle();
 	openfilename.lpstrFilter=(iDescription + L"\0" + iExtension + L"\0\0").c_str();
 	openfilename.nFilterIndex=1;
 	openfilename.lpstrFile=charpretval;
@@ -4661,7 +4665,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 
 LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 {
-	DebuggerWin32* debuggerWin32=(DebuggerWin32*)Ide::GetInstance()->debugger;
+	DebuggerWin32* debuggerWin32=(DebuggerWin32*)Ide::Instance()->debugger;
 
 	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
 }
@@ -4739,7 +4743,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
-	tEditorScript->scriptViewer->GetRootRect()->tab->SetDraw(tEditorScript->scriptViewer);
+	tEditorScript->scriptViewer->GetRoot()->GetTab()->SetDraw(tEditorScript->scriptViewer);
 
 	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }
@@ -4800,9 +4804,9 @@ PluginSystemWin32::PluginSystemWin32()
 
 void PluginSystemWin32::ScanPluginsDirectory()
 {
-	Ide::GetInstance()->projectDirChangedThread->Block(true);
+	Ide::Instance()->projectDirChangedThread->Block(true);
 
-	File tPluginsFile=Ide::GetInstance()->folderPlugins + L"\\plugins.cfg";
+	File tPluginsFile=Ide::Instance()->folderPlugins + L"\\plugins.cfg";
 
 	std::vector<String> tPluginStates;
 
@@ -4837,7 +4841,7 @@ void PluginSystemWin32::ScanPluginsDirectory()
 
 	Plugin*			tPlugin=0;
 
-	String tTargetDir=FilePath(Ide::GetInstance()->pathExecutable).Path() + L"\\plugins\\*";
+	String tTargetDir=FilePath(Ide::Instance()->pathExecutable).Path() + L"\\plugins\\*";
 
 	tScanHandle=FindFirstFile(tTargetDir.c_str(),&tScanResult); //. dir
 
@@ -4890,7 +4894,7 @@ void PluginSystemWin32::ScanPluginsDirectory()
 		}
 	}
 
-	Ide::GetInstance()->projectDirChangedThread->Block(false);
+	Ide::Instance()->projectDirChangedThread->Block(false);
 }
 
 

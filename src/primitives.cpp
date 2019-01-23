@@ -651,9 +651,6 @@ bool Vector::equal(const float *a,const float *b,int dim)
 }
 
 
-edges::edges():left(*this->v[0]),top(*this->v[1]),right(*this->v[2]),bottom(*this->v[3]){};
-
-
 vec2::vec2():x(v[0]),y(v[1]){Vector::make(v,2,0,0);}
 vec2::vec2(const vec2& a):x(v[0]),y(v[1]){Vector::copy(v,a.v,2);}
 vec2::vec2(float fv[2]):x(v[0]),y(v[1]){Vector::copy(v,fv,2);}

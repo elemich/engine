@@ -65,9 +65,9 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 	if(iIdx==this->MenuActionBuild)
 		this->ShowConfigurationPanel();
 	if(iIdx==this->MenuActionInstall)
-		Ide::GetInstance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" install " + this->Apkname + L".apk");
+		Ide::Instance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" install " + this->Apkname + L".apk");
 	if(iIdx==this->MenuActionUninstall)
-		Ide::GetInstance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" uninstall " + this->Apkname + L".apk");
+		Ide::Instance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" uninstall " + this->Apkname + L".apk");
 }
 
 
@@ -76,7 +76,7 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 
 void AndroidPlugin::ShowConfigurationPanel()
 {
-	Container* tContainer=Ide::GetInstance()->mainAppWindow->mainContainer;
+	Container* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
 
 	tContainer->windowData->Enable(false);
 
@@ -89,10 +89,10 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	this->configurationPanel=tContainer->CreateModalTab(tTabPos.x,tTabPos.y,tTabSize.x,tTabSize.y);
 
-	GuiPanel* tPanel=this->configurationPanel->CreateViewer<GuiPanel>();
-	tPanel->offsets.w=-30;
+	GuiPanel* tPanel=(GuiPanel*)this->configurationPanel->rects.Append(new GuiPanel);
+//	tPanel->GetAutoEdges()->off.w=-30;
 
-	tPanel->name=L"Android Builder";
+	tPanel->SetName(L"Android Builder");
 
 	int even=0x101010;
 	int odd=0x151515;
@@ -112,31 +112,31 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	this->exitButton=new GuiButton;
 	this->exitButton->text=L"Exit";
-	this->exitButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
-	this->exitButton->offsets.make(-35,5,-5,25);
+//	this->exitButton->GetAutoEdges()->ref.make(&tPanel->GetEdges().z,&tPanel->GetEdges().w,&tPanel->GetEdges().z,&tPanel->GetEdges().w);
+//	this->exitButton->GetAutoEdges()->off.make(-35,5,-5,25);
 
-	this->exitButton->colorBackground=0x888888;
-	this->exitButton->colorHovering=0x989898;
-	this->exitButton->colorPressing=0xa8a8a8;
+// 	this->exitButton->GetColor(GuiRect::BACKGROUND)=0x888888;
+// 	this->exitButton->GetColor(GuiRect::HOVERING)=0x989898;
+// 	this->exitButton->GetColor(GuiRect::PRESSING)=0xa8a8a8;
 
 	this->exitButton->func=AndroidHelpers::exitButtonFunc;
 
-	this->exitButton->SetParent(&this->configurationPanel->rectsLayered);
+//	this->configurationPanel->rectsLayered.AppendChild(this->exitButton);
 
 	//button build
 
 	this->buildButton=new GuiButton;
 	this->buildButton->text=L"Build";
-	this->buildButton->SetEdges(&tPanel->edges.z,&tPanel->edges.w,&tPanel->edges.z,&tPanel->edges.w);
-	this->buildButton->offsets.make(-75,5,-40,25);
+//	this->buildButton->GetAutoEdges()->ref.make(&tPanel->GetEdges().z,&tPanel->GetEdges().w,&tPanel->GetEdges().z,&tPanel->GetEdges().w);
+//	this->buildButton->GetAutoEdges()->off.make(-75,5,-40,25);
 
-	this->buildButton->colorBackground=0x888888;
-	this->buildButton->colorHovering=0x989898;
-	this->buildButton->colorPressing=0xa8a8a8;
+// 	this->buildButton->GetColor(GuiRect::BACKGROUND)=0x888888;
+// 	this->buildButton->GetColor(GuiRect::HOVERING)=0x989898;
+// 	this->buildButton->GetColor(GuiRect::PRESSING)=0xa8a8a8;
 
 	this->buildButton->func=AndroidHelpers::compileButtonFunc;
 
-	this->buildButton->SetParent(&this->configurationPanel->rectsLayered);
+//	this->configurationPanel->rectsLayered.AppendChild(this->buildButton);
 
 	AndroidHelpers::findPlatformDirectories(this);
 
@@ -185,7 +185,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	String							tResourceDirectory=L"\\";
 
 	{
-		Subsystem* tSubsystem=Ide::GetInstance()->subsystem;
+		Subsystem* tSubsystem=Ide::Instance()->subsystem;
 
 		//create output directory
 
@@ -223,7 +223,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 		std::vector<GuiProjectViewer*> tGuiProjectViewer;
 
-		Ide::GetInstance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);
+		Ide::Instance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);
 
 		AndroidHelpers::packResources(tResourceDirectory,tGuiProjectViewer[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
@@ -239,12 +239,12 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	{
 		tAndroidMk+=L"include $(CLEAR_VARS)\n"
 			L"DSTDIR := " + tAndroidProjectDirectory + L"\n"
-			L"LOCAL_C_INCLUDES := " + Ide::GetInstance()->compiler->ideSrcPath + L"\n"
+			L"LOCAL_C_INCLUDES := " + Ide::Instance()->compiler->ideSrcPath + L"\n"
 			//"LOCAL_STATIC_LIBRARIES := -lEngine\n"
 			L"LOCAL_MODULE := " + ((FilePath)(*si)).Name() + L"\n"
 			L"LOCAL_SRC_FILES := " + (*si) + L"\n"
 			L"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-			L"LOCAL_LDLIBS := -L" + Ide::GetInstance()->compiler->ideLibPath + L" -lEngine -llog\n"
+			L"LOCAL_LDLIBS := -L" + Ide::Instance()->compiler->ideLibPath + L" -lEngine -llog\n"
 			L"include $(BUILD_SHARED_LIBRARY)\n\n";
 	}
 
@@ -321,7 +321,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 	//build the native code
 
-	Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
+	Ide::Instance()->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
 
 	//unroll exports (rewrite original script file)
 
@@ -360,8 +360,8 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 		tTableFile.Close();
 	}
 
-	Ide::GetInstance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tPackFile.path.File() + L" ..",L"",true,true,true);
-	Ide::GetInstance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tTableFile.path.File() + L" ..",L"",true,true,true);
+	Ide::Instance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tPackFile.path.File() + L" ..",L"",true,true,true);
+	Ide::Instance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tTableFile.path.File() + L" ..",L"",true,true,true);
 
 	//File::Delete(tPackFile.path.c_str());
 	//File::Delete(tTableFile.path.c_str());
@@ -372,7 +372,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	String tBuildApk=   L"@echo off\n"
 		L"set PLATFORM=" + tAndroidPlatform + L"\n"
 		L"set BUILDTOOL=" + tAndroidBuildTool + L"\n"
-		L"set LIBDIR=" + Ide::GetInstance()->compiler->ideLibPath + L"\n"
+		L"set LIBDIR=" + Ide::Instance()->compiler->ideLibPath + L"\n"
 		L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
 		L"set ADB=" + tAndroidDebugBridge + L"\n"
 		L"set KEYSTORE=" + tKeyname + L"\n"
@@ -418,9 +418,9 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 	StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\buildapk.bat",tBuildApk);
 
-	Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
+	Ide::Instance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
 
-	Ide::GetInstance()->subsystem->Execute(tAndroidProjectDirectory,L"move " + tApkname + L".apk ..");
+	Ide::Instance()->subsystem->Execute(tAndroidProjectDirectory,L"move " + tApkname + L".apk ..");
 }
 
 
@@ -431,13 +431,10 @@ GuiProperty<GuiComboBox>* AndroidHelpers::createComboBoxProperty(GuiPanel* iPane
 {
 	GuiProperty<GuiComboBox>* pProp=iPanel->Property<GuiComboBox>(iLabel);
 
-	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
+	//pProp->description->margins.x=10;
 
-	pProp->description->SetAllColors(GuiRect::COLOR_BACK+iColor);
-	pProp->description->margins.x=10;
-
-	pProp->property->string->SetStringMode(*iRef,true);
-	pProp->property->string->textColor=0x000000;
+	//pProp->property->string->SetStringMode(*iRef,true);
+	//pProp->property->string->textColor=0x000000;
 
 	return pProp;
 }
@@ -446,13 +443,10 @@ GuiProperty<GuiPath>* AndroidHelpers::createPathProperty(GuiPanel* iPanel,String
 {
 	GuiProperty<GuiPath>* pProp=iPanel->Property<GuiPath>(iLabel);
 
-	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
-
-	pProp->description->SetAllColors(GuiRect::COLOR_BACK+iColor);
-	pProp->description->margins.x=10;
-
-	pProp->property->path->SetStringMode(*iRef,true);
-	pProp->property->path->textColor=0x000000;
+	//pProp->description->margins.x=10;
+	//
+	//pProp->property->path->SetStringMode(*iRef,true);
+	//pProp->property->path->textColor=0x000000;
 
 	return pProp;
 }
@@ -461,14 +455,11 @@ void AndroidHelpers::createTextBoxProperty(GuiPanel* iPanel,String iLabel,String
 {
 	GuiProperty<GuiTextBox>* pProp=iPanel->Property<GuiTextBox>(iLabel);
 
-	pProp->SetAllColors(GuiRect::COLOR_BACK+iColor);
-
-	pProp->description->SetAllColors(GuiRect::COLOR_BACK+iColor);
-	pProp->description->margins.x=10;
-
-	pProp->property->SetStringMode(*iRef,true);
-	pProp->property->offsets.make(0,2,0,-2);
-	pProp->property->textColor=0x000000;
+	//pProp->description->margins.x=10;
+	//
+	//pProp->property->SetStringMode(*iRef,true);
+//	//pProp->property->GetAutoEdges()->off.make(0,2,0,-2);
+	//pProp->property->textColor=0x000000;
 }
 
 void AndroidHelpers::findPlatformDirectories(void* iData)
@@ -480,8 +471,8 @@ void AndroidHelpers::findPlatformDirectories(void* iData)
 	std::vector<String> tPlatformsDirs;
 	std::vector<String> tBuildtoolDirs;
 
-	tPlatformsDirs=Ide::GetInstance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory);
-	tBuildtoolDirs=Ide::GetInstance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory);
+	tPlatformsDirs=Ide::Instance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory);
+	tBuildtoolDirs=Ide::Instance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory);
 
 	tAndroidPlugin->sdkPlatform->property->items=tPlatformsDirs;
 	tAndroidPlugin->sdkBuildtool->property->items=tBuildtoolDirs;
@@ -505,7 +496,7 @@ void AndroidHelpers::packResources(String& iCurrentDirectory,ResourceNodeDir* iR
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		File			tSourceFile(Ide::GetInstance()->folderProject + iCurrentDirectory + (*tResFile)->fileName);
+		File			tSourceFile(Ide::Instance()->folderProject + iCurrentDirectory + (*tResFile)->fileName);
 		int				tSourceFileDataStart;
 		size_t			tSourceFileDataSize;
 		String			tFinalFileName;
@@ -558,5 +549,5 @@ void AndroidHelpers::compileButtonFunc(void* tData)
 void AndroidHelpers::exitButtonFunc(void* tData)
 {
 	globalAllocatedAndroidPlugin->configurationPanel->Destroy();
-	Ide::GetInstance()->mainAppWindow->mainContainer->windowData->Enable(true);
+	Ide::Instance()->mainAppWindow->mainContainer->windowData->Enable(true);
 }

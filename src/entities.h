@@ -3,7 +3,9 @@
 
 #include "primitives.h"
 
+struct DLLBUILD EntityBase;
 struct DLLBUILD Entity;
+struct DLLBUILD EntityComponent;
 struct DLLBUILD Cluster;
 struct DLLBUILD Bone;
 struct DLLBUILD EntityScript;
@@ -399,8 +401,6 @@ struct DLLBUILD Gizmo : EntityComponent
 
 struct DLLBUILD AnimationController : EntityComponent
 {
-	static const std::list<AnimationController*> GetPool();
-
 	std::vector<Animation*> animations;
 
 	float speed;
@@ -662,7 +662,7 @@ struct DLLBUILD Renderer3DBase
 
 struct DLLBUILD Scene
 {
-	Entity* entityRoot;
+	Entity* entity;
 	String name;
 
 	Scene();

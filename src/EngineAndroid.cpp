@@ -193,8 +193,8 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-	if(currentScene && currentScene->entityRoot)
-		currentScene->entityRoot->update();
+	if(currentScene && currentScene->entity)
+		currentScene->entity->update();
 
 	MatrixStack::Push(MatrixStack::PROJECTION,projection);
 	MatrixStack::Push(MatrixStack::VIEW,view);
@@ -204,8 +204,8 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 	renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
 	renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-	if(currentScene && currentScene->entityRoot)
-		currentScene->entityRoot->draw(renderer3D);	
+	if(currentScene && currentScene->entity)
+		currentScene->entity->draw(renderer3D);	
 
 	MatrixStack::Pop(MatrixStack::MODEL);
 	MatrixStack::Pop(MatrixStack::VIEW);

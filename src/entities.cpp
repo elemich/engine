@@ -1,9 +1,7 @@
 #include "entities.h"
 
 #include <algorithm>
-
 #include <cstdlib>
-
 
 ///////////////////////////////
 ///////////////////////////////
@@ -11,10 +9,7 @@
 ///////////////////////////////
 ///////////////////////////////
 
-std::list<AnimationController*> globalAnimationControllers;
-
-GLOBALGETTERFUNC(GlobalAnimationControllersInstance,globalAnimationControllers,std::list<AnimationController*>&);
-
+GLOBALGETTERFUNC(GlobalAnimationControllersInstance,std::list<AnimationController*>);
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -71,10 +66,10 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 
 	printf("loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
 
-	tScene->entityRoot=SerializerHelpers::loadSceneEntityRecursively(tScene->entityRoot,resourceData);
+	tScene->entity=SerializerHelpers::loadSceneEntityRecursively(tScene->entity,resourceData);
 
 	//barely load entities and components
-	if(!tScene->entityRoot)
+	if(!tScene->entity)
 		printf("error loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
 
 	return tScene;
@@ -333,9 +328,9 @@ void MatrixStack::SetMode(MatrixStack::matrixmode m)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-std::vector<Shader*> ____shaders;
+std::list<Shader*> ____shaders;
 
-DLLBUILD std::vector<Shader*>& GetShadersPool()
+DLLBUILD std::list<Shader*>& GetShadersPool()
 {
 	return ____shaders;
 }
@@ -356,9 +351,9 @@ Shader::~Shader()
 
 Shader* Shader::Find(const char* iNameToFind,bool iExact)
 {
-	for(size_t i=0;i<GetShadersPool().size();i++)
+	for(std::list<Shader*>::iterator i=GetShadersPool().begin();i!=GetShadersPool().end();i++)
 	{
-		Shader* element=GetShadersPool()[i];
+		Shader* element=*i;
 
 		if(element)
 		{
@@ -367,7 +362,6 @@ Shader* Shader::Find(const char* iNameToFind,bool iExact)
 				if(iExact ? tShaderName==iNameToFind :  tShaderName.find(iNameToFind)!=std::string::npos)
 					return element;
 		}
-		
 	}
 
 	return 0;
@@ -486,11 +480,6 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 	float x3 = x2 * x;
 
 	return P * x3 + Q * x2 + R * x + S;
-}
-
-const std::list<AnimationController*> AnimationController::GetPool()
-{
-	return GlobalAnimationControllersInstance();
 }
 
 AnimationController::AnimationController():
@@ -1048,7 +1037,7 @@ void Entity::draw(Renderer3DBase* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Scene::Scene():entityRoot(0){}
+Scene::Scene():entity(0){}
 
 
 
