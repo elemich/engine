@@ -521,7 +521,6 @@ void AnimationController::AddAnimation(Animation* iAnimation)
 void AnimationController::Stop()
 {
 	this->play=false;
-	this->frameTime=0;
 }
 
 void AnimationController::Play()
@@ -613,7 +612,7 @@ void AnimationController::SetFrame(float iFrame)
 				mat4 sm,rm,tm;
 
 				if(poff.iszero())
-					tm.translate(anim->entity->local.position());
+					tm.translate(anim->Entity()->local.position());
 				else
 					tm.translate(poff);
 
@@ -623,7 +622,7 @@ void AnimationController::SetFrame(float iFrame)
 				rm.rotate(-roff[1],0,1,0);
 				rm.rotate(-roff[0],1,0,0);
 
-				anim->entity->local=rm*sm*tm;
+				anim->Entity()->local=rm*sm*tm;
 			}
 
 		}
@@ -966,6 +965,8 @@ EntityComponent::~EntityComponent(){}
 
 void EntityComponent::update(){}
 void EntityComponent::draw(Renderer3DBase*){}
+
+Entity* EntityComponent::Entity(){return this->entity;}
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ////////////////EntityScript///////////////////
@@ -986,28 +987,26 @@ Entity::Entity():
 	saved(false)
 {}
 
-Entity::~Entity()
+Entity::~Entity(){}
+
+Entity* Entity::Append(Entity* iEntity)
 {
-	this->SetParent(0);
-
-	for(std::list<EntityComponent*>::iterator tCom=this->components.begin();tCom!=this->components.end();tCom++)
-		SAFEDELETE(*tCom);
-
-	for(std::list<Entity*>::iterator tEn=this->childs.begin();tEn!=this->childs.end();tEn++)
-		SAFEDELETE(*tEn);
+	this->childs.push_back(iEntity);
+	iEntity->parent=this;
+	return iEntity;
 }
 
-void Entity::SetParent(Entity* iParent)
+Entity* Entity::Remove(Entity* iEntity)
 {
-	Entity* oldParent=this->parent;
-	this->parent=iParent;
-
-	if(oldParent)
-		oldParent->childs.erase(std::find(oldParent->childs.begin(),oldParent->childs.end(),this));
-
-	if(this->parent)
-		this->parent->childs.push_back(this);
+	this->childs.remove(iEntity);
+	iEntity->parent=0;
+	return iEntity;
 }
+
+const std::list<Entity*>& Entity::Childs(){return this->childs;}
+const std::list<EntityComponent*>& Entity::Components(){return this->components;}
+
+Entity* Entity::Parent(){return this->parent;}
 
 void Entity::update()
 {
@@ -1054,13 +1053,13 @@ void SerializerHelpers::SetEntityId(Entity* iEntity,unsigned int& iId)
 
 	wprintf(L"entity %s, id %i\n",iEntity->name.c_str(),iId);
 
-	for(std::list<Entity*>::iterator entityIter=iEntity->childs.begin();entityIter!=iEntity->childs.end();entityIter++)
+	for(std::list<Entity*>::const_iterator entityIter=iEntity->Childs().begin();entityIter!=iEntity->Childs().end();entityIter++)
 		SetEntityId(*entityIter,++iId);
 }
 
 Entity* SerializerHelpers::GetRootEntity(Entity* iEntity)
 {
-	return !iEntity->parent ? iEntity : GetRootEntity(iEntity->parent);
+	return !iEntity->Parent() ? iEntity : GetRootEntity(iEntity->Parent());
 }
 
 Entity* SerializerHelpers::GetEntityById(Entity* iEntity,unsigned int iId)
@@ -1068,7 +1067,7 @@ Entity* SerializerHelpers::GetEntityById(Entity* iEntity,unsigned int iId)
 	if(iEntity->id==iId)
 		return iEntity;
 
-	for(std::list<Entity*>::iterator entityIter=iEntity->childs.begin();entityIter!=iEntity->childs.end();entityIter++)
+	for(std::list<Entity*>::const_iterator entityIter=iEntity->Childs().begin();entityIter!=iEntity->Childs().end();entityIter++)
 	{
 		Entity* tEntity=GetEntityById(*entityIter,iId);
 
@@ -1272,7 +1271,7 @@ void SerializerHelpers::Load(Script* tScript,FILE* iFile)
 
 void SerializerHelpers::BindSkinLinks(Entity* iEntity)
 {
-	if(!iEntity->parent && globalSkinsToBind.size())
+	if(!iEntity->Parent() && globalSkinsToBind.size())
 	{
 		std::list<Skin*>::iterator						skinIter=globalSkinsToBind.begin();
 		std::list< std::list<unsigned int> >::iterator	indexListIter=globalSkinsClusterBoneIdToBind.begin();
@@ -1300,7 +1299,7 @@ void SerializerHelpers::BindSkinLinks(Entity* iEntity)
 
 void SerializerHelpers::BindAnimationLinks(Entity* iEntity)
 {
-	if(!iEntity->parent && globalAnimationControllersToBind.size())
+	if(!iEntity->Parent() && globalAnimationControllersToBind.size())
 	{
 		std::list<AnimationController*>::iterator						animIter=globalAnimationControllersToBind.begin();
 		std::list< std::list<unsigned int> >::iterator					indexListIter=globalAnimationControllersAnimationsIndicesToBind.begin();
@@ -1319,7 +1318,7 @@ void SerializerHelpers::BindAnimationLinks(Entity* iEntity)
 				if(!tEntityContainingAnimation)
 					DEBUG_BREAK();
 
-				Animation* tAnim=tEntityContainingAnimation->findComponent<Animation>();
+				Animation* tAnim=tEntityContainingAnimation->FindComponent<Animation>();
 
 				if(!tAnim)
 					DEBUG_BREAK();
@@ -1341,7 +1340,7 @@ Entity* SerializerHelpers::loadSceneEntityRecursively(Entity* iEntityParent,FILE
 
 	Entity* tEntity=new Entity;
 
-	tEntity->SetParent(iEntityParent);
+	iEntityParent->Append(tEntity);
 
 	fread(&childsSize,sizeof(unsigned int),1,iFile);
 	fread(&tEntity->id,sizeof(unsigned int),1,iFile);

@@ -305,10 +305,14 @@ struct DLLBUILD EntityBase
 
 struct DLLBUILD EntityComponent : EntityBase
 {
+private:
+	friend Entity;
 	Entity*			entity;
-
+public:
 	EntityComponent();
 	virtual ~EntityComponent();
+
+	Entity* Entity();
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
@@ -318,14 +322,16 @@ struct DLLBUILD EntityComponent : EntityBase
 
 struct DLLBUILD Entity : EntityBase
 {
+private:
 	Entity*					parent;
 
 	std::list<EntityComponent*> components;
 	std::list<Entity*> childs;
 
-	unsigned int			id;
-
 	bool					saved;
+public:
+
+	unsigned int			id;
 
 	mat4					local;
 	mat4					world;
@@ -334,22 +340,27 @@ struct DLLBUILD Entity : EntityBase
 
 	AABB					bbox;
 
+
 	Entity();
 	virtual ~Entity();
 
-	virtual void SetParent(Entity* iParent);
+	virtual Entity* Append(Entity* iEntity);
+	virtual Entity* Remove(Entity* iEntity);
+	const std::list<Entity*>& Childs();
+	const std::list<EntityComponent*>& Components();
+	virtual Entity* Parent();
 	virtual void update();
 	virtual void draw(Renderer3DBase*);
 
 	template<class C> C* CreateComponent()
 	{
-		C* newComp=new C;
-		newComp->entity=this;
-		this->components.push_back(newComp);
-		return newComp;
+		C* tCreatedComponent=new C;
+		tCreatedComponent->entity=this;
+		this->components.push_back(tCreatedComponent);
+		return tCreatedComponent;
 	}
 
-	template<class C> C* findComponent()
+	template<class C> C* FindComponent()
 	{
 		for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
 		{
@@ -360,7 +371,7 @@ struct DLLBUILD Entity : EntityBase
 		return 0;
 	}
 
-	template<class C> std::vector<C*> findComponents()
+	template<class C> std::vector<C*> FindComponents()
 	{
 		std::vector<C*> vecC;
 
@@ -662,8 +673,16 @@ struct DLLBUILD Renderer3DBase
 
 struct DLLBUILD Scene
 {
+private:
 	Entity* entity;
 	String name;
+public:
+
+	String GetName(){return this->name;}
+	void SetName(String iName){this->name=iName;}
+
+	Entity* GetEntity(){return this->entity;}
+	void SetEntity(Entity* iEntity){this->entity=iEntity;}
 
 	Scene();
 };

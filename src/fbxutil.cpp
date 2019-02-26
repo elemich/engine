@@ -259,10 +259,10 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 
 		if(bone)
 		{
-			if(bone->entity->parent)
+			if(bone->Entity()->Parent())
 			{
-				if(bone->entity->parent->findComponent<EditorBone>())
-					bone->root=bone->entity->parent->findComponent<EditorBone>()->root;
+				if(bone->Entity()->Parent()->FindComponent<EditorBone>())
+					bone->root=bone->Entity()->Parent()->FindComponent<EditorBone>()->root;
 				else
 					bone->root=bone;
 			}
@@ -299,7 +299,7 @@ EditorEntity* acquireNodeData(FbxNode* fbxNode,EditorEntity* parent)
 				for(int i=0;i<fbxLine->GetIndexArraySize();i++)
 				{
 					FbxVector4 tFbxPoint=fbxLine->GetControlPointAt(fbxLine->GetPointIndexAt(i));
-					line->AddPoint(vec3(tFbxPoint[0],tFbxPoint[1],tFbxPoint[2]));
+					line->Append(vec3(tFbxPoint[0],tFbxPoint[1],tFbxPoint[2]));
 				}
 			}
 		}
@@ -414,7 +414,7 @@ void ExtractAnimations(FbxNode* fbxNode,EditorEntity* entity)
 			animation->end=animEnd;
 			ParseAnimationCurve(animation);
 
-			AnimationController *animController=globalRootEntity->findComponent<AnimationController>();
+			AnimationController *animController=globalRootEntity->FindComponent<AnimationController>();
 
 			if(!animController)
 				animController=globalRootEntity->CreateComponent<EditorAnimationController>();

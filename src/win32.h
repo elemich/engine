@@ -534,17 +534,4 @@ struct DLLBUILD DebuggerWin32 : Debugger
 
 	void PrintThreadContext(void*);
 };
-
-
-struct DLLBUILD PluginSystemWin32 : PluginSystem
-{
-	std::vector<HMODULE> tPluginDlls;
-
-	void ScanPluginsDirectory();
-
-	PluginSystemWin32();
-	~PluginSystemWin32();
-};
-
-
 #endif //WIN32_H

@@ -111,7 +111,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	//buttons
 
 	this->exitButton=new GuiButton;
-	this->exitButton->text=L"Exit";
+	this->exitButton->Text(L"Exit");
 //	this->exitButton->GetAutoEdges()->ref.make(&tPanel->GetEdges().z,&tPanel->GetEdges().w,&tPanel->GetEdges().z,&tPanel->GetEdges().w);
 //	this->exitButton->GetAutoEdges()->off.make(-35,5,-5,25);
 
@@ -126,7 +126,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 	//button build
 
 	this->buildButton=new GuiButton;
-	this->buildButton->text=L"Build";
+	this->buildButton->Text(L"Build");
 //	this->buildButton->GetAutoEdges()->ref.make(&tPanel->GetEdges().z,&tPanel->GetEdges().w,&tPanel->GetEdges().z,&tPanel->GetEdges().w);
 //	this->buildButton->GetAutoEdges()->off.make(-75,5,-40,25);
 
@@ -466,7 +466,7 @@ void AndroidHelpers::findPlatformDirectories(void* iData)
 {
 	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)iData;
 
-	String tSdkDirectory=tAndroidPlugin->sdkDirProperty->property->path->text;
+	String tSdkDirectory=tAndroidPlugin->sdkDirProperty->property->path.Text();
 
 	std::vector<String> tPlatformsDirs;
 	std::vector<String> tBuildtoolDirs;

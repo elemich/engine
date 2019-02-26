@@ -5,7 +5,7 @@
 #define PRINTF(x) PRINT(x)
 
 #define LOCATION " @mic (" __FILE__ " : " PRINTF(__LINE__) ")"
-
+ 
 #define SAFEDELETE(_ptr) \
 	if(0!=_ptr){\
 	delete _ptr;\

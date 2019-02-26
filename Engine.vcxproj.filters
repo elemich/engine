@@ -109,5 +109,6 @@
     <None Include="build\win32\x86\debug\makefile-ms">
       <Filter>Makefiles</Filter>
     </None>
+    <None Include="ClassDiagram1.cd" />
   </ItemGroup>
 </Project>

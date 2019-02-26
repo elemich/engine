@@ -517,11 +517,11 @@ void Renderer2DWin32::DrawText(const String& iText,float left,float top, float r
 	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
 	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
 
-	this->PushScissor(left,top,right,bottom);
+	this->renderer->PushAxisAlignedClip(D2D1::RectF(left,top,right,bottom),D2D1_ANTIALIAS_MODE_ALIASED);
 
 	Direct2D::DrawText(this,iFont,iColor,iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 
-	this->PopScissor();
+	this->renderer->PopAxisAlignedClip();
 }
 
 void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,float iOpacity)
@@ -629,16 +629,7 @@ TabWin32* ContainerWin32::CreateTab(float x,float y,float w,float h)
 
 TabWin32* ContainerWin32::CreateModalTab(float x,float y,float w,float h)
 {
-	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd,true);
-
-	DWORD tLong=(DWORD)GetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE);
-
-	tLong ^= WS_CAPTION;
-
-	SetWindowLongPtr(result->windowDataWin32->hwnd,GWL_STYLE,(LONG)tLong);
-
-	SetParent(result->windowDataWin32->hwnd,0);
-	return result;
+	return new TabWin32(x,y,w,h,this->windowDataWin32->hwnd,true);
 }
 
 void ContainerWin32::DestroyTab(Tab* tTab)
@@ -855,12 +846,11 @@ void MainContainerWin32::Initialize()
 
 
 
-	GuiSceneViewer* tScene=(GuiSceneViewer*)tabContainer1->rects.Append(GuiSceneViewer::Instance());
+	tabContainer1->rects.Append(GuiSceneViewer::Instance());
 	tabContainer2->rects.Append(new GuiEntityViewer);
 	tabContainer3->rects.Append(GuiProjectViewer::Instance());
-	GuiViewport* tViewport=(GuiViewport*)tabContainer4->rects.Append(new GuiViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
-
-	tViewport->rootEntity=(EditorEntity*)tScene->scene.entity;
+	//tabContainer4->rects.Append(new GuiSceneViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
+	tabContainer4->rects.Append(new GuiRect);
 
 	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
 }
@@ -1422,9 +1412,7 @@ projectDirHasChanged(false)
 
 	this->mainAppWindow->Initialize();
 
-	this->pluginSystem=new PluginSystemWin32;
-
-	this->pluginSystem->ScanPluginsDirectory();
+	this->pluginSystem=new PluginSystem;
 
 	wprintf(L"sizeof(GuiRect): %d",sizeof(GuiRect));
 }
@@ -1559,12 +1547,12 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				dirNode->dirLabel.resource=dirNode;
 				dirNode->dirLabel.SetName(dirNode->fileName);
 				if(dirNodeParent)
-					dirNodeParent->dirLabel.Insert(dirNode->dirLabel);
+					dirNodeParent->dirLabel.Append(dirNode->dirLabel);
 
 				dirNode->fileLabel.resource=dirNode;
 				dirNode->fileLabel.SetName(dirNode->fileName);
 				if(dirNodeParent)
-					dirNodeParent->fileLabel.Insert(dirNode->fileLabel);
+					dirNodeParent->fileLabel.Append(dirNode->fileLabel);
 
 
 				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
@@ -1583,7 +1571,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 				fileNode->fileLabel.resource=fileNode;
 				fileNode->fileLabel.SetName(fileNode->fileName);
 				if(dirNodeParent)
-					dirNodeParent->fileLabel.Insert(fileNode->fileLabel);
+					dirNodeParent->fileLabel.Append(fileNode->fileLabel);
 			}
 		}
 	}
@@ -2152,6 +2140,8 @@ void Renderer3DOpenGL::Initialize()
 	pixelFormat = ChoosePixelFormat(hdc,&pfd);
 
 	error=GetLastError();
+
+	//ERROR_PROC_NOT_FOUND	127 (0x7F)
 
 	if(error!=NO_ERROR && error!=ERROR_OLD_WIN_VERSION)
 		DEBUG_BREAK();
@@ -2916,10 +2906,10 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 
 	shader->Use();
 
-	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->Entity()->world);
 
 
-	shader->SetSelectionColor(this->picking,mesh->entity,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,mesh->Entity(),this->tab->mouse,this->tab->Size());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2991,10 +2981,10 @@ void Renderer3DOpenGL::draw(Skin* skin)
 
 	shader->Use();
 
-	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->Entity()->local);
 
 
-	shader->SetSelectionColor(this->picking,skin->entity,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,skin->Entity(),this->tab->mouse,this->tab->Size());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -3064,8 +3054,8 @@ void Renderer3DOpenGL::draw(Bone* bone)
 	if(!shader)
 		return;
 
-	vec3 a=bone->entity->parent->world.position();
-	vec3 b=bone->entity->world.position();
+	vec3 a=bone->Entity()->Parent()->world.position();
+	vec3 b=bone->Entity()->world.position();
 
 	float line[]=
 	{
@@ -3077,7 +3067,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	shader->SetSelectionColor(this->picking,bone->entity,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,bone->Entity(),this->tab->mouse,this->tab->Size());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -3314,6 +3304,17 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool i
 	if(!splitterContainer)
 		DEBUG_BREAK();
 
+	if(this->isModal)
+	{
+		DWORD tLong=(DWORD)GetWindowLongPtr(this->windowDataWin32->hwnd,GWL_STYLE);
+
+		tLong ^= WS_CAPTION;
+
+		SetWindowLongPtr(this->windowDataWin32->hwnd,GWL_STYLE,(LONG)tLong);
+
+		SetParent(this->windowDataWin32->hwnd,0);
+	}
+
 	ShowWindow(this->windowDataWin32->hwnd,true);
 }
 
@@ -3489,6 +3490,8 @@ void TabWin32::EndDraw()
 	}
 	else
 		DEBUG_BREAK();
+
+	this->clips.clear();
 }
 
 
@@ -3538,7 +3541,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 						}
 					break;
 					case 2:
-						this->selected=this->rects.Append(new GuiViewport);
+						//this->selected=this->rects.Append(new GuiViewport());
 					break;
 					case 3:
 						this->selected=this->rects.Append(GuiSceneViewer::Instance());
@@ -3719,24 +3722,16 @@ void GuiViewport::Render(Tab* iTab)
 		rBuffer=new unsigned char[rBufferSize];
 	}
 
-	if(this->rootEntity)
+	if(this->Entity())
 	{
-		this->rootEntity->world=this->model;
+		this->Entity()->world=this->model;
 
-		this->rootEntity->update();
+		this->Entity()->update();
 
-		std::vector<GuiEntityViewer*> tGuiEntityViewer;
-
-		Ide::Instance()->mainAppWindow->GetTabRects<GuiEntityViewer>(tGuiEntityViewer);
-
-		EditorEntity* tEditorEntity;
-
-		for(std::vector<GuiEntityViewer*>::iterator it=tGuiEntityViewer.begin();it!=tGuiEntityViewer.end();it++)
+		for(std::list<GuiEntityViewer*>::iterator it=GuiEntityViewer::Pool().begin();it!=GuiEntityViewer::Pool().end();it++)
 		{
-			tEditorEntity=(EditorEntity*)(*it)->entity;
-
-			if(tEditorEntity && (*it)->GetRoot()->GetTab())
-				tEditorEntity->OnPropertiesUpdate((Tab*)(*it)->GetRoot()->GetTab());
+			if((*it)->Entity() && (*it)->GetRoot()->GetTab())
+				(*it)->Entity()->OnPropertiesUpdate((*it)->GetRoot()->GetTab());
 		}
 	}
 
@@ -3764,8 +3759,8 @@ void GuiViewport::Render(Tab* iTab)
 		iTab->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
 		iTab->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-		if(this->rootEntity)
-			iTab->renderer3D->draw(this->rootEntity);
+		if(this->Entity())
+			iTab->renderer3D->draw(this->Entity());
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -3795,8 +3790,8 @@ void GuiViewport::Render(Tab* iTab)
 		MatrixStack::Push(MatrixStack::VIEW,this->view);
 		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
-		if(this->rootEntity)
-			iTab->renderer3D->draw(this->rootEntity);
+		if(this->Entity())
+			iTab->renderer3D->draw(this->Entity());
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -4798,12 +4793,25 @@ void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctio
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-PluginSystemWin32::PluginSystemWin32()
+static bool STLRemovePlugins(PluginSystem::Plugin* iPlugin)
 {
+	SAFEDELETE(iPlugin);
+	return true;
 }
 
-void PluginSystemWin32::ScanPluginsDirectory()
+static bool STLRemoveHandles(void* iHandle)
 {
+	HMODULE tModule=(HMODULE)iHandle;
+
+	if(iHandle)
+		FreeLibrary(tModule);
+	return true;
+}
+
+void PluginSystem::ScanPluginsDirectory()
+{
+	this->plugins.remove_if(STLRemovePlugins);
+
 	Ide::Instance()->projectDirChangedThread->Block(true);
 
 	File tPluginsFile=Ide::Instance()->folderPlugins + L"\\plugins.cfg";
@@ -4876,8 +4884,9 @@ void PluginSystemWin32::ScanPluginsDirectory()
 
 				if(tPlugin)
 				{
-					this->tPluginDlls.push_back(tPluginDll);
 					this->plugins.push_back(tPlugin);
+
+					tPlugin->handle=tPluginDll;
 
 					for(size_t i=0;i<tPluginStates.size();i++)
 					{

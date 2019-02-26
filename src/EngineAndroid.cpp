@@ -246,7 +246,7 @@ namespace SerializerHelpers
 
 					if(iScript->runtime)
 					{
-						iScript->runtime->entity=iScript->entity;
+						iScript->runtime->entity=iScript->Entity();
 						iScript->runtime->init();
 					}
 				}
@@ -1212,7 +1212,7 @@ void Renderer3DAndroid::drawUnlitTextured(Mesh* mesh)
 
 	shader->Use();
 
-	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->entity->world);
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->Entity()->world);
 
 
 	//shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
@@ -1287,7 +1287,7 @@ void Renderer3DAndroid::draw(Skin* skin)
 
 	shader->Use();
 
-	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->entity->local);
+	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->Entity()->local);
 
 
 	//shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
@@ -1360,8 +1360,8 @@ void Renderer3DAndroid::draw(Bone* bone)
 	if(!shader)
 		return;
 
-	vec3 a=bone->entity->parent->world.position();
-	vec3 b=bone->entity->world.position();
+	vec3 a=bone->Entity()->parent->world.position();
+	vec3 b=bone->Entity()->world.position();
 
 	float line[]=
 	{
