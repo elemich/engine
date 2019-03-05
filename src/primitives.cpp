@@ -1572,7 +1572,7 @@ Thread::~Thread()
 	this->tasks.clear();
 }
 
-Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
+Task* Thread::NewTask(String iName,std::function<void()> iFunction,bool iRemove,bool iBlock)
 {
 	Task* task=new Task;
 
@@ -1581,6 +1581,7 @@ Task* Thread::NewTask(std::function<void()> iFunction,bool iRemove,bool iBlock)
 	task->executing=false;
 	task->pause=iBlock;
 	task->owner=this;
+	task->name=iName;
 
 	tasks.push_back(task);
 

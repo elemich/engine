@@ -849,8 +849,8 @@ void MainContainerWin32::Initialize()
 	tabContainer1->rects.Append(GuiSceneViewer::Instance());
 	tabContainer2->rects.Append(new GuiEntityViewer);
 	tabContainer3->rects.Append(GuiProjectViewer::Instance());
-	//tabContainer4->rects.Append(new GuiSceneViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
-	tabContainer4->rects.Append(new GuiRect);
+	tabContainer4->rects.Append(new GuiSceneViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
+	//tabContainer4->rects.Append(new GuiRect);
 
 	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
 }
@@ -1402,11 +1402,11 @@ projectDirHasChanged(false)
 		this->timer=new TimerWin32;
 
 		this->timerThread=new ThreadWin32;
-		this->timerThread->NewTask(std::function<void()>(std::bind(&Timer::update,this->timer)),false);
+		this->timerThread->NewTask(L"MainTimerTask",std::function<void()>(std::bind(&Timer::update,this->timer)),false);
 	}
 
 	this->projectDirChangedThread=new ThreadWin32;
-	this->projectDirChangedThread->NewTask(std::function<void()>(std::bind(&Ide::ProjectDirHasChangedFunc,this)),false);
+	this->projectDirChangedThread->NewTask(L"ProjectDirChangedTask",std::function<void()>(std::bind(&Ide::ProjectDirHasChangedFunc,this)),false);
 
 	this->mainAppWindow=new MainContainerWin32;
 
@@ -3237,7 +3237,7 @@ void TabWin32::Create3DRenderer()
 		if(!this->renderer3D)
 			DEBUG_BREAK();
 
-		Task* tCreateOpenGLContext=this->thread->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
+		Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
 		while(tCreateOpenGLContext->func);
 		SAFEDELETE(tCreateOpenGLContext);
 	}
@@ -3249,7 +3249,7 @@ void TabWin32::Destroy3DRenderer()
 #if ENABLE_RENDERER
 	if(this->renderer3D)
 	{
-		Task* tDeleteOpenGLContext=this->thread->NewTask(std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
+		Task* tDeleteOpenGLContext=this->thread->NewTask(L"DestroyOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
 		while(tDeleteOpenGLContext->func);
 		SAFEDELETE(tDeleteOpenGLContext);
 	}
@@ -3283,7 +3283,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool i
 
 	this->thread=new ThreadWin32;
 
-	this->drawTask=this->thread->NewTask(std::function<void()>(std::bind(&Tab::Draw,this)),false);
+	this->drawTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Tab::Draw,this)),false);
 
 	this->iconDown=new PictureRef(Tab::rawDownArrow,Tab::ICON_WH,Tab::ICON_WH);
 	this->iconUp=new PictureRef(Tab::rawUpArrow,Tab::ICON_WH,Tab::ICON_WH);
@@ -3296,7 +3296,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool i
 
 	this->OnGuiRecreateTarget();
 
-	this->container=(Container*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
+	this->container=(TabContainer*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
 	this->container->tabs.push_back(this);
 
 	splitterContainer=this->container->splitter;

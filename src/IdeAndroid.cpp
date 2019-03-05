@@ -49,15 +49,13 @@ void AndroidPlugin::Load()
 		this->MenuActionInstall=this->Menu(L"Adb\\Install",false);
 		this->MenuActionUninstall=this->Menu(L"Adb\\Uninstall",false);
 
-		this->loaded=true;
+		Plugin::Load();
 	}
 }
 
 void AndroidPlugin::Unload()
 {
-	if(this->loaded)
-	{
-	}
+	Plugin::Unload();
 }
 
 void AndroidPlugin::OnMenuPressed(int iIdx)
@@ -76,7 +74,7 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 
 void AndroidPlugin::ShowConfigurationPanel()
 {
-	Container* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
+	TabContainer* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
 
 	tContainer->windowData->Enable(false);
 
@@ -429,7 +427,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 GuiProperty<GuiComboBox>* AndroidHelpers::createComboBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
-	GuiProperty<GuiComboBox>* pProp=iPanel->Property<GuiComboBox>(iLabel);
+	GuiProperty<GuiComboBox>* pProp;//iPanel->Property<GuiComboBox>(iLabel);
 
 	//pProp->description->margins.x=10;
 
@@ -441,7 +439,7 @@ GuiProperty<GuiComboBox>* AndroidHelpers::createComboBoxProperty(GuiPanel* iPane
 
 GuiProperty<GuiPath>* AndroidHelpers::createPathProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
-	GuiProperty<GuiPath>* pProp=iPanel->Property<GuiPath>(iLabel);
+	GuiProperty<GuiPath>* pProp;//iPanel->Property<GuiPath>(iLabel);
 
 	//pProp->description->margins.x=10;
 	//
@@ -453,7 +451,7 @@ GuiProperty<GuiPath>* AndroidHelpers::createPathProperty(GuiPanel* iPanel,String
 
 void AndroidHelpers::createTextBoxProperty(GuiPanel* iPanel,String iLabel,String* iRef,int iColor)
 {
-	GuiProperty<GuiTextBox>* pProp=iPanel->Property<GuiTextBox>(iLabel);
+	GuiProperty<GuiTextBox>* pProp;//iPanel->Property<GuiTextBox>(iLabel);
 
 	//pProp->description->margins.x=10;
 	//

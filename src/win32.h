@@ -437,7 +437,7 @@ struct DLLBUILD SplitterWin32 : Splitter
 	void DestroyFloatingTab();
 };
 
-struct DLLBUILD ContainerWin32 : Container
+struct DLLBUILD ContainerWin32 : TabContainer
 {
 	ContainerWin32();
 	~ContainerWin32();

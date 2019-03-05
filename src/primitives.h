@@ -466,6 +466,7 @@ struct DLLBUILD  Task
 	bool remove;
 	bool executing;
 	bool pause;
+	String name;
 	Thread* owner;
 
 	void Block(bool);
@@ -483,7 +484,7 @@ struct DLLBUILD Thread
 	Thread();
 	~Thread();
 
-	Task* NewTask(std::function<void()>,bool remove=true,bool iBlock=false);
+	Task* NewTask(String,std::function<void()>,bool remove=true,bool iBlock=false);
 	void DestroyTask(Task*);
 
 	void Block(bool);

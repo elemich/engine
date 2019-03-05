@@ -17,17 +17,13 @@ void Fbx::Load()
 		this->MenuActionImport=this->Menu(L"Plugins\\Fbx\\Import",false);
 		this->MenuActionExport=this->Menu(L"Plugins\\Fbx\\Export",false);
 
-		this->loaded=true;
+		Plugin::Load();
 	}
 }
 
 void Fbx::Unload()
 {
-	if(this->loaded)
-	{
-
-
-	}
+	Plugin::Unload();
 }
 
 void Fbx::OnMenuPressed(int iIdx)

@@ -44,7 +44,7 @@ struct DLLBUILD GuiPropertyAnimationController;
 
 struct DLLBUILD DrawInstance;
 struct DLLBUILD Tab;
-struct DLLBUILD Container;
+struct DLLBUILD TabContainer;
 struct DLLBUILD Splitter;
 struct DLLBUILD MainContainer;
 struct DLLBUILD ResourceNodeDir;
@@ -74,6 +74,11 @@ struct DLLBUILD Script;
 #define MAX_TOUCH_INPUTS 10
 
 #define ENABLE_RENDERER 1
+
+struct DLLBUILD Interface
+{
+	virtual Interface* GetInterface()=0;
+};
 
 struct DLLBUILD InputInterface
 {
@@ -172,7 +177,7 @@ private:
 	Tab*					popup;
 public:
 
-	Tab* CreatePopup(Container*,float,float,float,float);
+	Tab* CreatePopup(TabContainer*,float,float,float,float);
 	void DestroyPopup();
 	Tab* GetPopup();
 
@@ -359,6 +364,11 @@ struct DLLBUILD Msg
 	Msg(GuiRect* iSender,unsigned int iSenderFunc);
 };
 
+struct DLLBUILD MsgPippo : Msg
+{
+	MsgPippo();
+};
+
 
 #define GUIMSGDECL Tab* iTab,const Msg& iMsg=Msg()
 #define GUIMSGDEF Tab* iTab,const Msg& iMsg
@@ -377,9 +387,6 @@ struct DLLBUILD GuiRect
 	enum Switch
 	{
 		FLAGS=0,
-		FUNIN,
-		FUNOUT,
-		NOTIFYPAR,
 		MAXSWITCH
 	};
 
@@ -458,9 +465,7 @@ private:
 
 	void* userData;
 protected:
-	virtual void OnPreClipPaint(GUIMSGDECL);
 	virtual void OnPaint(GUIMSGDECL){}
-	virtual void OnPostClipPaint(GUIMSGDECL);
 	virtual void OnButtonDown(GUIMSGDECL);
 	virtual void OnDoubleClick(GUIMSGDECL);
 	virtual void OnButtonUp(GUIMSGDECL);
@@ -549,19 +554,7 @@ public:
 	virtual void Broadcast(Funcs iFunc,GUIMSGDECL);
 
 	bool Contains(const vec2&);
-
-	GuiContainer* Container(String iText);
-	template<typename T> GuiContainerRow<T>* ContainerRow(T);
-
-	GuiString* Text(String str);
-
-	template<typename T> GuiProperty<T>* Property(String iDescription,T* iProperty=0)
-	{
-		GuiProperty<T>* tProperty=new GuiProperty<T>(iDescription,iProperty);
-		this->Append(tProperty);
-		return tProperty;
-	}
-
+	
 	template<class C> void Get(std::vector<C*>& iRects)
 	{
 		C* isaC=dynamic_cast<C*>(this);
@@ -574,7 +567,7 @@ public:
 	}
 };
 
-struct DLLBUILD GuiScrollBar
+struct DLLBUILD GuiScrollBar : GuiRect
 {
 	static const int COLOR_BACK=0x404040;
 	static const int TICK=20;
@@ -647,14 +640,14 @@ public:
 	virtual vec2 EdgeOffset();
 	virtual vec2 MouseClip(const vec2&);
 
-	virtual void OnButtonDown(GUIMSGDECL);
-	virtual void OnButtonUp(GUIMSGDECL);
-	virtual void OnMouseMove(GUIMSGDECL);
 	virtual void OnSize(GUIMSGDECL);
-	virtual void OnPostClipPaint(GUIMSGDECL);
 
-	GuiScrollBar& HBar();
-	GuiScrollBar& VBar();
+	void Broadcast(Funcs iFunc,GUIMSGDECL);
+
+	GuiScrollBar* HBar();
+	GuiScrollBar* VBar();
+
+	void RecalcScrollbars();
 
 	void SetContent(float iHor,float iVer);
 	void ResetContent();
@@ -792,7 +785,7 @@ struct DLLBUILD GuiPropertyTree : GuiScrollRect
 		Container(String);
 
 		virtual float left(){return this->PropertyTree()->left();}
-		virtual float right(){return this->PropertyTree()->right();}
+		virtual float right(){return this->PropertyTree()->left()+this->PropertyTree()->Maxes().x;}
 
 		GuiPropertyTree* PropertyTree();
 
@@ -993,13 +986,14 @@ public:
 	virtual void OnButtonDown(GUIMSGDECL);
 };
 
-struct DLLBUILD GuiListBox : GuiRect
+struct DLLBUILD GuiListBox : GuiScrollRect
 {
 	struct DLLBUILD Item : GuiStringProperty
 	{
 	private:
-		friend GuiListBox;
+		friend		GuiListBox;
 		GuiListBox* listbox;
+		int			height;
 	public:
 
 		Item(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0);
@@ -1011,15 +1005,10 @@ struct DLLBUILD GuiListBox : GuiRect
 		float bottom();
 	};
 
-private:
-	GuiRect::Append;
-	GuiRect::Remove;
-public:
-
 	GuiListBox();
 	~GuiListBox();
 
-	Item* Append(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0);
+	Item* Append(Item* iItem);
 
 	void  Remove(Item*);
 };
@@ -1387,7 +1376,7 @@ struct DLLBUILD Tab
 {
 	WindowData* windowData;
 
-	Container* container;
+	TabContainer* container;
 
 	static const int COLOR_BACK=0x707070;
 	static const int COLOR_LABEL=GuiRect::COLOR_BACK;
@@ -1529,7 +1518,7 @@ struct DLLBUILD Tab
 	GuiRect* GetPressed();
 
 	void PushScissor(vec4,vec2);
-	void PopScissor();
+	void PopScissor(ClipData* oClipData=0);
 };
 
 struct DLLBUILD Splitter
@@ -1555,7 +1544,7 @@ struct DLLBUILD Splitter
 };
 
 
-struct DLLBUILD Container
+struct DLLBUILD TabContainer
 {
 	std::vector<Tab*> tabs;
 
@@ -1576,8 +1565,8 @@ struct DLLBUILD Container
 	int resizeCheckWidth;
 	int resizeCheckHeight;
 
-	Container();
-	virtual ~Container();
+	TabContainer();
+	virtual ~TabContainer();
 
 	virtual int GetWindowHandle()=0;
 
@@ -1614,14 +1603,14 @@ struct DLLBUILD MainContainer : MenuInterface
 	MainContainer();
 	virtual ~MainContainer();
 
-	Container* mainContainer;
+	TabContainer* mainContainer;
 
-	std::vector<Container*> containers;
+	std::vector<TabContainer*> containers;
 
 	virtual void Initialize()=0;
 	virtual void Deintialize()=0;
 
-	virtual Container* CreateContainer()=0;
+	virtual TabContainer* CreateContainer()=0;
 
 	void OnMenuPressed(int iIdx);
 	
@@ -1629,7 +1618,7 @@ struct DLLBUILD MainContainer : MenuInterface
 
 	template<typename T> void GetTabRects(std::vector<T*>& iRects)
 	{
-		for(std::vector<Container*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
+		for(std::vector<TabContainer*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
 			(*tContainer)->GetTabRects(iRects);
 	}
 };
@@ -1695,33 +1684,58 @@ struct DLLBUILD PluginSystem
 {
 	struct DLLBUILD Plugin : MenuInterface
 	{
-		String name;
-		bool loaded;
-		void *handle;
+		struct DLLBUILD PluginListBoxItem : GuiListBox::Item
+		{
+			Plugin*	  plugin;
+			GuiButton button;
+
+			PluginListBoxItem(Plugin*);
+
+			void OnSize(GUIMSGDECL);
+			void OnControlEvent(GUIMSGDECL);
+		};
+
+		String				name;
+		bool				loaded;
+		void				*handle;
+		PluginListBoxItem	listBoxItem;
 
 		Plugin();
 
-		virtual void Load()=0;
-		virtual void Unload()=0;
+		virtual void Load();
+		virtual void Unload();
 		virtual void OnMenuPressed(int iIdx)=0;
 	};
 
 private:	
-	Tab*		tab;
-	GuiRect     viewer;
-	GuiListBox  pluginList;
-	GuiButton	exitButton;
+	friend Tab;
 
-	std::list<Plugin*>	 plugins;
+	struct DLLBUILD PluginViewer : GuiRect
+	{
+		PluginSystem*		pluginSystem;
+
+		Tab*				tab;
+		GuiListBox			pluginList;
+		GuiButton			exitButton;
+
+		PluginViewer(PluginSystem*);
+
+		void OnSize(GUIMSGDECL);
+		void OnControlEvent(GUIMSGDECL);
+
+		void Show();
+	};
+
+	PluginViewer			viewer;
+	std::list<Plugin*>		plugins;
+
+	virtual void ScanPluginsDirectory();
 public:
-
-	Tab* GetTab();
 
 	const std::list<Plugin*>& Plugins();
 	const std::list<void*>&	Libs();
 
-	void ShowConfigurationPanel();
-	virtual void ScanPluginsDirectory();
+	PluginViewer& Viewer();
 
 	PluginSystem();
 	~PluginSystem();
@@ -1902,6 +1916,7 @@ struct DLLBUILD EditorLine : ComponentProperties<Line>
 {
 private:
 	using Line::points;
+	std::list<GuiListBox::Item*> pointItems;
 public:
 
 	GuiListBox								pointListBox;

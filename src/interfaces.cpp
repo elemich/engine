@@ -297,7 +297,7 @@ String Ide::GetEntityExtension()
 	return L".engineEntity";
 }
 
-Tab*	Ide::CreatePopup(Container* iParent,float ix,float iy,float iw,float ih)
+Tab*	Ide::CreatePopup(TabContainer* iParent,float ix,float iy,float iw,float ih)
 {
 	this->DestroyPopup();
 
@@ -335,7 +335,7 @@ Tab*	Ide::GetPopup()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Container::Container()
+TabContainer::TabContainer()
 {
 	resizeDiffHeight=0;
 	resizeDiffWidth=0;
@@ -344,9 +344,9 @@ Container::Container()
 	resizeCheckHeight=0;
 }
 
-Container::~Container(){}
+TabContainer::~TabContainer(){}
 
-void Container::Broadcast(GuiRect::Funcs iFunc,const Msg& iMsg)
+void TabContainer::Broadcast(GuiRect::Funcs iFunc,const Msg& iMsg)
 {
 	for(std::vector<Tab*>::iterator tTab=this->tabs.begin();tTab!=this->tabs.end();tTab++)
 		(*tTab)->Broadcast(iFunc,iMsg);
@@ -580,54 +580,38 @@ void Tab::BroadcastTo(GuiRect* iRect,GuiRect::Funcs iFunc,const Msg& iMsg)
 		{
 			case GuiRect::ONHITTEST:
 			{
-				vec4 tClip=iRect->EdgeClip();
+				vec4 tClip=iRect->Edges();//iRect->EdgeClip();
 
 				if(iRect->Contains(iMsg.mouse))
 					iMsg.hit=iRect;
 
-				if(iMsg.mouse.x>tClip.x && iMsg.mouse.x<tClip.z && iMsg.mouse.y>tClip.y && iMsg.mouse.y<tClip.w)
+				iRect->Broadcast(iFunc,this,iMsg);
+
+				/*if(iMsg.mouse.x>tClip.x && iMsg.mouse.x<tClip.z && iMsg.mouse.y>tClip.y && iMsg.mouse.y<tClip.w)
 				{
-					vec2 tMouse=iMsg.mouse;
-
-					vec2 tOffset=iRect->EdgeOffset();
-
-					iMsg.mouse.x-=tOffset.x;
-					iMsg.mouse.y-=tOffset.y;
-
-					iRect->Broadcast(iFunc,this,iMsg);
-
-					iMsg.mouse.x=tMouse.x;
-					iMsg.mouse.y=tMouse.y;
-				}
+					
+				}*/
 			}
 			break;
 			case GuiRect::ONPAINT:
 			{
 				unsigned int	tColor=iRect->BlendColor(iRect->Color());
 				vec4			tClip=iRect->Edges();
+				ClipData		tClipData;
 
 				this->renderer2D->DrawRectangle(tClip,tColor,true);
 
 				iRect->OnPaint(this,iMsg);
 
-				if(iRect->GetFlag(GuiRect::FLAGS,GuiRect::CHILD))
-					this->PushScissor(iRect->EdgeClip(),iRect->EdgeOffset());
+				/*if(iRect->GetFlag(GuiRect::FLAGS,GuiRect::CHILD))
+					this->PushScissor(iRect->EdgeClip(),iRect->EdgeOffset());*/
 
 				iRect->Broadcast(iFunc,this,iMsg);
 
-				if(iRect->GetFlag(GuiRect::FLAGS,GuiRect::CHILD))
-					this->PopScissor();
+				/*if(iRect->GetFlag(GuiRect::FLAGS,GuiRect::CHILD))
+					this->PopScissor();*/
 
 				GuiScrollRect* tScrollRect=dynamic_cast<GuiScrollRect*>(iRect);
-
-				if(tScrollRect)
-				{
-					//if(tScrollRect->HBar().IsVisible())
-						tScrollRect->HBar().OnPaint(this,iMsg);
-
-					//if(tScrollRect->VBar().IsVisible())
-						tScrollRect->VBar().OnPaint(this,iMsg);
-				}
 
 				this->renderer2D->DrawRectangle(tClip.x+0.5f,tClip.y+0.5f,tClip.z-0.5f,tClip.w-0.5f,0xff0000,false);
 			}
@@ -650,6 +634,11 @@ void Tab::BroadcastTo(GuiRect* iRect,GuiRect::Funcs iFunc,const Msg& iMsg)
 				iRect->Broadcast(iFunc,this,iMsg);
 			}
 			break;
+			default:
+			{
+				(iRect->*this->rectFuncs[iFunc])(this,iMsg);
+				iRect->Broadcast(iFunc,this,iMsg);
+			}
 		}
 	}
 }
@@ -658,6 +647,8 @@ void Tab::BroadcastInputTo(GuiRect* iRect,GuiRect::Funcs iFunc,const Msg& iMsg)
 {
 	switch(iFunc)
 	{
+		case GuiRect::ONMOUSEENTER:
+		case GuiRect::ONMOUSEEXIT:
 		case GuiRect::ONMOUSEMOVE:
 		case GuiRect::ONBUTTONUP:
 		case GuiRect::ONBUTTONDOWN:
@@ -698,11 +689,15 @@ void Tab::BroadcastPaintTo(GuiRect* iRect)
 	std::list<GuiRect*> tAncestors;
 	Msg					tMsg;
 
+	tAncestors.push_back(iRect);
+
 	while(tRect)tAncestors.push_front(tRect),tRect=tRect->GetParent();
 
 	for(std::list<GuiRect*>::const_iterator i=tAncestors.begin();i!=tAncestors.end();i++)
 	{
-		if((*i)->GetFlag(GuiRect::FLAGS,GuiRect::CHILD))
+		bool tTargetParent=(*i==tAncestors.back());
+
+		if(!tTargetParent && (*i)->GetFlag(GuiRect::FLAGS,GuiRect::CHILD))
 			this->PushScissor((*i)->EdgeClip(),(*i)->EdgeOffset());
 	}
 
@@ -765,29 +760,32 @@ void Tab::OnGuiMouseMove(void* data)
 
 	GuiRect*			tOldHover=this->GetHover();
 	Msg 				tNewHoverMsg(this->mouse);
+	GuiRect* 			tNewHover=0;
 
 	if(tOldHover && tOldHover->IsPressing())
 	{
-		tOldHover->OnMouseMove(this,tEvent);
+		this->BroadcastInputTo(tOldHover,GuiRect::ONMOUSEMOVE,tNewHoverMsg);
 		return;
 	}
 
 	if(this->GetSelected())
 		this->BroadcastTo(this->GetSelected(),GuiRect::ONHITTEST,tNewHoverMsg);
 
-	if(tOldHover!=tNewHoverMsg.hit)
+	tNewHover=tNewHoverMsg.hit;
+
+	if(tOldHover!=tNewHover)
 	{
 		if(tOldHover)
-			tOldHover->OnMouseExit(this,tEvent);
+			this->BroadcastInputTo(tOldHover,GuiRect::ONMOUSEEXIT,tEvent);
 
-		if(tNewHoverMsg.hit)
-			tNewHoverMsg.hit->OnMouseEnter(this,tEvent);
+		if(tNewHover)
+			this->BroadcastInputTo(tNewHover,GuiRect::ONMOUSEENTER,tEvent);
 	}
 
-	if(tNewHoverMsg.hit)
-		tNewHoverMsg.hit->OnMouseMove(this,tNewHoverMsg);
+	if(tNewHover)
+		this->BroadcastInputTo(tNewHover,GuiRect::ONMOUSEMOVE,tNewHoverMsg);
 
-	this->SetHover(tNewHoverMsg.hit);
+	this->SetHover(tNewHover);
 }
 
 void Tab::OnGuiLMouseUp(void* data)
@@ -795,7 +793,12 @@ void Tab::OnGuiLMouseUp(void* data)
 	mouseDown=false;
 
 	if(this->GetHover())
+	{
 		this->BroadcastInputTo(this->GetHover(),GuiRect::ONBUTTONUP,Msg(this->mouse,1));
+
+		if(this->GetHover()->GetFlag(GuiRect::FLAGS,GuiRect::DRAWPRESS))
+			this->SetDraw(this->GetHover());
+	}
 }
 
 void Tab::OnGuiMouseWheel(void* data)
@@ -840,7 +843,12 @@ void Tab::OnGuiLMouseDown(void* data)
 	else
 	{
 		if(this->GetHover())
+		{
 			this->BroadcastInputTo(this->GetHover(),GuiRect::ONBUTTONDOWN,Msg(this->mouse,1));
+
+			if(this->GetHover()->GetFlag(GuiRect::FLAGS,GuiRect::DRAWPRESS))
+				this->SetDraw(this->GetHover());
+		}
 	}
 }
 
@@ -990,10 +998,12 @@ void Tab::PushScissor(vec4 iClip,vec2 iCoord)
 
 	this->clips.push_back(tCd);
 }
-void Tab::PopScissor()
+void Tab::PopScissor(ClipData* oClipData)
 {
 	this->renderer2D->Translate(0,0);
 	this->renderer2D->PopScissor();
+	if(oClipData)
+		*oClipData=this->clips.back();
 	this->clips.pop_back();
 }
 
@@ -1633,7 +1643,7 @@ Msg::Msg(void* iData):data(iData),button(0),key(0),hit(0),sender(0),senderFunc(G
 Msg::Msg(const vec2& iMouse,int iButton):data(0),mouse(iMouse),button(iButton),key(0),hit(0),sender(0),senderFunc(GuiRect::MAXFUNCS){}
 Msg::Msg(char iKey):data(0),button(0),key(iKey),hit(0),sender(0),senderFunc(GuiRect::MAXFUNCS){}
 Msg::Msg(const vec4& iClip,const vec2& iCoord):data(0),button(0),key(0),hit(0),clip(iClip),coord(iCoord),sender(0),senderFunc(GuiRect::MAXFUNCS){}
-Msg::Msg(GuiRect* iControl,unsigned int iControlFunc):data(0),button(0),key(0),hit(0),clip(0),sender(iControl),senderFunc(iControlFunc){}
+Msg::Msg(GuiRect* iControl,unsigned int iControlFunc):data(0),button(0),key(0),hit(0),sender(iControl),senderFunc(iControlFunc){}
 
 
 ///////////////////////////////////////////////
@@ -1757,16 +1767,6 @@ unsigned int GuiRect::BlendColor(unsigned int iBaseColor,unsigned int iPressColo
 }
 
 
-void GuiRect::OnPreClipPaint(GUIMSGDEF)
-{
-	
-}
-
-void GuiRect::OnPostClipPaint(GUIMSGDEF)
-{
-	
-}
-
 
 void GuiRect::OnButtonDown(GUIMSGDEF)
 {
@@ -1803,25 +1803,6 @@ void GuiRect::OnEnterFocus(GUIMSGDEF){}
 void GuiRect::OnExitFocus(GUIMSGDEF){}
 
 
-
-GuiString* GuiRect::Text(String str)
-{
-	GuiString* label=new GuiString;
-	label->Text(str.c_str());
-	this->Append(label);
-	return label;
-}
-
-template<typename T> GuiContainerRow<T>* GuiRect::ContainerRow(T iData)
-{
-	 GuiContainerRow<T>* tContainerRow=new GuiContainerRow<T>;
-
-	 tContainerRow->rowData=iData;
-
-	this->Insert(tContainerRow);
-
-	return tContainerRow;
-}
 
 bool	GuiRect::GetFlag(Switch iType,unsigned int iFlag)
 {
@@ -1942,9 +1923,6 @@ void	GuiRect::Activate(bool iActivate){SetFlag(FLAGS,ACTIVE,iActivate);}
 
 GuiTreeView::Item::Item():expanded(true),selected(false),treeview(0)
 {
-	this->SetFlags(FUNIN,0xffffffff);
-	this->SetFlags(FUNOUT,0);
-
 	this->SetFlag(FLAGS,DRAWPRESS,true);
 	this->SetFlag(FLAGS,DRAWCHECK,true);
 	this->SetFlag(FLAGS,DRAWHOVER,true);
@@ -2063,7 +2041,7 @@ void GuiTreeView::ConfigureContent(GuiTreeView::Item* iLabel,float& iTop,unsigne
 
 	tTextLength+=(iLevel*Tab::ICON_WH)+(iLabel->Items().size() ? Tab::ICON_WH : 0);
 
-	this->SetContent(tTextLength,iTop);
+	this->SetContent(tTextLength,iTop-this->top());
 
 	if(iLabel->Items().size())
 	{
@@ -2082,8 +2060,6 @@ GuiTreeView::GuiTreeView():
 {
 	this->SetFlag(FLAGS,HSCROLL,true);
 	this->SetFlag(FLAGS,VSCROLL,true);
-
-	this->SetFlags(FUNIN,0xffffffff);
 }
 
 void GuiTreeView::Append(Item& iLabel)
@@ -2120,8 +2096,57 @@ void GuiTreeView::Broadcast(Funcs iFunc,GUIMSGDEF)
 {
 	GuiRect::Broadcast(iFunc,GUIMSGCALL);
 
-	if(this->items)
-		BroadcastGuiTreeViewItems(this->items,iFunc,iTab,iMsg);
+	switch(iFunc)
+	{
+		case ONHITTEST:
+		{
+			if(iMsg.hit==this)
+			{
+				GuiRect* hBar=this->HBar();
+				GuiRect* vBar=this->VBar();
+
+				iTab->BroadcastTo(hBar,iFunc,iMsg);
+				iTab->BroadcastTo(vBar,iFunc,iMsg);
+
+				if(this->items && iMsg.hit!=hBar && iMsg.hit!=vBar)
+				{
+					vec2 tMouse=iMsg.mouse;
+
+					vec2 tOffset=this->EdgeOffset();
+
+					iMsg.mouse.x-=tOffset.x;
+					iMsg.mouse.y-=tOffset.y;
+
+					BroadcastGuiTreeViewItems(this->items,iFunc,iTab,iMsg);
+
+					iMsg.mouse.x=tMouse.x;
+					iMsg.mouse.y=tMouse.y;
+				}
+			}
+		}
+		break;
+		case ONPAINT:
+		{
+			iTab->PushScissor(this->EdgeClip(),this->EdgeOffset());
+
+			if(this->items)
+				BroadcastGuiTreeViewItems(this->items,iFunc,iTab,iMsg);
+
+			iTab->PopScissor();
+
+			iTab->BroadcastTo(this->HBar(),iFunc,iMsg);
+			iTab->BroadcastTo(this->VBar(),iFunc,iMsg);
+		}
+		break;
+		default:
+		{
+			if(this->items)
+				BroadcastGuiTreeViewItems(this->items,iFunc,iTab,iMsg);
+
+			iTab->BroadcastTo(this->HBar(),iFunc,iMsg);
+			iTab->BroadcastTo(this->VBar(),iFunc,iMsg);
+		}
+	}
 }
 
 ///////////////////////////////////////////////
@@ -2138,12 +2163,13 @@ GuiPropertyTree::Container::Property::Property(String iDescription,GuiRect& iPro
 {
 	this->SetFlag(FLAGS,DRAWHOVER,true);
 	this->SetFlag(FLAGS,CHILD,false);
-	this->SetFlag(FUNIN,ONSIZE,true);
 
 	this->SetName(iDescription);
 	this->Append(&iProperty);
 
-	iProperty.Activate(true);
+	this->property->SetFlag(FLAGS,CHILD,false);
+
+	this->property->Activate(true);
 }
 
 float GuiPropertyTree::Container::Property::EdgeLevel()
@@ -2387,10 +2413,57 @@ void GuiPropertyTree::Broadcast(Funcs iFunc,GUIMSGDEF)
 {
 	GuiRect::Broadcast(iFunc,GUIMSGCALL);
 
-	this->ResetContent();
+	switch(iFunc)
+	{
+	case ONHITTEST:
+		{
+			if(iMsg.hit==this)
+			{
+				GuiRect* hBar=this->HBar();
+				GuiRect* vBar=this->VBar();
 
-	if(this->items)
-		BroadcastGuiPropertyTreeItems(this->items,iFunc,iTab,iMsg);
+				iTab->BroadcastTo(hBar,iFunc,iMsg);
+				iTab->BroadcastTo(vBar,iFunc,iMsg);
+
+				if(this->items && iMsg.hit!=hBar && iMsg.hit!=vBar)
+				{
+					vec2 tMouse=iMsg.mouse;
+
+					vec2 tOffset=this->EdgeOffset();
+
+					iMsg.mouse.x-=tOffset.x;
+					iMsg.mouse.y-=tOffset.y;
+
+					BroadcastGuiPropertyTreeItems(this->items,iFunc,iTab,iMsg);
+
+					iMsg.mouse.x=tMouse.x;
+					iMsg.mouse.y=tMouse.y;
+				}
+			}
+		}
+		break;
+	case ONPAINT:
+		{
+			iTab->PushScissor(this->EdgeClip(),this->EdgeOffset());
+
+			if(this->items)
+				BroadcastGuiPropertyTreeItems(this->items,iFunc,iTab,iMsg);
+
+			iTab->PopScissor();
+
+			iTab->BroadcastTo(this->HBar(),iFunc,iMsg);
+			iTab->BroadcastTo(this->VBar(),iFunc,iMsg);
+		}
+		break;
+	default:
+		{
+			if(this->items)
+				BroadcastGuiPropertyTreeItems(this->items,iFunc,iTab,iMsg);
+
+			iTab->BroadcastTo(this->HBar(),iFunc,iMsg);
+			iTab->BroadcastTo(this->VBar(),iFunc,iMsg);
+		}
+	}
 }
 
 void GuiPropertyTree::ConfigureContent(GuiRect* iParent,GuiRect* iGui,float& iTop,unsigned int iLevel,GuiRoot* iRoot)
@@ -2415,7 +2488,7 @@ void GuiPropertyTree::ConfigureContent(GuiRect* iParent,GuiRect* iGui,float& iTo
 
 		tTextLength+=(iLevel*Tab::ICON_WH)+(tContainer->items.size() ? Tab::ICON_WH : 0);
 
-		this->SetContent(tTextLength,iTop);
+		this->SetContent(tTextLength,iTop-this->top());
 
 		if(tContainer->Items().size())
 		{
@@ -2444,7 +2517,7 @@ void GuiPropertyTree::ConfigureContent(GuiRect* iParent,GuiRect* iGui,float& iTo
 			tProperty->top(iTop);
 			iTop=tProperty->bottom();
 
-			this->SetContent(this->GetContent().x,iTop);
+			this->SetContent(this->GetContent().x,iTop-this->top());
 
 			iRoot->GetTab()->BroadcastTo(tProperty,ONSIZE);
 		}
@@ -2459,9 +2532,6 @@ GuiPropertyTree::GuiPropertyTree():
 {
 	this->SetFlag(FLAGS,HSCROLL,true);
 	this->SetFlag(FLAGS,VSCROLL,true);
-
-	this->SetFlags(FUNIN,0xffffffff);
-	this->SetFlags(FUNIN,0xffffffff);
 }
 
 void GuiPropertyTree::InsertContainer(Container& iLabel)
@@ -2475,6 +2545,8 @@ void GuiPropertyTree::RecalcItems()
 {
 	float			tTop=this->top();
 	unsigned int	tLevel=0;
+
+	this->ResetContent();
 
 	if(this->items)
 		this->ConfigureContent(0,this->items,tTop,tLevel,GetRoot());
@@ -2800,21 +2872,17 @@ GuiRoot::GuiRoot(Tab* t):tab(t)
 {
 	this->SetName(L"RootRect");
 	this->SetFlag(FLAGS,ACTIVE,true);
-	this->SetFlag(FUNIN,ONSIZE,true);
 }
 
 GuiRoot::~GuiRoot()
 {
 }
 
-
-
-
 void GuiRoot::OnSize(GUIMSGDEF)
 {
 	vec2 tTabSize=this->GetTab()->Size();
 
-	vec4 tGuiRootSize(0,this->GetTab()->hasFrame ? Tab::BAR_HEIGHT : 0,tTabSize.x,tTabSize.y - (this->GetTab()->isModal ? Tab::BAR_HEIGHT : 0));
+	vec4 tGuiRootSize(0,this->GetTab()->hasFrame ? Tab::BAR_HEIGHT : 0,tTabSize.x,tTabSize.y);
 
 	this->Edges(tGuiRootSize);
 
@@ -3092,45 +3160,51 @@ namespace GuiListBoxHelpers
 GuiListBox::GuiListBox(){}
 GuiListBox::~GuiListBox(){}
 
-GuiListBox::Item* GuiListBox::Append(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2)
+GuiListBox::Item* GuiListBox::Append(Item* iItem)
 {
-	bool tFirst=this->Childs().empty();
+	iItem->listbox=this;
 
-	Item* tNewItem=(Item*)GuiRect::Append(new Item(iValuePointer1,iValueType,iValuePointer2));
+	iItem->top(this->Childs().empty() ? this->top() : this->Childs().back()->bottom());
 
-	tNewItem->SetFlag(FLAGS,DRAWHOVER,true);
-	tNewItem->SetFlag(FLAGS,PARDELETE,true);
+	iItem->Activate(true);
 
-	tNewItem->listbox=this;
+	GuiRect::Append(iItem);
 
-	if(tFirst)
-	tNewItem->GuiStringProperty::top(tNewItem->Previous()->top());
-	else
-	tNewItem->GuiStringProperty::top(tNewItem->Previous()->bottom());
-
-	tNewItem->GuiStringProperty::bottom(tNewItem->top()+Tab::ICON_WH);
-
-	tNewItem->Activate(true);
-
-	return tNewItem;
+	return iItem;
 }
 
 void GuiListBox::Remove(Item* iItem)
 {
-	if(iItem->Next())
-	iItem->Next()->top(iItem->Previous()->bottom());
+	for(std::list<GuiRect*>::const_iterator i=this->Childs().begin();i!=this->Childs().end();)
+	{
+		if(iItem==*i)
+		{
+			GuiRect* tFound=*i;
+			GuiRect* tNext=(std::next(i) != this->Childs().end() ?  *std::next(i) : 0);
 
-	this->GuiRect::Remove(iItem);
+			if(tNext)
+				tNext->top(tFound->top());
+
+			this->GuiRect::Remove(iItem);
+
+			return;
+		}
+		else i++;
+	}
+
+	
+
+	
 }
 
-GuiListBox::Item::Item(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2):GuiStringProperty(iValuePointer1,iValueType,iValuePointer2){}
+GuiListBox::Item::Item(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2):GuiStringProperty(iValuePointer1,iValueType,iValuePointer2),height(Tab::ICON_WH),listbox(0){}
 
 
 GuiListBox* GuiListBox::Item::ListBox(){return this->listbox;}
 
 float GuiListBox::Item::left(){return this->ListBox()->left();}
-float GuiListBox::Item::right(){return this->ListBox()->right();}
-float GuiListBox::Item::bottom(){return this->top()+Tab::ICON_WH;}
+float GuiListBox::Item::right(){return this->ListBox()->left()+this->ListBox()->Maxes().x;}
+float GuiListBox::Item::bottom(){return this->top()+this->height;}
 
 /*
 void GuiListBox::AddItem(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2,unsigned int iValueParameter1,unsigned int iValueParameter2)
@@ -3206,8 +3280,8 @@ void pfdGuiComboBoxDownButtonAction(void* iData)
 	}
 	else
 	{
-		Tab*		tTab=tComboBox->GetRoot()->GetTab();
-		Container*	tContainer=tTab->container;
+		Tab*			tTab=tComboBox->GetRoot()->GetTab();
+		TabContainer*	tContainer=tTab->container;
 
 		vec2		tPopupSize(tComboBox->string->Edges().z+tComboBox->button->Edges().z,tComboBox->items.size()*GuiRect::ROW_HEIGHT);
 
@@ -3443,7 +3517,6 @@ GuiButton::GuiButton():func(0),param(0),value(0),mode(-1)
 {
 	this->SetFlag(FLAGS,DRAWHOVER,true);
 	this->SetFlag(FLAGS,DRAWPRESS,true);
-	this->SetFlag(NOTIFYPAR,ONBUTTONUP,true);
 
 	this->Spot(0.5f,0.5f);
 	this->Alignment(0.5f,0.5f);
@@ -3466,7 +3539,7 @@ void GuiButton::OnButtonUp(GUIMSGDEF)
 	if(this->func)
 		this->func(this->param);
 
-	iTab->SetDraw(this);
+	this->GetParent()->OnControlEvent(iTab,Msg(this,ONBUTTONUP));
 }
 
 ///////////////////////////////////////////////
@@ -3544,7 +3617,6 @@ void GuiPathHelpers::OnSelectDirectoryButtonPressed(void* iData)
 
 GuiSlider::GuiSlider(float* iRef,float* iMin,float* iMax):referenceValue(iRef),minimum(iMin),maximum(iMax)
 {
-	this->SetFlag(NOTIFYPAR,ONMOUSEMOVE,true);
 }
 
 void GuiSlider::SetPosition(Tab* iTab,const vec2& iMouse)
@@ -3635,8 +3707,6 @@ GuiAnimationController::GuiAnimationController(AnimationController& iAnimationCo
 	animationController(iAnimationController),
 	slider(&animationController.cursor,&this->animationController.start,&this->animationController.end)
 {
-	this->SetFlag(FUNIN,ONSIZE,true);
-
 	this->play.value=&this->animationController.play;
 	this->stop.value=&this->animationController.play;
 
@@ -3880,7 +3950,7 @@ EditorEntity* GuiSceneViewport::Entity(){return GuiSceneViewer::Instance()->Enti
 ///////////////////////////////////////////////
 
 GuiScrollBar::GuiScrollBar(GuiScrollRect* iRect,Type iScrollbarType):
-rect(iRect),
+	rect(iRect),
 	type(iScrollbarType),
 	scrollerPressed(-1),
 	position(0)
@@ -3904,11 +3974,11 @@ vec4  GuiScrollBar::Edges()
 	{
 		case HORIZONTAL: 
 			tEdges.y=tEdges.w-GuiScrollBar::TICK;
-			tEdges.z-=GuiScrollBar::TICK;
+			tEdges.z-=this->rect->VBar()->IsActive() ? GuiScrollBar::TICK :0;
 		break;
 		case VERTICAL: 
 			tEdges.x=tEdges.z-GuiScrollBar::TICK;
-			tEdges.w-=GuiScrollBar::TICK;
+			tEdges.w-=this->rect->HBar()->IsActive() ? GuiScrollBar::TICK : 0;
 		break;
 	}
 
@@ -3921,11 +3991,12 @@ void GuiScrollBar::SetPosition(float iPositionPercent)
 
 	vec4 tEdges=this->Edges();
 
-	float scrollerContainerLength=this->GetContainerLength(tEdges);
-	float scrollerLength=this->GetScrollerLength(tEdges);
+	float tScrollerContainerLength=this->GetContainerLength(tEdges);
+	float tScrollerLength=this->GetScrollerLength(tEdges);
+	float tRatio=this->Ratio();
 
-	if((iPositionPercent+this->Ratio())>1)
-		this->position=(scrollerContainerLength-scrollerLength)/scrollerContainerLength;
+	if((iPositionPercent+tRatio)>1)
+		this->position=(tScrollerContainerLength-tScrollerLength)/tScrollerContainerLength;
 	else
 		this->position = iPositionPercent < 0 ? 0 : iPositionPercent;
 }
@@ -3960,8 +4031,11 @@ float GuiScrollBar::Ratio()
 	return tRatio;
 }
 
+
 void GuiScrollBar::OnButtonUp(GUIMSGDEF)
 {
+	GuiRect::OnButtonUp(GUIMSGCALL);
+
 	if(iMsg.button==1)
 		this->scrollerPressed=-1;
 }
@@ -3969,6 +4043,8 @@ void GuiScrollBar::OnButtonUp(GUIMSGDEF)
 
 void GuiScrollBar::OnButtonDown(GUIMSGDEF)
 {
+	GuiRect::OnButtonDown(GUIMSGCALL);
+
 	if(iMsg.button==1)
 	{
 		vec4 tEdges=this->Edges();
@@ -4006,7 +4082,7 @@ void GuiScrollBar::OnButtonDown(GUIMSGDEF)
 
 void GuiScrollBar::OnMouseMove(GUIMSGDEF)
 {
-	if(this->rect->IsPressing())
+	if(this->IsPressing())
 	{
 		float& tTreshold=this->type==VERTICAL ? iMsg.mouse.y : iMsg.mouse.x;
 
@@ -4075,18 +4151,22 @@ void GuiScrollBar::OnPaint(GUIMSGDEF)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiScrollRect::GuiScrollRect():hscroll(this,GuiScrollBar::HORIZONTAL),vscroll(this,GuiScrollBar::VERTICAL){}
+GuiScrollRect::GuiScrollRect():hscroll(this,GuiScrollBar::HORIZONTAL),vscroll(this,GuiScrollBar::VERTICAL)
+{
+	this->hscroll.SetFlag(FLAGS,CHILD,false);
+	this->vscroll.SetFlag(FLAGS,CHILD,false);
+}
 
 
 vec4 GuiScrollRect::EdgeClip()
 {
-	float tLeft=this->left();
-	float tTop=this->top();
-	float tRight=this->right();
-	float tBottom=this->bottom();
+	float	tLeft=this->left();
+	float	tTop=this->top();
+	float	tRight=this->right();
+	float	tBottom=this->bottom();
 
-	tRight-=GuiScrollBar::TICK;
-	tBottom-=GuiScrollBar::TICK;
+	tRight -= this->vscroll.IsActive() ? GuiScrollBar::TICK : 0;
+	tBottom -= this->hscroll.IsActive() ? GuiScrollBar::TICK : 0;
 
 	return vec4(tLeft,tTop,tRight,tBottom);
 }
@@ -4101,60 +4181,42 @@ vec2 GuiScrollRect::MouseClip(const vec2& iMouse)
 	return iMouse;
 }
 
-void GuiScrollRect::OnPostClipPaint(GUIMSGDEF)
+void GuiScrollRect::Broadcast(Funcs iFunc,GUIMSGDEF)
 {
+	GuiRect::Broadcast(iFunc,GUIMSGCALL);
+
+	iTab->BroadcastTo(this->HBar(),iFunc,iMsg);
+	iTab->BroadcastTo(this->VBar(),iFunc,iMsg);
 }
 
-void CallGuiScrollBarInputFunc(GuiScrollRect& iScrollRect,void (GuiScrollBar::*iFunc)(GUIMSGDEF),GUIMSGDECL)
+GuiScrollBar* GuiScrollRect::HBar(){return &this->hscroll;}
+GuiScrollBar* GuiScrollRect::VBar(){return &this->vscroll;}
+
+void GuiScrollRect::RecalcScrollbars()
 {
-	if(iScrollRect.HBar().Contains(iMsg.mouse))
-		(iScrollRect.HBar().*iFunc)(GUIMSGCALL);
+	float	tLeft=this->left();
+	float	tTop=this->top();
+	float	tRight=this->right();
+	float	tBottom=this->bottom();
 
-	if(iScrollRect.VBar().Contains(iMsg.mouse))
-		(iScrollRect.VBar().*iFunc)(GUIMSGCALL);
+	this->hscroll.Activate(this->content.x>(tRight-tLeft));
+	tBottom -= this->hscroll.IsActive() ? GuiScrollBar::TICK : 0;
+	this->vscroll.Activate(this->content.y>(tBottom-tTop));
+	tRight -= this->vscroll.IsActive() ? GuiScrollBar::TICK : 0;
+	this->hscroll.Activate(this->content.x>(tRight-tLeft));
+
+	this->maxes.x=std::max<float>(tRight-tLeft,this->content.x);
+	this->maxes.y=std::max<float>(tBottom-tTop,this->content.y);
+
+	this->hscroll.SetPosition(this->hscroll.position);
+	this->vscroll.SetPosition(this->vscroll.position);
 }
-
-void GuiScrollRect::OnButtonDown(GUIMSGDEF)
-{
-	GuiRect::OnButtonDown(GUIMSGCALL);
-
-	CallGuiScrollBarInputFunc(*this,&GuiScrollBar::OnButtonDown,GUIMSGCALL);
-}
-
-void GuiScrollRect::OnButtonUp(GUIMSGDEF)
-{
-	GuiRect::OnButtonUp(GUIMSGCALL);
-
-	CallGuiScrollBarInputFunc(*this,&GuiScrollBar::OnButtonUp,GUIMSGCALL);
-}
-
-void GuiScrollRect::OnMouseMove(GUIMSGDEF)
-{
-	GuiRect::OnMouseMove(GUIMSGCALL);
-
-	CallGuiScrollBarInputFunc(*this,&GuiScrollBar::OnMouseMove,GUIMSGCALL);
-}
-
-GuiScrollBar& GuiScrollRect::HBar(){return this->hscroll;}
-GuiScrollBar& GuiScrollRect::VBar(){return this->vscroll;}
 
 void GuiScrollRect::OnSize(GUIMSGDEF)
 {
 	GuiRect::OnSize(GUIMSGCALL);
 
-	vec4 tEdges=this->EdgeClip();
-
-	float tWidth=tEdges.z-tEdges.x;
-	float tHeight=tEdges.w-tEdges.y;
-
-	float xOffset=this->HBar().GetPosition();
-	float yOffset=this->VBar().GetPosition();
-
-	this->maxes.x=std::max<float>(xOffset+tWidth,xOffset+this->content.x);
-	this->maxes.y=std::max<float>(yOffset+tHeight,yOffset+this->content.y);
-
-	this->HBar().SetPosition(this->HBar().position);
-	this->VBar().SetPosition(this->VBar().position);
+	this->RecalcScrollbars();
 }
 
 void GuiScrollRect::SetContent(float iHor,float iVer)
@@ -4162,29 +4224,19 @@ void GuiScrollRect::SetContent(float iHor,float iVer)
 	this->content.x=std::max<float>(this->content.x,iHor);
 	this->content.y=std::max<float>(this->content.y,iVer);
 
-	vec4 tEdges=this->EdgeClip();
-
-	float tWidth=tEdges.z-tEdges.x;
-	float tHeight=tEdges.w-tEdges.y;
-
-	this->maxes.x=std::max<float>(tWidth,this->content.x);
-	this->maxes.y=std::max<float>(tHeight,this->content.y);
+	this->RecalcScrollbars();
 }
 
 void GuiScrollRect::ResetContent()
 {
 	this->content.make(0,0);
+
+	this->RecalcScrollbars();
 }
 
-const vec2& GuiScrollRect::GetContent()
-{
-	return this->content;
-}
+const vec2& GuiScrollRect::GetContent(){return this->content;}
 
-const vec2& GuiScrollRect::Maxes()
-{
-	return this->maxes;
-}
+const vec2& GuiScrollRect::Maxes(){return this->maxes;}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4370,8 +4422,6 @@ GuiProjectViewer::GuiProjectViewer():
 	this->SetName(L"Project");
 
 	this->Color(0x303030);
-
-	this->SetFlags(FUNIN,0xffffffff);
 
 	projectDirectory=new ResourceNodeDir;
 	this->projectDirectory->fileName=Ide::Instance()->folderProject;
@@ -4621,7 +4671,6 @@ void GuiProjectViewer::FileViewer::FileLabel::OnButtonUp(GUIMSGDEF)
 
 GuiProjectViewer::DataViewer::DataViewer()
 {
-	this->SetFlags(FUNIN,0xffffffff);
 }
 
 //////////////////////////////////////
@@ -5260,7 +5309,12 @@ void EditorLine::OnPropertiesCreate()
 	this->PropertyContainer().Append(pNumSegments);
 
 	for(std::list<vec3>::iterator i=this->points.begin();i!=this->points.end();i++)
-		this->pointListBox.Append(*i,GuiStringProperty::VEC3);
+	{
+		GuiListBox::Item* tPoint=new GuiListBox::Item(*i,GuiStringProperty::VEC3);
+
+		this->pointItems.push_back(tPoint);
+		this->pointListBox.Append(tPoint);
+	}
 
 	this->Entity()->PropertyContainer().Append(this->PropertyContainer());
 }
@@ -5276,7 +5330,11 @@ void EditorLine::Append(vec3 iPoint)
 {
 	this->points.push_back(iPoint);
 	vec3* tVec3=&this->points.back();
-	this->pointListBox.Append(tVec3,GuiStringProperty::VEC3);
+
+	GuiListBox::Item* tPoint=new GuiListBox::Item(tVec3,GuiStringProperty::VEC3);
+
+	this->pointItems.push_back(tPoint);
+	this->pointListBox.Append(tPoint);
 }
 
 
@@ -5441,40 +5499,75 @@ bool FileExists(const char* iFile)
 ///////////////////////////////////////////////
 
 
-PluginSystem::Plugin::Plugin():loaded(false),name(L"Plugin"),handle(0){}
+PluginSystem::Plugin::Plugin():loaded(false),name(L"Plugin"),handle(0),listBoxItem(this){}
 
-PluginSystem::PluginSystem():tab(0){this->viewer.SetName(L"Plugins");}
-PluginSystem::~PluginSystem(){}
-
-namespace PluginSystemUtils
+void PluginSystem::Plugin::Load()
 {
-	void ptfCloseConfigurationPanel(void* tData)
-	{
-		PluginSystem* tPluginSystem=(PluginSystem*)tData;
+	this->loaded=true;
+	this->listBoxItem.button.Color(0x00ff00);
+}
 
-		tPluginSystem->GetTab()->Destroy();
+void PluginSystem::Plugin::Unload()
+{
+	this->loaded=false;
+	this->listBoxItem.button.Color(0xff0000);
+}
+
+PluginSystem::PluginSystem():viewer(this){this->viewer.SetName(L"Plugins");}
+PluginSystem::~PluginSystem(){}	
+
+PluginSystem::Plugin::PluginListBoxItem::PluginListBoxItem(Plugin* iPlugin):Item(&iPlugin->name,GuiStringProperty::STRING),plugin(iPlugin)
+{
+	this->button.Activate(true);
+	this->Append(&this->button);
+}
+
+void PluginSystem::Plugin::PluginListBoxItem::OnSize(GUIMSGDEF)
+{
+	Item::OnSize(GUIMSGCALL);
+
+	vec4 tEdges=this->Edges();
+
+	this->button.Edges(vec4(tEdges.z-15,tEdges.w-15,tEdges.z-5,tEdges.w-5));
+}
+
+void PluginSystem::Plugin::PluginListBoxItem::OnControlEvent(GUIMSGDEF)
+{
+	Item::OnControlEvent(GUIMSGCALL);
+
+	if(iMsg.sender==&this->button && iMsg.senderFunc==ONBUTTONUP)
+		this->plugin->loaded ? this->plugin->Unload() : this->plugin->Load();
+}
+
+const std::list<PluginSystem::Plugin*>& PluginSystem::Plugins(){return this->plugins;}
+PluginSystem::PluginViewer& PluginSystem::Viewer(){return this->viewer;}
+
+PluginSystem::PluginViewer::PluginViewer(PluginSystem* iPluginSystem):pluginSystem(iPluginSystem){}
+
+void PluginSystem::PluginViewer::OnSize(GUIMSGDEF)
+{
+	GuiRect::OnSize(GUIMSGCALL);
+
+	vec4 tEdges=this->GetParent()->Edges();
+
+	this->pluginList.Edges(vec4(tEdges.x,tEdges.y,tEdges.z,tEdges.w-30));
+	this->exitButton.Edges(vec4(tEdges.z-110,tEdges.w-25,tEdges.z-10,tEdges.w-5));
+}
+
+void PluginSystem::PluginViewer::OnControlEvent(GUIMSGDEF)
+{
+	if(iMsg.sender==&this->exitButton && iMsg.senderFunc==ONBUTTONUP)
+	{
+		this->tab->Destroy();
 		Ide::Instance()->mainAppWindow->mainContainer->windowData->Enable(true);
-	}
-
-	void ptfLoadUnloadConfigurationPanelRowButton(void* tData)
-	{
-		GuiButton* tButtonFunc=(GuiButton*)tData;
-
-		PluginSystem::Plugin* tPLugin=(PluginSystem::Plugin*)tButtonFunc->GetUserData();
-
-		tPLugin->loaded ? tPLugin->Unload() : tPLugin->Load();
-
-		tButtonFunc->Color(tPLugin->loaded==false ? 0xff0000 : 0x00ff00);
 	}
 }
 
-Tab* PluginSystem::GetTab(){return this->tab;}
-
-const std::list<PluginSystem::Plugin*>& PluginSystem::Plugins(){return this->plugins;}
-
-void PluginSystem::ShowConfigurationPanel()
+void PluginSystem::PluginViewer::Show()
 {
-	Container* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
+	this->pluginSystem->ScanPluginsDirectory();
+
+	TabContainer* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
 
 	tContainer->windowData->Enable(false);
 
@@ -5489,60 +5582,38 @@ void PluginSystem::ShowConfigurationPanel()
 
 	vec4 tTabEdges(tTabPos.x,tTabPos.y,tTabPos.x+tTabSize.x,tTabPos.y+tTabSize.y);
 
-	this->viewer.Activate(true);
-	this->pluginList.Activate(true);
-	this->exitButton.Activate(true);
+	this->tab->rects.Append(this);
 
-	this->viewer.Append(&this->pluginList);
-	this->viewer.Append(&this->exitButton);
-
-	this->tab->rects.Append(&this->viewer);
-
-	this->pluginList.Edges(this->viewer.Edges());
+	this->Color(0x303030);
 
 	int even=0x101010;
-	int odd=0x151515;
+	int odd=0x202020;
 
 	int idx=0;
 
-	for(std::list<Plugin*>::iterator i=this->plugins.begin();i!=this->plugins.end();i++,idx++)
+	for(std::list<Plugin*>::const_iterator i=this->pluginSystem->Plugins().begin();i!=this->pluginSystem->Plugins().end();i++,idx++)
 	{
-		Plugin* tPlugin=*i;
+		Plugin* tPlugin=(*i);
 
-		GuiRect* tPluginRow=this->pluginList.Append(&tPlugin->name,GuiStringProperty::STRING);
+		this->pluginList.Append(&tPlugin->listBoxItem);
 
-		tPluginRow->Color(this->pluginList.Color() + (idx%2==0 ? even : odd));
-
-		tPluginRow->SetFlag(GuiRect::FLAGS,GuiRect::DRAWHOVER,false);
-		tPluginRow->SetFlag(GuiRect::FLAGS,GuiRect::DRAWPRESS,false);
-
-		vec4 tRowEdges=tPluginRow->Edges();
-
-		GuiCheckButton* tCheckButton=new GuiCheckButton;
-
-		tCheckButton->SetFlag(GuiRect::FLAGS,GuiRect::PARDELETE,true);
+		tPlugin->listBoxItem.Color(this->pluginList.Color() + (idx%2==0 ? even : odd));
 		
-		tCheckButton->left(tRowEdges.z-15);
-		tCheckButton->top(tRowEdges.y+5);
-		tCheckButton->right(tRowEdges.z-5);
-		tCheckButton->bottom(tRowEdges.w-5);
+		tPlugin->listBoxItem.SetFlag(GuiRect::FLAGS,GuiRect::DRAWHOVER,false);
+		tPlugin->listBoxItem.SetFlag(GuiRect::FLAGS,GuiRect::DRAWPRESS,false);
 
-		tCheckButton->Activate(true);
-
-		tPluginRow->Append(tCheckButton);
+		tPlugin->listBoxItem.button.Color(tPlugin->loaded ? 0x00ff00 : 0xff0000);
 	}
 
-	float tViewerZ=this->viewer.right();
-	float tViewerW=this->viewer.bottom();
+	this->pluginList.Activate(true);
+	this->exitButton.Activate(true);
 
-	vec4 tExitButtonEdges(tViewerZ-110,tViewerW+5,tViewerZ-10,tViewerW+25);
+	this->Append(&this->pluginList);
+	this->Append(&this->exitButton);
 
 	this->exitButton.Text(L"Exit");
 
-	this->exitButton.Edges(tExitButtonEdges);
-
-	this->exitButton.func=PluginSystemUtils::ptfCloseConfigurationPanel;
-	this->exitButton.param=this;
+	this->Activate(true);
 }
 
 
@@ -5565,8 +5636,7 @@ void MainContainer::OnMenuPressed(int iIdx)
 	}
 	else if(iIdx==MenuActionConfigurePlugin)
 	{
-		Ide::Instance()->pluginSystem->ScanPluginsDirectory();
-		Ide::Instance()->pluginSystem->ShowConfigurationPanel();
+		Ide::Instance()->pluginSystem->Viewer().Show();
 	}
 	else if(iIdx==MenuActionProgramInfo)
 	{
@@ -5578,7 +5648,7 @@ void MainContainer::OnMenuPressed(int iIdx)
 
 void MainContainer::Broadcast(GuiRect::Funcs iFunc,const Msg& iMsg)
 {
-	for(std::vector<Container*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
+	for(std::vector<TabContainer*>::iterator tContainer=this->containers.begin();tContainer!=this->containers.end();tContainer++)
 		(*tContainer)->Broadcast(iFunc,iMsg);
 }
 

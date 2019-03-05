@@ -62,15 +62,15 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 {
 	Scene* tScene=new Scene;
 	//assign the file name to the scene name
-	tScene->name=iSceneResource.Name();
+	tScene->SetName(iSceneResource.Name());
 
-	printf("loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
+	printf("loading scene %s\n",StringUtils::ToChar(tScene->GetName()).c_str());
 
-	tScene->entity=SerializerHelpers::loadSceneEntityRecursively(tScene->entity,resourceData);
+	tScene->SetEntity(SerializerHelpers::loadSceneEntityRecursively(tScene->GetEntity(),resourceData));
 
 	//barely load entities and components
-	if(!tScene->entity)
-		printf("error loading scene %s\n",StringUtils::ToChar(tScene->name).c_str());
+	if(!tScene->GetEntity())
+		printf("error loading scene %s\n",StringUtils::ToChar(tScene->GetName()).c_str());
 
 	return tScene;
 }

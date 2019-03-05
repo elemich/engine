@@ -193,8 +193,10 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-	if(currentScene && currentScene->entity)
-		currentScene->entity->update();
+	Entity* tCurrentSceneRootEntity=(currentScene ? currentScene->GetEntity() : 0);
+
+	if(tCurrentSceneRootEntity)
+		tCurrentSceneRootEntity->update();
 
 	MatrixStack::Push(MatrixStack::PROJECTION,projection);
 	MatrixStack::Push(MatrixStack::VIEW,view);
@@ -204,8 +206,8 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 	renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
 	renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-	if(currentScene && currentScene->entity)
-		currentScene->entity->draw(renderer3D);	
+	if(tCurrentSceneRootEntity)
+		tCurrentSceneRootEntity->draw(renderer3D);	
 
 	MatrixStack::Pop(MatrixStack::MODEL);
 	MatrixStack::Pop(MatrixStack::VIEW);
@@ -1360,7 +1362,7 @@ void Renderer3DAndroid::draw(Bone* bone)
 	if(!shader)
 		return;
 
-	vec3 a=bone->Entity()->parent->world.position();
+	vec3 a=bone->Entity()->Parent()->world.position();
 	vec3 b=bone->Entity()->world.position();
 
 	float line[]=
