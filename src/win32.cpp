@@ -3567,7 +3567,7 @@ void TabWin32::OnGuiRMouseUp(void* data)
 	}
 	else
 	{
-		this->Broadcast(GuiRect::ONBUTTONUP,Msg(this->mouse));
+		this->Broadcast(GuiRect::ONMOUSEUP,Msg(this->mouse));
 	}
 }
 
@@ -4417,19 +4417,21 @@ String SubsystemWin32::DirectoryChooser(String iDescription,String iExtension)
 	return L"";
 }
 
-String SubsystemWin32::FileChooser(String iDescription,String iExtension)
+String SubsystemWin32::FileChooser(wchar_t* iFilter,unsigned int iFilterIndex)
 {
-	wchar_t charpretval[5000]={0};
-
+	wchar_t tOutputBuffer[5000]={0};
+	
 	OPENFILENAME openfilename={0};
 	openfilename.lStructSize=sizeof(OPENFILENAME);
 	openfilename.hwndOwner=(HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle();
-	openfilename.lpstrFilter=(iDescription + L"\0" + iExtension + L"\0\0").c_str();
-	openfilename.nFilterIndex=1;
-	openfilename.lpstrFile=charpretval;
+	openfilename.lpstrFilter=iFilter;
+	openfilename.nFilterIndex=iFilterIndex;
+	openfilename.lpstrFile=tOutputBuffer;
 	openfilename.nMaxFile=5000;
 
 	GetOpenFileName(&openfilename);
+
+	DWORD tError=GetLastError();
 
 	return openfilename.lpstrFile;
 }

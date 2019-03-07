@@ -419,9 +419,9 @@ struct DLLBUILD GuiRect
 		ONPAINT,
 		ONENTITIESCHANGE,
 		ONSIZE,
-		ONBUTTONDOWN,
-		ONDOUBLECLICK,
-		ONBUTTONUP,
+		ONMOUSEDOWN,
+		ONMOUSECLICK,
+		ONMOUSEUP,
 		ONMOUSEMOVE,
 		ONUPDATE,
 		ONREPARENT,
@@ -466,9 +466,9 @@ private:
 	void* userData;
 protected:
 	virtual void OnPaint(GUIMSGDECL){}
-	virtual void OnButtonDown(GUIMSGDECL);
-	virtual void OnDoubleClick(GUIMSGDECL);
-	virtual void OnButtonUp(GUIMSGDECL);
+	virtual void OnMouseDown(GUIMSGDECL);
+	virtual void OnMouseClick(GUIMSGDECL);
+	virtual void OnMouseUp(GUIMSGDECL);
 	virtual void OnMouseMove(GUIMSGDECL);
 	virtual void OnMouseWheel(GUIMSGDECL);
 public:
@@ -612,8 +612,8 @@ private:
 	
 	vec4  Edges();
 
-	void OnButtonDown(GUIMSGDECL);
-	void OnButtonUp(GUIMSGDECL);
+	void OnMouseDown(GUIMSGDECL);
+	void OnMouseUp(GUIMSGDECL);
 	void OnMouseMove(GUIMSGDECL);
 	void OnPaint(GUIMSGDECL);
 
@@ -654,6 +654,19 @@ public:
 	const vec2& GetContent();
 
 	const vec2& Maxes();
+};
+
+struct GuiImage : GuiRect
+{
+	Picture* image;
+
+	GuiImage();
+	GuiImage(unsigned char* iRefData,float iWidth,float iHeight);
+	GuiImage(String iFilename);
+	~GuiImage();
+
+	void OnPaint(GUIMSGDECL);
+	void OnActivate(GUIMSGDECL);
 };
 
 struct DLLBUILD GuiRoot : GuiRect
@@ -707,7 +720,7 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 
 		const std::list<Item*>& Items();
 
-		virtual void OnButtonUp(GUIMSGDECL);
+		virtual void OnMouseUp(GUIMSGDECL);
 		virtual	void OnPaint(GUIMSGDECL);
 
 		virtual void Append(Item&);
@@ -760,8 +773,8 @@ struct DLLBUILD GuiPropertyTree : GuiScrollRect
 
 			virtual void OnPaint(GUIMSGDECL);
 			virtual void OnSize(GUIMSGDECL);
-			virtual void OnButtonDown(GUIMSGDECL);
-			virtual void OnButtonUp(GUIMSGDECL);
+			virtual void OnMouseDown(GUIMSGDECL);
+			virtual void OnMouseUp(GUIMSGDECL);
 			virtual void OnMouseMove(GUIMSGDECL);
 		};
 
@@ -801,7 +814,7 @@ struct DLLBUILD GuiPropertyTree : GuiScrollRect
 
 		bool ExpandosContains(const vec2& iMouse);
 
-		virtual void OnButtonUp(GUIMSGDECL);
+		virtual void OnMouseUp(GUIMSGDECL);
 		virtual	void OnPaint(GUIMSGDECL);
 
 		const std::list<GuiRect*>& Items();
@@ -897,37 +910,6 @@ public:
 	void OnPaint(GUIMSGDECL);
 };
 
-struct DLLBUILD GuiComboBox : GuiRect
-{
-	GuiString*          string;
-	GuiButton*			button;
-	GuiRect*	    list;
-
-	Tab*				popupPointer;
-
-	int					selectedItem;
-
-	std::vector<String> items;
-
-	void RecreateList();
-
-	GuiComboBox();
-	~GuiComboBox();
-};
-
-struct GuiImage : GuiRect
-{
-	Picture* image;
-
-	GuiImage();
-	GuiImage(unsigned char* iRefData,float iWidth,float iHeight);
-	GuiImage(String iFilename);
-	~GuiImage();
-
-	void OnPaint(GUIMSGDECL);
-	void OnActivate(GUIMSGDECL);
-};
-
 struct DLLBUILD GuiTextBox : GuiString
 {
 	StringEditor::Cursor* cursor;
@@ -935,10 +917,10 @@ struct DLLBUILD GuiTextBox : GuiString
 	GuiTextBox();
 	~GuiTextBox();
 
-	bool ParseKeyInput(GUIMSGDECL);
+	virtual bool ParseKeyInput(GUIMSGDECL);
 
 	virtual void OnPaint(GUIMSGDECL);
-	virtual void OnButtonDown(GUIMSGDECL);
+	virtual void OnMouseDown(GUIMSGDECL);
 	virtual void OnKeyDown(GUIMSGDECL);
 };
 
@@ -947,19 +929,15 @@ struct DLLBUILD GuiButton : GuiString
 {
 	GuiButton();
 
-	void (*func)(void*);
-	void* param;
-
-	bool*	value;
-	int		mode;
-
-	virtual void OnButtonUp(GUIMSGDECL);
+	virtual void OnMouseUp(GUIMSGDECL);
 };
 
 struct DLLBUILD GuiCheckButton : GuiButton
 {
 	GuiCheckButton();
 	~GuiCheckButton();
+
+	virtual void OnMouseUp(GUIMSGDECL);
 };
 
 
@@ -983,7 +961,7 @@ public:
 
 	virtual void OnPaint(GUIMSGDECL);
 	virtual void OnMouseMove(GUIMSGDECL);
-	virtual void OnButtonDown(GUIMSGDECL);
+	virtual void OnMouseDown(GUIMSGDECL);
 };
 
 struct DLLBUILD GuiListBox : GuiScrollRect
@@ -1012,6 +990,29 @@ struct DLLBUILD GuiListBox : GuiScrollRect
 
 	void  Remove(Item*);
 };
+
+
+struct DLLBUILD GuiComboBox : GuiRect
+{
+	GuiString			string;
+	GuiButton			button;
+	GuiListBox			listbox;
+
+	Tab*				popup;
+
+	int					selectedItem;
+
+	std::vector<String> items;
+
+	GuiComboBox();
+	~GuiComboBox();
+
+	void RecreateList();
+	void CretePopupList();
+
+	virtual void OnControlEvent(GUIMSGDECL);
+};
+
 
 struct DLLBUILD GuiPath : GuiRect
 {
@@ -1126,7 +1127,7 @@ public:
 	virtual void OnMouseMove(GUIMSGDECL);
 	virtual void OnActivate(GUIMSGDECL);
 	virtual void OnDeactivate(GUIMSGDECL);
-	virtual void OnButtonUp(GUIMSGDECL);
+	virtual void OnMouseUp(GUIMSGDECL);
 };
 
 struct DLLBUILD GuiSceneViewport : GuiViewport
@@ -1204,10 +1205,12 @@ struct DLLBUILD GuiSceneViewer : GuiTreeView
 		EditorEntity* entity;
 	public:
 
+		SceneLabel();
+
 		void			Entity(EditorEntity*);
 		EditorEntity*	Entity();
 
-		void OnButtonUp(GUIMSGDECL);
+		void OnMouseUp(GUIMSGDECL);
 	};
 private:
 	EditorEntity* entity;
@@ -1267,7 +1270,7 @@ struct DLLBUILD GuiProjectViewer : GuiRect
 		{
 			ResourceNode* resource;
 
-			void OnButtonUp(GUIMSGDECL);
+			void OnMouseUp(GUIMSGDECL);
 		};
 	};
 
@@ -1300,8 +1303,8 @@ public:
 	void Delete(Tab*,ResourceNode*);
 
 	void OnMouseMove(GUIMSGDECL);
-	void OnButtonDown(GUIMSGDECL);
-	void OnButtonUp(GUIMSGDECL);
+	void OnMouseDown(GUIMSGDECL);
+	void OnMouseUp(GUIMSGDECL);
 	void OnReparent(GUIMSGDECL);
 	void OnActivate(GUIMSGDECL);
 	void OnDeactivate(GUIMSGDECL);
@@ -1629,7 +1632,7 @@ struct DLLBUILD Subsystem
 	virtual unsigned int FindProcessId(String iProcessName)=0;
 	virtual unsigned int FindThreadId(unsigned int iProcessId,String iThreadName)=0;
 	virtual String DirectoryChooser(String iDescription,String iExtension)=0;
-	virtual String FileChooser(String iDescription,String iExtension)=0;
+	virtual String FileChooser(wchar_t* iFilter=0,unsigned int iFilterIndex=0)=0;
 	virtual std::vector<String> ListDirectories(String iDir)=0;
 	virtual bool CreateDirectory(String)=0;
 	virtual bool DirectoryExist(String)=0;

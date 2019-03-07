@@ -117,7 +117,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 // 	this->exitButton->GetColor(GuiRect::HOVERING)=0x989898;
 // 	this->exitButton->GetColor(GuiRect::PRESSING)=0xa8a8a8;
 
-	this->exitButton->func=AndroidHelpers::exitButtonFunc;
+	//this->exitButton->func=AndroidHelpers::exitButtonFunc;
 
 //	this->configurationPanel->rectsLayered.AppendChild(this->exitButton);
 
@@ -132,7 +132,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 // 	this->buildButton->GetColor(GuiRect::HOVERING)=0x989898;
 // 	this->buildButton->GetColor(GuiRect::PRESSING)=0xa8a8a8;
 
-	this->buildButton->func=AndroidHelpers::compileButtonFunc;
+	//this->buildButton->func=AndroidHelpers::compileButtonFunc;
 
 //	this->configurationPanel->rectsLayered.AppendChild(this->buildButton);
 

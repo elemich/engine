@@ -500,7 +500,7 @@ struct DLLBUILD SubsystemWin32 : Subsystem
 	unsigned int FindProcessId(String iProcessName);
 	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
 	String DirectoryChooser(String iDescription,String iExtension);
-	String FileChooser(String iDescription,String iExtension);
+	String FileChooser(wchar_t* iFilter=0,unsigned int iFilterIndex=0);
 	std::vector<String> ListDirectories(String iDir);
 	bool CreateDirectory(String);
 	bool DirectoryExist(String);

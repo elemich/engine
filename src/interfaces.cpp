@@ -416,9 +416,9 @@ void (GuiRect::*Tab::rectFuncs[GuiRect::MAXFUNCS])(GUIMSGDEF)=
 	&GuiRect::OnPaint,
 	&GuiRect::OnEntitiesChange,
 	&GuiRect::OnSize,
-	&GuiRect::OnButtonDown,
-	&GuiRect::OnDoubleClick,
-	&GuiRect::OnButtonUp,
+	&GuiRect::OnMouseDown,
+	&GuiRect::OnMouseClick,
+	&GuiRect::OnMouseUp,
 	&GuiRect::OnMouseMove,
 	&GuiRect::OnUpdate,
 	&GuiRect::OnReparent,
@@ -650,9 +650,9 @@ void Tab::BroadcastInputTo(GuiRect* iRect,GuiRect::Funcs iFunc,const Msg& iMsg)
 		case GuiRect::ONMOUSEENTER:
 		case GuiRect::ONMOUSEEXIT:
 		case GuiRect::ONMOUSEMOVE:
-		case GuiRect::ONBUTTONUP:
-		case GuiRect::ONBUTTONDOWN:
-		case GuiRect::ONDOUBLECLICK:
+		case GuiRect::ONMOUSEUP:
+		case GuiRect::ONMOUSEDOWN:
+		case GuiRect::ONMOUSECLICK:
 		{
 			GuiRect*			tRect=iRect->GetParent();
 			std::list<GuiRect*> tAncestors;
@@ -776,14 +776,14 @@ void Tab::OnGuiMouseMove(void* data)
 	if(tOldHover!=tNewHover)
 	{
 		if(tOldHover)
-			this->BroadcastInputTo(tOldHover,GuiRect::ONMOUSEEXIT,tEvent);
+			tOldHover->OnMouseExit(this,tNewHoverMsg);
 
 		if(tNewHover)
-			this->BroadcastInputTo(tNewHover,GuiRect::ONMOUSEENTER,tEvent);
+			tNewHover->OnMouseEnter(this,tNewHoverMsg);
 	}
 
 	if(tNewHover)
-		this->BroadcastInputTo(tNewHover,GuiRect::ONMOUSEMOVE,tNewHoverMsg);
+		tNewHover->OnMouseMove(this,tNewHoverMsg);
 
 	this->SetHover(tNewHover);
 }
@@ -794,7 +794,7 @@ void Tab::OnGuiLMouseUp(void* data)
 
 	if(this->GetHover())
 	{
-		this->BroadcastInputTo(this->GetHover(),GuiRect::ONBUTTONUP,Msg(this->mouse,1));
+		this->BroadcastInputTo(this->GetHover(),GuiRect::ONMOUSEUP,Msg(this->mouse,1));
 
 		if(this->GetHover()->GetFlag(GuiRect::FLAGS,GuiRect::DRAWPRESS))
 			this->SetDraw(this->GetHover());
@@ -844,7 +844,7 @@ void Tab::OnGuiLMouseDown(void* data)
 	{
 		if(this->GetHover())
 		{
-			this->BroadcastInputTo(this->GetHover(),GuiRect::ONBUTTONDOWN,Msg(this->mouse,1));
+			this->BroadcastInputTo(this->GetHover(),GuiRect::ONMOUSEDOWN,Msg(this->mouse,1));
 
 			if(this->GetHover()->GetFlag(GuiRect::FLAGS,GuiRect::DRAWPRESS))
 				this->SetDraw(this->GetHover());
@@ -857,7 +857,7 @@ void Tab::OnGuiDLMouseDown(void* data)
 	if(!this->hasFrame || this->mouse.y>BAR_HEIGHT)
 	{
 		if(this->GetHover())
-			this->BroadcastInputTo(this->GetHover(),GuiRect::ONDOUBLECLICK,Msg(this->mouse,1));
+			this->BroadcastInputTo(this->GetHover(),GuiRect::ONMOUSECLICK,Msg(this->mouse,1));
 	}
 }
 
@@ -865,7 +865,7 @@ void Tab::OnGuiDLMouseDown(void* data)
 void Tab::OnGuiRMouseUp(void* data)
 {
 	if(this->GetHover())
-		this->BroadcastInputTo(this->GetHover(),GuiRect::ONBUTTONUP,Msg(this->mouse,3));
+		this->BroadcastInputTo(this->GetHover(),GuiRect::ONMOUSEUP,Msg(this->mouse,3));
 }
 
 vec2 Tab::Size()
@@ -953,7 +953,15 @@ void Tab::OnGuiRecreateTarget(void* data)
 
 void Tab::SetFocus(GuiRect* iFocusedRect)
 {
+	/*bool tFocusHasChanged=(Tab::focused!=iFocusedRect);
+
+	if(tFocusHasChanged && Tab::focused)
+		this->SetDraw(Tab::hovered);*/
+
 	Tab::focused=iFocusedRect;
+
+	/*if(tFocusHasChanged && iFocusedRect)
+		this->SetDraw(iHoveredRect);*/
 }
 
 void Tab::SetHover(GuiRect* iHoveredRect)
@@ -1768,14 +1776,14 @@ unsigned int GuiRect::BlendColor(unsigned int iBaseColor,unsigned int iPressColo
 
 
 
-void GuiRect::OnButtonDown(GUIMSGDEF)
+void GuiRect::OnMouseDown(GUIMSGDEF)
 {
 	this->SetFlag(FLAGS,PRESSING,true);
 }
 
-void GuiRect::OnDoubleClick(GUIMSGDEF){}
+void GuiRect::OnMouseClick(GUIMSGDEF){}
 
-void GuiRect::OnButtonUp(GUIMSGDEF)
+void GuiRect::OnMouseUp(GUIMSGDEF)
 {
 	this->SetFlag(FLAGS,PRESSING,false);
 }
@@ -1986,9 +1994,9 @@ void GuiTreeView::Item::Select(bool iSelect)
 	this->selected!=iSelect;
 }
 
-void GuiTreeView::Item::OnButtonUp(GUIMSGDEF)
+void GuiTreeView::Item::OnMouseUp(GUIMSGDEF)
 {
-	GuiRect::OnButtonUp(GUIMSGCALL);
+	GuiRect::OnMouseUp(GUIMSGCALL);
 
 	if(iMsg.button==1)
 	{
@@ -2207,9 +2215,9 @@ void GuiPropertyTree::Container::Property::OnPaint(GUIMSGDEF)
 
 
 
-void GuiPropertyTree::Container::Property::OnButtonDown(GUIMSGDEF)
+void GuiPropertyTree::Container::Property::OnMouseDown(GUIMSGDEF)
 {
-	GuiRect::OnButtonDown(GUIMSGCALL);
+	GuiRect::OnMouseDown(GUIMSGCALL);
 
 	float tPropertyLeft=this->EdgeLevel();
 	float tSplitterLeft=this->Container()->EdgeSplitter();
@@ -2249,9 +2257,9 @@ void GuiPropertyTree::Container::Property::OnMouseMove(GUIMSGDEF)
 	}
 }
 
-void GuiPropertyTree::Container::Property::OnButtonUp(GUIMSGDEF)
+void GuiPropertyTree::Container::Property::OnMouseUp(GUIMSGDEF)
 {
-	GuiRect::OnButtonUp(GUIMSGCALL);
+	GuiRect::OnMouseUp(GUIMSGCALL);
 
 	if(this->container->propertytree->splitterPressed)
 		this->container->propertytree->splitterPressed=0;
@@ -2344,9 +2352,9 @@ GuiPropertyTree::Container::Property* GuiPropertyTree::Container::Append(Propert
 GuiPropertyTree* GuiPropertyTree::Container::PropertyTree(){return this->propertytree;}
 
 
-void GuiPropertyTree::Container::OnButtonUp(GUIMSGDEF)
+void GuiPropertyTree::Container::OnMouseUp(GUIMSGDEF)
 {
-	GuiRect::OnButtonUp(GUIMSGCALL);
+	GuiRect::OnMouseUp(GUIMSGCALL);
 
 	if(iMsg.button==1)
 	{
@@ -3257,6 +3265,27 @@ void GuiListBoxHelpers::OnItemPressed(void* iData)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
+GuiComboBox::GuiComboBox():selectedItem(0),popup(0)
+{
+	this->Append(&this->string);
+	this->Append(&this->button);
+}
+
+GuiComboBox::~GuiComboBox()
+{
+}
+
+void GuiComboBox::OnControlEvent(GUIMSGDEF)
+{
+	GuiRect::OnControlEvent(GUIMSGCALL);
+
+	if(iMsg.sender==&this->button && iMsg.senderFunc==ONMOUSEUP)
+	{
+
+	}
+}
+
+/*
 void pfdGuiComboBoxLabelsButtonAction(void* iData)
 {
 	GuiButton*		tButton=(GuiButton*)iData;
@@ -3267,46 +3296,36 @@ void pfdGuiComboBoxLabelsButtonAction(void* iData)
 	tComboBox->GetRoot()->GetTab()->SetDraw(tComboBox->string);
 
 	Ide::Instance()->GetPopup()->windowData->Show(false);
-}
+}*/
 
 
-void pfdGuiComboBoxDownButtonAction(void* iData)
+void GuiComboBox::CretePopupList()
 {
-	GuiComboBox* tComboBox=(GuiComboBox*)iData;
-
-	if(tComboBox->popupPointer)
+	if(!this->popup)
 	{
-		tComboBox->popupPointer=Ide::Instance()->GetPopup();
+		vec4 tEdges=this->Edges();
+
+		vec2 tPopupSize(tEdges.z-tEdges.x,this->items.size()*GuiRect::ROW_HEIGHT);
+		vec2 tTabPos=this->GetRoot()->GetTab()->windowData->Pos();
+
+		tTabPos.x+=tEdges.x;
+		tTabPos.y+=tEdges.w;
+
+		this->popup=Ide::Instance()->mainAppWindow->mainContainer->CreateModalTab(tTabPos.x,tTabPos.y,tPopupSize.x,tPopupSize.y<300.0f?tPopupSize.y:300.0f);
+		this->popup->hasFrame=false;
 	}
-	else
-	{
-		Tab*			tTab=tComboBox->GetRoot()->GetTab();
-		TabContainer*	tContainer=tTab->container;
 
-		vec2		tPopupSize(tComboBox->string->Edges().z+tComboBox->button->Edges().z,tComboBox->items.size()*GuiRect::ROW_HEIGHT);
+	this->popup->rects.Append(&this->listbox);
 
-		vec2 tTabPos=tTab->windowData->Pos();
+	this->popup->OnGuiActivate();
+	this->popup->OnGuiSize();
 
-		tTabPos.x+=tComboBox->string->Edges().x;
-		tTabPos.y+=tComboBox->string->Edges().w;
-
-		tComboBox->popupPointer=Ide::Instance()->CreatePopup(tContainer,tTabPos.x,tTabPos.y,tPopupSize.x,tPopupSize.y<300.0f?tPopupSize.y:300.0f);
-
-		if(!tComboBox->list)
-			tComboBox->RecreateList();
-
-		tComboBox->popupPointer->rects.Append(tComboBox->list);
-
-		tComboBox->popupPointer->OnGuiActivate();
-		tComboBox->popupPointer->OnGuiSize();
-
-		tComboBox->popupPointer->SetDraw(tComboBox);
-	}
+	this->popup->SetDraw();
 }
 
 void GuiComboBox::RecreateList()
 {
-	if(!this->list)
+	/*if(!this->list)
 		this->list=new GuiRect;
 	else
 		this->list->Destroy();
@@ -3323,8 +3342,6 @@ void GuiComboBox::RecreateList()
 			tButton->Text(this->items[i]);
 //			tButton->GetColor(GuiRect::BACKGROUND)+=(i%2)==0 ? 0x101010 : 0x151515;
 //			tButton->GetColor(GuiRect::HOVERING)+=0x202020;
-			tButton->func=pfdGuiComboBoxLabelsButtonAction;
-			tButton->param=tButton;
 			tButton->SetUserData(this);
 			tButton->Spot(0,0);
 			tButton->Alignment(0,0);
@@ -3332,37 +3349,10 @@ void GuiComboBox::RecreateList()
 
 			this->list->Append(tButton);
 		}
-	}
+	}*/
 }
 
-GuiComboBox::GuiComboBox():selectedItem(0),list(0),popupPointer(0)
-{
-	this->SetName(L"GuiComboBox");
 
-//	this->GetAutoEdges()->fix.w=GuiRect::ROW_HEIGHT;
-
-	this->string=new GuiString;
-//	this->string->GetAutoEdges()->off.z=-Tab::ICON_WH;
-//	this->string->GetAutoEdges()->off.y=2;
-//	this->string->GetAutoEdges()->off.w=-2;
-	this->Append(this->string);
-
-//	this->string->GetColor(GuiRect::BACKGROUND)=0xffffff;
-//	this->string->GetColor(GuiRect::HOVERING)=0xffffff;
-//	this->string->GetColor(GuiRect::CHECKED)=0xffffff;
-//	this->string->GetColor(GuiRect::PRESSING)=0xffffff;
-	
-	this->button=new GuiButton;
-//	this->button->GetAutoEdges()->ref.x=&this->string->GetEdges().z;
-	//this->button->GetPicture(GuiRect::BACKGROUND)=new PictureRef(Tab::rawDownArrow,Tab::ICON_WH,Tab::ICON_WH);
-	this->button->func=pfdGuiComboBoxDownButtonAction;
-	this->button->param=this;
-	this->Append(this->button);
-}
-
-GuiComboBox::~GuiComboBox()
-{
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -3494,11 +3484,11 @@ void GuiTextBox::OnKeyDown(GUIMSGDEF)
 }
 
 
-void GuiTextBox::OnButtonDown(GUIMSGDEF)
+void GuiTextBox::OnMouseDown(GUIMSGDEF)
 {
 	iTab->SetFocus(this);
 
-	GuiRect::OnButtonDown(GUIMSGCALL);
+	GuiRect::OnMouseDown(GUIMSGCALL);
 }
 
 void GuiTextBox::OnPaint(GUIMSGDEF)
@@ -3513,7 +3503,7 @@ void GuiTextBox::OnPaint(GUIMSGDEF)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiButton::GuiButton():func(0),param(0),value(0),mode(-1)
+GuiButton::GuiButton()
 {
 	this->SetFlag(FLAGS,DRAWHOVER,true);
 	this->SetFlag(FLAGS,DRAWPRESS,true);
@@ -3522,24 +3512,11 @@ GuiButton::GuiButton():func(0),param(0),value(0),mode(-1)
 	this->Alignment(0.5f,0.5f);
 }
 
-void GuiButton::OnButtonUp(GUIMSGDEF)
+void GuiButton::OnMouseUp(GUIMSGDEF)
 {
-	GuiString::OnButtonUp(GUIMSGCALL);
+	GuiString::OnMouseUp(GUIMSGCALL);
 
-	if(this->value)
-	{
-		switch(this->mode)
-		{
-		case -1:	*value=!*value; break;
-		case 0:		*value=false;  break;
-		case 1:		*value=true;	  break;
-		}
-	}
-
-	if(this->func)
-		this->func(this->param);
-
-	this->GetParent()->OnControlEvent(iTab,Msg(this,ONBUTTONUP));
+	this->GetParent()->OnControlEvent(iTab,Msg(this,ONMOUSEUP));
 }
 
 ///////////////////////////////////////////////
@@ -3551,13 +3528,15 @@ void GuiButton::OnButtonUp(GUIMSGDEF)
 GuiCheckButton::GuiCheckButton()
 {
 	this->SetFlag(FLAGS,DRAWCHECK,true);
-	this->value=new bool;
-	this->value=0;
 }
 
-GuiCheckButton::~GuiCheckButton()
+GuiCheckButton::~GuiCheckButton(){}
+
+void GuiCheckButton::OnMouseUp(GUIMSGDEF)
 {
-	SAFEDELETE(this->value);
+	GuiString::OnMouseUp(GUIMSGCALL);
+
+	this->GetParent()->OnControlEvent(iTab,Msg(this,ONMOUSEUP));
 }
 
 
@@ -3573,11 +3552,8 @@ namespace GuiPathHelpers
 	void OnSelectDirectoryButtonPressed(void* iData);
 }
 
-GuiPath::GuiPath():func(0),param(0)
+GuiPath::GuiPath()
 {
-	this->button.func=GuiPathHelpers::OnSelectDirectoryButtonPressed;
-	this->button.param=this;
-
 	this->Append(&this->button);
 	this->Append(&this->path);
 }
@@ -3688,9 +3664,9 @@ void GuiSlider::OnMouseMove(GUIMSGDEF)
 		this->SetPosition(iTab,iMsg.mouse);
 }
 
-void GuiSlider::OnButtonDown(GUIMSGDEF)
+void GuiSlider::OnMouseDown(GUIMSGDEF)
 {
-	GuiRect::OnButtonDown(GUIMSGCALL);
+	GuiRect::OnMouseDown(GUIMSGCALL);
 
 	if(iMsg.button==1)
 		this->SetPosition(iTab,iMsg.mouse);
@@ -3707,14 +3683,8 @@ GuiAnimationController::GuiAnimationController(AnimationController& iAnimationCo
 	animationController(iAnimationController),
 	slider(&animationController.cursor,&this->animationController.start,&this->animationController.end)
 {
-	this->play.value=&this->animationController.play;
-	this->stop.value=&this->animationController.play;
-
 	this->play.Text(L"Play");
 	this->stop.Text(L"Stop");
-
-	this->play.mode=1;
-	this->stop.mode=0;//set 0 onlyif 1
 
 	this->slider.Activate(true);
 	this->stop.Activate(true);
@@ -3764,14 +3734,14 @@ void GuiAnimationController::OnControlEvent(GUIMSGDEF)
 	}
 	else if(iMsg.sender==&this->play)
 	{
-		if(iMsg.senderFunc==ONBUTTONUP)
+		if(iMsg.senderFunc==ONMOUSEUP)
 		{
 			this->animationController.Play();
 		}
 	}
 	else if(iMsg.sender==&this->stop)
 	{
-		if(iMsg.senderFunc==ONBUTTONUP)
+		if(iMsg.senderFunc==ONMOUSEUP)
 		{
 			this->animationController.Stop();
 		}
@@ -3801,8 +3771,6 @@ void launchStopGuiViewportCallback(void* iData)
 
 #define GUIVIEWPORTINITFUNC \
 	GlobalViewports().push_back(this); \
-	this->playStopButton.func=launchStopGuiViewportCallback; \
-	this->playStopButton.param=this; \
 	this->playStopButton.Text(L"Run"); \
 	this->playStopButton.Activate(true); \
 	this->SetName(L"Viewport"); \
@@ -3857,12 +3825,12 @@ void GuiViewport::OnMouseWheel(GUIMSGDEF)
 	this->view*=mat4().translate(0,0,factor*10);
 }
 
-void GuiViewport::OnButtonUp(GUIMSGDEF)
+void GuiViewport::OnMouseUp(GUIMSGDEF)
 {
-	if(this->IsHovering()/* && this->pickedEntity*/)
+	if(this->IsHovering() && this->pickedEntity)
 		Ide::Instance()->mainAppWindow->mainContainer->Broadcast(GuiRect::Funcs::ONENTITYSELECTED,Msg(this->pickedEntity));
 
-	GuiRect::OnButtonUp(GUIMSGCALL);
+	GuiRect::OnMouseUp(GUIMSGCALL);
 }
 
 void GuiViewport::OnMouseMove(GUIMSGDEF)
@@ -4032,18 +4000,18 @@ float GuiScrollBar::Ratio()
 }
 
 
-void GuiScrollBar::OnButtonUp(GUIMSGDEF)
+void GuiScrollBar::OnMouseUp(GUIMSGDEF)
 {
-	GuiRect::OnButtonUp(GUIMSGCALL);
+	GuiRect::OnMouseUp(GUIMSGCALL);
 
 	if(iMsg.button==1)
 		this->scrollerPressed=-1;
 }
 
 
-void GuiScrollBar::OnButtonDown(GUIMSGDEF)
+void GuiScrollBar::OnMouseDown(GUIMSGDEF)
 {
-	GuiRect::OnButtonDown(GUIMSGCALL);
+	GuiRect::OnMouseDown(GUIMSGCALL);
 
 	if(iMsg.button==1)
 	{
@@ -4280,12 +4248,17 @@ void GuiSceneViewer::OnEntitiesChange(GUIMSGDEF)
 	}
 }
 
+GuiSceneViewer::SceneLabel::SceneLabel()
+{
+	this->SetFlag(FLAGS,DRAWCHECK,true);
+}
+
 void			GuiSceneViewer::SceneLabel::Entity(EditorEntity* iEntity){this->entity=iEntity;}
 EditorEntity*	GuiSceneViewer::SceneLabel::Entity(){return this->entity;}
 
-void GuiSceneViewer::SceneLabel::OnButtonUp(GUIMSGDEF)
+void GuiSceneViewer::SceneLabel::OnMouseUp(GUIMSGDEF)
 {
-	Item::OnButtonUp(GUIMSGCALL);
+	Item::OnMouseUp(GUIMSGCALL);
 
 	switch(iMsg.button)
 	{
@@ -4330,6 +4303,8 @@ void GuiSceneViewer::SceneLabel::OnButtonUp(GUIMSGDEF)
 		{
 			if(!this->ExpandosContains(iMsg.mouse))
 			{
+				this->SetFlag(FLAGS,CHECKED,!this->GetFlag(FLAGS,CHECKED));
+
 				for(std::list<GuiEntityViewer*>::const_iterator it=GuiEntityViewer::Pool().begin();it!=GuiEntityViewer::Pool().end();it++)
 					(*it)->OnEntitySelected((Tab*)(*it)->GetRoot()->GetTab(),Msg(this->entity));
 			}
@@ -4495,9 +4470,9 @@ void GuiProjectViewer::OnMouseMove(GUIMSGDEF)
 }
 
 
-void GuiProjectViewer::OnButtonDown(GUIMSGDEF)
+void GuiProjectViewer::OnMouseDown(GUIMSGDEF)
 {
-	GuiRect::OnButtonDown(GUIMSGCALL);
+	GuiRect::OnMouseDown(GUIMSGCALL);
 
 	iTab->SetCursor(1);
 
@@ -4507,9 +4482,9 @@ void GuiProjectViewer::OnButtonDown(GUIMSGDEF)
 		this->splitterRightActive=true;
 }
 
-void GuiProjectViewer::OnButtonUp(GUIMSGDEF)
+void GuiProjectViewer::OnMouseUp(GUIMSGDEF)
 {
-	GuiRect::OnButtonUp(GUIMSGCALL);
+	GuiRect::OnMouseUp(GUIMSGCALL);
 
 	if(this->splitterLeftActive || this->splitterRightActive)
 	{
@@ -4617,9 +4592,9 @@ void launchStopScriptEditorCallback(void* iData)
 	editorScript->PropertyContainer().GetRoot()->GetTab()->SetDraw(editorScript->buttonLaunch);
 }
 
-void GuiProjectViewer::FileViewer::FileLabel::OnButtonUp(GUIMSGDEF)
+void GuiProjectViewer::FileViewer::FileLabel::OnMouseUp(GUIMSGDEF)
 {
-	Item::OnButtonUp(GUIMSGCALL);
+	Item::OnMouseUp(GUIMSGCALL);
 
 	if(iMsg.button==3)
 	{
@@ -4839,7 +4814,7 @@ void GuiScriptViewer::OnKeyUp(GUIMSGDEF)
 
 void GuiScriptViewer::OnLMouseDown(GUIMSGDEF)
 {
-	GuiRect::OnButtonDown(GUIMSGCALL);
+	GuiRect::OnMouseDown(GUIMSGCALL);
 
 	/*if(iMsg.mouse.x < this->editor->margins.x)
 	{
@@ -5535,7 +5510,7 @@ void PluginSystem::Plugin::PluginListBoxItem::OnControlEvent(GUIMSGDEF)
 {
 	Item::OnControlEvent(GUIMSGCALL);
 
-	if(iMsg.sender==&this->button && iMsg.senderFunc==ONBUTTONUP)
+	if(iMsg.sender==&this->button && iMsg.senderFunc==ONMOUSEUP)
 		this->plugin->loaded ? this->plugin->Unload() : this->plugin->Load();
 }
 
@@ -5556,7 +5531,7 @@ void PluginSystem::PluginViewer::OnSize(GUIMSGDEF)
 
 void PluginSystem::PluginViewer::OnControlEvent(GUIMSGDEF)
 {
-	if(iMsg.sender==&this->exitButton && iMsg.senderFunc==ONBUTTONUP)
+	if(iMsg.sender==&this->exitButton && iMsg.senderFunc==ONMOUSEUP)
 	{
 		this->tab->Destroy();
 		Ide::Instance()->mainAppWindow->mainContainer->windowData->Enable(true);

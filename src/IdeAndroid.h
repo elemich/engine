@@ -6,6 +6,8 @@ struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 	int MenuActionInstall;
 	int MenuActionUninstall;
 
+
+
 	Tab* configurationPanel;
 
 	String Apkname;
