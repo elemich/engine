@@ -657,7 +657,7 @@ vec2::vec2(float fv[2]):x(v[0]),y(v[1]){Vector::copy(v,fv,2);}
 vec2::vec2(float x,float y):x(v[0]),y(v[1]){Vector::make(v,2,x,y);}
 vec2 vec2::operator=(const vec2& a){Vector::copy(v,a.v,2);return *this;}
 vec2 vec2::operator+(vec2& a){vec2 r;Vector::sum(r,a.v,v,2);return r;}
-vec2 vec2::operator-(vec2& a){vec2 r;Vector::subtract(r,a.v,v,2);return r;}
+vec2 vec2::operator-(vec2& a){vec2 r;Vector::subtract(r,v,a.v,2);return r;}
 bool vec2::operator==(vec2& a){return Vector::equal(a.v,v,2);}
 bool vec2::operator!=(vec2& a){return !Vector::equal(a.v,v,2);}
 float& vec2::operator[](int i){return v[i];}

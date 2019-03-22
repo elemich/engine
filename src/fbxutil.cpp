@@ -30,18 +30,20 @@ void Fbx::OnMenuPressed(int iIdx)
 {
 	if(iIdx==MenuActionImport)
 	{
-		Ide::Instance()->mainAppWindow->mainContainer->windowData->Enable(false);
+		Ide::Instance()->mainframe->frame->windowData->Enable(false);
 
 		wchar_t tFbxFilter[]=L"Fbx Files (*.fbx)\0*.fbx\0";
 
 		String tFbxFile=Ide::Instance()->subsystem->FileChooser(tFbxFilter,1);
 
-		Ide::Instance()->mainAppWindow->mainContainer->windowData->Enable(true);
+		Ide::Instance()->mainframe->frame->windowData->Enable(true);
 
 		if(tFbxFile.size())
 		{
 			EditorEntity* importedEntities=this->Import(StringUtils::ToChar(tFbxFile).c_str());
-			Ide::Instance()->mainAppWindow->mainContainer->Broadcast(GuiRect::ONENTITIESCHANGE,Msg(importedEntities));
+
+			PointerData iPointerData={importedEntities};
+			Ide::Instance()->mainframe->frame->Broadcast(GuiRectMessages::ONENTITIESCHANGE,&iPointerData);
 		}
 	}
 	else if(iIdx==MenuActionExport)

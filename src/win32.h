@@ -42,7 +42,7 @@ DLLBUILD void ___saferelease(IUnknown* iPtr);
 
 #define SAFERELEASE(_ptr) ___saferelease(_ptr)
 
-struct DLLBUILD TabWin32;
+struct DLLBUILD FrameWin32;
 struct DLLBUILD ContainerWin32;
 struct DLLBUILD Renderer2DWin32;
 
@@ -121,7 +121,7 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	ID2D1HwndRenderTarget*		renderer;
 	ID2D1SolidColorBrush*		brush;
 
-	Renderer2DWin32(Tab*,HWND);
+	Renderer2DWin32(Frame*,HWND);
 	~Renderer2DWin32();
 
 	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
@@ -145,8 +145,16 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 
 };
 
+
 struct DLLBUILD Renderer3DOpenGL : Renderer3D
 {
+	FrameWin32* frameWin32;
+
+	HGLRC hglrc;
+	HDC   hdc;
+
+	int	  pixelFormat;
+
 	GLuint vertexArrayObject;
 	GLuint vertexBufferObject;
 	GLuint textureBufferObject;
@@ -157,6 +165,9 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	GLuint pixelBuffer;
 	GLuint renderBufferColor;
 	GLuint renderBufferDepth;
+
+	Renderer3DOpenGL(FrameWin32*);
+	~Renderer3DOpenGL();
 
 	PFNWGLCHOOSEPIXELFORMATEXTPROC wglChoosePixelFormatARB;
 	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
@@ -210,15 +221,7 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	PFNGLUNIFORM4FPROC glUniform4f;
 	PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
 
-	HGLRC hglrc;
-	HDC   hdc;
-
-	int pixelFormat;
-
-	TabWin32* tab;
-
-	Renderer3DOpenGL(TabWin32*);
-	~Renderer3DOpenGL();
+	
 
 	virtual void Initialize();
 	virtual void Deinitialize();
@@ -310,7 +313,7 @@ struct DLLBUILD DirectXRenderer : WindowData ,  Renderer3D
 	IDXGISwapChain*         pSwapChain;
 	ID3D11RenderTargetView* pRenderTargetView;
 
-	DirectXRenderer(Tab*);
+	DirectXRenderer(Frame*);
 	~DirectXRenderer();
 
 	virtual char* Name();
@@ -340,41 +343,35 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	WPARAM wparam;
 	LPARAM lparam;
 
+	WindowDataWin32();
+
 	void Enable(bool);
 	bool IsEnabled();
 
 	operator HWND(){return this->hwnd;};
 	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
-	void Create(HWND container);
-
-	void LinkSibling(WindowData* t,int pos);
-	void UnlinkSibling(WindowData* t=0);
-	WindowDataWin32* FindSiblingOfSameSize();
-	int FindSiblingPosition(WindowData* t);
-	bool FindAndGrowSibling();
 
 	vec2 Size();
 	vec2 Pos();
 	void Show(bool);
 	bool IsVisible();
 	void Resize(float,float);
+
+	virtual int GetWindowHandle();
 };
 
 
-struct DLLBUILD TabWin32 : Tab
+struct DLLBUILD FrameWin32 : Frame
 {
 	WindowDataWin32*& windowDataWin32;
-	ContainerWin32*& containerWin32;
 	Renderer2DWin32*& renderer2DWin32;
 	Renderer3DOpenGL*& renderer3DOpenGL;
 	ThreadWin32*& threadRenderWin32;
 
 	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
 
-	TabWin32(float x,float y,float w,float h,HWND parent,bool iModal=false);
-	~TabWin32();
-
-	operator TabWin32& (){return *this;}
+	FrameWin32(float x,float y,float w,float h,FrameWin32* iParentFrame=0,bool iModal=false);
+	~FrameWin32();
 
 	bool BeginDraw();
 	void EndDraw();
@@ -384,11 +381,7 @@ struct DLLBUILD TabWin32 : Tab
 	void Create3DRenderer();
 	void Destroy3DRenderer();
 
-	void OnGuiMouseMove(void* data=0);
-	void OnGuiMouseWheel(void* data=0);
-	void OnGuiRMouseUp(void* data=0);
-	void OnResizeContainer(void* data=0);
-	void OnGuiRecreateTarget(void* data=0);
+	void OnRecreateTarget();
 
 	int TrackGuiSceneViewerPopup(bool iSelected);
 	int TrackTabMenuPopup();
@@ -396,78 +389,6 @@ struct DLLBUILD TabWin32 : Tab
 
 	void SetCursor(int);
 
-};
-
-
-struct DLLBUILD SplitterWin32 : Splitter
-{
-	TabWin32*& currentTabContainerWin32;
-
-	TabWin32*& floatingTabRefWin32;
-	TabWin32*& floatingTabWin32;
-	TabWin32*& floatingTabTargetWin32;
-
-	static HMENU popupMenuRoot;
-	static HMENU popupMenuCreate;
-
-	RECT floatingTabRc;
-	RECT floatingTabTargetRc;
-
-	POINTS splitterPreviousPos;
-
-	std::vector<HWND> resizingWindows1;
-	std::vector<HWND> resizingWindows2;
-	HWND hittedWindow1;
-	HWND hittedWindow2;
-
-	SplitterWin32();
-	~SplitterWin32();
-
-	void OnLButtonDown(HWND,LPARAM);
-	void OnLButtonUp(HWND);
-	void OnMouseMove(HWND,LPARAM);
-	void OnSize(HWND,WPARAM,LPARAM);
-
-	std::vector<HWND> findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition);
-
-	void EnableChilds(HWND hwnd,int enable=-1,int show=-1);
-	void EnableAllChildsDescendants(HWND hwnd,int enable=-1,int show=-1);
-
-	void CreateFloatingTab(Tab*);
-	void DestroyFloatingTab();
-};
-
-struct DLLBUILD ContainerWin32 : TabContainer
-{
-	ContainerWin32();
-	~ContainerWin32();
-
-	void OnSizing();
-	void OnSize();
-
-	WindowDataWin32*& windowDataWin32;
-	SplitterWin32*& splitterContainerWin32;
-
-	virtual int GetWindowHandle();
-
-	TabWin32* CreateTab(float x,float y,float w,float h);
-	TabWin32* CreateModalTab(float x,float y,float w,float h);
-	void DestroyTab(Tab*);
-};
-
-struct DLLBUILD MainContainerWin32 : MainContainer
-{
-	static LRESULT CALLBACK MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam);
-
-	ContainerWin32* mainContainerWin32;
-
-	MainContainerWin32();
-	~MainContainerWin32();
-
-	ContainerWin32* CreateContainer();
-	
-	void Initialize();
-	void Deintialize();
 };
 
 struct DLLBUILD TimerWin32 : Timer

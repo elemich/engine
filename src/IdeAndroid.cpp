@@ -74,7 +74,7 @@ void AndroidPlugin::OnMenuPressed(int iIdx)
 
 void AndroidPlugin::ShowConfigurationPanel()
 {
-	TabContainer* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
+	/*TabContainer* tContainer=Ide::Instance()->mainAppWindow->mainContainer;
 
 	tContainer->windowData->Enable(false);
 
@@ -87,7 +87,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	this->configurationPanel=tContainer->CreateModalTab(tTabPos.x,tTabPos.y,tTabSize.x,tTabSize.y);
 
-	GuiPanel* tPanel=(GuiPanel*)this->configurationPanel->rects.Append(new GuiPanel);
+	GuiPanel* tPanel=(GuiPanel*)this->configurationPanel->AddViewerAppend();
 //	tPanel->GetAutoEdges()->off.w=-30;
 
 	tPanel->SetName(L"Android Builder");
@@ -138,7 +138,7 @@ void AndroidPlugin::ShowConfigurationPanel()
 
 	AndroidHelpers::findPlatformDirectories(this);
 
-	this->configurationPanel->OnGuiActivate();
+	this->configurationPanel->OnGuiActivate();*/
 }
 
 
@@ -221,9 +221,9 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 		std::vector<GuiProjectViewer*> tGuiProjectViewer;
 
-		Ide::Instance()->mainAppWindow->GetTabRects<GuiProjectViewer>(tGuiProjectViewer);
+		//Ide::Instance()->mainframe->CreateTabRects<GuiProjectViewer>(tGuiProjectViewer);
 
-		AndroidHelpers::packResources(tResourceDirectory,tGuiProjectViewer[0]->projectDirectory,tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
+		AndroidHelpers::packResources(tResourceDirectory,&tGuiProjectViewer[0]->GetProjectDirectory(),tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
 		tPackFile.Close();
 		tTableFile.Close();
@@ -472,11 +472,11 @@ void AndroidHelpers::findPlatformDirectories(void* iData)
 	tPlatformsDirs=Ide::Instance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory);
 	tBuildtoolDirs=Ide::Instance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory);
 
-	tAndroidPlugin->sdkPlatform->property->items=tPlatformsDirs;
+	/*tAndroidPlugin->sdkPlatform->property->items=tPlatformsDirs;
 	tAndroidPlugin->sdkBuildtool->property->items=tBuildtoolDirs;
 
 	tAndroidPlugin->sdkPlatform->property->RecreateList();
-	tAndroidPlugin->sdkBuildtool->property->RecreateList();
+	tAndroidPlugin->sdkBuildtool->property->RecreateList();*/
 }
 
 
@@ -547,5 +547,5 @@ void AndroidHelpers::compileButtonFunc(void* tData)
 void AndroidHelpers::exitButtonFunc(void* tData)
 {
 	globalAllocatedAndroidPlugin->configurationPanel->Destroy();
-	Ide::Instance()->mainAppWindow->mainContainer->windowData->Enable(true);
+	Ide::Instance()->mainframe->frame->windowData->Enable(true);
 }

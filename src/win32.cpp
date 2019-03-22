@@ -20,12 +20,6 @@ bool KeyboardInput::IsPressed(unsigned int iCharCode)
 	return ((::GetKeyState(iCharCode) >> 8) & 0xff)!=0;
 }
 
-
-
-
-
-bool InitSplitter();
-
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 //////////////////ThreadWin32//////////////////
@@ -456,7 +450,7 @@ GuiFont* GuiFont::CreateFont(String iFontName,float iFontSize)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Renderer2DWin32::Renderer2DWin32(Tab* iTabContainer,HWND handle):Renderer2D(iTabContainer),brush(0),renderer(0)
+Renderer2DWin32::Renderer2DWin32(Frame* iFrame,HWND handle):Renderer2D(iFrame),brush(0),renderer(0)
 {
 	Direct2D::Init();
 }
@@ -495,7 +489,7 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	if(S_OK!=result || !this->renderer)
 		DEBUG_BREAK();
 
-	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Tab::COLOR_BACK),&brush);
+	result=this->renderer->CreateSolidColorBrush(D2D1::ColorF(Frame::COLOR_BACK),&brush);
 
 	if(S_OK!=result || !this->brush)
 		DEBUG_BREAK();
@@ -595,94 +589,6 @@ ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color,float opaque)
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-///////////////ContainerWin32////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-
-
-ContainerWin32::ContainerWin32():
-	windowDataWin32((WindowDataWin32*&)windowData),
-	splitterContainerWin32((SplitterWin32*&)splitter)
-
-{
-	windowData=new WindowDataWin32;
-	splitter=new SplitterWin32;
-}
-
-ContainerWin32::~ContainerWin32()
-{
-	SAFEDELETE(this->windowData);
-	SAFEDELETE(this->splitter);
-}
-
-int ContainerWin32::GetWindowHandle()
-{
-	return (int)this->windowDataWin32->hwnd;
-}
-
-TabWin32* ContainerWin32::CreateTab(float x,float y,float w,float h)
-{
-	TabWin32* result=new TabWin32(x,y,w,h,this->windowDataWin32->hwnd);
-	return result;
-}
-
-TabWin32* ContainerWin32::CreateModalTab(float x,float y,float w,float h)
-{
-	return new TabWin32(x,y,w,h,this->windowDataWin32->hwnd,true);
-}
-
-void ContainerWin32::DestroyTab(Tab* tTab)
-{
-	tTab->Destroy();
-
-	PostMessage(this->windowDataWin32->hwnd,(WPARAM)WM_ENABLE,true,0);
-}
-
-
-void ContainerWin32::OnSizing()
-{
-	LPRECT sz=(LPRECT)this->windowDataWin32->lparam;
-
-	RECT trc;
-	GetClientRect(this->windowDataWin32->hwnd,&trc);
-
-	this->resizeDiffWidth=(sz->right-sz->left)-(trc.right-trc.left);
-	this->resizeDiffHeight=(sz->bottom-sz->top)-(trc.bottom-trc.top);
-
-	switch(this->windowDataWin32->wparam)
-	{
-	case WMSZ_LEFT:this->resizeEnumType=0;break;
-	case WMSZ_TOP:this->resizeEnumType=1;break;
-	case WMSZ_RIGHT:this->resizeEnumType=2;break;
-	case WMSZ_BOTTOM:this->resizeEnumType=3;break;
-	default:
-		DEBUG_BREAK();
-	}
-}
-
-void ContainerWin32::OnSize()
-{
-	//this->OnSize();
-	//SplitterContainer::OnSize(this->hwnd,this->wparam,this->lparam);
-
-	if(this->resizeEnumType<0)
-		return;
-
-	this->resizeCheckWidth=0;
-	this->resizeCheckHeight=0;
-
-	for(std::vector<Tab*>::iterator i=this->tabs.begin();i!=this->tabs.end();i++)
-	{
-		TabWin32* tab=static_cast<TabWin32*>(*(i));
-
-		if(tab && tab->windowData->siblings[this->resizeEnumType].empty())
-			tab->OnResizeContainer();
-	}
-}
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 /////////////////MenuInterface/////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -774,8 +680,12 @@ int MenuInterface::Menu(String iName,bool tPopup)
 				mitem.fMask|=MIIM_ID;
 				mitem.wID=tItemId=this->IncrementMenuId();
 
+
+				MainFrame* tMainFrame=Ide::Instance()->mainframe;
+				HWND hwnd=(HWND)tMainFrame->frame->windowData->GetWindowHandle();
+
 				::InsertMenuItem(tMenu,tFirstLevelQuestionMark ? menuIdx-1 : menuIdx,true,&mitem);
-				::DrawMenuBar((HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle());
+				::DrawMenuBar(hwnd);
 			}
 		}
 
@@ -792,24 +702,24 @@ int MenuInterface::Menu(String iName,bool tPopup)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-MainContainerWin32::MainContainerWin32():mainContainerWin32(0)
+MainFrame::MainFrame():frame(new FrameWin32(0,0,1024,768,0,false))
 {
+	this->frames.push_back(frame);
+
 	GuiFont::CreateFont(L"Verdana",10);
 	GuiFont::CreateFont(L"Verdana",12);
 	GuiFont::CreateFont(L"Verdana",14);
 	GuiFont::CreateFont(L"Verdana",16);
 }
 
-MainContainerWin32::~MainContainerWin32()
+MainFrame::~MainFrame()
 {
 	this->Deintialize();
 }
 
-void MainContainerWin32::Initialize()
+void MainFrame::Initialize()
 {
-	this->mainContainer=this->mainContainerWin32=new ContainerWin32;
-
-	this->containers.push_back(this->mainContainer);
+	HWND hwnd=(HWND)this->frame->windowData->GetWindowHandle();
 
 	____MainMenu=CreateMenu();
 	::InsertMenu(____MainMenu,0,MF_BYPOSITION,0,0);
@@ -825,7 +735,7 @@ void MainContainerWin32::Initialize()
 		SetMenuInfo(____MainMenu,&mi);
 	}
 
-	this->mainContainerWin32->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,0,0,1024,768,0,____MainMenu,0,this->mainContainerWin32);
+	::SetMenu(hwnd,____MainMenu);
 
 	this->MenuFile=this->Menu(L"File",true);
 	this->MenuActionExit=this->Menu(L"File\\Exit",false);
@@ -836,97 +746,153 @@ void MainContainerWin32::Initialize()
 	this->MenuInfo=this->Menu(L"?",true);
 	this->MenuActionProgramInfo=this->Menu(L"?\\Info",false);
 
-	RECT rc;
-	GetClientRect(this->mainContainerWin32->windowDataWin32->hwnd,&rc);
+	vec2 tDim=this->frame->Size();
 
-	TabWin32* tabContainer1=this->mainContainerWin32->CreateTab(0.0f,0.0f,(float)300,(float)200);
-	TabWin32* tabContainer2=this->mainContainerWin32->CreateTab(0.0f,204.0f,(float)300,(float)200);
-	TabWin32* tabContainer3=this->mainContainerWin32->CreateTab(0.0f,408.0f,(float)300,(float)rc.bottom-(rc.top+408));
-	TabWin32* tabContainer4=this->mainContainerWin32->CreateTab(304.0f,0.0f,(float)rc.right-(rc.left+304),(float)rc.bottom-rc.top);
+	float tx1=tDim.x/3.0f;
+	float ty1=tDim.y/3.0f;
 
+	this->frame->AddViewer(new GuiViewer(0,0,tx1,ty1))->AddTab(GuiSceneViewer::CreateTab(),L"Scene");
+	this->frame->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntityViewer::CreateTab(),L"Properties");
+	this->frame->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tDim.y))->AddTab(GuiProjectViewer::CreateTab(),L"Project");
+	this->frame->AddViewer(new GuiViewer(tx1+4,0,tDim.x,tDim.y))->AddTab(GuiViewport::CreateTab(),L"Renderer");
 
-
-	tabContainer1->rects.Append(GuiSceneViewer::Instance());
-	tabContainer2->rects.Append(new GuiEntityViewer);
-	tabContainer3->rects.Append(GuiProjectViewer::Instance());
-	tabContainer4->rects.Append(new GuiSceneViewport(vec3(100,100,100),vec3(0,0,0),vec3(0,0,1),true));
-	//tabContainer4->rects.Append(new GuiRect);
-
-	ShowWindow(this->mainContainerWin32->windowDataWin32->hwnd,true);
+	ShowWindow(hwnd,true);
 }
 
-void MainContainerWin32::Deintialize()
+void MainFrame::Deintialize()
 {
 
 }
 
-ContainerWin32* MainContainerWin32::CreateContainer()
+Frame* MainFrame::CreateFrame(float x,float y,float z,float w,Frame* iParentFrame,bool iModal)
 {
-	ContainerWin32* container=new ContainerWin32;
-
-	container->windowDataWin32->hwnd=CreateWindow(WC_MAINAPPWINDOW,WC_MAINAPPWINDOW,WS_OVERLAPPEDWINDOW|WS_CLIPCHILDREN|WS_CLIPSIBLINGS,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,this->mainContainerWin32->windowDataWin32->hwnd,0,0,container);
-
-	this->containers.push_back(container);
-
-	return container;
+	return new FrameWin32(x,y,z,w,(FrameWin32*)iParentFrame,iModal);
 }
 
-LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+void   MainFrame::DestroyFrame(Frame*)
 {
-	ContainerWin32* mainw=(ContainerWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
-	LRESULT result=0;
+}
 
-	if(mainw)
-		mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+{
+	wprintf(L"Begin: %i\n",msg);
+	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+
+	LPARAM result=0;
 
 	switch(msg)
 	{
-		/*case WM_PAINT:
-			//result=DefWindowProc(hwnd,msg,wparam,lparam);
-			wprintf(L"main painting\n");
-		break;*/
-		case WM_CREATE:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)((LPCREATESTRUCT)lparam)->lpCreateParams);
-		}
-		break;
-		case WM_CLOSE:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			PostQuitMessage(1);
-			return 0;
-		break;
-		case WM_SIZING:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			mainw->OnSizing();
+		case WM_ERASEBKGND:
+			/*An application should return nonzero in response to WM_ERASEBKGND if it processes the message and erases the background;
+			this indicates that no further erasing is required. If the application returns zero, the window will remain marked for erasing.*/ 
+			wprintf(L"erasing background\n");
+			result=1;
 		break;
 		case WM_SIZE:
+		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			mainw->OnSize();
+			frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+
+			float tWidth=LOWORD(lparam);
+			float tHeight=HIWORD(lparam);
+
+			HRESULT result=frame->renderer2DWin32->renderer->Resize(D2D1::SizeU(tWidth,tHeight));
+
+			if(S_OK!=result)
+				DEBUG_BREAK();
+
+			frame->OnSize(tWidth,tHeight);
+		}
 		break;
-		/*case WM_ERASEBKGND:
-			return (LRESULT)1;*/
 		case WM_LBUTTONDOWN:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			mainw->splitterContainerWin32->OnLButtonDown(hwnd,lparam);
+		case WM_MBUTTONDOWN:
+		case WM_RBUTTONDOWN:
+			{
+				frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+
+				unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
+
+				MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
+
+				tMi.RawButtons()[tIndex]=true;
+				
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+
+				if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
+					::SetFocus(frame->windowDataWin32->hwnd);
+
+				unsigned int tOldTime=tMi.RawTiming()[tIndex];
+				tMi.RawTiming()[tIndex]=Ide::Instance()->timer->GetCurrent();
+
+				unsigned int tFinalButtonIndex=tIndex+1;
+
+				if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
+					frame->OnMouseClick(tFinalButtonIndex);
+				else
+					frame->OnMouseDown(tFinalButtonIndex);
+			}
 		break;
 		case WM_LBUTTONUP:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			mainw->splitterContainerWin32->OnLButtonUp(hwnd);
+		case WM_MBUTTONUP:
+		case WM_RBUTTONUP:
+			{
+				frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
+				MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
+				tMi.RawButtons()[tIndex]=false;
+				frame->OnMouseUp(tIndex+1);
+			}
+		break;
+		case WM_MOUSEWHEEL:
+			{
+				frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
+				frame->OnMouseWheel(wheelValue);
+			}
 		break;
 		case WM_MOUSEMOVE:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			mainw->splitterContainerWin32->OnMouseMove(hwnd,lparam);
+			frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			frame->OnMouseMove((float)LOWORD(lparam),(float)HIWORD(lparam));
+		break;
+		case WM_CLOSE:
+			SAFEDELETE(frame);
+			DestroyWindow(hwnd);
+			result=0;
 		break;
 		case WM_KEYDOWN:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			mainw->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			{
+				result=DefWindowProc(hwnd,msg,wparam,lparam);
+				frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+				MSG _msg;
+				PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
+
+				if(_msg.message==WM_CHAR)
+				{
+					TranslateMessage(&_msg);
+					DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
+					frame->OnKeyDown(_msg.wParam);
+					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)&_msg.wParam)));
+				}
+				else
+					frame->OnKeyDown(0);
+					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)0)));
+			}
+			break;
+		case WM_PAINT:
+		{
+			wprintf(L"BeginWM_PAINT\n");
+			frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
+			PAINTSTRUCT ps;
+			BeginPaint(hwnd,&ps);
+			frame->BeginDraw();
+			frame->OnPaint();
+			frame->EndDraw();
+			EndPaint(hwnd,&ps);
+			result=0;
+			wprintf(L"EndWM_PAINT\n");
+		}
 		break;
 		case WM_MENUCOMMAND:
 		{
@@ -947,173 +913,33 @@ LRESULT CALLBACK MainContainerWin32::MainWindowProcedure(HWND hwnd,UINT msg,WPAR
 		}
 		break;
 		default:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-	}
-
-	return result;
-}
-
-
-LRESULT CALLBACK TabWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
-{
-	TabWin32* tabWin32=(TabWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-	Tab*	  tab=(Tab*)tabWin32;
-
-	LPARAM result=0;
-
-	switch(msg)
-	{
-		case WM_CREATE:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-
-			LPCREATESTRUCT lpcs=(LPCREATESTRUCT)lparam;
-
-			if(lpcs)
-			{
-				TabWin32* tabContainer=(TabWin32*)lpcs->lpCreateParams;
-				SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)tabContainer);
-				tabContainer->windowDataWin32->hwnd=hwnd;
-			}
+			frame->Draw();
 		}
-		break;
-		case WM_ERASEBKGND:
-			/*if(tc->splitterContainer->floatingTabRef)
-				tab->OnPaint();*/
-			return 1;
-		case WM_SIZE:
-			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			tab->OnGuiSize();
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiSize,tab,(void*)0)));
-		break;
-		case WM_WINDOWPOSCHANGED:
-			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			tab->OnWindowPosChanging();
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnWindowPosChanging,tab,(void*)0)));
-		break;
-		case WM_LBUTTONDOWN:
-			{
-				tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-
-				InputManager::mouseInput.left=true;
-
-				unsigned int tOldTime=InputManager::mouseInput.lastLeft;
-				InputManager::mouseInput.lastLeft=Ide::Instance()->timer->GetCurrent();
-
-				if(tabWin32->windowDataWin32->hwnd!=::GetFocus())
-					::SetFocus(tabWin32->windowDataWin32->hwnd);
-
-				if(InputManager::mouseInput.lastLeft-tOldTime<1000/6.0f)
-					tab->OnGuiDLMouseDown();
-					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiDLMouseDown,tab,(void*)0)));
-				else
-					tab->OnGuiLMouseDown();
-					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiLMouseDown,tab,(void*)0)));
-			}
-		break;
-		case WM_MOUSEWHEEL:
-			{
-				tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-				float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
-				tab->OnGuiMouseWheel(&wheelValue);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiMouseWheel,tab,(void*)&wheelValue)));
-			}
-		break;
-		case WM_MOUSEMOVE:
-			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			tab->OnGuiMouseMove();
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiMouseMove,tab,(void*)0)));
-		break;
-		case WM_NCHITTEST:
-			if(tabWin32->splitterContainer->floatingTabRef)
-				return HTTRANSPARENT;
-			else
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-			break;
-		case WM_LBUTTONUP:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			InputManager::mouseInput.left=false;
-			tab->OnGuiLMouseUp();
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiLMouseUp,tab,(void*)0)));
-		break;
-		case WM_RBUTTONUP:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			tab->OnGuiRMouseUp();
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiRMouseUp,tab,(void*)0)));
-		break;
-		case WM_CLOSE:
-			SAFEDELETE(tabWin32);
-			DestroyWindow(hwnd);
-			return 0;
-		break;
-		case WM_KEYDOWN:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-				MSG _msg;
-				PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
-
-				if(_msg.message==WM_CHAR)
-				{
-					TranslateMessage(&_msg);
-					DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
-					tab->OnGuiKeyDown(&_msg.wParam);
-					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)&_msg.wParam)));
-				}
-				else
-					tab->OnGuiKeyDown();
-					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)0)));
-			}
-			break;
-		case WM_PAINT:
-		{
-			tabWin32->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			PAINTSTRUCT ps;
-			BeginPaint(hwnd,&ps);
-			//tab->OnGuiPaint();
-			EndPaint(hwnd,&ps);
-			tab->SetDraw();
-			result=0;
-		}
-		break;
-		default:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				/*if(tab)
-					tab->Draw();*/
-			}
-			
-
 	}
 
-	if(tabWin32)
+	/*if(frame)
 	{
 		//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-		tabWin32->windowDataWin32->msg=0;
-		tabWin32->windowDataWin32->wparam;
-		tabWin32->windowDataWin32->lparam=0;
+		frame->windowDataWin32->msg=0;
+		frame->windowDataWin32->wparam;
+		frame->windowDataWin32->lparam=0;
 	}
 
-	if(tab && tab->concurrentInstances.size())
+	if(frame && frame->concurrentInstances.size())
 	{
-		for(std::list< std::function<void()> >::iterator iterConcurrentInstances=tab->concurrentInstances.begin();iterConcurrentInstances!=tab->concurrentInstances.end();)
+		for(std::list< std::function<void()> >::iterator iterConcurrentInstances=frame->concurrentInstances.begin();iterConcurrentInstances!=frame->concurrentInstances.end();)
 		{
 			(*iterConcurrentInstances)();
-			iterConcurrentInstances=tab->concurrentInstances.erase(iterConcurrentInstances);
+			iterConcurrentInstances=frame->concurrentInstances.erase(iterConcurrentInstances);
 		}
 	}
-	
+
+	if(Ide::Instance()->timer->GetLastDelta()>16)
+		PostMessage(hwnd,WM_NULL,0,0);*/
+
+	wprintf(L"End\n");
 
 	return result;
 }
@@ -1131,7 +957,12 @@ TimerWin32::TimerWin32(){}
 /////////////WindowDataWin32///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-
+WindowDataWin32::WindowDataWin32():
+	hwnd(0),
+	msg(0),
+	wparam(0),
+	lparam(0)
+{}
 
 //#pragma message(LOCATION " LNK1123: Failure during conversion to COFF: file invalid or corrupt\" was resolved renaming cvtres.exe to cvtres1.exe.")
 
@@ -1177,122 +1008,14 @@ bool WindowDataWin32::IsVisible()
 	return ::IsWindowVisible(this->hwnd);
 }
 
+int WindowDataWin32::GetWindowHandle()
+{
+	return (int)this->hwnd;
+}
+
 void WindowDataWin32::Resize(float iWidth,float iHeight)
 {
 	::SetWindowPos(this->hwnd,0,0,0,iWidth,iHeight,SWP_NOREPOSITION|SWP_NOMOVE);
-}
-
-void WindowDataWin32::LinkSibling(WindowData* t,int pos)
-{
-	if(!t)
-		return;
-
-	int reciprocal = pos<2 ? pos+2 : pos-2;
-
-	this->siblings[pos].push_back(t);
-	t->siblings[reciprocal].push_back(this);
-}
-
-void WindowDataWin32::UnlinkSibling(WindowData* t)
-{
-	if(t)
-	{
-		for(int i=0;i<4;i++)
-			t->siblings[i].remove(this);
-	}
-
-
-	for(int i=0;i<4;i++)
-	{
-		if(t)
-		{
-			this->siblings[i].remove(t);
-		}
-		else
-		{
-			for(std::list<WindowData*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
-			{
-				WindowData* tabToUnlinkFromThis=(*it);
-
-				for(int i=0;i<4;i++)
-					tabToUnlinkFromThis->siblings[i].remove(this);
-			}
-
-			this->siblings[i].clear();
-		}
-	}
-}
-
-WindowDataWin32* WindowDataWin32::FindSiblingOfSameSize()
-{
-	vec2 iThisWSize=this->Size();
-
-	for(int i=0;i<4;i++)
-	{
-		for(std::list<WindowData*>::iterator it=this->siblings[i].begin();it!=this->siblings[i].end();it++)
-		{
-			WindowDataWin32* window=static_cast<WindowDataWin32*>(*it);
-
-			vec2 iWSize=window->Size();
-
-			if(iWSize.x==iThisWSize.x || iWSize.y==iThisWSize.y)
-				return window;
-		}
-	}
-
-	return 0;
-}
-
-int WindowDataWin32::FindSiblingPosition(WindowData* t)
-{
-	for(int i=0;i<4;i++)
-	{
-		if(std::find(this->siblings[i].begin(),this->siblings[i].end(),t)!=this->siblings[i].end())
-			return i;
-	}
-
-	return -1;
-}
-
-bool WindowDataWin32::FindAndGrowSibling()
-{
-	WindowDataWin32* growingTab=this->FindSiblingOfSameSize();
-
-	if(growingTab)
-	{
-		int tabReflinkPosition=this->FindSiblingPosition(growingTab);
-
-		RECT growingTabRc,thisRc;
-		GetClientRect(growingTab->hwnd,&growingTabRc);
-		GetClientRect(this->hwnd,&thisRc);
-		MapWindowRect(growingTab->hwnd,GetParent(growingTab->hwnd),&growingTabRc);
-		MapWindowRect(this->hwnd,GetParent(growingTab->hwnd),&thisRc);
-
-		switch(tabReflinkPosition)
-		{
-		case 0:
-			SetWindowPos(growingTab->hwnd,0,growingTabRc.left,thisRc.top,thisRc.right-growingTabRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
-			break;
-		case 1:
-			SetWindowPos(growingTab->hwnd,0,thisRc.left,growingTabRc.top,thisRc.right-thisRc.left,thisRc.bottom-growingTabRc.top,SWP_SHOWWINDOW);
-			break;
-		case 2:
-			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,growingTabRc.right-thisRc.left,thisRc.bottom-thisRc.top,SWP_SHOWWINDOW);
-			break;
-		case 3:
-			SetWindowPos(growingTab->hwnd,0,thisRc.left,thisRc.top,thisRc.right-thisRc.left,growingTabRc.bottom-thisRc.top,SWP_SHOWWINDOW);
-			break;
-		default:
-			DEBUG_BREAK();
-			break;
-		}
-
-		this->UnlinkSibling();
-
-		return true;
-	}
-
-	return false;
 }
 
 ///////////////////////////////////////////////
@@ -1300,8 +1023,6 @@ bool WindowDataWin32::FindAndGrowSibling()
 ///////////////////AppWin32////////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
-
-
 
 IdeWin32::IdeWin32():
 processThreadHandle(0),
@@ -1394,9 +1115,7 @@ projectDirHasChanged(false)
 
 	int error=ERROR_SUCCESS;
 
-	InitSplitter();
-
-	this->stringEditor=new StringEditor;
+	this->stringeditor=new StringEditor;
 
 	{
 		this->timer=new TimerWin32;
@@ -1408,18 +1127,16 @@ projectDirHasChanged(false)
 	this->projectDirChangedThread=new ThreadWin32;
 	this->projectDirChangedThread->NewTask(L"ProjectDirChangedTask",std::function<void()>(std::bind(&Ide::ProjectDirHasChangedFunc,this)),false);
 
-	this->mainAppWindow=new MainContainerWin32;
+	this->mainframe=new MainFrame;
 
-	this->mainAppWindow->Initialize();
+	this->mainframe->Initialize();
 
-	this->pluginSystem=new PluginSystem;
-
-	wprintf(L"sizeof(GuiRect): %d",sizeof(GuiRect));
+	this->pluginsystem=new PluginSystem;
 }
 
 IdeWin32::~IdeWin32()
 {
-	SAFEDELETE(this->mainAppWindow);
+	SAFEDELETE(this->mainframe);
 	SAFEDELETE(this->subsystem);
 	SAFEDELETE(this->compiler);
 	SAFEDELETE(this->debugger);
@@ -1544,15 +1261,13 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)dirNode->parent;
 
-				dirNode->dirLabel.resource=dirNode;
-				dirNode->dirLabel.SetName(dirNode->fileName);
+				dirNode->dirLabel.SetLabel(dirNode->fileName);
 				if(dirNodeParent)
-					dirNodeParent->dirLabel.Append(dirNode->dirLabel);
+					dirNodeParent->dirLabel.Insert(dirNode->dirLabel);
 
-				dirNode->fileLabel.resource=dirNode;
-				dirNode->fileLabel.SetName(dirNode->fileName);
+				dirNode->fileLabel.SetLabel(dirNode->fileName);
 				if(dirNodeParent)
-					dirNodeParent->fileLabel.Append(dirNode->fileLabel);
+					dirNodeParent->fileLabels.push_back(&dirNode->fileLabel);
 
 
 				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
@@ -1568,10 +1283,10 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)fileNode->parent;
 
-				fileNode->fileLabel.resource=fileNode;
-				fileNode->fileLabel.SetName(fileNode->fileName);
+				fileNode->fileLabel.SetLabel(fileNode->fileName);
+
 				if(dirNodeParent)
-					dirNodeParent->fileLabel.Append(fileNode->fileLabel);
+					dirNodeParent->fileLabels.push_back(&fileNode->fileLabel);
 			}
 		}
 	}
@@ -1580,7 +1295,6 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 	tHandle=0;
 }
 
-
 void IdeWin32::Run()
 {
 	MSG msg;
@@ -1588,6 +1302,7 @@ void IdeWin32::Run()
 	while(true)
 	{
 		if(GetMessage(&msg,0,0,0)!=WM_QUIT)
+		//if(PeekMessage(&msg,0,0,0,PM_REMOVE)!=WM_QUIT)
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -1597,14 +1312,14 @@ void IdeWin32::Run()
 		{
 			this->projectDirHasChanged=false;
 
-			Tab* tTab=GuiProjectViewer::Instance()->GetRoot()->GetTab();
+			Frame* tTab=GuiProjectViewer::GetTab()->GetViewer()->GetFrame();
 
 			tTab->DrawBlock(true);
 
-			Msg tChangeDirEvent;
+			/*Msg tChangeDirEvent;
 
 			GuiProjectViewer::Instance()->OnDeactivate(tTab,tChangeDirEvent);
-			GuiProjectViewer::Instance()->OnActivate(tTab,tChangeDirEvent);
+			GuiProjectViewer::Instance()->OnActivate(tTab,tChangeDirEvent);*/
 
 			tTab->DrawBlock(false);
 
@@ -1653,8 +1368,8 @@ void TimerWin32::update()
 
 
 
-DirectXRenderer::DirectXRenderer(Tab* iTabContainer):
-	Renderer3D(iTabContainer)
+DirectXRenderer::DirectXRenderer(Frame* iFrame):
+	Renderer3D(iFrame)
 {
 	driverType = D3D_DRIVER_TYPE_NULL;
 	featureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -2068,10 +1783,11 @@ vec3 rayStart;
 vec3 rayEnd;
 
 
-Renderer3DOpenGL::Renderer3DOpenGL(TabWin32* iTab):
-	Renderer3D(iTab),
+Renderer3DOpenGL::Renderer3DOpenGL(FrameWin32* iFrame):
+	Renderer3D(iFrame),
+	frameWin32((FrameWin32*)iFrame),
 	hglrc(0),
-	tab((TabWin32*&)iTab)
+	hdc(0)
 {}
 
 Renderer3DOpenGL::~Renderer3DOpenGL()
@@ -2110,15 +1826,15 @@ void Renderer3DOpenGL::Deinitialize()
 	wglMakeCurrent(this->hdc,0);
 	
 	wglDeleteContext(this->hglrc);
-	ReleaseDC(this->tab->windowDataWin32->hwnd,this->hdc);
+	ReleaseDC(this->frameWin32->windowDataWin32->hwnd,this->hdc);
 }
 
 void Renderer3DOpenGL::Initialize()
 {
-	this->hdc=GetDC(this->tab->windowDataWin32->hwnd);
+	this->hdc=GetDC(this->frameWin32->windowDataWin32->hwnd);
 
 	RECT r;
-	GetClientRect(this->tab->windowDataWin32->hwnd,&r);
+	GetClientRect(this->frameWin32->windowDataWin32->hwnd,&r);
 
 	int width=(int)(r.right-r.left);
 	int height=(int)(r.bottom-r.top);
@@ -2214,7 +1930,7 @@ void Renderer3DOpenGL::Initialize()
 	wglMakeCurrent(this->hdc, NULL);
 	wglDeleteContext(hglrc);
 
-	ReleaseDC(this->tab->windowDataWin32->hwnd,this->hdc);
+	ReleaseDC(this->frameWin32->windowDataWin32->hwnd,this->hdc);
 	
 	const int pixelFormatAttribList[] =
 	{
@@ -2230,7 +1946,7 @@ void Renderer3DOpenGL::Initialize()
 		0
 	};
 
-	this->hdc=GetDC(this->tab->windowDataWin32->hwnd);
+	this->hdc=GetDC(this->frameWin32->windowDataWin32->hwnd);
 
 	UINT numFormats;
 
@@ -2249,7 +1965,7 @@ void Renderer3DOpenGL::Initialize()
 		MessageBox(0,L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 	if(hglrc)
-		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->tab,hglrc,hdc);
+		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->frame,hglrc,hdc);
 
 	if(!wglMakeCurrent(hdc,hglrc))
 		DEBUG_BREAK();
@@ -2355,7 +2071,7 @@ void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(this->picking,0,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,0,this->frame->mouse,this->frame->Size());
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -2498,7 +2214,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(false,0,this->frame->mouse,this->frame->Size());
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -2573,7 +2289,7 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	shader->SetSelectionColor(false,0,this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(false,0,this->frame->mouse,this->frame->Size());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -2909,7 +2625,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->Entity()->world);
 
 
-	shader->SetSelectionColor(this->picking,mesh->Entity(),this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,mesh->Entity(),this->frame->mouse,this->frame->Size());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -2984,7 +2700,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->Entity()->local);
 
 
-	shader->SetSelectionColor(this->picking,skin->Entity(),this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,skin->Entity(),this->frame->mouse,this->frame->Size());
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -3067,7 +2783,7 @@ void Renderer3DOpenGL::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	shader->SetSelectionColor(this->picking,bone->Entity(),this->tab->mouse,this->tab->Size());
+	shader->SetSelectionColor(this->picking,bone->Entity(),this->frame->mouse,this->frame->Size());
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -3188,17 +2904,14 @@ void Picture::Release()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-void TabWin32::Destroy()
+void FrameWin32::Destroy()
 {
 	PostMessage(this->windowDataWin32->hwnd,WM_CLOSE,0,0);
 }
 
-TabWin32::~TabWin32()
+FrameWin32::~FrameWin32()
 {
 	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)0);
-
-	if(!this->windowDataWin32->FindAndGrowSibling())
-		this->windowDataWin32->UnlinkSibling();
 
 	SAFEDELETE(this->iconDown);
 	SAFEDELETE(this->iconUp);
@@ -3219,7 +2932,14 @@ TabWin32::~TabWin32()
 	
 	this->threadRenderWin32->DestroyTask(this->drawTask);
 
-	this->Destroy3DRenderer();
+#if ENABLE_RENDERER
+	if(this->renderer3D)
+	{
+		/*Task* tDeleteOpenGLContext=this->thread->NewTask(L"DestroyOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
+		while(tDeleteOpenGLContext->func);
+		SAFEDELETE(tDeleteOpenGLContext);*/
+	}
+#endif
 
 	SAFEDELETE(this->renderer3DOpenGL);
 	SAFEDELETE(this->threadRenderWin32);
@@ -3227,82 +2947,71 @@ TabWin32::~TabWin32()
 	SAFEDELETE(this->windowDataWin32);
 }
 
-void TabWin32::Create3DRenderer()
-{
-#if ENABLE_RENDERER
-	if(!this->renderer3D)
-	{
-		this->renderer3D=new Renderer3DOpenGL(this);
 
-		if(!this->renderer3D)
-			DEBUG_BREAK();
-
-		Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
-		while(tCreateOpenGLContext->func);
-		SAFEDELETE(tCreateOpenGLContext);
-	}
-#endif
-}
-
-void TabWin32::Destroy3DRenderer()
-{
-#if ENABLE_RENDERER
-	if(this->renderer3D)
-	{
-		Task* tDeleteOpenGLContext=this->thread->NewTask(L"DestroyOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
-		while(tDeleteOpenGLContext->func);
-		SAFEDELETE(tDeleteOpenGLContext);
-	}
-#endif
-
-}
-
-TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool iModal)
-	:Tab(iX,iY,iW,iH),
+FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFrame,bool iModal):
+	Frame(iX,iY,iW,iH),
 	windowDataWin32((WindowDataWin32*&)windowData),
-	containerWin32((ContainerWin32*&)container),
 	renderer2DWin32((Renderer2DWin32*&)renderer2D),
 	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
 	threadRenderWin32((ThreadWin32*&)thread)
 {
 	this->isModal=iModal;
 
-	windowData=new WindowDataWin32;
+	windowDataWin32=new WindowDataWin32;
 
 	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
 
-	if(!this->isModal)
-		tStyle=tStyle|WS_CHILD;
+	if(iParentFrame)
+	{
+		if(!this->isModal)
+			tStyle=tStyle|WS_CHILD;
+	}
+	else
+		tStyle=tStyle|WS_OVERLAPPEDWINDOW;
 
-	this->windowDataWin32->hwnd=CreateWindow(WC_TABCONTAINERWINDOWCLASS,WC_TABCONTAINERWINDOWCLASS,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,iParentWindow,0,0,this);
+	HWND tParent=iParentFrame ? iParentFrame->windowDataWin32->hwnd : 0;
+
+	this->windowDataWin32->hwnd=CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
 
 	if(!this->windowDataWin32->hwnd)
+	{
+		DWORD tError=GetLastError();
 		DEBUG_BREAK();
+	}
+
+	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
+	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::TabContainerWindowClassProcedure);
 
 	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
 
 	this->thread=new ThreadWin32;
 
-	this->drawTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Tab::Draw,this)),false);
+	//this->drawTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Draw,this)),false);
 
-	this->iconDown=new PictureRef(Tab::rawDownArrow,Tab::ICON_WH,Tab::ICON_WH);
-	this->iconUp=new PictureRef(Tab::rawUpArrow,Tab::ICON_WH,Tab::ICON_WH);
-	this->iconLeft=new PictureRef(Tab::rawLeftArrow,Tab::ICON_WH,Tab::ICON_WH);
-	this->iconRight=new PictureRef(Tab::rawRightArrow,Tab::ICON_WH,Tab::ICON_WH);
-	this->iconFolder=new PictureRef(Tab::rawFolder,Tab::ICON_WH,Tab::ICON_WH);
-	this->iconFile=new PictureRef(Tab::rawFile,Tab::ICON_WH,Tab::ICON_WH);
+	this->iconDown=new PictureRef(Frame::rawDownArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconUp=new PictureRef(Frame::rawUpArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconLeft=new PictureRef(Frame::rawLeftArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconRight=new PictureRef(Frame::rawRightArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconFolder=new PictureRef(Frame::rawFolder,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconFile=new PictureRef(Frame::rawFile,Frame::ICON_WH,Frame::ICON_WH);
 
 	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
 
-	this->OnGuiRecreateTarget();
+#if ENABLE_RENDERER
 
-	this->container=(TabContainer*)GetWindowLongPtr(iParentWindow,GWLP_USERDATA);
-	this->container->tabs.push_back(this);
+		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
 
-	splitterContainer=this->container->splitter;
+		if(!this->renderer3DOpenGL)
+			DEBUG_BREAK();
 
-	if(!splitterContainer)
-		DEBUG_BREAK();
+		this->renderer3DOpenGL->Initialize();
+
+		/*Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
+		while(tCreateOpenGLContext->func);
+		SAFEDELETE(tCreateOpenGLContext);*/
+#endif
+
+	this->OnRecreateTarget();
 
 	if(this->isModal)
 	{
@@ -3319,7 +3028,7 @@ TabWin32::TabWin32(float iX,float iY,float iW,float iH,HWND iParentWindow,bool i
 }
 
 
-int TabWin32::TrackTabMenuPopup()
+int FrameWin32::TrackTabMenuPopup()
 {
 	HMENU root=CreatePopupMenu();
 	HMENU create=CreatePopupMenu();
@@ -3356,7 +3065,7 @@ int TabWin32::TrackTabMenuPopup()
 	return menuResult;
 }
 
-int TabWin32::TrackGuiSceneViewerPopup(bool iSelected)
+int FrameWin32::TrackGuiSceneViewerPopup(bool iSelected)
 {
 	HMENU menu=CreatePopupMenu();
 	HMENU createEntity=CreatePopupMenu();
@@ -3404,7 +3113,7 @@ namespace FileViewerActions
 	const unsigned char Load=3;
 }
 
-int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
+int FrameWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 {
 	HMENU menu=CreatePopupMenu();
 
@@ -3430,43 +3139,28 @@ int TabWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	return result;
 }
 
-bool TabWin32::BeginDraw()
+bool FrameWin32::BeginDraw()
 {
 	if(!this->isRender)
 	{
 		if(this->recreateTarget)
 		{
-			this->OnGuiRecreateTarget();
+			this->OnRecreateTarget();
 			this->recreateTarget=0;
-		}
-		else if(this->resizeTarget)
-		{
-			vec2 tTabSize=this->Size();
-
-			HRESULT result=this->renderer2DWin32->renderer->Resize(D2D1::SizeU(tTabSize.x,tTabSize.y));
-
-			if(S_OK!=result)
-				DEBUG_BREAK();
 		}
 
 		this->renderer2DWin32->renderer->BeginDraw();
 		this->isRender=true;
 
-		if(this->resizeTarget)
-		{
-			this->PaintBackground();
-			this->resizeTarget=0;
-		}
-
 		return true;
 	}
-	else
-		DEBUG_BREAK();
+	/*else
+		DEBUG_BREAK();*/
 
 	return false;
 
 }
-void TabWin32::EndDraw()
+void FrameWin32::EndDraw()
 {
 	if(this->isRender)
 	{
@@ -3488,142 +3182,15 @@ void TabWin32::EndDraw()
 
 		this->isRender=false;
 	}
-	else
+	/*else
 		DEBUG_BREAK();
 
-	this->clips.clear();
+	this->clips.clear();*/
 }
 
 
 
-
-
-void TabWin32::OnGuiMouseMove(void* data)
-{
-	this->mouse.x=(float)LOWORD(this->windowDataWin32->lparam);
-	this->mouse.y=(float)HIWORD(this->windowDataWin32->lparam);
-
-	Tab::OnGuiMouseMove(data);
-}
-
-
-void TabWin32::OnGuiMouseWheel(void* data)
-{
-	float factor=GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(this->windowDataWin32->wparam)<0 ? -1.0f : 0);
-
-	if(!this->hasFrame || this->mouse.y>Tab::BAR_HEIGHT)
-		this->Broadcast(GuiRect::ONMOUSEWHEEL,Msg(&factor));
-}
-
-
-
-void TabWin32::OnGuiRMouseUp(void* data)
-{
-	if(this->hasFrame && this->mouse.y<=Tab::BAR_HEIGHT)
-	{
-		float &x=this->mouse.x;
-		float &y=this->mouse.y;
-
-		int tabNumberHasChanged=this->rects.Childs().size();
-
-		for(int i=0;i<(int)rects.Childs().size();i++)
-		{
-			if(x>(i*LABEL_WIDTH) && x< (i*LABEL_WIDTH+LABEL_WIDTH) && y > (BAR_HEIGHT-LABEL_HEIGHT) &&  y<BAR_HEIGHT)
-			{
-				int menuResult=this->TrackTabMenuPopup();
-
-				switch(menuResult)
-				{
-					case 1:
-						if(this->container->tabs.size()>1)
-						{
-							this->Destroy();
-						}
-					break;
-					case 2:
-						//this->selected=this->rects.Append(new GuiViewport());
-					break;
-					case 3:
-						this->selected=this->rects.Append(GuiSceneViewer::Instance());
-					break;
-					case 4:
-						this->selected=this->rects.Append(new GuiEntityViewer);
-					break;
-					case 5:
-						this->selected=this->rects.Append(GuiProjectViewer::Instance());
-					break;
-					case 6:
-						/*this->tabs.ScriptViewer();
-						this->selected=this->tabs.childs.size()-1;*/
-					break;
-				}
-
-				break;
-			}
-		}
-
-		if(tabNumberHasChanged!=this->rects.Childs().size())
-			this->SetDraw(0,true);
-	}
-	else
-	{
-		this->Broadcast(GuiRect::ONMOUSEUP,Msg(this->mouse));
-	}
-}
-
-
-
-
-
-
-void TabWin32::OnResizeContainer(void* data)
-{
-	RECT rc;
-
-	GetClientRect(this->windowDataWin32->hwnd,&rc);
-	MapWindowRect(this->windowDataWin32->hwnd,this->containerWin32->windowDataWin32->hwnd,&rc);
-
-	int size=0;
-	int diff=0;
-	int side=0;
-
-
-	switch(this->container->resizeEnumType)
-	{
-		case 0:
-			side=(rc.right-rc.left);
-			diff=this->container->resizeDiffWidth;
-			size=side+diff;
-			SetWindowPos(this->windowDataWin32->hwnd,0,0,rc.top,size,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
-			this->container->resizeCheckWidth+=size;
-			break;
-		case 1:
-			side=rc.bottom;
-			diff=this->container->resizeDiffHeight;
-			size=side+diff;
-			SetWindowPos(this->windowDataWin32->hwnd,0,rc.left,rc.top,rc.right-rc.left,size,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER);
-			this->container->resizeCheckHeight+=size;
-			break;
-		case 2:
-			side=(rc.right-rc.left);
-			diff=this->container->resizeDiffWidth;
-			size=side+diff;
-			SetWindowPos(this->windowDataWin32->hwnd,0,rc.left,rc.top,size,rc.bottom-rc.top,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
-			this->container->resizeCheckWidth+=size;
-			break;
-		case 3:
-			side=rc.bottom;
-			diff=this->container->resizeDiffHeight;
-			size=side+diff;
-			SetWindowPos(this->windowDataWin32->hwnd,0,rc.left,rc.top,rc.right-rc.left,size,/*SWP_NOREDRAW|*/SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOMOVE);
-			this->container->resizeCheckHeight+=size;
-		break;
-		default:
-			DEBUG_BREAK();
-	}
-}
-
-void TabWin32::OnGuiRecreateTarget(void* iData)
+void FrameWin32::OnRecreateTarget()
 {
 	if(!this->renderer2DWin32->RecreateTarget(this->windowDataWin32->hwnd))
 		DEBUG_BREAK();
@@ -3648,12 +3215,12 @@ void TabWin32::OnGuiRecreateTarget(void* iData)
 	if(!this->renderer2D->LoadBitmap(this->iconFile))
 		DEBUG_BREAK();
 
-	this->Tab::OnGuiRecreateTarget(iData);
+	this->Frame::OnRecreateTarget();
 
 }
 
 
-void TabWin32::SetCursor(int iCursorCode)
+void FrameWin32::SetCursor(int iCursorCode)
 {
 	HCURSOR cursor=0;
 
@@ -3676,26 +3243,29 @@ void TabWin32::SetCursor(int iCursorCode)
 
 GuiViewport::~GuiViewport()
 {
-	GuiViewport::Pool().remove(this);
+	GuiViewport::GetTabsPool().remove(this);
 
 	SAFERELEASE((ID2D1Bitmap*&)this->renderBitmap);
 }
 
-void GuiViewport::DrawBuffer(Tab* iTab,vec4 iVec)
+void GuiViewport::DrawBuffer(Frame* iFrame,vec4 iVec)
 {
 	if(this->renderBuffer)
 	{
-		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
-		renderer2DWin32->renderer->DrawBitmap((ID2D1Bitmap*&)this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w));
-		iTab->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.x+iVec.z,iVec.y+iVec.w,0xff0000,false);
+		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iFrame->renderer2D;
+		renderer2DWin32->renderer->DrawBitmap((ID2D1Bitmap*&)this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.z,iVec.w));
+		iFrame->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.z,iVec.w,0xff0000,false);
 	}
 }
-void GuiViewport::Render(Tab* iTab)
+void GuiViewport::Render(Frame* iFrame)
 {
-	vec4 tCanvas=this->Edges();
-	vec2 tMouse(iTab->mouse);
+	vec4 tCanvas=this->edges;
+	int tWidth=tCanvas.z-tCanvas.x;
+	int tHeight=tCanvas.w-tCanvas.y;
+	vec2 tMouse(iFrame->mouse);
+	
 
-	Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iTab->renderer2D;
+	Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iFrame->renderer2D;
 
 	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)this->renderBitmap;
 	unsigned char*& rBuffer=(unsigned char*&)this->renderBuffer;
@@ -3706,7 +3276,7 @@ void GuiViewport::Render(Tab* iTab)
 		//rBitmap->GetSize(&tSize);
 		AGGREGATECALL(rBitmap->GetSize,tSize);
 
-	if(!rBitmap || tSize.width!=tCanvas.z || tSize.height!=tCanvas.w || !this->renderBuffer || !this->renderBitmap)
+	if(!rBitmap || tSize.width!=tWidth || tSize.height!=tHeight || !this->renderBuffer)
 	{
 		SAFERELEASE(rBitmap);
 		SAFEDELETEARRAY(this->renderBuffer);
@@ -3715,9 +3285,9 @@ void GuiViewport::Render(Tab* iTab)
 		//tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
 		AGGREGATECALL(renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
 
-		renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU((unsigned int)tCanvas.z,(unsigned int)tCanvas.w),bp,&rBitmap);
+		renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(tWidth,tHeight),bp,&rBitmap);
 
-		int rBufferSize=tCanvas.z*tCanvas.w*4;
+		int rBufferSize=tWidth*tHeight*4;
 
 		rBuffer=new unsigned char[rBufferSize];
 	}
@@ -3728,60 +3298,60 @@ void GuiViewport::Render(Tab* iTab)
 
 		this->Entity()->update();
 
-		for(std::list<GuiEntityViewer*>::iterator it=GuiEntityViewer::Pool().begin();it!=GuiEntityViewer::Pool().end();it++)
+		for(std::list<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetTabsPool().begin();it!=GuiEntityViewer::GetTabsPool().end();it++)
 		{
-			if((*it)->Entity() && (*it)->GetRoot()->GetTab())
-				(*it)->Entity()->OnPropertiesUpdate((*it)->GetRoot()->GetTab());
+			if((*it)->Entity() && (*it)->GetViewer()->GetFrame())
+				(*it)->Entity()->OnPropertiesUpdate((*it)->GetViewer()->GetFrame());
 		}
 	}
 
-	iTab->renderer3D->ChangeContext();
+	iFrame->renderer3D->ChangeContext();
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_SCISSOR_TEST);
 
-	glViewport((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w);glCheckError();
-	glScissor((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w);glCheckError();
+	glViewport((int)tCanvas.x,(int)tCanvas.y,tWidth,tHeight);glCheckError();
+	glScissor((int)tCanvas.x,(int)tCanvas.y,tWidth,tHeight);glCheckError();
 
 	{
-		int tGuiRectColorBack=GuiRect::COLOR_BACK;
+		int tGuiRectColorBack=0x505050;
 		char* pGuiRectColorBack=(char*)&tGuiRectColorBack;
 
 		glClearColor(pGuiRectColorBack[2]/255.0f,pGuiRectColorBack[1]/255.0f,pGuiRectColorBack[0]/255.0f,0.0f);glCheckError();
 		//glClearColor(1,0,0,0);glCheckError();
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+		/*MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
 		MatrixStack::Push(MatrixStack::VIEW,this->view);
 		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
-		iTab->renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-		iTab->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-		iTab->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+		iFrame->renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+		iFrame->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+		iFrame->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
 		if(this->Entity())
-			iTab->renderer3D->draw(this->Entity());
+			iFrame->renderer3D->draw(this->Entity());
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
-		MatrixStack::Pop(MatrixStack::PROJECTION);
+		MatrixStack::Pop(MatrixStack::PROJECTION);*/
 
 		glReadBuffer(GL_BACK);glCheckError();
 
-		glReadPixels((int)tCanvas.x,(int)tCanvas.y,(int)tCanvas.x+tCanvas.z,(int)tCanvas.y+tCanvas.w,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
+		glReadPixels((int)tCanvas.x,(int)tCanvas.y,tWidth,tHeight,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
 
-		D2D1_RECT_U rBitmapRect={0,0,tCanvas.z,tCanvas.w};
+		D2D1_RECT_U rBitmapRect={0,0,tWidth,tHeight};
 
-		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,(int)(tCanvas.z*4));
+		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,tWidth/**tHeight*/*4);
 
-		this->DrawBuffer(iTab,tCanvas);
+		this->DrawBuffer(iFrame,tCanvas);
 	}
 
-	if(this->needsPicking && tMouse.y-tCanvas.y>=0)
+	/*if(this->needsPicking && tMouse.y-tCanvas.y>=0)
 	{
 		glDisable(GL_DITHER);
 
-		iTab->renderer3D->picking=true;
+		iFrame->renderer3D->picking=true;
 
 		glClearColor(0.0f,0.0f,0.0f,0.0f);glCheckError();
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
@@ -3791,7 +3361,7 @@ void GuiViewport::Render(Tab* iTab)
 		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
 		if(this->Entity())
-			iTab->renderer3D->draw(this->Entity());
+			iFrame->renderer3D->draw(this->Entity());
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -3820,479 +3390,13 @@ void GuiViewport::Render(Tab* iTab)
 				: 0 ;
 		}
 
-		iTab->renderer3D->picking=false;
+		iFrame->renderer3D->picking=false;
 
 		glEnable(GL_DITHER);
 
 		this->needsPicking=false;
-	}
+	}*/
 }
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////SplitterWin32///////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-//#pragma message (LOCATION " beware to new POD initialization (parhentesized or not)")
-
-
-
-SplitterWin32::SplitterWin32():
-	currentTabContainerWin32((TabWin32*&)currentTabContainer),
-	floatingTabRefWin32((TabWin32*&)floatingTabRef),
-	floatingTabWin32((TabWin32*&)floatingTab),
-	floatingTabTargetWin32((TabWin32*&)floatingTabTarget)
-
-{
-
-}
-SplitterWin32::~SplitterWin32(){}
-
-HMENU SplitterWin32::popupMenuRoot=CreatePopupMenu();
-HMENU SplitterWin32::popupMenuCreate=CreatePopupMenu();
-
-void SplitterWin32::OnLButtonDown(HWND hwnd,LPARAM lparam)
-{
-	if(!GetCapture() && !floatingTabRef && splitterCursor!=IDC_ARROW)
-	{
-		splitterPreviousPos=MAKEPOINTS(lparam);
-
-		SetCursor(LoadCursor(0,splitterCursor));
-
-		int edge1=(splitterCursor==IDC_SIZEWE ? 2 : 3);//right - bottom
-		int edge2=(splitterCursor==IDC_SIZEWE ? 0 : 1);//left - top
-
-		RECT rc1,rc2;
-		GetClientRect(hittedWindow1,&rc1);
-		GetClientRect(hittedWindow2,&rc2);
-		MapWindowRect(hittedWindow1,hwnd,&rc1);
-		MapWindowRect(hittedWindow2,hwnd,&rc2);
-
-		{
-			resizingWindows1=findWindoswAtPos(hwnd,rc1,edge1);
-			resizingWindows2=findWindoswAtPos(hwnd,rc2,edge2);
-		}
-
-		SetCapture(hwnd);
-	}
-}
-
-void SplitterWin32::OnLButtonUp(HWND hwnd)
-{
-	if(floatingTabRef)
-	{
-		EnableAllChildsDescendants(hwnd,true);
-
-		if(floatingTab)
-		{
-			if(floatingTabTarget)
-			{
-				if(floatingTabTargetAnchorPos>=0)
-				{
-					TabWin32* newTabContainer=0;
-
-					HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
-					HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
-					HWND& floatingTabHwnd=floatingTabWin32->windowDataWin32->hwnd;
-
-					if(1==(int)floatingTabRef->rects.Childs().size())
-					{
-						newTabContainer=floatingTabRefWin32;
-
-						if(!newTabContainer->windowData->FindAndGrowSibling())
-							DEBUG_BREAK();
-
-
-
-						RECT floatingTabTargetRc;
-						GetClientRect(floatingTabTargetHwnd,&floatingTabTargetRc);
-						MapWindowRect(floatingTabTargetHwnd,GetParent(floatingTabTargetHwnd),&floatingTabTargetRc);
-
-						int floatingTabTargetRcWidth=floatingTabTargetRc.right-floatingTabTargetRc.left;
-						int floatingTabTargetRcHeight=floatingTabTargetRc.bottom-floatingTabTargetRc.top;
-
-
-						switch(floatingTabTargetAnchorPos)
-						{
-						case 0:
-							SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left+floatingTabTargetRcWidth/2,floatingTabTargetRc.top,floatingTabTargetRc.right-(floatingTabTargetRc.left+floatingTabTargetRcWidth/2),floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
-							SetWindowPos(floatingTabRefHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right/2-floatingTabTargetRc.left-splitterSize,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
-						break;
-						case 1:
-							SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top+floatingTabTargetRcHeight/2,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-(floatingTabTargetRc.top+floatingTabTargetRcHeight/2),SWP_SHOWWINDOW);
-							SetWindowPos(floatingTabRefHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom/2-floatingTabTargetRc.top-splitterSize,SWP_SHOWWINDOW);
-						break;
-						case 2:
-							SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right/2-floatingTabTargetRc.left-splitterSize,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
-							SetWindowPos(floatingTabRefHwnd,0,floatingTabTargetRc.left+floatingTabTargetRcWidth/2,floatingTabTargetRc.top,floatingTabTargetRc.right-(floatingTabTargetRc.left+(floatingTabTargetRcWidth/2)),floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
-						break;
-						case 3:
-							SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom/2-floatingTabTargetRc.top-splitterSize,SWP_SHOWWINDOW);
-							SetWindowPos(floatingTabRefHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top+floatingTabTargetRcHeight/2,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-(floatingTabTargetRc.top+(floatingTabTargetRcHeight/2)),SWP_SHOWWINDOW);
-						break;
-						default:
-							DEBUG_BREAK();
-						break;
-						}
-					}
-					else
-					{
-						//newTabContainer=new TabContainerWin32((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top),hwnd);
-
-						newTabContainer=this->currentTabContainerWin32->containerWin32->CreateTab((float)floatingTabRc.left,(float)floatingTabRc.top,(float)(floatingTabRc.right-floatingTabRc.left),(float)(floatingTabRc.bottom-floatingTabRc.top));
-
-						GuiRect* reparentTab=floatingSelectedTebGuiRect;
-						floatingTabRef->selected>0 ? floatingTabRef->selected-=1 : floatingTabRef->selected=0;
-						floatingTabRef->OnGuiActivate();
-						newTabContainer->rects.Append(reparentTab);
-
-						newTabContainer->selected=floatingSelectedTebGuiRect;
-
-						SetWindowPos(floatingTabTargetHwnd,0,floatingTabTargetRc.left,floatingTabTargetRc.top,floatingTabTargetRc.right-floatingTabTargetRc.left,floatingTabTargetRc.bottom-floatingTabTargetRc.top,SWP_SHOWWINDOW);
-
-
-					}
-
-					floatingTabTarget->windowData->LinkSibling(newTabContainer->windowData,floatingTabTargetAnchorPos);
-				}
-				else
-				{
-
-				}
-			}
-		}
-		this->DestroyFloatingTab();
-	}
-	else if(GetCapture())
-	{
-		ReleaseCapture();
-		SetCursor(LoadCursor(0,IDC_ARROW));
-	}
-}
-
-void SplitterWin32::OnMouseMove(HWND hwnd,LPARAM lparam)
-{
-	POINTS p=MAKEPOINTS(lparam);
-
-	if(floatingTabRef)
-	{
-		RECT targetRc;
-		RECT tmpRc;
-
-		HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
-		HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
-		HWND& floatingTabHwnd=floatingTabWin32->windowDataWin32->hwnd;
-
-		GetWindowRect(floatingTabRefHwnd,&tmpRc);
-
-		int scalesize=3;
-
-		int floatingTabScaledWidthX=(tmpRc.right-tmpRc.left)/scalesize;
-		int floatingTabScaledWidthY=(tmpRc.bottom-tmpRc.top)/scalesize;
-
-		POINT cp={p.x,p.y};
-
-		HWND target=ChildWindowFromPointEx(hwnd,cp,CWP_SKIPDISABLED);
-
-		if(target!=GetParent(floatingTabHwnd) && target!=floatingTabHwnd && /*floatingTabTarget!=floatingTabRef*/(floatingTabRefTabCount==1 ? target!=floatingTabRefHwnd : true))
-		{
-			floatingTabTarget=(Tab*)GetWindowLongPtr(target,GWLP_USERDATA);
-
-			int hh=Tab::BAR_HEIGHT;
-
-			GetClientRect(target,&targetRc);
-			tmpRc=targetRc;
-			MapWindowRect(target,hwnd,&tmpRc);
-
-			int w=tmpRc.right-tmpRc.left;
-			int h=tmpRc.bottom-tmpRc.top;
-
-			int wd=w/3;
-			int hd=h/3;
-
-			floatingTabTargetRc=floatingTabRc=tmpRc;
-			int anchor=false;
-
-			/*if(cp.y>tmpRc.top && cp.y<tmpRc.top+hh)
-			{
-				floatingTabTargetAnchorPos=-1;
-				anchor=2;
-			}
-			else */if(cp.x>tmpRc.left && cp.x<tmpRc.left+wd)
-			{
-				floatingTabTargetAnchorPos=0;
-				floatingTabRc.right=tmpRc.left+wd;
-				floatingTabTargetRc.left=floatingTabRc.right+splitterSize;
-				anchor=1;
-			}
-			else if(cp.y>tmpRc.top+hh && cp.y<tmpRc.top+hd)
-			{
-				floatingTabTargetAnchorPos=1;
-				floatingTabRc=tmpRc;
-				floatingTabRc.bottom=tmpRc.top+hd;
-				floatingTabTargetRc.top=floatingTabRc.bottom+splitterSize;
-				anchor=1;
-			}
-			else if(cp.x>tmpRc.right-wd && cp.x<tmpRc.right)
-			{
-				floatingTabTargetAnchorPos=2;
-				floatingTabRc=tmpRc;
-				floatingTabRc.left=tmpRc.right-wd;
-				floatingTabTargetRc.right=floatingTabRc.left-splitterSize;
-				anchor=1;
-			}
-			else if(cp.y>tmpRc.bottom-hd && cp.y<tmpRc.bottom)
-			{
-				floatingTabTargetAnchorPos=3;
-				floatingTabRc=tmpRc;
-				floatingTabRc.top=tmpRc.bottom-hd;
-				floatingTabTargetRc.bottom=floatingTabRc.top-splitterSize;
-				anchor=1;
-			}
-			else
-				floatingTabTargetAnchorPos=-1;
-
-
-
-			if(anchor==2)
-			{
-				/*ShowWindow(floatingTab,false);
-				if(floatingTabTargetAnchorTabIndex<0)
-					floatingTabTargetAnchorTabIndex=CreateTabChildren(floatingTabTarget,0,floatingTabRefTabIdx,floatingTab);*/
-
-			}
-			else
-			{
-				/*if(floatingTabTargetAnchorTabIndex>=0)
-				{
-					SendMessage(floatingTabTarget,TCM_DELETEITEM,floatingTabTargetAnchorTabIndex,0);
-					floatingTabTargetAnchorTabIndex=-1;
-				}
-				ShowWindow(floatingTab,true);*/
-
-				if(anchor==1)
-					SetWindowPos(floatingTabHwnd,0,floatingTabRc.left,floatingTabRc.top,floatingTabRc.right-floatingTabRc.left,floatingTabRc.bottom-floatingTabRc.top,SWP_SHOWWINDOW);
-				else
-					SetWindowPos(floatingTabHwnd,0,p.x-(floatingTabScaledWidthX)/2,p.y-(floatingTabScaledWidthY)/2,floatingTabScaledWidthX,floatingTabScaledWidthY,SWP_SHOWWINDOW);
-			}
-		}
-		else
-		{
-			//UpdateWindow(floatingTabRef->hwnd);
-			SetWindowPos(floatingTabHwnd,0,p.x-(floatingTabScaledWidthX)/2,p.y-(floatingTabScaledWidthY)/2,floatingTabScaledWidthX,floatingTabScaledWidthY,SWP_SHOWWINDOW);
-			floatingTabTarget=0;
-			floatingTabTargetAnchorPos=-1;
-		}
-	}
-	else
-	{
-		if(!GetCapture())
-		{
-			Ide::Instance()->mainAppWindow->mainContainer->Broadcast(GuiRect::ONMOUSEMOVE);
-
-			int pixelDistance=6;
-
-			POINT probePoints[4]={{p.x-pixelDistance,p.y},{p.x+pixelDistance,p.y},{p.x,p.y-pixelDistance},{p.x,p.y+pixelDistance}};
-
-			HWND hittedWindows[4]={0,0,0,0};
-
-			for(int i=0;i<4;i++)
-			{
-				HWND found=ChildWindowFromPoint(hwnd,probePoints[i]);
-				if(found!=0 && hwnd!=found)
-					hittedWindows[i]=found;
-			}
-
-			if(hittedWindows[0]!=hittedWindows[1] && hittedWindows[0] && hittedWindows[1])
-			{
-				SetCursor(LoadCursor(0,splitterCursor=IDC_SIZEWE));
-				hittedWindow1=hittedWindows[0];
-				hittedWindow2=hittedWindows[1];
-			}
-			else if(hittedWindows[2]!=hittedWindows[3] && hittedWindows[2] && hittedWindows[3])
-			{
-				SetCursor(LoadCursor(0,splitterCursor=IDC_SIZENS));
-				hittedWindow1=hittedWindows[2];
-				hittedWindow2=hittedWindows[3];
-			}
-			else
-				SetCursor(LoadCursor(0,splitterCursor=IDC_ARROW));
-		}
-		else
-		{
-			POINTS mouseMovedDelta={splitterPreviousPos.x-p.x,splitterPreviousPos.y-p.y};
-
-			if(mouseMovedDelta.x==0 && mouseMovedDelta.y==0)
-				return;
-
-			int numwindows=resizingWindows1.size()+resizingWindows2.size();
-
-			HDWP hdwp=BeginDeferWindowPos(numwindows);
-
-			RECT rc;
-
-			DWORD flags1=SWP_NOMOVE|SWP_SHOWWINDOW;
-			DWORD flags2=SWP_SHOWWINDOW;
-			for(int i=0;i<(int)resizingWindows1.size();i++)
-			{
-				GetWindowRect(resizingWindows1[i],&rc);
-				MapWindowRect(HWND_DESKTOP,hwnd,&rc);
-
-				if(splitterCursor==IDC_SIZEWE)
-					DeferWindowPos(hdwp,resizingWindows1[i],0,0,0,(rc.right-rc.left)-mouseMovedDelta.x,rc.bottom-rc.top,flags1);
-				else
-					DeferWindowPos(hdwp,resizingWindows1[i],0,0,0,rc.right-rc.left,(rc.bottom-rc.top)-mouseMovedDelta.y,flags1);
-			}
-
-			for(int i=0;i<(int)resizingWindows2.size();i++)
-			{
-				GetWindowRect(resizingWindows2[i],&rc);
-				MapWindowRect(HWND_DESKTOP,hwnd,&rc);
-
-				if(splitterCursor==IDC_SIZEWE)
-					DeferWindowPos(hdwp,resizingWindows2[i],0,rc.left-mouseMovedDelta.x,rc.top,(rc.right-rc.left)+mouseMovedDelta.x,rc.bottom-rc.top,flags2);
-				else
-					DeferWindowPos(hdwp,resizingWindows2[i],0,rc.left,rc.top-mouseMovedDelta.y,rc.right-rc.left,(rc.bottom-rc.top)+mouseMovedDelta.y,flags2);
-			}
-
-			EndDeferWindowPos(hdwp);
-		}
-
-	}
-
-	splitterPreviousPos=p;
-}
-
-std::vector<HWND> SplitterWin32::findWindoswAtPos(HWND mainWindow,RECT &srcRect,int rectPosition)
-{
-	std::vector<HWND> foundWindows;
-
-	int srcRectRef[4]={srcRect.left,srcRect.top,srcRect.right,srcRect.bottom};
-
-	HWND child=0;
-
-	while(child=FindWindowEx(mainWindow,child ? child : 0,0,0))
-	{
-		RECT rc;
-		GetClientRect(child,&rc);
-		MapWindowRect(child,mainWindow,&rc);
-
-
-		int rect[4]={rc.left,rc.top,rc.right,rc.bottom};
-
-		if(rect[rectPosition]==srcRectRef[rectPosition])
-			foundWindows.push_back(child);
-
-	}
-
-	return foundWindows;
-
-}
-
-
-//#pragma message (LOCATION " should SplitterContainer::OnMouseWheel call directly the child OnMouseWheel method?")
-
-
-
-void SplitterWin32::CreateFloatingTab(Tab* tab)
-{
-	if(floatingTabRef)
-		return;
-
-	floatingTabRef=tab;
-	floatingSelectedTebGuiRect=tab->selected;
-	floatingTabRefTabCount=(int)tab->rects.Childs().size();
-
-	HWND& floatingTabTargetHwnd=floatingTabTargetWin32->windowDataWin32->hwnd;
-	HWND& floatingTabRefHwnd=floatingTabRefWin32->windowDataWin32->hwnd;
-	HWND& floatingTabHwnd=floatingTabWin32->windowDataWin32->hwnd;
-
-	RECT tmpRc;
-
-	GetWindowRect(floatingTabRefHwnd,&tmpRc);
-
-	floatingTab=new TabWin32((float)tmpRc.left,(float)tmpRc.top,(float)(tmpRc.right-tmpRc.left),(float)(tmpRc.bottom-tmpRc.top),GetParent(floatingTabRefHwnd));
-
-	EnableWindow(floatingTabHwnd,false);
-
-	wprintf(L"creating floating TabContainer %p\n",floatingTab);
-
-}
-
-void SplitterWin32::DestroyFloatingTab()
-{
-	if(floatingTabRef)
-	{
-		wprintf(L"deleting floating TabContainer %p\n",this);
-
-		floatingTab->~Tab();//remove floating window
-		floatingTabRef->mouseDown=false;
-		floatingTabRef=0;
-		floatingTab=0;
-	}
-}
-
-
-
-
-
-
-
-void SplitterWin32::EnableChilds(HWND hwnd,int enable,int show)
-{
-	HWND child=0;
-	while(child=FindWindowEx(hwnd,child ? child : 0,0,0))
-	{
-		if(enable>=0)EnableWindow(child,enable);
-		if(show>=0)ShowWindow(child,show);
-	}
-}
-
-void SplitterWin32::EnableAllChildsDescendants(HWND hwnd,int enable,int show)
-{
-	HWND child=0;
-	while(child=FindWindowEx(hwnd,child ? child : 0,0,0))
-		EnableChilds(child,enable,show);
-}
-
-
-
-bool InitSplitter()
-{
-	bool returnValue=true;
-
-	{
-		WNDCLASSEX wc={0};
-		wc.cbSize=sizeof(WNDCLASSEX);
-		wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-		wc.lpszClassName=WC_MAINAPPWINDOW;
-		wc.lpfnWndProc=MainContainerWin32::MainWindowProcedure;
-		wc.hbrBackground=CreateSolidBrush(MainContainer::COLOR_BACK);
-
-		if(!RegisterClassEx(&wc))
-			DEBUG_BREAK();
-	}
-
-
-	{
-		WNDCLASS wc={0};
-
-		wc.lpszClassName=WC_TABCONTAINERWINDOWCLASS;
-		wc.lpfnWndProc=TabWin32::TabContainerWindowClassProcedure;
-		wc.hbrBackground=CreateSolidBrush(RGB(0,255,0));
-		wc.hCursor=(HCURSOR)LoadCursor(0,IDC_ARROW);
-		wc.style=CS_VREDRAW|CS_HREDRAW|CS_OWNDC;
-
-		if(!RegisterClass(&wc))
-			DEBUG_BREAK();
-	}
-
-
-
-	return returnValue;
-}
-
 
 
 ///////////////////////////////////////////////
@@ -4396,7 +3500,7 @@ String SubsystemWin32::DirectoryChooser(String iDescription,String iExtension)
 	wchar_t _pszDisplayName[MAX_PATH]=L"";
 
 	BROWSEINFO bi={0};
-	bi.hwndOwner=(HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle();
+	bi.hwndOwner=(HWND)Ide::Instance()->mainframe->frame->windowData->GetWindowHandle();
 	bi.pszDisplayName=_pszDisplayName;
 	bi.lpszTitle=L"Select Directory";
 
@@ -4423,7 +3527,7 @@ String SubsystemWin32::FileChooser(wchar_t* iFilter,unsigned int iFilterIndex)
 	
 	OPENFILENAME openfilename={0};
 	openfilename.lStructSize=sizeof(OPENFILENAME);
-	openfilename.hwndOwner=(HWND)Ide::Instance()->mainAppWindow->mainContainer->GetWindowHandle();
+	openfilename.hwndOwner=(HWND)Ide::Instance()->mainframe->frame->windowData->GetWindowHandle();
 	openfilename.lpstrFilter=iFilter;
 	openfilename.nFilterIndex=iFilterIndex;
 	openfilename.lpstrFile=tOutputBuffer;
@@ -4740,7 +3844,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
-	tEditorScript->scriptViewer->GetRoot()->GetTab()->SetDraw(tEditorScript->scriptViewer);
+	tEditorScript->scriptViewer->GetViewer()->GetFrame()->SetDraw(tEditorScript->scriptViewer);
 
 	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }

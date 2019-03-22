@@ -637,6 +637,9 @@ struct DLLBUILD Renderer3DBase
 	Renderer3DBase();
 	virtual ~Renderer3DBase();
 
+	virtual void Initialize(){};
+	virtual void Deinitialize(){};
+
 	virtual int		CreateShader(const char* name,int shader_type, const char* shader_src)=0;
 	virtual Shader* CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh)=0;
 	virtual Shader* CreateShaderProgram(const char* name,const char* pix,const char* frag)=0;

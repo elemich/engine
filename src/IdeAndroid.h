@@ -8,7 +8,7 @@ struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 
 
 
-	Tab* configurationPanel;
+	Frame* configurationPanel;
 
 	String Apkname;
 	String Keyname;
