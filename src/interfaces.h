@@ -13,7 +13,7 @@ struct DLLBUILD GuiRect;
 struct DLLBUILD GuiScrollRect;
 struct DLLBUILD GuiFont;
 struct DLLBUILD GuiRect;
-struct DLLBUILD GuiTab;
+struct DLLBUILD GuiViewer;
 template <typename T> struct DLLBUILD GuiTabT;
 struct DLLBUILD GuiRoot;
 struct DLLBUILD  EditorPropertiesBase;
@@ -31,12 +31,12 @@ struct DLLBUILD GuiAnimationController;
 struct DLLBUILD GuiLabel;
 struct DLLBUILD GuiViewport;
 struct DLLBUILD GuiPanel;
-struct DLLBUILD GuiSceneViewer;
-struct DLLBUILD GuiEntityViewer;
-struct DLLBUILD GuiCompilerViewer;
-struct DLLBUILD GuiConsoleViewer;
-struct DLLBUILD GuiProjectViewer;
-struct DLLBUILD GuiScriptViewer;
+struct DLLBUILD GuiScene;
+struct DLLBUILD GuiEntity;
+struct DLLBUILD GuiCompiler;
+struct DLLBUILD GuiConsole;
+struct DLLBUILD GuiProject;
+struct DLLBUILD GuiScript;
 struct DLLBUILD GuiPropertyVec3;
 struct DLLBUILD GuiPropertyPtr;
 struct DLLBUILD GuiPropertyFloat;
@@ -73,6 +73,21 @@ struct DLLBUILD Script;
 #define MAX_TOUCH_INPUTS 10
 
 #define ENABLE_RENDERER 1
+#define FRAME_RENDERER 1
+
+template <typename T> struct DLLBUILD Singleton
+{
+private:
+	T* Instancer(){T* tInstance=T::Instance();}
+public:
+};
+
+template <typename T> struct DLLBUILD Multiton : Singleton<T>
+{
+private:
+	std::list<T*>& MultitonGetter(){return T::GetPool();}
+public:
+};
 
 struct DLLBUILD Interface
 {
@@ -195,10 +210,7 @@ public:
 
 	virtual void Sleep(int iMilliseconds=1)=0;
 
-	GuiProjectViewer*	GetProjectViewer();
-	GuiSceneViewer*		GetSceneViewer();
-	GuiCompilerViewer*	GetCompilerViewer();
-	GuiConsoleViewer*	GetConsoleViewer();
+	MainFrame*	GetMainFrame();
 
 };
 
@@ -398,6 +410,7 @@ struct DLLBUILD HitTestData
 	vec2				off;
 	GuiRect*			hit;
 	bool				locked;
+	GuiRect*			dragrect[4];
 };
 struct DLLBUILD MouseData
 {
@@ -440,27 +453,24 @@ struct DLLBUILD PointerData
 
 struct DLLBUILD GuiRect
 {
-	static void	GuiRectDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
+	virtual	void Procedure(Frame*,GuiRectMessages,void*);
 
 	GuiRect*			parent;
 	std::list<GuiRect*> childs;
 	unsigned int		flags;
 	vec4				edges;
-	void				(*procedure)(GuiRect*,Frame*,GuiRectMessages,void*);
 
 	const std::list<GuiRect*>& Childs(){return childs;}
-
-	void Procedure(Frame*,GuiRectMessages,void*);
 
 	void SetFlag(GuiRectFlag iState,bool iValue);
 	bool GetFlag(GuiRectFlag iState);
 
-	GuiTab* GetRoot(){return 0;}
+	GuiViewer* GetRoot();
 
 	void Append(GuiRect*,bool isChild=true);
 	void Remove(GuiRect*);
 
-	GuiRect(unsigned int iState=1,void (*iProcedure)(GuiRect*,Frame*,GuiRectMessages,void*)=GuiRectDefProc);
+	GuiRect(unsigned int iState=1);
 	virtual ~GuiRect(){};
 };
 
@@ -468,77 +478,37 @@ struct DLLBUILD GuiRect
 
 struct DLLBUILD GuiViewer : GuiRect
 {
-	static void GuiViewerDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
-private:
 	static const int LABEL_LEFT_OFFSET=5;
 	static const int LABEL_RIGHT_OFFSET=10;
 	static const int BAR_HEIGHT=30;
 	static const int LABEL_WIDTH=80;
 	static const int LABEL_HEIGHT=25;
 
+private:
 	friend Frame;
 
 	Frame*		frame;
 
-	std::list<GuiTab*> tabs;
-	GuiTab*			   tab;
+	std::list<GuiRect*>	tabs;
+	std::list<String>	labels;
+	GuiRect*			tab;
 public:
+
+	GuiViewer();
 	GuiViewer(float x,float y,float z,float w);
 
-	void RemoveTab(GuiTab*);
-	GuiTab* AddTab(GuiTab*,String iLabel);
-	void SetTab(GuiTab*);
-	GuiTab* GetTab();
-	Frame* GetFrame();
+	GuiRect*	AddTab(GuiRect*,String iLabel);
+	void		RemoveTab(GuiRect*);
+	
+	void		SetTab(GuiRect*);
+	GuiRect*	GetTab();
 
-};
+	Frame*		GetFrame();
 
-////////////GuiTab////////
-
-struct DLLBUILD GuiTab : GuiRect
-{
-protected:
-	friend GuiViewer;
-
-	static void GuiTabDefProc(GuiRect* iRect,Frame* iFrame,GuiRectMessages iMsg,void* iData);
-
-	GuiViewer*	viewer;
-	String	label;
-public:
-
-	GuiTab();
-
-	GuiViewer*		GetViewer();
-	const String&	GetLabel();
-
-	virtual void OnSize(Frame*,const vec4&){}
-	virtual void OnActivate(Frame*){};
-	virtual void OnDeactivate(Frame*){};
-};
-
-template <typename T> struct DLLBUILD GuiTabCreator : GuiTab
-{
-private:
-	T* GuiTabSingletonCreate(){T* tInstance=T::CreateTab();}
-public:
-};
-
-template <typename T> struct DLLBUILD GuiTabMultipleInstances : GuiTabCreator<T>
-{
-private:
-	std::list<T*>& GuiTabSingletonGet(){return T::GetTabsPool();}
-public:
-};
-
-template <typename T> struct DLLBUILD GuiTabSingleInstances : GuiTabCreator<T>
-{
-protected:
-	GuiTab::viewer;
-	GuiTab::label;
-private:
-	T* GuiTabSingletonGet(){return T::GetTab();}
-public:
+	vec4		GetTabEdges();
+	vec4		GetSizeEdges();
 };
 
 //////////////////////////////////
@@ -551,7 +521,7 @@ struct DLLBUILD GuiScrollRect : GuiRect
 {
 protected:
 
-	static void GuiScrollRectDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
 	static const unsigned int SCROLLH=0;
 	static const unsigned int SCROLLV=1;
@@ -639,8 +609,8 @@ struct DLLBUILD GuiListBox : GuiScrollRect
 		bool			skip;
 	};
 
-	static void GuiListBoxDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
-	virtual void GuiListBoxItemDefProc(GuiListBoxNode*,Frame*,GuiRectMessages,ListBoxItemData&);
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void ItemProcedure(GuiListBoxNode*,Frame*,GuiRectMessages,ListBoxItemData&);
 private:
 	std::list<String>						columns;
 	std::list<GuiListBoxNode*>				items;
@@ -734,11 +704,11 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 		bool				skip;				
 	};
 
-	static void GuiTreeViewDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 protected:
-	virtual void GuiTreeViewItemDefProc(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
-	virtual void GuiTreeViewItemCalcLayout(GuiTreeViewNode*,GuiTreeViewData&);
-	virtual void GuiTreeViewItemRoll(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
+	virtual void ItemProcedure(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
+	virtual void ItemLayout(GuiTreeViewNode*,GuiTreeViewData&);
+	virtual void ItemRoll(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
 private:
 	GuiTreeViewNode*	root;
 	GuiTreeViewNode*	hovered;
@@ -818,6 +788,8 @@ struct DLLBUILD GuiString : GuiRect
 {
 	static const unsigned int COLOR_TEXT=0xFFFFFF;
 
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
+
 private:
 	String			text;
 	GuiFont*		font;
@@ -860,9 +832,9 @@ struct DLLBUILD GuiTextBox : GuiString
 
 struct DLLBUILD GuiButton : GuiString
 {
-	GuiButton();
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
-	virtual void OnMouseUp(Frame*,const MsgData&);
+	GuiButton();
 };
 
 struct DLLBUILD GuiCheckButton : GuiButton
@@ -966,12 +938,12 @@ template<typename T> struct DLLBUILD GuiProperty : GuiRect
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-struct DLLBUILD GuiViewport : GuiTabMultipleInstances<GuiViewport>
+struct DLLBUILD GuiViewport : Multiton<GuiViewport> , GuiRect
 {
-	static std::list<GuiViewport*>& GetTabsPool();
-	static GuiViewport* CreateTab();
+	static std::list<GuiViewport*>& GetPool();
+	static GuiViewport* Instance();
 
-	static void GuiViewportDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
 private:
 
@@ -998,11 +970,10 @@ private:
 
 	DrawInstance*		renderInstance;
 
-	virtual void Render(Frame*);
-	virtual void DrawBuffer(Frame*,vec4);
-
 public:
 
+	virtual void Render(Frame*);
+	virtual void DrawBuffer(Frame*,vec4);
 	
 	virtual ~GuiViewport();
 
@@ -1034,7 +1005,7 @@ public:
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-struct DLLBUILD GuiScriptViewer : GuiTabMultipleInstances<GuiScriptViewer>
+struct DLLBUILD GuiScript : Multiton<GuiScript> , GuiRect
 {
 	EditorScript* script;
 
@@ -1044,8 +1015,8 @@ struct DLLBUILD GuiScriptViewer : GuiTabMultipleInstances<GuiScriptViewer>
 	bool		lineNumbers;
 	int			lineCount;
 
-	GuiScriptViewer();
-	~GuiScriptViewer();
+	GuiScript();
+	~GuiScript();
 
 	void Open(Script*);
 	bool Save();
@@ -1063,16 +1034,16 @@ struct DLLBUILD GuiScriptViewer : GuiTabMultipleInstances<GuiScriptViewer>
 	void DrawLineNumbers(Frame*);
 	void DrawBreakpoints(Frame*);
 	
-	static std::list<GuiScriptViewer*>& GetInstances();
+	static std::list<GuiScript*>& GetInstances();
 };
 
-struct DLLBUILD GuiCompilerViewer : GuiTabSingleInstances<GuiCompilerViewer>
+struct DLLBUILD GuiCompiler : Singleton<GuiCompiler>
 {
-	GuiCompilerViewer();
-	~GuiCompilerViewer();
+	GuiCompiler();
+	~GuiCompiler();
 
 
-	std::list<GuiCompilerViewer*>& InnerInstances();
+	std::list<GuiCompiler*>& InnerInstances();
 
 	bool ParseCompilerOutputFile(String);
 
@@ -1088,17 +1059,17 @@ struct DLLBUILD GuiPanel : GuiRect
 
 
 
-struct DLLBUILD GuiSceneViewer : GuiTabSingleInstances<GuiSceneViewer>
+struct DLLBUILD GuiScene : Singleton<GuiScene> , GuiRect 
 {
 private:
 	EditorEntity* entity;
-	GuiSceneViewer();
+	GuiScene();
 public:
 
 	EditorEntity*			Entity(); 
 	void					Entity(EditorEntity*); 
 
-	static GuiSceneViewer*  CreateTab();
+	static GuiScene*  Instance();
 
 	void OnEntitiesChange(Frame*,const MsgData&);
 
@@ -1106,56 +1077,55 @@ public:
 	void Load(String);
 };
 
-struct DLLBUILD GuiEntityViewer : GuiTabMultipleInstances<GuiEntityViewer>
+struct DLLBUILD GuiEntity : Multiton<GuiEntity> , GuiRect
 {
-	
-	~GuiEntityViewer();
+	~GuiEntity();
 
 private:
 	EditorEntity* entity;
-	GuiEntityViewer();
+	GuiEntity();
 public:
 
 	void			Entity(EditorEntity*);
 	EditorEntity*	Entity();
 
-	static GuiEntityViewer*				CreateTab();
-	static std::list<GuiEntityViewer*>& GetTabsPool();
+	static GuiEntity*				Instance();
+	static std::list<GuiEntity*>&	GetPool();
 
 	virtual void OnEntitySelected(Frame*,const MsgData&);
 	virtual void OnExpandos(Frame*,const MsgData&);
 };
 
-struct DLLBUILD GuiConsoleViewer : GuiRect
+struct DLLBUILD GuiConsole : GuiRect
 {
 private:
-	GuiConsoleViewer();
+	GuiConsole();
 public:
-	~GuiConsoleViewer();
+	~GuiConsole();
 };
 
-struct DLLBUILD GuiProjectViewer : GuiTabSingleInstances<GuiProjectViewer>
+struct DLLBUILD GuiProject : Singleton<GuiProject> , GuiRect
 {
-	struct DLLBUILD DirViewer : GuiTreeView
+	struct DLLBUILD DirView : GuiTreeView
 	{
 	};
 
-	struct DLLBUILD FileViewer : GuiListBox
+	struct DLLBUILD FileView : GuiListBox
 	{
 	};
 
-	struct DLLBUILD DataViewer : GuiRect
+	struct DLLBUILD DataView : GuiRect
 	{
-		DataViewer();
+		DataView();
 	};
 
 protected:
 
-	static void GuiProjectViewerDefProc(GuiRect*,Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
-	DirViewer dirViewer;
-	FileViewer fileViewer;
-	DataViewer resViewer;
+	DirView dirView;
+	FileView fileView;
+	DataView resView;
 
 	ResourceNodeDir*& projectDirectory;
 
@@ -1168,12 +1138,11 @@ protected:
 	bool  leftmousepressing;
 
 private:
-	GuiProjectViewer();
+	GuiProject();
 public:
-	~GuiProjectViewer();
+	~GuiProject();
 
-	static GuiProjectViewer* GetTab();
-	static GuiProjectViewer* CreateTab();
+	static GuiProject* Instance();
 
 	ResourceNodeDir& GetProjectDirectory(){return *projectDirectory;}
 
@@ -1185,10 +1154,6 @@ public:
 	void OnMouseDown(Frame*,const MsgData&);
 	void OnMouseUp(Frame*,const MsgData&);
 	void OnReparent(Frame*,const MsgData&);
-	void OnActivate(Frame*);
-	void OnDeactivate(Frame*);
-
-	void OnSize(Frame*,const vec4&);
 
 	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,String iExtension);
 
@@ -1254,13 +1219,13 @@ struct DLLBUILD DrawInstance
 
 struct DLLBUILD Frame
 {
-	WindowData* windowData;
-
 	static const int COLOR_BACK=0x707070;
 	static const int COLOR_LABEL=0x505050;
 
 	static const int ICON_WH=20;
 	static const int ICON_STRIDE=ICON_WH*4;
+
+	WindowData* windowData;
 
 	static unsigned char rawUpArrow[];
 	static unsigned char rawRightArrow[];
@@ -1272,9 +1237,10 @@ struct DLLBUILD Frame
 	MainFrame*				mainframe;
 
 	std::list<GuiViewer*>	viewers;
+	std::list<GuiViewer*>	draggables[4];
 
-	void		RemoveViewer(GuiViewer*);
-	GuiViewer*	AddViewer(GuiViewer*);
+	unsigned	dragcode;
+	unsigned	sizeboxcode;
 
 	GuiRect* focused;
 	GuiRect* hovered;
@@ -1293,9 +1259,11 @@ struct DLLBUILD Frame
 	HitTestData hittest;
 	MouseData	mousedata;
 
-	bool mouseDown;
-	bool isRender;
-	bool recreateTarget;
+	bool drag;
+	bool wasrender;
+	bool retarget;
+
+	vec2 previousSize;
 
 	bool isModal;
 
@@ -1324,7 +1292,8 @@ protected:
 public:
 	virtual ~Frame();
 
-	operator Frame& (){return *this;}
+	void		RemoveViewer(GuiViewer*);
+	GuiViewer*	AddViewer(GuiViewer*);
 
 	virtual void OnPaint();
 	virtual void OnSize(float,float);
@@ -1335,6 +1304,10 @@ public:
 	virtual void OnMouseWheel(float);
 	virtual void OnKeyDown(char iKey);
 	virtual void OnKeyUp(char iKey);
+	virtual void OnSizeboxDown(unsigned);
+	virtual void OnSizeboxUp();
+
+	MainFrame* GetMainFrame(){return this->mainframe;}
 	
 	virtual vec2 Size();
 
@@ -1356,6 +1329,7 @@ public:
 			selectedRect->Get(iRects);*/
 	}
 
+	void Render();
 	void Draw();
 	void DrawBlock(bool);
 	
@@ -1418,7 +1392,11 @@ struct DLLBUILD MainFrame : MenuInterface
 	void	AddFrame(Frame*);
 	void	RemoveFrame(Frame*);
 
+	Frame* GetFrame();
+
 	void OnMenuPressed(int iIdx);
+
+	void Enable(bool);
 };
 
 struct DLLBUILD Subsystem
@@ -1485,7 +1463,7 @@ struct DLLBUILD PluginSystem
 		String						name;
 		bool						loaded;
 		void						*handle;
-		GuiListBoxItem<Plugin*>		viewerItem;
+		GuiListBoxItem<Plugin*>		listBoxItem;
 
 		Plugin();
 
@@ -1497,34 +1475,29 @@ struct DLLBUILD PluginSystem
 private:	
 	friend Frame;
 
-	struct DLLBUILD PluginViewer : GuiTabSingleInstances<PluginViewer>
+	struct DLLBUILD GuiPluginTab : Singleton<GuiPluginTab> , GuiListBox
 	{
-		PluginSystem*		pluginSystem;
+		virtual void Procedure(Frame*,GuiRectMessages,void*);
 
-		Frame*				viewer;
-		GuiListBox			pluginList;
+		PluginSystem*		pluginSystem;
 		GuiButton			exitButton;
 
-		PluginViewer* InnerInstance(){return 0;}
-
-		PluginViewer(PluginSystem*);
+		GuiPluginTab(PluginSystem*);
 
 		void OnSize(Frame*,const MsgData&);
 		void OnControlEvent(Frame*,const MsgData&);
-
-		void Show();
 	};
 
-	PluginViewer			viewer;
+	GuiViewer				viewer;
+	GuiPluginTab			pluginsTab;
 	std::list<Plugin*>		plugins;
+	
 
 	virtual void ScanPluginsDirectory();
 public:
 
-	const std::list<Plugin*>& Plugins();
-	const std::list<void*>&	Libs();
 
-	PluginViewer& Viewer();
+	void ShowGui();
 
 	PluginSystem();
 	~PluginSystem();
@@ -1735,7 +1708,7 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 
 	//GuiButton*			buttonLaunch;
 
-	GuiScriptViewer*	scriptViewer;
+	GuiScript*	scriptViewer;
 	ResourceNode*		resourceNode;
 
 	EditorScript();
@@ -1808,9 +1781,7 @@ struct DLLBUILD Renderer2D
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f)=0;
-	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
-	virtual void DrawRectangle(const vec4&,unsigned int iColor,bool iFill=true,float op=1.0f)=0;
-	virtual void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true)=0;
+	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,float iStroke=0,float op=1.0f)=0;
 	virtual void DrawBitmap(Picture* bitmap,float x,float y, float w,float h)=0;
 
 	virtual bool LoadBitmap(Picture*)=0;	

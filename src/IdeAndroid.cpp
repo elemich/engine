@@ -219,7 +219,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	{
 		//pack non-sources resources
 
-		std::vector<GuiProjectViewer*> tGuiProjectViewer;
+		std::vector<GuiProject*> tGuiProjectViewer;
 
 		//Ide::Instance()->mainframe->CreateTabRects<GuiProjectViewer>(tGuiProjectViewer);
 

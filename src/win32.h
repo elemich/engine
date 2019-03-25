@@ -90,7 +90,7 @@ struct DLLBUILD Direct2D
 	static void DrawText(Renderer2D*,const GuiFont*,unsigned int iColor,const String& text,float x,float y, float w,float h,float iAlignPosX=-1,float iAlignPosY=-1,bool iClip=true);
 
 	static void DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2,vec2,float iWidth=0.5f,float iOpacity=1.0f);
-	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill=true,float iOpacity=1.0f);
+	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,float iStroke=0,float iOpacity=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 	static void DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush);
 
@@ -127,11 +127,8 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	void DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f);
-	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill=true,float op=1.0f);
-	virtual void DrawRectangle(const vec4&,unsigned int iColor,bool iFill=true,float op=1.0f);
-	void DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill=true);
+	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,float iStroke=0,float op=1.0f);
 	void DrawBitmap(Picture* iImage,float iX,float iY, float iW,float iH);
-
 	bool LoadBitmap(Picture*);
 
 	void PushScissor(float x,float y,float w,float h);
@@ -150,8 +147,9 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 {
 	FrameWin32* frameWin32;
 
-	HGLRC hglrc;
-	HDC   hdc;
+	HWND	hwnd;
+	HGLRC	hglrc;
+	HDC		hdc;
 
 	int	  pixelFormat;
 
@@ -368,7 +366,7 @@ struct DLLBUILD FrameWin32 : Frame
 	Renderer3DOpenGL*& renderer3DOpenGL;
 	ThreadWin32*& threadRenderWin32;
 
-	static LRESULT CALLBACK TabContainerWindowClassProcedure(HWND,UINT,WPARAM,LPARAM);
+	static LRESULT CALLBACK FrameWin32Procedure(HWND,UINT,WPARAM,LPARAM);
 
 	FrameWin32(float x,float y,float w,float h,FrameWin32* iParentFrame=0,bool iModal=false);
 	~FrameWin32();

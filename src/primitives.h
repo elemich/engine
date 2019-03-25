@@ -67,6 +67,7 @@ struct DLLBUILD  mat4;
 struct DLLBUILD  ThreadPool;
 struct DLLBUILD  Thread;
 
+
 template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 {
 	T v[size];

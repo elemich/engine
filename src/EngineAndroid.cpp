@@ -663,7 +663,7 @@ void Renderer3DAndroid::draw(vec3 point,float psize,vec3 col)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	//@mic shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	//@mic shader->SetSelectionColor(this->picking,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->GetWindowData()->GetWindowData()->width,this->tabContainer->mousey/this->tabContainerWin32->GetWindowData()->GetWindowData()->height));
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_PROGRAM_POINT_SIZE);
@@ -806,7 +806,7 @@ void Renderer3DAndroid::draw(AABB aabb,vec3 color)
 
 	////shader->SetMatrices(MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelviewMatrix());
 
-	//shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	//shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->GetWindowData()->GetWindowData()->width,this->tabContainer->mousey/this->tabContainerWin32->GetWindowData()->GetWindowData()->height));
 
 	vec3 &a=aabb.a;
 	vec3 &b=aabb.b;
@@ -881,7 +881,7 @@ void Renderer3DAndroid::draw(vec3 a,vec3 b,vec3 color)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
 
-	//shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	//shader->SetSelectionColor(false,0,vec2(this->tabContainer->mousex/this->tabContainerWin32->GetWindowData()->GetWindowData()->width,this->tabContainer->mousey/this->tabContainerWin32->GetWindowData()->GetWindowData()->height));
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -1217,7 +1217,7 @@ void Renderer3DAndroid::drawUnlitTextured(Mesh* mesh)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mesh->Entity()->world);
 
 
-	//shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	//shader->SetSelectionColor(this->picking,mesh->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->GetWindowData()->GetWindowData()->width,this->tabContainer->mousey/this->tabContainerWin32->GetWindowData()->GetWindowData()->height));
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -1292,7 +1292,7 @@ void Renderer3DAndroid::draw(Skin* skin)
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),skin->Entity()->local);
 
 
-	//shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	//shader->SetSelectionColor(this->picking,skin->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->GetWindowData()->GetWindowData()->width,this->tabContainer->mousey/this->tabContainerWin32->GetWindowData()->GetWindowData()->height));
 
 	int position_slot = shader->GetPositionSlot();
 	int texcoord_slot = shader->GetTexcoordSlot();
@@ -1375,7 +1375,7 @@ void Renderer3DAndroid::draw(Bone* bone)
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),mat4());
 
-	//shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->windowData->width,this->tabContainer->mousey/this->tabContainerWin32->windowData->height));
+	//shader->SetSelectionColor(this->picking,bone->entity,vec2(this->tabContainer->mousex/this->tabContainerWin32->GetWindowData()->GetWindowData()->width,this->tabContainer->mousey/this->tabContainerWin32->GetWindowData()->GetWindowData()->height));
 
 	glEnable(GL_DEPTH_TEST);
 

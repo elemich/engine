@@ -1,5 +1,7 @@
 #include "win32.h"
 
+#define PRINTPROCEDUREMESSAGSCALLS 0
+
 #ifdef _MSC_VER
 	#define AGGREGATECALL(Func,Arg) Arg=Func()
 #else
@@ -342,10 +344,10 @@ void Direct2D::DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2 p1,vec
 	renderer->DrawLine(D2D1::Point2F(p1.x,p1.y),D2D1::Point2F(p2.x,p2.y),brush,iWidth);
 }
 
-void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,bool fill,float op)
+void Direct2D::DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,float iStroke,float op)
 {
 	brush->SetOpacity(op);
-	fill ? renderer->FillRectangle(D2D1::RectF(x,y,w,h),brush) : renderer->DrawRectangle(D2D1::RectF(x,y,w,h),brush);
+	!iStroke ? renderer->FillRectangle(D2D1::RectF(x,y,w,h),brush) : renderer->DrawRectangle(D2D1::RectF(x,y,w,h),brush,iStroke);
 }
 
 void Direct2D::DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h)
@@ -523,19 +525,9 @@ void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,
 	Direct2D::DrawLine(this->renderer,this->SetColorWin32(iColor),p1,p2,iWidth,iOpacity);
 }
 
-void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,bool iFill,float op)
+void Renderer2DWin32::DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,float iStroke,float op)
 {
-	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iFill,op);
-}
-
-void Renderer2DWin32::DrawRectangle(const vec4& iEdges,unsigned int iColor,bool iFill,float op)
-{
-	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iEdges.x,iEdges.y,iEdges.z,iEdges.w,iFill,op);
-}
-
-void Renderer2DWin32::DrawRectangle(vec4& iXYWH,unsigned int iColor,bool iFill)
-{
-	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iXYWH.x,iXYWH.y,iXYWH.z,iXYWH.w,iFill);
+	Direct2D::DrawRectangle(this->renderer,this->SetColorWin32(iColor),iX,iY,iW,iH,iStroke,op);
 }
 
 void Renderer2DWin32::DrawBitmap(Picture* iBitmap,float iX,float iY, float iW,float iH)
@@ -746,15 +738,15 @@ void MainFrame::Initialize()
 	this->MenuInfo=this->Menu(L"?",true);
 	this->MenuActionProgramInfo=this->Menu(L"?\\Info",false);
 
-	vec2 tDim=this->frame->Size();
+	vec2 tdim=this->frame->Size();
 
-	float tx1=tDim.x/3.0f;
-	float ty1=tDim.y/3.0f;
+	float tx1=tdim.x/3.0f;
+	float ty1=tdim.y/3.0f;
 
-	this->frame->AddViewer(new GuiViewer(0,0,tx1,ty1))->AddTab(GuiSceneViewer::CreateTab(),L"Scene");
-	this->frame->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntityViewer::CreateTab(),L"Properties");
-	this->frame->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tDim.y))->AddTab(GuiProjectViewer::CreateTab(),L"Project");
-	this->frame->AddViewer(new GuiViewer(tx1+4,0,tDim.x,tDim.y))->AddTab(GuiViewport::CreateTab(),L"Renderer");
+	this->frame->AddViewer(new GuiViewer(0,0,tx1,ty1))->AddTab(GuiScene::Instance(),L"Scene");
+	this->frame->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntity::Instance(),L"Properties");
+	this->frame->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tdim.y))->AddTab(GuiProject::Instance(),L"Project");
+	this->frame->AddViewer(new GuiViewer(tx1+4,0,tdim.x,tdim.y))->AddTab(GuiViewport::Instance(),L"Renderer");
 
 	ShowWindow(hwnd,true);
 }
@@ -766,17 +758,60 @@ void MainFrame::Deintialize()
 
 Frame* MainFrame::CreateFrame(float x,float y,float z,float w,Frame* iParentFrame,bool iModal)
 {
-	return new FrameWin32(x,y,z,w,(FrameWin32*)iParentFrame,iModal);
+	FrameWin32* tFrameWin32=new FrameWin32(x,y,z,w,(FrameWin32*)iParentFrame,iModal);
+
+	this->AddFrame(tFrameWin32);
+
+	return tFrameWin32; 
 }
 
-void   MainFrame::DestroyFrame(Frame*)
+void   MainFrame::DestroyFrame(Frame* iFrame)
 {
-
+	this->RemoveFrame(iFrame);
+	SAFEDELETE(iFrame);
 }
 
-LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+void MainFrame::OnMenuPressed(int iIdx)
 {
+	if(iIdx==MenuActionExit)
+	{
+
+	}
+	else if(iIdx==MenuActionConfigurePlugin)
+	{
+		Ide::Instance()->pluginsystem->ShowGui();
+	}
+	else if(iIdx==MenuActionProgramInfo)
+	{
+
+	}
+}
+
+Frame* MainFrame::GetFrame()
+{
+	return this->frame;
+}
+
+void	MainFrame::AddFrame(Frame* iFrame)
+{
+	this->frames.push_back(iFrame);
+}
+void	MainFrame::RemoveFrame(Frame* iFrame)
+{
+	this->frames.remove(iFrame);
+}
+
+void	MainFrame::Enable(bool iEnable)
+{
+	for(std::list<Frame*>::iterator i=this->frames.begin();i!=this->frames.end();i++)
+		(*i)->windowData->Enable(iEnable);
+}
+
+LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
+{
+#if PRINTPROCEDUREMESSAGESCALL
 	wprintf(L"Begin: %i\n",msg);
+#endif
 	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
 	LPARAM result=0;
@@ -786,8 +821,38 @@ LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg
 		case WM_ERASEBKGND:
 			/*An application should return nonzero in response to WM_ERASEBKGND if it processes the message and erases the background;
 			this indicates that no further erasing is required. If the application returns zero, the window will remain marked for erasing.*/ 
-			wprintf(L"erasing background\n");
+			//wprintf(L"erasing background\n");
 			result=1;
+		break;
+		case WM_NCLBUTTONDOWN:
+		{
+			unsigned tSizeboxCode=0;
+
+			switch(wparam)
+			{
+				case HTBOTTOM:		tSizeboxCode=1;break;
+				case HTBOTTOMLEFT:	tSizeboxCode=2;break;
+				case HTBOTTOMRIGHT:	tSizeboxCode=3;break;
+				case HTTOP:			tSizeboxCode=4;break;
+				case HTTOPLEFT:		tSizeboxCode=5;break;
+				case HTTOPRIGHT:	tSizeboxCode=6;break;
+				case HTLEFT:		tSizeboxCode=7;break;
+				case HTRIGHT:		tSizeboxCode=8;break;
+				default:
+					tSizeboxCode=0;
+			}
+
+			if(tSizeboxCode)
+				frame->OnSizeboxDown(tSizeboxCode);
+
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+		}
+		break;
+		case WM_NCLBUTTONUP:
+		{
+			frame->OnSizeboxUp();
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+		}
 		break;
 		case WM_SIZE:
 		{
@@ -855,11 +920,6 @@ LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg
 			frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			frame->OnMouseMove((float)LOWORD(lparam),(float)HIWORD(lparam));
 		break;
-		case WM_CLOSE:
-			SAFEDELETE(frame);
-			DestroyWindow(hwnd);
-			result=0;
-		break;
 		case WM_KEYDOWN:
 			{
 				result=DefWindowProc(hwnd,msg,wparam,lparam);
@@ -882,7 +942,6 @@ LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg
 			break;
 		case WM_PAINT:
 		{
-			wprintf(L"BeginWM_PAINT\n");
 			frame->windowDataWin32->CopyProcedureData(hwnd,msg,wparam,lparam);
 			PAINTSTRUCT ps;
 			BeginPaint(hwnd,&ps);
@@ -891,7 +950,6 @@ LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg
 			frame->EndDraw();
 			EndPaint(hwnd,&ps);
 			result=0;
-			wprintf(L"EndWM_PAINT\n");
 		}
 		break;
 		case WM_MENUCOMMAND:
@@ -938,8 +996,9 @@ LRESULT CALLBACK FrameWin32::TabContainerWindowClassProcedure(HWND hwnd,UINT msg
 
 	if(Ide::Instance()->timer->GetLastDelta()>16)
 		PostMessage(hwnd,WM_NULL,0,0);*/
-
+#if PRINTPROCEDUREMESSAGESCALL
 	wprintf(L"End\n");
+#endif
 
 	return result;
 }
@@ -982,7 +1041,7 @@ vec2 WindowDataWin32::Size()
 	RECT tRect;
 	vec2 tSize;
 	
-	::GetWindowRect(this->hwnd,&tRect);
+	::GetClientRect(this->hwnd,&tRect);
 
 	tSize.make(tRect.right-tRect.left,tRect.bottom-tRect.top);
 
@@ -1312,7 +1371,7 @@ void IdeWin32::Run()
 		{
 			this->projectDirHasChanged=false;
 
-			Frame* tTab=GuiProjectViewer::GetTab()->GetViewer()->GetFrame();
+			Frame* tTab=GuiProject::Instance()->GetRoot()->GetFrame();
 
 			tTab->DrawBlock(true);
 
@@ -1788,7 +1847,9 @@ Renderer3DOpenGL::Renderer3DOpenGL(FrameWin32* iFrame):
 	frameWin32((FrameWin32*)iFrame),
 	hglrc(0),
 	hdc(0)
-{}
+{
+	
+}
 
 Renderer3DOpenGL::~Renderer3DOpenGL()
 {
@@ -1826,22 +1887,26 @@ void Renderer3DOpenGL::Deinitialize()
 	wglMakeCurrent(this->hdc,0);
 	
 	wglDeleteContext(this->hglrc);
-	ReleaseDC(this->frameWin32->windowDataWin32->hwnd,this->hdc);
+	ReleaseDC(this->hwnd,this->hdc);
 }
 
 void Renderer3DOpenGL::Initialize()
 {
-	this->hdc=GetDC(this->frameWin32->windowDataWin32->hwnd);
+#if FRAME_RENDERER
+	this->hwnd=this->frameWin32->windowDataWin32->hwnd;
+#else
+	vec2 tFrameSize=this->frame->Size();
+	this->hwnd=CreateWindow(WC_DIALOG,L"Renderer3DOpenGL",WS_VISIBLE,0,0,tFrameSize.x,tFrameSize.y,0,0,0,0);
 
-	RECT r;
-	GetClientRect(this->frameWin32->windowDataWin32->hwnd,&r);
+	if(!this->hwnd)
+		MessageBox(0,L"Creating Renderer window",L"Renderer3DOpenGL::CreateWindow",MB_OK|MB_ICONEXCLAMATION);
+#endif
 
-	int width=(int)(r.right-r.left);
-	int height=(int)(r.bottom-r.top);
+	this->hdc=GetDC(this->hwnd);
 
 	DWORD error=0;
 
-	if(!hdc)
+	if(!this->hdc)
 		MessageBox(0,L"Getting Device Context",L"GetDC",MB_OK|MB_ICONEXCLAMATION);
 
 	PIXELFORMATDESCRIPTOR pfd={0};
@@ -1853,7 +1918,7 @@ void Renderer3DOpenGL::Initialize()
 	pfd.cDepthBits=32;
 	pfd.cStencilBits=32;
 
-	pixelFormat = ChoosePixelFormat(hdc,&pfd);
+	pixelFormat = ChoosePixelFormat(this->hdc,&pfd);
 
 	error=GetLastError();
 
@@ -1865,13 +1930,13 @@ void Renderer3DOpenGL::Initialize()
 	if(pixelFormat==0)
 		DEBUG_BREAK();
 
-	if(!SetPixelFormat(hdc,pixelFormat,&pfd))
+	if(!SetPixelFormat(this->hdc,pixelFormat,&pfd))
 		DEBUG_BREAK();
 
-	if(!(hglrc = wglCreateContext(hdc)))
+	if(!(this->hglrc = wglCreateContext(this->hdc)))
 		DEBUG_BREAK();
 
-	if(!wglMakeCurrent(hdc,hglrc))
+	if(!wglMakeCurrent(this->hdc,this->hglrc))
 		DEBUG_BREAK();
 
 	wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATEXTPROC) wglGetProcAddress("wglChoosePixelFormatARB");
@@ -1928,13 +1993,13 @@ void Renderer3DOpenGL::Initialize()
 	wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC) wglGetProcAddress("wglGetPixelFormatAttribivARB");
 
 	wglMakeCurrent(this->hdc, NULL);
-	wglDeleteContext(hglrc);
+	wglDeleteContext(this->hglrc);
 
-	ReleaseDC(this->frameWin32->windowDataWin32->hwnd,this->hdc);
+	ReleaseDC(this->hwnd,this->hdc);
 	
 	const int pixelFormatAttribList[] =
 	{
-		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+		WGL_DRAW_TO_BITMAP_ARB, GL_TRUE,
 		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
 		WGL_ACCELERATION_ARB,WGL_FULL_ACCELERATION_ARB,
 		WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
@@ -1946,11 +2011,11 @@ void Renderer3DOpenGL::Initialize()
 		0
 	};
 
-	this->hdc=GetDC(this->frameWin32->windowDataWin32->hwnd);
+	this->hdc=GetDC(this->hwnd);
 
 	UINT numFormats;
 
-	if(!wglChoosePixelFormatARB(hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
+	if(!wglChoosePixelFormatARB(this->hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
 		MessageBox(0,L"wglChoosePixelFormatARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 
@@ -1961,13 +2026,13 @@ void Renderer3DOpenGL::Initialize()
 		0,        //End
 	};
 
-	if(!(hglrc = wglCreateContextAttribsARB(hdc, 0, versionAttribList)))
+	if(!(this->hglrc = wglCreateContextAttribsARB(this->hdc, 0, versionAttribList)))
 		MessageBox(0,L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
-	if(hglrc)
-		wprintf(L"TABCONTAINER: %p, HGLRC: %p, HDC: %p\n",this->frame,hglrc,hdc);
+	if(this->hglrc)
+		wprintf(L"HWND: %p, HGLRC: %p, HDC: %p\n",this->hwnd,this->hglrc,this->hdc);
 
-	if(!wglMakeCurrent(hdc,hglrc))
+	if(!wglMakeCurrent(this->hdc,this->hglrc))
 		DEBUG_BREAK();
 
 	/*if(!vertexArrayObject)
@@ -2906,11 +2971,13 @@ void Picture::Release()
 
 void FrameWin32::Destroy()
 {
-	PostMessage(this->windowDataWin32->hwnd,WM_CLOSE,0,0);
+	
 }
 
 FrameWin32::~FrameWin32()
 {
+	DestroyWindow(this->windowDataWin32->hwnd);
+
 	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)0);
 
 	SAFEDELETE(this->iconDown);
@@ -2935,13 +3002,14 @@ FrameWin32::~FrameWin32()
 #if ENABLE_RENDERER
 	if(this->renderer3D)
 	{
-		/*Task* tDeleteOpenGLContext=this->thread->NewTask(L"DestroyOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
+		Task* tDeleteOpenGLContext=this->thread->NewTask(L"DestroyOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
 		while(tDeleteOpenGLContext->func);
-		SAFEDELETE(tDeleteOpenGLContext);*/
+		SAFEDELETE(tDeleteOpenGLContext);
+
+		SAFEDELETE(this->renderer3D);
 	}
 #endif
 
-	SAFEDELETE(this->renderer3DOpenGL);
 	SAFEDELETE(this->threadRenderWin32);
 	SAFEDELETE(this->renderer2DWin32);
 	SAFEDELETE(this->windowDataWin32);
@@ -2961,32 +3029,28 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 
 	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
 
-	if(iParentFrame)
-	{
-		if(!this->isModal)
-			tStyle=tStyle|WS_CHILD;
-	}
+	if(!iModal)
+		tStyle = iParentFrame ? tStyle|WS_CHILD : tStyle|WS_OVERLAPPEDWINDOW;
 	else
-		tStyle=tStyle|WS_OVERLAPPEDWINDOW;
+		tStyle |= WS_SIZEBOX;
 
 	HWND tParent=iParentFrame ? iParentFrame->windowDataWin32->hwnd : 0;
 
-	this->windowDataWin32->hwnd=CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
+	this->windowDataWin32->hwnd=::CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
 
 	if(!this->windowDataWin32->hwnd)
 	{
-		DWORD tError=GetLastError();
+		DWORD tError=::GetLastError();
 		DEBUG_BREAK();
 	}
 
-	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
-	SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::TabContainerWindowClassProcedure);
+	if(iModal) /*removes the caption style*/
+		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
+
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
 
 	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
-
-	this->thread=new ThreadWin32;
-
-	//this->drawTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Draw,this)),false);
 
 	this->iconDown=new PictureRef(Frame::rawDownArrow,Frame::ICON_WH,Frame::ICON_WH);
 	this->iconUp=new PictureRef(Frame::rawUpArrow,Frame::ICON_WH,Frame::ICON_WH);
@@ -2997,34 +3061,29 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 
 	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
 
-#if ENABLE_RENDERER
+	this->thread=new ThreadWin32;
 
+#if ENABLE_RENDERER
 		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
 
 		if(!this->renderer3DOpenGL)
 			DEBUG_BREAK();
 
-		this->renderer3DOpenGL->Initialize();
-
-		/*Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
+		Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
 		while(tCreateOpenGLContext->func);
-		SAFEDELETE(tCreateOpenGLContext);*/
+		SAFEDELETE(tCreateOpenGLContext);
 #endif
+
+	this->drawTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
 
 	this->OnRecreateTarget();
 
-	if(this->isModal)
-	{
-		DWORD tLong=(DWORD)GetWindowLongPtr(this->windowDataWin32->hwnd,GWL_STYLE);
-
-		tLong ^= WS_CAPTION;
-
-		SetWindowLongPtr(this->windowDataWin32->hwnd,GWL_STYLE,(LONG)tLong);
-
-		SetParent(this->windowDataWin32->hwnd,0);
-	}
+	if(iModal)/*visually remove the caption*/
+		::SetWindowPos(this->windowDataWin32->hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_DRAWFRAME);
 
 	ShowWindow(this->windowDataWin32->hwnd,true);
+
+	
 }
 
 
@@ -3141,16 +3200,16 @@ int FrameWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 
 bool FrameWin32::BeginDraw()
 {
-	if(!this->isRender)
+	if(!this->wasrender)
 	{
-		if(this->recreateTarget)
+		if(this->retarget)
 		{
 			this->OnRecreateTarget();
-			this->recreateTarget=0;
+			this->retarget=0;
 		}
 
 		this->renderer2DWin32->renderer->BeginDraw();
-		this->isRender=true;
+		this->wasrender=true;
 
 		return true;
 	}
@@ -3162,11 +3221,11 @@ bool FrameWin32::BeginDraw()
 }
 void FrameWin32::EndDraw()
 {
-	if(this->isRender)
+	if(this->wasrender)
 	{
 		HRESULT result=renderer2DWin32->renderer->EndDraw();
 
-		this->recreateTarget=(result==D2DERR_RECREATE_TARGET);
+		this->retarget=(result==D2DERR_RECREATE_TARGET);
 
 		if(result!=0)
 		{
@@ -3180,7 +3239,7 @@ void FrameWin32::EndDraw()
 				wprintf(L"D2D1HwndRenderTarget::Flush error: %x\n",result);
 		}
 
-		this->isRender=false;
+		this->wasrender=false;
 	}
 	/*else
 		DEBUG_BREAK();
@@ -3229,6 +3288,9 @@ void FrameWin32::SetCursor(int iCursorCode)
 		case 0: cursor=LoadCursor(0,IDC_ARROW); break;
 		case 1: cursor=LoadCursor(0,IDC_SIZEWE); break;
 		case 2: cursor=LoadCursor(0,IDC_SIZENS); break;
+		case 3: cursor=LoadCursor(0,IDC_SIZENESW); break;
+		case 4: cursor=LoadCursor(0,IDC_SIZENWSE); break;
+		case 5: cursor=LoadCursor(0,IDC_SIZEALL); break;
 	}
 
 	if(cursor)
@@ -3243,7 +3305,7 @@ void FrameWin32::SetCursor(int iCursorCode)
 
 GuiViewport::~GuiViewport()
 {
-	GuiViewport::GetTabsPool().remove(this);
+	GuiViewport::GetPool().remove(this);
 
 	SAFERELEASE((ID2D1Bitmap*&)this->renderBitmap);
 }
@@ -3254,11 +3316,18 @@ void GuiViewport::DrawBuffer(Frame* iFrame,vec4 iVec)
 	{
 		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iFrame->renderer2D;
 		renderer2DWin32->renderer->DrawBitmap((ID2D1Bitmap*&)this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.z,iVec.w));
-		iFrame->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.z,iVec.w,0xff0000,false);
+		iFrame->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.z,iVec.w,0xff0000,1);
 	}
 }
+
 void GuiViewport::Render(Frame* iFrame)
 {
+	if(Timer::GetInstance()->GetCurrent()-this->lastFrameTime>(1000.0f/this->renderFps))
+		this->lastFrameTime=Ide::Instance()->timer->GetCurrent();
+	else 
+		return;
+	
+
 	vec4 tCanvas=this->edges;
 	int tWidth=tCanvas.z-tCanvas.x;
 	int tHeight=tCanvas.w-tCanvas.y;
@@ -3290,6 +3359,8 @@ void GuiViewport::Render(Frame* iFrame)
 		int rBufferSize=tWidth*tHeight*4;
 
 		rBuffer=new unsigned char[rBufferSize];
+
+		PostMessage((HWND)iFrame->windowData->GetWindowHandle(),WM_NULL,0,0);
 	}
 
 	if(this->Entity())
@@ -3298,10 +3369,10 @@ void GuiViewport::Render(Frame* iFrame)
 
 		this->Entity()->update();
 
-		for(std::list<GuiEntityViewer*>::iterator it=GuiEntityViewer::GetTabsPool().begin();it!=GuiEntityViewer::GetTabsPool().end();it++)
+		for(std::list<GuiEntity*>::iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
 		{
-			if((*it)->Entity() && (*it)->GetViewer()->GetFrame())
-				(*it)->Entity()->OnPropertiesUpdate((*it)->GetViewer()->GetFrame());
+			if((*it)->Entity() && (*it)->GetRoot()->GetFrame())
+				(*it)->Entity()->OnPropertiesUpdate((*it)->GetRoot()->GetFrame());
 		}
 	}
 
@@ -3321,7 +3392,7 @@ void GuiViewport::Render(Frame* iFrame)
 		//glClearColor(1,0,0,0);glCheckError();
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-		/*MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
+		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
 		MatrixStack::Push(MatrixStack::VIEW,this->view);
 		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
@@ -3334,7 +3405,7 @@ void GuiViewport::Render(Frame* iFrame)
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
-		MatrixStack::Pop(MatrixStack::PROJECTION);*/
+		MatrixStack::Pop(MatrixStack::PROJECTION);
 
 		glReadBuffer(GL_BACK);glCheckError();
 
@@ -3344,7 +3415,8 @@ void GuiViewport::Render(Frame* iFrame)
 
 		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,tWidth/**tHeight*/*4);
 
-		this->DrawBuffer(iFrame,tCanvas);
+		//this->DrawBuffer(iFrame,tCanvas);
+		PostMessage((HWND)iFrame->windowData->GetWindowHandle(),WM_NULL,0,0);
 	}
 
 	/*if(this->needsPicking && tMouse.y-tCanvas.y>=0)
@@ -3844,7 +3916,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
 
-	tEditorScript->scriptViewer->GetViewer()->GetFrame()->SetDraw(tEditorScript->scriptViewer);
+	tEditorScript->scriptViewer->GetRoot()->GetFrame()->SetDraw(tEditorScript->scriptViewer);
 
 	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
 }
@@ -3998,6 +4070,8 @@ void PluginSystem::ScanPluginsDirectory()
 					{
 						if(tPlugin->name==tPluginStates[i])
 							tPlugin->Load();
+
+						tPlugin->listBoxItem.SetLabel(tPlugin->name);
 					}
 
 					wprintf(L"%s plugin loaded\n",tPlugin->name.c_str());
