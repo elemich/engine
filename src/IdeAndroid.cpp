@@ -58,7 +58,7 @@ void AndroidPlugin::Unload()
 	Plugin::Unload();
 }
 
-void AndroidPlugin::OnMenuPressed(int iIdx)
+void AndroidPlugin::OnMenuPressed(Frame*,int iIdx)
 {
 	if(iIdx==this->MenuActionBuild)
 		this->ShowConfigurationPanel();

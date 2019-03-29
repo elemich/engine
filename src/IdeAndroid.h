@@ -31,7 +31,7 @@ struct DLLBUILD AndroidPlugin : PluginSystem::Plugin
 
 	void Load();
 	void Unload();
-	void OnMenuPressed(int);
+	void OnMenuPressed(Frame*,int);
 
 	void ShowConfigurationPanel();
 };

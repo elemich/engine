@@ -13,7 +13,7 @@ struct DLLBUILD Fbx : PluginSystem::Plugin
 
 	void Load();
 	void Unload();
-	void OnMenuPressed(int);
+	void OnMenuPressed(Frame*,int);
 
 	EditorEntity* Import(const char* iFileName);
 };

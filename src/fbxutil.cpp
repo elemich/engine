@@ -26,7 +26,7 @@ void Fbx::Unload()
 	Plugin::Unload();
 }
 
-void Fbx::OnMenuPressed(int iIdx)
+void Fbx::OnMenuPressed(Frame* iFrame,int iIdx)
 {
 	if(iIdx==MenuActionImport)
 	{
@@ -41,9 +41,7 @@ void Fbx::OnMenuPressed(int iIdx)
 		if(tFbxFile.size())
 		{
 			EditorEntity* importedEntities=this->Import(StringUtils::ToChar(tFbxFile).c_str());
-
-			PointerData iPointerData={importedEntities};
-			Ide::Instance()->mainframe->frame->Broadcast(GuiRectMessages::ONENTITIESCHANGE,&iPointerData);
+			iFrame->Broadcast(GuiRectMessages::ONENTITIESCHANGE,importedEntities);
 		}
 	}
 	else if(iIdx==MenuActionExport)
@@ -202,7 +200,7 @@ EditorEntity* acquireNodeStructure(FbxNode* iFbxNode,EditorEntity* iEntityParent
 	{
 		globalRootEntity=tEntity;
 
-		tEntity->name=FilePath(StringUtils::ToWide(globalSceneFilename)).Name();
+		tEntity->SetName(FilePath(StringUtils::ToWide(globalSceneFilename)).Name());
 	}
 	else
 		iEntityParent->Append(tEntity);

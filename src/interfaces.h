@@ -72,7 +72,7 @@ struct DLLBUILD Script;
 
 #define MAX_TOUCH_INPUTS 10
 
-#define ENABLE_RENDERER 1
+#define ENABLE_RENDERER 0
 #define FRAME_RENDERER 1
 
 template <typename T> struct DLLBUILD Singleton
@@ -360,6 +360,11 @@ enum GuiRectFlag
 {
 	ACTIVE=0,
 	CHILD,
+	HIGHLIGHTED,
+	PRESSED,
+	CHECKED,
+	PARENTCOLOR,
+	SELFDRAW,
 	MAXFLAGS
 };
 
@@ -367,8 +372,9 @@ enum GuiRectFlag
 
 enum GuiRectMessages
 {
-	ONHITTEST,
+	ONHITTEST=0,
 	ONRECREATETARGET,
+	ONPREPAINT,
 	ONPAINT,
 	ONENTITIESCHANGE,
 	ONSIZE,
@@ -393,7 +399,6 @@ enum GuiRectMessages
 	ONEXITFOCUS,
 	ONCONTROLEVENT,
 	ONDRAWBARS,
-
 	MAXMESSAGES
 };
 
@@ -403,8 +408,10 @@ struct DLLBUILD MsgData
 {
 	bool skipchilds;
 	bool skipall;
+
+	MsgData():skipchilds(false),skipall(false){};
 };
-struct DLLBUILD HitTestData
+struct DLLBUILD HitTestData : MsgData
 {
 	vec2				mouse;
 	vec2				off;
@@ -412,7 +419,7 @@ struct DLLBUILD HitTestData
 	bool				locked;
 	GuiRect*			dragrect[4];
 };
-struct DLLBUILD MouseData
+struct DLLBUILD MouseData : MsgData
 {
 	vec2					mouse;
 	unsigned int			button;
@@ -422,30 +429,28 @@ struct DLLBUILD MouseData
 	MouseData(const vec2& iMouse,unsigned iBut,float iScr,MouseInput& iMi):mouse(iMouse),button(iBut),scroller(iScr),raw(iMi){}
 };
 
-struct DLLBUILD KeyData
+struct DLLBUILD KeyData : MsgData
 {
 	char				key;
+	KeyData(char iKey):key(iKey){}
 };
-struct DLLBUILD PaintData
-{
-	vec4 edges;
-};
-struct DLLBUILD SizeData
-{
-	vec4 edges;
-	vec4 parent;
-};
-struct DLLBUILD ControlData
+struct DLLBUILD ControlData : MsgData
 {
 	GuiRect*		control;
 	GuiRectMessages	msg;
 	void*			data;
-};
-struct DLLBUILD PointerData
-{
-	void* pointer;
-};
 
+	ControlData(GuiRect* iControl,GuiRectMessages iMsg,void* iData):control(iControl),msg(iMsg),data(iData){}
+};
+struct DLLBUILD PaintData : MsgData
+{
+	GuiRect* target;
+	void*	 data;
+	vec4	 clip;
+	vec2	 offset;
+
+	PaintData(GuiRect* iTarget,void* iData):target(iTarget),data(iData),clip(0,0,100000,100000){}
+};
 
 //MESSAGES END
 
@@ -459,18 +464,27 @@ struct DLLBUILD GuiRect
 	std::list<GuiRect*> childs;
 	unsigned int		flags;
 	vec4				edges;
+	unsigned			color;
 
 	const std::list<GuiRect*>& Childs(){return childs;}
+	GuiRect*				   Parent(){return parent;}
 
 	void SetFlag(GuiRectFlag iState,bool iValue);
 	bool GetFlag(GuiRectFlag iState);
+
+	virtual void		SetColor(unsigned iColor);
+	unsigned			GetColor();
 
 	GuiViewer* GetRoot();
 
 	void Append(GuiRect*,bool isChild=true);
 	void Remove(GuiRect*);
 
-	GuiRect(unsigned int iState=1);
+	virtual void OnSize(Frame*,const vec4& iNewSize);
+
+	virtual void Draw(Frame*);
+
+	GuiRect(unsigned int iState=1,unsigned int iColor=0x505050);
 	virtual ~GuiRect(){};
 };
 
@@ -508,7 +522,7 @@ public:
 	Frame*		GetFrame();
 
 	vec4		GetTabEdges();
-	vec4		GetSizeEdges();
+	vec4		GetBorderEdges();
 };
 
 //////////////////////////////////
@@ -581,21 +595,25 @@ protected:
 public:
 
 	void			SetLabel(const String&);
-	const String&	SetLabel();
+	const String&	GetLabel();
 
-	virtual void  OnPaint(Frame*,const vec4&);
-	virtual float OnCalcWidth();
-	virtual float OnCalcHeight();
-	virtual void  OnMouseDown(Frame*,const MouseData&);
-	virtual void  OnMouseUp(Frame*,const MouseData&);
+	virtual float	OnCalcWidth();
+	virtual float	OnCalcHeight();
+
+	virtual void	OnPaint(GuiListBox*,Frame*,const vec4&);
+	virtual void	OnMouseDown(GuiListBox*,Frame*,const vec4&,const MouseData&);
+	virtual void	OnMouseUp(GuiListBox*,Frame*,const vec4&,const MouseData&);
+	virtual void	OnMouseMove(GuiListBox*,Frame*,const vec4&,const MouseData&);
 };
 
 template<typename T> struct DLLBUILD GuiListBoxItem : GuiListBoxNode
 {
-private:
+protected:
 	T value;
 public:
 	GuiListBoxItem(T iT):value(iT){}
+
+	T GetValue(){return value;}
 };
 
 struct DLLBUILD GuiListBox : GuiScrollRect
@@ -615,9 +633,12 @@ private:
 	std::list<String>						columns;
 	std::list<GuiListBoxNode*>				items;
 	GuiListBoxNode*							hovered;
+	vec4									hoverededges;
 
 	void SetFlag(GuiListBoxNode*,GuiListBoxNode::Flags iFlag,bool);
 	bool GetFlag(GuiListBoxNode*,GuiListBoxNode::Flags iFlag);
+
+	void SetHoverHighlight(Frame*,bool);
 public:
 	GuiListBox();
 
@@ -653,6 +674,7 @@ struct GuiImage : GuiRect
 //////////////////////////////////
 
 struct DLLBUILD GuiTreeView;
+struct DLLBUILD GuiPropertyTree;
 
 struct DLLBUILD GuiTreeViewNode
 {
@@ -660,26 +682,31 @@ struct DLLBUILD GuiTreeViewNode
 	{
 		SELECTED=0,
 		HIGHLIGHTED,
-		EXPANDED
+		EXPANDED,
+		SELECTABLE
 	};
-private:
+protected:
 	friend GuiTreeView;
+	friend GuiPropertyTree;
+
 	GuiTreeViewNode*			parent;
 	std::list<GuiTreeViewNode*>	childs;
 	unsigned int				flags;
 	String						label;
-protected:
+
 	GuiTreeViewNode();
 public:
 	void			SetLabel(const String&);
 	const String&	GetLabel();
-
+	
 	void Insert(GuiTreeViewNode& iChild);
 	void Remove(GuiTreeViewNode& iItem);
 
+	virtual void SetBackgroundColor(unsigned iColor){}
+
 	virtual void  OnPaint(Frame*,const vec4&,const float& tExpandosEnd);
-	virtual float OnCalcWidth(const float& tExpandosEnd);
-	virtual float OnCalcHeight();
+	virtual float GetWidth(const float& tExpandosEnd);
+	virtual float GetHeight();
 	virtual void  OnExpandos(Frame*,const bool&);
 	virtual void  OnMouseDown(Frame*,const MouseData&);
 	virtual void  OnMouseUp(Frame*,const MouseData&);
@@ -687,9 +714,12 @@ public:
 
 template<typename T> struct DLLBUILD GuiTreeViewItem : GuiTreeViewNode
 {
+protected:
 	T value;
-
+public:
 	GuiTreeViewItem(T iT):value(iT){}
+
+	T GetValue(){return this->value;}
 };
 
 struct DLLBUILD GuiTreeView : GuiScrollRect
@@ -697,8 +727,8 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 	struct DLLBUILD GuiTreeViewData
 	{
 		unsigned int		level;
-		vec4&				edges;			
-		float				top;
+		vec4				contentedges;			
+		vec4				labeledges;
 		unsigned			idx;				
 		void*				data;
 		bool				skip;				
@@ -707,9 +737,11 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 	virtual void Procedure(Frame*,GuiRectMessages,void*);
 protected:
 	virtual void ItemProcedure(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
-	virtual void ItemLayout(GuiTreeViewNode*,GuiTreeViewData&);
+	virtual void ItemLayout(Frame*,GuiTreeViewNode*,GuiTreeViewData&);
 	virtual void ItemRoll(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
-private:
+
+	GuiTreeViewData GetTreeViewData(void* iData=0);
+
 	GuiTreeViewNode*	root;
 	GuiTreeViewNode*	hovered;
 	vec4				hoveredg;
@@ -717,6 +749,8 @@ private:
 
 	void SetFlag(GuiTreeViewNode* iItem,GuiTreeViewNode::Flags iFlag,bool);
 	bool GetFlag(GuiTreeViewNode* iItem,GuiTreeViewNode::Flags iFlag);
+
+	virtual void SetLabelEdges(GuiTreeViewNode*,GuiTreeViewData&);
 	
 	vec4 GetExpandosEdges(const vec4& iEdges);
 public:
@@ -725,30 +759,63 @@ public:
 	void InsertRoot(GuiTreeViewNode& iItem);
 	void RemoveRoot();
 
+	virtual void CalculateLayout();
+};
+
+////////GuiPropertyTree///////
+
+struct DLLBUILD GuiPropertyTreeNode : GuiTreeViewNode
+{
+protected:
+	GuiPropertyTreeNode(const String& iDescription){this->SetLabel(iDescription);}
+public:
+};
+
+template<typename T> struct DLLBUILD GuiPropertyTreeContainer : GuiPropertyTreeNode
+{
+protected:
+	T value;
+public:
+	GuiPropertyTreeContainer(const String& iDescription,T iValue):GuiPropertyTreeNode(iDescription),value(iValue){}
+	T GetValue(){return this->value;}
+};
+
+struct DLLBUILD GuiPropertyTreeItem : GuiPropertyTreeNode
+{
+protected:
+	GuiRect*	property;
+	float		height;
+public:
+	GuiPropertyTreeItem(const String& iDescription,GuiRect& iProperty,float iHeight=20):GuiPropertyTreeNode(iDescription),property(&iProperty),height(iHeight){}
+
+	void  SetHeight(float iHeight=20){this->height=iHeight;}
+	float GetHeight(){return this->height;}
+	
+	GuiRect* GetProperty(){return this->property;}
+
+	void SetBackgroundColor(unsigned iColor){this->GetProperty()->SetColor(iColor);}
+};
+
+struct DLLBUILD GuiPropertyTree : GuiTreeView
+{
+protected:
+	float splitter;
+public:
+	GuiPropertyTree():splitter(0){}
+
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void ItemProcedure(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
+
+	void SetLabelEdges(GuiTreeViewNode*,GuiTreeViewData&);
+
 	void CalculateLayout();
 };
 
-//////////////////////////////
-//////////////////////////////
-////////GuiPropertyTree///////
-//////////////////////////////
-//////////////////////////////
-
-struct DLLBUILD GuiPropertyTree : GuiScrollRect
-{
-	
-};
-
-//////////////////////////////
-//////////////////////////////
 ////////GuiStringProperty/////
-//////////////////////////////
-//////////////////////////////
 
 struct DLLBUILD GuiStringProperty : GuiRect
 {
-	static const unsigned int scDefaultParameter1=2;
-	static const unsigned int scDefaultParameter2=2;
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
 	enum
 	{
@@ -773,15 +840,17 @@ struct DLLBUILD GuiStringProperty : GuiRect
 		MAXVALUE
 	};
 
+protected:
+	static const unsigned int scDefaultParameter1=2;
+	static const unsigned int scDefaultParameter2=2;
+
 	void* valuePointer1;
 	void* valuePointer2;
 	unsigned int valueType;
 	unsigned char valueParameter1;
 	unsigned char valueParameter2;
-
+public:
 	GuiStringProperty(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
-
-	void OnPaint(Frame*,const PaintData&);
 };
 
 struct DLLBUILD GuiString : GuiRect
@@ -790,7 +859,7 @@ struct DLLBUILD GuiString : GuiRect
 
 	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
-private:
+protected:
 	String			text;
 	GuiFont*		font;
 	unsigned int	color;
@@ -811,8 +880,6 @@ public:
 
 	void Alignment(float,float);
 	const vec2& Alignment();
-
-	void OnPaint(Frame*,const PaintData&);
 };
 
 struct DLLBUILD GuiTextBox : GuiString
@@ -834,6 +901,8 @@ struct DLLBUILD GuiButton : GuiString
 {
 	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
+	unsigned buttonflags;
+
 	GuiButton();
 };
 
@@ -850,7 +919,9 @@ struct DLLBUILD GuiCheckButton : GuiButton
 
 struct DLLBUILD GuiSlider : GuiRect
 {
-private:
+	virtual  void Procedure(Frame*,GuiRectMessages,void*);
+
+protected:
 	float* referenceValue;
 
 	float* minimum;
@@ -863,10 +934,6 @@ public:
 	float Value();
 	float Min();
 	float Max();
-
-	virtual void OnPaint(Frame*,const PaintData&);
-	virtual void OnMouseMove(Frame*,const MsgData&);
-	virtual void OnMouseDown(Frame*,const MsgData&);
 };
 
 
@@ -892,16 +959,23 @@ struct DLLBUILD GuiPath : GuiRect
 
 struct DLLBUILD GuiAnimationController : GuiRect
 {
+	virtual  void Procedure(Frame*,GuiRectMessages,void*);
+protected:
 	AnimationController& animationController;
 
 	GuiButton play;
 	GuiButton stop;
 	GuiSlider slider;
-
+public:
 	GuiAnimationController(AnimationController&);
 
-	virtual void OnSize(Frame*,const MsgData&);
-	virtual void OnControlEvent(Frame*,const MsgData&);
+	virtual void SetColor(unsigned int iColor)
+	{
+		GuiRect::SetColor(iColor);
+		this->play.SetColor(iColor);
+		this->stop.SetColor(iColor);
+		this->slider.SetColor(iColor);
+	}
 };
 
 
@@ -972,7 +1046,7 @@ private:
 
 public:
 
-	virtual void Render(Frame*);
+	virtual int Render(Frame*);
 	virtual void DrawBuffer(Frame*,vec4);
 	
 	virtual ~GuiViewport();
@@ -1059,8 +1133,10 @@ struct DLLBUILD GuiPanel : GuiRect
 
 
 
-struct DLLBUILD GuiScene : Singleton<GuiScene> , GuiRect 
+struct DLLBUILD GuiScene : Singleton<GuiScene> , GuiTreeView 
 {
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
+
 private:
 	EditorEntity* entity;
 	GuiScene();
@@ -1071,29 +1147,26 @@ public:
 
 	static GuiScene*  Instance();
 
-	void OnEntitiesChange(Frame*,const MsgData&);
-
 	void Save(String);
 	void Load(String);
 };
 
-struct DLLBUILD GuiEntity : Multiton<GuiEntity> , GuiRect
+struct DLLBUILD GuiEntity : Multiton<GuiEntity> , GuiPropertyTree
 {
-	~GuiEntity();
+	virtual void Procedure(Frame*,GuiRectMessages,void*);
 
 private:
 	EditorEntity* entity;
 	GuiEntity();
 public:
 
+	~GuiEntity();
+
 	void			Entity(EditorEntity*);
 	EditorEntity*	Entity();
 
 	static GuiEntity*				Instance();
 	static std::list<GuiEntity*>&	GetPool();
-
-	virtual void OnEntitySelected(Frame*,const MsgData&);
-	virtual void OnExpandos(Frame*,const MsgData&);
 };
 
 struct DLLBUILD GuiConsole : GuiRect
@@ -1150,6 +1223,7 @@ public:
 
 	void Delete(Frame*,ResourceNode*);
 
+	void OnSize(Frame*,const vec4&);
 	void OnMouseMove(Frame*,const MsgData&);
 	void OnMouseDown(Frame*,const MsgData&);
 	void OnMouseUp(Frame*,const MsgData&);
@@ -1200,9 +1274,11 @@ struct DLLBUILD WindowData
 	virtual vec2 Pos()=0;
 	virtual void Show(bool)=0;
 	virtual bool IsVisible()=0;
-	virtual void Resize(float,float)=0;
 
 	virtual int GetWindowHandle()=0;
+
+	virtual void SendMessage(unsigned iCode,unsigned data1,unsigned data2)=0;
+	virtual void PostMessage(unsigned iCode,unsigned data1,unsigned data2)=0;
 };
 
 struct DLLBUILD DrawInstance
@@ -1280,7 +1356,7 @@ struct DLLBUILD Frame
 
 	std::list<ClipData>		clips;
 	
-	Task*	 drawTask;
+	Task*	 renderingTask;
 
 	vec2 mouse;
 
@@ -1315,11 +1391,11 @@ public:
 
 	virtual void OnRecreateTarget();
 
-	virtual void Message(GuiRect*,GuiRectMessages iMsg,void* iData);
-	virtual void Broadcast(GuiRectMessages iMsg,void* iData);
-	virtual void BroadcastTo(GuiRect*,GuiRectMessages iMsg,void* iData);
-	virtual void BroadcastInputTo(GuiRect*,GuiRectMessages iMsg,void* iData);
-	virtual void BroadcastPaintTo(GuiRect*,void* iData);
+	virtual void Message(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
+	virtual void Broadcast(GuiRectMessages iMsg,void* iData=&MsgData());
+	virtual void BroadcastTo(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
+	virtual void BroadcastInputTo(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
+	virtual void BroadcastPaintTo(GuiRect*,void* iData=&MsgData());
 
 	template<class C> void GetRects(std::vector<C*>& iRects)
 	{
@@ -1357,7 +1433,7 @@ public:
 
 struct DLLBUILD MenuInterface
 {
-	virtual void OnMenuPressed(int iIdx)=0;
+	virtual void OnMenuPressed(Frame*,int iIdx)=0;
 	int Menu(String iName,bool tPopup);
 
 	static int GetMenuId();
@@ -1394,7 +1470,7 @@ struct DLLBUILD MainFrame : MenuInterface
 
 	Frame* GetFrame();
 
-	void OnMenuPressed(int iIdx);
+	void OnMenuPressed(Frame*,int iIdx);
 
 	void Enable(bool);
 };
@@ -1413,6 +1489,7 @@ struct DLLBUILD Subsystem
 	virtual void* LoadLibrary(String)=0;
 	virtual bool FreeLibrary(void*)=0;
 	virtual void* GetProcAddress(void*,String)=0;
+	virtual void SystemMessage(String iTitle,String iMessage,unsigned iFlags)=0;
 };
 
 struct DLLBUILD Compiler
@@ -1456,6 +1533,8 @@ struct DLLBUILD Compiler
 	bool UnloadScript(EditorScript*);
 };
 
+
+
 struct DLLBUILD PluginSystem
 {
 	struct DLLBUILD Plugin : MenuInterface
@@ -1463,13 +1542,24 @@ struct DLLBUILD PluginSystem
 		String						name;
 		bool						loaded;
 		void						*handle;
-		GuiListBoxItem<Plugin*>		listBoxItem;
+
+		struct DLLBUILD PluginListBoxItem : GuiListBoxItem<Plugin*>
+		{
+			PluginListBoxItem(Plugin*);
+
+			void OnPaint(GuiListBox*,Frame*,const vec4&);
+			void OnMouseDown(GuiListBox*,Frame*,const vec4&,const MouseData&);
+			void OnMouseUp(GuiListBox*,Frame*,const vec4&,const MouseData&);
+			void OnMouseMove(GuiListBox*,Frame*,const vec4&,const MouseData&);
+		};
+
+		PluginListBoxItem			listBoxItem;
 
 		Plugin();
 
 		virtual void Load();
 		virtual void Unload();
-		virtual void OnMenuPressed(int iIdx)=0;
+		virtual void OnMenuPressed(Frame*,int iIdx)=0;
 	};
 
 private:	
@@ -1484,8 +1574,7 @@ private:
 
 		GuiPluginTab(PluginSystem*);
 
-		void OnSize(Frame*,const MsgData&);
-		void OnControlEvent(Frame*,const MsgData&);
+		void OnSize(Frame*,const vec4&);
 	};
 
 	GuiViewer				viewer;
@@ -1511,21 +1600,28 @@ public:
 
 struct DLLBUILD  EditorPropertiesBase
 {
-private:
-	GuiRect propertyContainer;
+protected:
+	GuiPropertyTreeNode& propertytreenode;
+
+	EditorPropertiesBase(GuiPropertyTreeNode& iPropertyTreeNode):propertytreenode(iPropertyTreeNode){}
 public:
 
-	GuiRect& PropertyContainer(){return this->propertyContainer;}
+	GuiTreeViewNode& TreeViewNode(){return this->propertytreenode;}
 
 	virtual void OnPropertiesCreate()=0;
 	virtual void OnResourcesCreate()=0;
 	virtual void OnPropertiesUpdate(Frame*)=0;
 };
 
-template<class T> struct DLLBUILD EntityProperties : EditorPropertiesBase , T
+template<class T> struct DLLBUILD EntityProperties : EditorPropertiesBase , GuiPropertyTreeContainer<T*> , T
 {
-	EntityProperties(){}
+	EntityProperties():
+		EditorPropertiesBase(*dynamic_cast< GuiPropertyTreeContainer<T*>* >(this)),
+		GuiPropertyTreeContainer<T*>(L"",this)
+		{}
 	virtual ~EntityProperties(){}
+
+	GuiPropertyTreeContainer<T*>& TreeViewContainer(){return *dynamic_cast< GuiPropertyTreeContainer<T*>* >(this);}
 
 	virtual void OnPropertiesCreate(){};
 	virtual void OnResourcesCreate(){};
@@ -1541,7 +1637,14 @@ template<class T> struct DLLBUILD ComponentProperties : EntityProperties<T>
 
 struct DLLBUILD EditorEntity : EntityProperties<Entity>
 {
-	GuiTreeViewItem<EditorEntity*>			sceneLabel;
+	struct DLLBUILD SceneLabel : GuiTreeViewItem<EditorEntity*>
+	{
+		SceneLabel(EditorEntity* iEditorEntity):GuiTreeViewItem<EditorEntity*>(iEditorEntity){}
+
+		virtual void OnMouseUp(Frame*,const MouseData&);
+	};
+
+	SceneLabel								sceneLabel;
 
 	EditorEntity();
 	~EditorEntity();
@@ -1571,7 +1674,7 @@ struct DLLBUILD EditorEntity : EntityProperties<Entity>
 
 	//Properties
 
-	/*GuiStringProperty spName;
+	GuiStringProperty spName;
 	GuiStringProperty spPtr;
 	GuiStringProperty spId;
 	GuiStringProperty spPosition;
@@ -1580,22 +1683,22 @@ struct DLLBUILD EditorEntity : EntityProperties<Entity>
 	GuiStringProperty spMax;
 	GuiStringProperty spVolume;
 
-	GuiPropertyTree::Container::Property pName;
-	GuiPropertyTree::Container::Property pPtr;
-	GuiPropertyTree::Container::Property pId;
-	GuiPropertyTree::Container::Property pPosition;
-	GuiPropertyTree::Container::Property pChilds;
-	GuiPropertyTree::Container::Property pMin;
-	GuiPropertyTree::Container::Property pMax;
-	GuiPropertyTree::Container::Property pVolume;
+	GuiPropertyTreeItem pName;
+	GuiPropertyTreeItem pPtr;
+	GuiPropertyTreeItem pId;
+	GuiPropertyTreeItem pPosition;
+	GuiPropertyTreeItem pChilds;
+	GuiPropertyTreeItem pMin;
+	GuiPropertyTreeItem pMax;
+	GuiPropertyTreeItem pVolume;
 
-	GuiPropertyTree::Container pcAABB;*/
+	GuiPropertyTreeContainer<AABB*> pcAABB;
 };
 
 
 struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationController>
 {
-	/*float oldCursor;
+	float oldCursor;
 	float minSpeed;
 	float maxSpeed;
 
@@ -1606,12 +1709,12 @@ struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationControl
 	GuiStringProperty		spEnd;
 	GuiAnimationController  acpGuiAnimationController;
 
-	GuiPropertyTree::Container::Property pNumNodes;
-	GuiPropertyTree::Container::Property pVelocity;
-	GuiPropertyTree::Container::Property pDuration;
-	GuiPropertyTree::Container::Property pBegin;
-	GuiPropertyTree::Container::Property pEnd;
-	GuiPropertyTree::Container::Property pPlayer;*/
+	GuiPropertyTreeItem pNumNodes;
+	GuiPropertyTreeItem pVelocity;
+	GuiPropertyTreeItem pDuration;
+	GuiPropertyTreeItem pBegin;
+	GuiPropertyTreeItem pEnd;
+	GuiPropertyTreeItem pPlayer;
 
 	EditorAnimationController();
 	~EditorAnimationController();
@@ -1622,17 +1725,17 @@ struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationControl
 
 struct DLLBUILD EditorMesh : ComponentProperties<Mesh>
 {
-	/*GuiStringProperty		spControlpoints;
+	GuiStringProperty		spControlpoints;
 	GuiStringProperty		spNormals;
 	GuiStringProperty		spPolygons;
 	GuiStringProperty		spTextCoord;
 	GuiStringProperty		spVertexIndices;
 
-	GuiPropertyTree::Container::Property pControlpoints;
-	GuiPropertyTree::Container::Property pNormals;
-	GuiPropertyTree::Container::Property pPolygons;
-	GuiPropertyTree::Container::Property pTextCoord;
-	GuiPropertyTree::Container::Property pVertexIndices;*/
+	GuiPropertyTreeItem pControlpoints;
+	GuiPropertyTreeItem pNormals;
+	GuiPropertyTreeItem pPolygons;
+	GuiPropertyTreeItem pTextCoord;
+	GuiPropertyTreeItem pVertexIndices;
 
 	EditorMesh();
 
@@ -1656,15 +1759,15 @@ struct DLLBUILD EditorGizmo : ComponentProperties<Gizmo>
 };
 struct DLLBUILD EditorAnimation : ComponentProperties<Animation>
 {
-	/*GuiStringProperty		spIsBone;
+	GuiStringProperty		spIsBone;
 	GuiStringProperty		spDuration;
 	GuiStringProperty		spBegin;
 	GuiStringProperty		spEnd;
 
-	GuiPropertyTree::Container::Property pIsBone;
-	GuiPropertyTree::Container::Property pDuration;
-	GuiPropertyTree::Container::Property pBegin;
-	GuiPropertyTree::Container::Property pEnd;*/
+	GuiPropertyTreeItem pIsBone;
+	GuiPropertyTreeItem pDuration;
+	GuiPropertyTreeItem pBegin;
+	GuiPropertyTreeItem pEnd;
 
 	EditorAnimation();
 
@@ -1678,15 +1781,13 @@ struct DLLBUILD EditorBone : ComponentProperties<Bone>
 };
 struct DLLBUILD EditorLine : ComponentProperties<Line>
 {
-/*
 private:
 	using Line::points;
-	std::list<GuiListBox::Item*> pointItems;
 public:
 
 	GuiListBox								pointListBox;
 	GuiStringProperty						spNumSegments;
-	GuiPropertyTree::Container::Property	pNumSegments;*/
+	GuiPropertyTreeItem						pNumSegments;
 
 	EditorLine();
 
@@ -1733,12 +1834,11 @@ struct DLLBUILD EditorCamera : ComponentProperties<Camera>
 };
 struct DLLBUILD EditorSkin : ComponentProperties<Skin>
 {
-	/*GuiStringProperty		spClusters;
+	GuiStringProperty		spClusters;
 	GuiStringProperty		spTextures;
 
-	GuiPropertyTree::Container::Property pClusters;
-	GuiPropertyTree::Container::Property pTextures;
-	*/
+	GuiPropertyTreeItem pClusters;
+	GuiPropertyTreeItem pTextures;
 
 	EditorSkin();
 
@@ -1769,11 +1869,9 @@ struct DLLBUILD GuiFont
 
 struct DLLBUILD Renderer2D
 {
-	unsigned int	colorBackgroud;
-	unsigned int	colorText;
-	unsigned int	tabSpaces;
-
 	Frame*			frame;
+
+	unsigned int	tabSpaces;
 
 	Renderer2D(Frame*);
 	~Renderer2D();
@@ -1782,9 +1880,14 @@ struct DLLBUILD Renderer2D
 	virtual void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont())=0;
 	virtual void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f)=0;
 	virtual void DrawRectangle(float iX,float iY, float iWw,float iH,unsigned int iColor,float iStroke=0,float op=1.0f)=0;
+	virtual void DrawRoundRectangle(float x,float y, float w,float h,float iRadiusA,float iRadiusB,unsigned iColor,float iStroke=0,float iOpacity=1.0f)=0;
+	virtual void DrawCircle(float x,float y,float iRadius,unsigned iColor,float iStroke=0,float iOpacity=1.0f)=0;
+	virtual void DrawEllipse(float x,float y,float iRadiusA,float iRadiusB,unsigned iColor,float iStroke=0,float iOpacity=1.0f)=0;
 	virtual void DrawBitmap(Picture* bitmap,float x,float y, float w,float h)=0;
 
-	virtual bool LoadBitmap(Picture*)=0;	
+	virtual bool LoadBitmap(Picture*)=0;
+
+	virtual unsigned int ReadPixel(float x,float y)=0;
 
 	virtual void PushScissor(float x,float y,float w,float h)=0;
 	virtual void PopScissor()=0;

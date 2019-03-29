@@ -91,6 +91,9 @@ struct DLLBUILD Direct2D
 
 	static void DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2,vec2,float iWidth=0.5f,float iOpacity=1.0f);
 	static void DrawRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,float iStroke=0,float iOpacity=1.0f);
+	static void DrawRoundRectangle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y, float w,float h,float iRadiusA,float iRadiusB,float iStroke=0,float iOpacity=1.0f);
+	static void DrawCircle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y,float iRadius,float iStroke=0,float iOpacity=1.0f);
+	static void DrawEllipse(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y,float iRadiusA,float iRadiusB,float iStroke=0,float iOpacity=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
 	static void DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush);
 
@@ -118,6 +121,7 @@ struct DLLBUILD ThreadWin32 : Thread
 
 struct DLLBUILD Renderer2DWin32 : Renderer2D
 {
+	FrameWin32*					framewin32;
 	ID2D1HwndRenderTarget*		renderer;
 	ID2D1SolidColorBrush*		brush;
 
@@ -128,8 +132,13 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	void DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor=GuiString::COLOR_TEXT,const GuiFont* iFont=GuiFont::GetDefaultFont());
 	void DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth=0.5f,float iOpacity=1.0f);
 	void DrawRectangle(float iX,float iY, float iW,float iH,unsigned int iColor,float iStroke=0,float op=1.0f);
+	void DrawRoundRectangle(float x,float y, float w,float h,float iRadiusA,float iRadiusB,unsigned iColor,float iStroke=0,float iOpacity=1.0f);
+	void DrawCircle(float x,float y,float iRadius,unsigned iColor,float iStroke=0,float iOpacity=1.0f);
+	void DrawEllipse(float x,float y,float iRadiusA,float iRadiusB,unsigned iColor,float iStroke=0,float iOpacity=1.0f);
 	void DrawBitmap(Picture* iImage,float iX,float iY, float iW,float iH);
 	bool LoadBitmap(Picture*);
+
+	unsigned int ReadPixel(float x,float y);
 
 	void PushScissor(float x,float y,float w,float h);
 	void PopScissor();
@@ -337,25 +346,22 @@ struct DLLBUILD DirectXRenderer : WindowData ,  Renderer3D
 struct DLLBUILD WindowDataWin32 : WindowData
 {
 	HWND hwnd;
-	UINT msg;
-	WPARAM wparam;
-	LPARAM lparam;
+	HDC  hdc;
 
 	WindowDataWin32();
 
 	void Enable(bool);
 	bool IsEnabled();
 
-	operator HWND(){return this->hwnd;};
-	void CopyProcedureData(HWND  h,UINT m,WPARAM w,LPARAM l);
-
 	vec2 Size();
 	vec2 Pos();
 	void Show(bool);
 	bool IsVisible();
-	void Resize(float,float);
 
 	virtual int GetWindowHandle();
+
+	void SendMessage(unsigned iCode,unsigned data1,unsigned data2);
+	void PostMessage(unsigned iCode,unsigned data1,unsigned data2);
 };
 
 
@@ -426,6 +432,7 @@ struct DLLBUILD SubsystemWin32 : Subsystem
 	void* LoadLibrary(String);
 	bool FreeLibrary(void*);
 	void* GetProcAddress(void*,String);
+	void SystemMessage(String iTitle,String iMessage,unsigned iFlags);
 };
 
 struct DLLBUILD DebuggerWin32 : Debugger
