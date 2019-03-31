@@ -434,7 +434,7 @@ Frame::Frame(float x,float y,float w,float h):
 	mainframe(0),
 	windowData(0),
 	drag(false),
-	wasrender(false),
+	wasdrawing(0),
 	renderer3D(0),
 	renderer2D(0),
 	retarget(false),
@@ -510,8 +510,22 @@ void Frame::Render()
 	int tRenderCounter=0;
 
 	for(std::list<GuiViewport*>::iterator i=GuiViewport::GetPool().begin();i!=GuiViewport::GetPool().end();i++)
+#if RENDERER_THREADED
 		tRenderCounter+=(*i)->Render(this);
+#else
+	{
+		/*if((Timer::GetInstance()->GetCurrent()-(*i)->GetLastFrameTime())>(1000.0f/(*i)->GetRenderingRate()))
+		{
+			this->lastFrameTime=Ide::Instance()->timer->GetCurrent();
+			this->windowData->SendMessage(0,(int)(*i),0);
+		}*/
+	}
+#endif
 }
+
+
+
+
 
 void Frame::Draw()
 {
@@ -526,12 +540,12 @@ void Frame::Draw()
 
 			if(tDrawInstance && !tDrawInstance->skip)
 			{
-				if(this->BeginDraw())
+				if(this->BeginDraw(tDrawInstance->rect ? tDrawInstance->rect : (void*)this))
 				{
 					if(!tDrawInstance->rect)
 						this->OnPaint();
 					else
-						this->BroadcastPaintTo(tDrawInstance->rect,&PaintData(tDrawInstance->rect,tDrawInstance->param));
+						this->BroadcastPaintTo(tDrawInstance->rect,&PaintData(tDrawInstance->param));
 
 					this->EndDraw();
 				}
@@ -555,6 +569,11 @@ DrawInstance* Frame::SetDraw(GuiRect* iRect,bool iRemove,bool iSkip,void* iParam
 	this->drawInstances.push_back(newInstance);
 	this->windowData->PostMessage(0,0,0);
 	return newInstance;
+}
+
+void Frame::SetDraw(GuiViewport* iViewport)
+{
+	this->windowData->PostMessage(0,(int)iViewport,0);
 }
 
 void Frame::Message(GuiRect* iRect,GuiRectMessages iMsg,void* iData)
@@ -676,12 +695,12 @@ void Frame::OnSize(float iWidth,float iHeight)
 			vec4& tEdges=(*i)->edges;
 
 			if(tEdges.x!=0)
-				tEdges.x=iWidth*(1.0f/(this->previousSize.x/tEdges.x));
+				tEdges.x-=2,tEdges.x=iWidth*(1.0f/(this->previousSize.x/tEdges.x)),tEdges.x+=2;
 			if(tEdges.y!=0)
-				tEdges.y=iHeight*(1.0f/(this->previousSize.y/tEdges.y));
+				tEdges.y-=2,tEdges.y=iHeight*(1.0f/(this->previousSize.y/tEdges.y)),tEdges.y+=2;
 
-			tEdges.z=iWidth*(1.0f/(this->previousSize.x/tEdges.z));
-			tEdges.w=iHeight*(1.0f/(this->previousSize.y/tEdges.w));
+			tEdges.z+=2,tEdges.z=iWidth*(1.0f/(this->previousSize.x/tEdges.z)),tEdges.z-=2;
+			tEdges.w+=2,tEdges.w=iHeight*(1.0f/(this->previousSize.y/tEdges.w)),tEdges.w-=2;
 
 			this->Message(*i,GuiRectMessages::ONSIZE,0);
 		}
@@ -700,6 +719,8 @@ void Frame::OnMouseMove(float iX,float iY)
 	this->mouse.y=iY;
 
 	HitTestData& htd=hittest;
+
+	mousedata.button=0;
 
 	if(!this->drag)
 	{
@@ -888,10 +909,8 @@ GuiViewer* Frame::AddViewer(GuiViewer* iViewer)
 void Frame::OnPaint()
 {
 	vec2 iTabDim=this->Size();
-
-	this->renderer2D->DrawRectangle(0,0,iTabDim.x,iTabDim.y/*-Tab::CONTAINER_HEIGHT*/,0x202020);
-
-	this->Broadcast(GuiRectMessages::ONPAINT,&PaintData(0,0));
+	this->renderer2D->DrawRectangle(0,0,iTabDim.x,iTabDim.y,0x202020);
+	this->Broadcast(GuiRectMessages::ONPAINT,&PaintData());
 }
 
 
@@ -1343,7 +1362,7 @@ void StringEditor::Draw(Frame* iCallerTab)
 
 		if(Ide::Instance()->timer->GetCurrent()-this->lastBlinkTime > this->blinkingRate)
 		{
-			if(this->tab->BeginDraw())
+			if(this->tab->BeginDraw(this->string))
 			{
 				if(this->blinking)
 					this->tab->renderer2D->DrawLine(p1,p2,0x00000000,1);
@@ -2330,7 +2349,7 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
 			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
-			
+
 			this->ItemRoll(this->root,iFrame,GuiRectMessages::ONPAINT,tTreeViewData);
 
 			iFrame->renderer2D->Translate(0,0);
@@ -2462,6 +2481,55 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			GuiTreeViewData tTreeViewData=this->GetTreeViewData();
 			this->ItemRoll(this->root,iFrame,iMsg,tTreeViewData);
+		}
+		break;
+		case GuiRectMessages::ONMOUSEDOWN:
+		{
+			GuiTreeView::Procedure(iFrame,iMsg,iData);
+
+			MouseData& md=*(MouseData*)iData;
+
+			if(this->hovered && md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4))
+				this->splitterpressed=true;
+
+			this->splitterpressed ? iFrame->SetCursor(1) : iFrame->SetCursor(0);
+		}
+		break;
+		case GuiRectMessages::ONMOUSEUP:
+		{
+			GuiTreeView::Procedure(iFrame,iMsg,iData);
+
+			if(this->splitterpressed)
+				this->splitterpressed=false;
+
+			this->splitterpressed ? iFrame->SetCursor(1) : iFrame->SetCursor(0);
+		}
+		break;
+		case GuiRectMessages::ONMOUSEMOVE:
+		{
+			GuiTreeView::Procedure(iFrame,iMsg,iData);
+
+			MouseData& md=*(MouseData*)iData;
+
+			bool tSplitterHovered = this->splitterpressed || (md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4));
+
+			if(tSplitterHovered)
+				iFrame->SetCursor(1);
+
+			if(this->splitterpressed && md.raw.Left()) 
+			{
+				vec4 tContentEdges=this->GetContentEdges();
+
+				if(md.mouse.x>(tContentEdges.x+50) && md.mouse.x<(tContentEdges.z-50))
+				{
+					iFrame->SetCursor(1);
+
+					this->splitter=md.mouse.x;
+
+					this->Procedure(iFrame,ONSIZE,0);
+					iFrame->SetDraw(this);
+				}
+			}
 		}
 		break;
 		case GuiRectMessages::ONSIZE:
@@ -3517,12 +3585,14 @@ void GuiButton::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(::GetFlag(this->buttonflags,GuiRectFlag::HIGHLIGHTED))
 				tColor=BlendColor(0x805060,tColor);
 
-			iFrame->renderer2D->DrawRectangle(edges.x,edges.y,edges.z,edges.w,tColor);
-			iFrame->renderer2D->DrawText(this->text,edges.x,edges.y,edges.z,edges.w,this->spot,this->align,this->color,this->font);
+			vec4 tEdges(edges.x+0.5f,edges.y+0.5f,edges.z-0.5f,edges.w-0.5f);
+
+			iFrame->renderer2D->DrawRectangle(tEdges.x,tEdges.y,tEdges.z,tEdges.w,tColor);
+			iFrame->renderer2D->DrawText(this->text,tEdges.x,tEdges.y,tEdges.z,tEdges.w,this->spot,this->align,this->color,this->font);
 
 			tColor=BlendColor(0x704020,tColor);
 
-			iFrame->renderer2D->DrawRectangle(edges.x,edges.y,edges.z,edges.w,tColor,1);
+			iFrame->renderer2D->DrawRectangle(tEdges.x,tEdges.y,tEdges.z,tEdges.w,tColor,1);
 		}
 		break;
 		default:
@@ -3610,7 +3680,7 @@ void GuiSlider::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			MouseData* md=(MouseData*)iData;
 
-			if(md && md->button==1)
+			if(md && md->raw.Left())
 				this->SetPosition(iFrame,md->mouse);
 		}
 		break;
@@ -3767,12 +3837,13 @@ void launchStopGuiViewportCallback(void* iData)
 }
 
 GuiViewport::GuiViewport():
-	renderBuffer(0),
+	frame(0),
+	buffer(0),
 	needsPicking(0),
 	pickedEntity(0),
 	renderInstance(0),
 	renderFps(60),
-	renderBitmap(0)
+	bitmap(0)
 {
 	GlobalViewports().push_back(this);
 
@@ -3785,6 +3856,34 @@ void GuiViewport::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 {
 	switch(iMsg)
 	{
+		case ONPAINT:
+		{
+			#if RENDERER_ENABLED
+				#if !RENDERER_THREADED
+					this->Render(iFrame);
+				#endif
+				this->DrawBuffer(iFrame);
+			#endif
+		}
+		break;
+		case ONSIZE:
+		{
+			this->ResizeBuffers(iFrame);
+		}
+		break;
+		case ONACTIVATE:
+		{
+			this->frame=iFrame;
+			/*if(!this->renderInstance)
+				this->renderInstance=iFrame->SetDraw(this,false,true);*/
+		}
+		break;
+		case ONDEACTIVATE:
+		{
+			/*if(this->renderInstance)
+				this->renderInstance->remove=true;*/
+		}
+		break;
 		case ONMOUSEMOVE:
 		{
 			GuiRect::Procedure(iFrame,iMsg,iData);
@@ -3826,32 +3925,20 @@ void GuiViewport::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				{
 					this->view*=mat4().translate(dX,dY,0);
 				}
-			}
 
+				iFrame->SetDraw(this);
+			}
 			this->needsPicking=true;
 
 			this->mouseold=tmd.mouse;
-
-			iFrame->SetDraw(this);
-		}
-		break;
-		case ONPAINT:
-		{
-			#if ENABLE_RENDERER
-			/*if(Timer::GetInstance()->GetCurrent()-tViewport->lastFrameTime>(1000.0f/tViewport->renderFps))
-			{
-				tViewport->lastFrameTime=Ide::Instance()->timer->GetCurrent();
-				tViewport->Render(iFrame);
-			}
-			else*/
-				this->DrawBuffer(iFrame,this->edges);
-			#endif
 		}
 		break;
 		default:
 			GuiRect::Procedure(iFrame,iMsg,iData);
 	}
 }
+
+EditorEntity* GuiViewport::GetEntity(){return GuiScene::Instance()->Entity();}
 
 mat4& GuiViewport::Projection(){return this->projection;}
 mat4& GuiViewport::View(){return this->view;}
@@ -3860,8 +3947,9 @@ mat4& GuiViewport::Model(){return this->model;}
 EditorEntity* GuiViewport::GetHoveredEntity(){return 0;}
 EditorEntity* GuiViewport::GetPickedEntity(){return this->pickedEntity;}
 
-void GuiViewport::SetFps(unsigned int iFps){this->renderFps=iFps;}
-unsigned int GuiViewport::GetFps(){return this->renderFps;}
+unsigned int	GuiViewport::GetLastFrameTime(){return this->lastFrameTime;}
+void GuiViewport::SetRenderingRate(unsigned int iFps){this->renderFps=iFps;}
+unsigned int GuiViewport::GetRenderingRate(){return this->renderFps;}
 
 std::list<GuiViewport*>& GuiViewport::GetPool()
 {
@@ -3887,11 +3975,6 @@ void GuiViewport::OnPaint(Frame*)
 		this->DrawBuffer(iTab,this->Edges());
 #endif
 }*/
-
-void GuiViewport::OnSize(Frame*,const vec4& iEdges)
-{
-	this->edges=iEdges;
-}
 
 void GuiViewport::OnMouseWheel(Frame* iFrame,const MsgData& iData)
 {
@@ -3962,13 +4045,13 @@ void GuiViewport::OnMouseMove(Frame* iFrame,const MsgData& iData)
 
 void GuiViewport::OnActivate(Frame* iFrame)
 {
-#if ENABLE_RENDERER
+#if RENDERER_ENABLED
 		//this->renderInstance=iFrame->SetDraw(this,false);
 #endif
 }
 void GuiViewport::OnDeactivate(Frame* iFrame)
 {
-#if ENABLE_RENDERER
+#if RENDERER_ENABLED
 #endif
 }
 
@@ -4553,7 +4636,7 @@ void GuiProject::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(md.mouse.y>this->edges.y)
 				iFrame->SetCursor(1);
 
-			if(md.button==1)
+			if(md.raw.Left())
 			{
 				if(this->splitterLeftActive)
 					this->splitterLeft=md.mouse.x;

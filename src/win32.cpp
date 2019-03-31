@@ -1,5 +1,1035 @@
 #include "win32.h"
 
+
+static const wchar_t* gWM_MESSAGES[] = 
+{
+	L"WM_NULL",
+	L"WM_CREATE",
+	L"WM_DESTROY",
+	L"WM_MOVE",
+	L"WM_SIZEWAIT",
+	L"WM_SIZE",
+	L"WM_ACTIVATE",
+	L"WM_SETFOCUS",
+	L"WM_KILLFOCUS",
+	L"WM_SETVISIBLE",
+	L"WM_ENABLE",
+	L"WM_SETREDRAW",
+	L"WM_SETTEXT",
+	L"WM_GETTEXT",
+	L"WM_GETTEXTLENGTH",
+	L"WM_PAINT",
+	L"WM_CLOSE",
+	L"WM_QUERYENDSESSION",
+	L"WM_QUIT",
+	L"WM_QUERYOPEN",
+	L"WM_ERASEBKGND",
+	L"WM_SYSCOLORCHANGE",
+	L"WM_ENDSESSION",
+	L"WM_SYSTEMERROR",
+	L"WM_SHOWWINDOW",
+	L"WM_CTLCOLOR",
+	L"WM_WININICHANGE",
+	L"WM_DEVMODECHANGE",
+	L"WM_ACTIVATEAPP",
+	L"WM_FONTCHANGE",
+	L"WM_TIMECHANGE",
+	L"WM_CANCELMODE",
+	L"WM_SETCURSOR",
+	L"WM_MOUSEACTIVATE",
+	L"WM_CHILDACTIVATE",
+	L"WM_QUEUESYNC",
+	L"WM_GETMINMAXINFO",
+	L"WM_LOGOFF",
+	L"WM_PAINTICON",
+	L"WM_ICONERASEBKGND",
+	L"WM_NEXTDLGCTL",
+	L"WM_ALTTABACTIVE",
+	L"WM_SPOOLERSTATUS",
+	L"WM_DRAWITEM",
+	L"WM_MEASUREITEM",
+	L"WM_DELETEITEM",
+	L"WM_VKEYTOITEM",
+	L"WM_CHARTOITEM",
+	L"WM_SETFONT",
+	L"WM_GETFONT",
+	L"WM_SETHOTKEY",
+	L"WM_GETHOTKEY",
+	L"WM_SHELLNOTIFY",
+	L"WM_ISACTIVEICON",
+	L"WM_QUERYPARKICON",
+	L"WM_QUERYDRAGICON",
+	L"WM_WINHELP",
+	L"WM_COMPAREITEM",
+	L"WM_FULLSCREEN",
+	L"WM_CLIENTSHUTDOWN",
+	L"WM_DDEMLEVENT",
+	L"WM_GETOBJECT",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_TESTING",
+	L"WM_COMPACTING",
+	L"WM_OTHERWINDOWCREATED",
+	L"WM_OTHERWINDOWDESTROYED",
+	L"WM_COMMNOTIFY",
+	L"<undefined>",
+	L"WM_WINDOWPOSCHANGING",
+	L"WM_WINDOWPOSCHANGED",
+	L"WM_POWER",
+	L"WM_COPYGLOBALDATA",
+	L"WM_COPYDATA",
+	L"WM_CANCELJOURNAL",
+	L"<undefined>",
+	L"WM_KEYF1",
+	L"WM_NOTIFY",
+	L"WM_ACCESS_WINDOW",
+	L"WM_INPUTLANGCHANGEREQUEST",
+	L"WM_INPUTLANGCHANGE",
+	L"WM_TCARD",
+	L"WM_HELP",
+	L"WM_USERCHANGED",
+	L"WM_NOTIFYFORMAT",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_FINALDESTROY",
+	L"WM_MEASUREITEM_CLIENTDATA",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_CONTEXTMENU",
+	L"WM_STYLECHANGING",
+	L"WM_STYLECHANGED",
+	L"WM_DISPLAYCHANGE",
+	L"WM_GETICON",
+	L"WM_SETICON",
+	L"WM_NCCREATE",
+	L"WM_NCDESTROY",
+	L"WM_NCCALCSIZE",
+	L"WM_NCHITTEST",
+	L"WM_NCPAINT",
+	L"WM_NCACTIVATE",
+	L"WM_GETDLGCODE",
+	L"WM_SYNCPAINT",
+	L"WM_SYNCTASK",
+	L"<undefined>",
+	L"WM_KLUDGEMINRECT",
+	L"WM_LPKDRAWSWITCHWND",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_UAHDESTROYWINDOW",
+	L"WM_UAHDRAWMENU",
+	L"WM_UAHDRAWMENUITEM",
+	L"WM_UAHINITMENU",
+	L"WM_UAHMEASUREMENUITEM",
+	L"WM_UAHNCPAINTMENUPOPUP",
+	L"WM_UAHUPDATE",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_NCMOUSEMOVE",
+	L"WM_NCLBUTTONDOWN",
+	L"WM_NCLBUTTONUP",
+	L"WM_NCLBUTTONDBLCLK",
+	L"WM_NCRBUTTONDOWN",
+	L"WM_NCRBUTTONUP",
+	L"WM_NCRBUTTONDBLCLK",
+	L"WM_NCMBUTTONDOWN",
+	L"WM_NCMBUTTONUP",
+	L"WM_NCMBUTTONDBLCLK",
+	L"<undefined>",
+	L"WM_NCXBUTTONDOWN",
+	L"WM_NCXBUTTONUP",
+	L"WM_NCXBUTTONDBLCLK",
+	L"WM_NCUAHDRAWCAPTION",
+	L"WM_NCUAHDRAWFRAME",
+	L"EM_GETSEL",
+	L"EM_SETSEL",
+	L"EM_GETRECT",
+	L"EM_SETRECT",
+	L"EM_SETRECTNP",
+	L"EM_SCROLL",
+	L"EM_LINESCROLL",
+	L"EM_SCROLLCARET",
+	L"EM_GETMODIFY",
+	L"EM_SETMODIFY",
+	L"EM_GETLINECOUNT",
+	L"EM_LINEINDEX",
+	L"EM_SETHANDLE",
+	L"EM_GETHANDLE",
+	L"EM_GETTHUMB",
+	L"<undefined>",
+	L"<undefined>",
+	L"EM_LINELENGTH",
+	L"EM_REPLACESEL",
+	L"EM_SETFONT",
+	L"EM_GETLINE",
+	L"EM_LIMITTEXT",
+	L"EM_CANUNDO",
+	L"EM_UNDO",
+	L"EM_FMTLINES",
+	L"EM_LINEFROMCHAR",
+	L"EM_SETWORDBREAK",
+	L"EM_SETTABSTOPS",
+	L"EM_SETPASSWORDCHAR",
+	L"EM_EMPTYUNDOBUFFER",
+	L"EM_GETFIRSTVISIBLELINE",
+	L"EM_SETREADONLY",
+	L"EM_SETWORDBREAKPROC",
+	L"EM_GETWORDBREAKPROC",
+	L"EM_GETPASSWORDCHAR",
+	L"EM_SETMARGINS",
+	L"EM_GETMARGINS",
+	L"EM_GETLIMITTEXT",
+	L"EM_POSFROMCHAR",
+	L"EM_CHARFROMPOS",
+	L"EM_SETIMESTATUS",
+	L"EM_GETIMESTATUS",
+	L"EM_MSGMAX",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_INPUT_DEVICE_CHANGE",
+	L"WM_INPUT",
+	L"WM_KEYDOWN",
+	L"WM_KEYUP",
+	L"WM_CHAR",
+	L"WM_DEADCHAR",
+	L"WM_SYSKEYDOWN",
+	L"WM_SYSKEYUP",
+	L"WM_SYSCHAR",
+	L"WM_SYSDEADCHAR",
+	L"WM_YOMICHAR",
+	L"WM_UNICHAR",
+	L"WM_CONVERTREQUEST",
+	L"WM_CONVERTRESULT",
+	L"WM_INTERIM",
+	L"WM_IME_STARTCOMPOSITION",
+	L"WM_IME_ENDCOMPOSITION",
+	L"WM_IME_COMPOSITION",
+	L"WM_INITDIALOG",
+	L"WM_COMMAND",
+	L"WM_SYSCOMMAND",
+	L"WM_TIMER",
+	L"WM_HSCROLL",
+	L"WM_VSCROLL",
+	L"WM_INITMENU",
+	L"WM_INITMENUPOPUP",
+	L"WM_SYSTIMER",
+	L"WM_GESTURE",
+	L"WM_GESTURENOTIFY",
+	L"WM_GESTUREINPUT",
+	L"WM_GESTURENOTIFIED",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_MENUSELECT",
+	L"WM_MENUCHAR",
+	L"WM_ENTERIDLE",
+	L"WM_MENURBUTTONUP",
+	L"WM_MENUDRAG",
+	L"WM_MENUGETOBJECT",
+	L"WM_UNINITMENUPOPUP",
+	L"WM_MENUCOMMAND",
+	L"WM_CHANGEUISTATE",
+	L"WM_UPDATEUISTATE",
+	L"WM_QUERYUISTATE",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_LBTRACKPOINT",
+	L"WM_CTLCOLORMSGBOX",
+	L"WM_CTLCOLOREDIT",
+	L"WM_CTLCOLORLISTBOX",
+	L"WM_CTLCOLORBTN",
+	L"WM_CTLCOLORDLG",
+	L"WM_CTLCOLORSCROLLBAR",
+	L"WM_CTLCOLORSTATIC",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"CB_GETEDITSEL",
+	L"CB_LIMITTEXT",
+	L"CB_SETEDITSEL",
+	L"CB_ADDSTRING",
+	L"CB_DELETESTRING",
+	L"CB_DIR",
+	L"CB_GETCOUNT",
+	L"CB_GETCURSEL",
+	L"CB_GETLBTEXT",
+	L"CB_GETLBTEXTLEN",
+	L"CB_INSERTSTRING",
+	L"CB_RESETCONTENT",
+	L"CB_FINDSTRING",
+	L"CB_SELECTSTRING",
+	L"CB_SETCURSEL",
+	L"CB_SHOWDROPDOWN",
+	L"CB_GETITEMDATA",
+	L"CB_SETITEMDATA",
+	L"CB_GETDROPPEDCONTROLRECT",
+	L"CB_SETITEMHEIGHT",
+	L"CB_GETITEMHEIGHT",
+	L"CB_SETEXTENDEDUI",
+	L"CB_GETEXTENDEDUI",
+	L"CB_GETDROPPEDSTATE",
+	L"CB_FINDSTRINGEXACT",
+	L"CB_SETLOCALE",
+	L"CB_GETLOCALE",
+	L"CB_GETTOPINDEX",
+	L"CB_SETTOPINDEX",
+	L"CB_GETHORIZONTALEXTENT",
+	L"CB_SETHORIZONTALEXTENT",
+	L"CB_GETDROPPEDWIDTH",
+	L"CB_SETDROPPEDWIDTH",
+	L"CB_INITSTORAGE",
+	L"CB_MSGMAX_OLD",
+	L"CB_MULTIPLEADDSTRING",
+	L"CB_GETCOMBOBOXINFO",
+	L"CB_MSGMAX",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"LB_ADDSTRING",
+	L"LB_INSERTSTRING",
+	L"LB_DELETESTRING",
+	L"LB_SELITEMRANGEEX",
+	L"LB_RESETCONTENT",
+	L"LB_SETSEL",
+	L"LB_SETCURSEL",
+	L"LB_GETSEL",
+	L"LB_GETCURSEL",
+	L"LB_GETTEXT",
+	L"LB_GETTEXTLEN",
+	L"LB_GETCOUNT",
+	L"LB_SELECTSTRING",
+	L"LB_DIR",
+	L"LB_GETTOPINDEX",
+	L"LB_FINDSTRING",
+	L"LB_GETSELCOUNT",
+	L"LB_GETSELITEMS",
+	L"LB_SETTABSTOPS",
+	L"LB_GETHORIZONTALEXTENT",
+	L"LB_SETHORIZONTALEXTENT",
+	L"LB_SETCOLUMNWIDTH",
+	L"LB_ADDFILE",
+	L"LB_SETTOPINDEX",
+	L"LB_GETITEMRECT",
+	L"LB_GETITEMDATA",
+	L"LB_SETITEMDATA",
+	L"LB_SELITEMRANGE",
+	L"LB_SETANCHORINDEX",
+	L"LB_GETANCHORINDEX",
+	L"LB_SETCARETINDEX",
+	L"LB_GETCARETINDEX",
+	L"LB_SETITEMHEIGHT",
+	L"LB_GETITEMHEIGHT",
+	L"LB_FINDSTRINGEXACT",
+	L"LBCB_CARETON",
+	L"LBCB_CARETOFF",
+	L"LB_SETLOCALE",
+	L"LB_GETLOCALE",
+	L"LB_SETCOUNT",
+	L"LB_INITSTORAGE",
+	L"LB_ITEMFROMPOINT",
+	L"LB_INSERTSTRINGUPPER",
+	L"LB_INSERTSTRINGLOWER",
+	L"LB_ADDSTRINGUPPER",
+	L"LB_ADDSTRINGLOWER",
+	L"LBCB_STARTTRACK",
+	L"LBCB_ENDTRACK",
+	L"LB_MSGMAX_OLD",
+	L"LB_MULTIPLEADDSTRING",
+	L"LB_GETLISTBOXINFO",
+	L"LB_MSGMAX",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"MN_FIRST",
+	L"MN_GETHMENU",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_MOUSEMOVE",
+	L"WM_LBUTTONDOWN",
+	L"WM_LBUTTONUP",
+	L"WM_LBUTTONDBLCLK",
+	L"WM_RBUTTONDOWN",
+	L"WM_RBUTTONUP",
+	L"WM_RBUTTONDBLCLK",
+	L"WM_MBUTTONDOWN",
+	L"WM_MBUTTONUP",
+	L"WM_MBUTTONDBLCLK",
+	L"WM_MOUSEWHEEL",
+	L"WM_XBUTTONDOWN",
+	L"WM_XBUTTONUP",
+	L"WM_XBUTTONDBLCLK",
+	L"WM_MOUSEHWHEEL",
+	L"<undefined>",
+	L"WM_PARENTNOTIFY",
+	L"WM_ENTERMENULOOP",
+	L"WM_EXITMENULOOP",
+	L"WM_NEXTMENU",
+	L"WM_SIZING",
+	L"WM_CAPTURECHANGED",
+	L"WM_MOVING",
+	L"<undefined>",
+	L"WM_POWERBROADCAST",
+	L"WM_DEVICECHANGE",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_MDICREATE",
+	L"WM_MDIDESTROY",
+	L"WM_MDIACTIVATE",
+	L"WM_MDIRESTORE",
+	L"WM_MDINEXT",
+	L"WM_MDIMAXIMIZE",
+	L"WM_MDITILE",
+	L"WM_MDICASCADE",
+	L"WM_MDIICONARRANGE",
+	L"WM_MDIGETACTIVE",
+	L"WM_DROPOBJECT",
+	L"WM_QUERYDROPOBJECT",
+	L"WM_BEGINDRAG",
+	L"WM_DRAGLOOP",
+	L"WM_DRAGSELECT",
+	L"WM_DRAGMOVE",
+	L"WM_MDISETMENU",
+	L"WM_ENTERSIZEMOVE",
+	L"WM_EXITSIZEMOVE",
+	L"WM_DROPFILES",
+	L"WM_MDIREFRESHMENU",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_POINTERDEVICECHANGE",
+	L"WM_POINTERDEVICEINRANGE",
+	L"WM_POINTERDEVICEOUTOFRANGE",
+	L"WM_STOPINERTIA",
+	L"WM_ENDINERTIA",
+	L"WM_EDGYINERTIA",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_TOUCH",
+	L"WM_NCPOINTERUPDATE",
+	L"WM_NCPOINTERDOWN",
+	L"WM_NCPOINTERUP",
+	L"WM_NCPOINTERLAST",
+	L"WM_POINTERUPDATE",
+	L"WM_POINTERDOWN",
+	L"WM_POINTERUP",
+	L"<WM_POINTER_reserved_248>",
+	L"WM_POINTERENTER",
+	L"WM_POINTERLEAVE",
+	L"WM_POINTERACTIVATE",
+	L"WM_POINTERCAPTURECHANGED",
+	L"WM_TOUCHHITTESTING",
+	L"WM_POINTERWHEEL",
+	L"WM_POINTERHWHEEL",
+	L"<WM_POINTER_reserved_250>",
+	L"<WM_POINTER_reserved_251>",
+	L"<WM_POINTER_reserved_252>",
+	L"<WM_POINTER_reserved_253>",
+	L"<WM_POINTER_reserved_254>",
+	L"<WM_POINTER_reserved_255>",
+	L"<WM_POINTER_reserved_256>",
+	L"WM_POINTERLAST",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_VISIBILITYCHANGED",
+	L"WM_VIEWSTATECHANGED",
+	L"WM_UNREGISTER_WINDOW_SERVICES",
+	L"WM_CONSOLIDATED",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_IME_REPORT",
+	L"WM_IME_SETCONTEXT",
+	L"WM_IME_NOTIFY",
+	L"WM_IME_CONTROL",
+	L"WM_IME_COMPOSITIONFULL",
+	L"WM_IME_SELECT",
+	L"WM_IME_CHAR",
+	L"WM_IME_SYSTEM",
+	L"WM_IME_REQUEST",
+	L"<WM_KANJI_reserved_289>",
+	L"<WM_KANJI_reserved_28a>",
+	L"<WM_KANJI_reserved_28b>",
+	L"<WM_KANJI_reserved_28c>",
+	L"<WM_KANJI_reserved_28d>",
+	L"<WM_KANJI_reserved_28e>",
+	L"<WM_KANJI_reserved_28f>",
+	L"WM_IME_KEYDOWN",
+	L"WM_IME_KEYUP",
+	L"<WM_KANJI_reserved_292>",
+	L"<WM_KANJI_reserved_293>",
+	L"<WM_KANJI_reserved_294>",
+	L"<WM_KANJI_reserved_295>",
+	L"<WM_KANJI_reserved_296>",
+	L"<WM_KANJI_reserved_297>",
+	L"<WM_KANJI_reserved_298>",
+	L"<WM_KANJI_reserved_299>",
+	L"<WM_KANJI_reserved_29a>",
+	L"<WM_KANJI_reserved_29b>",
+	L"<WM_KANJI_reserved_29c>",
+	L"<WM_KANJI_reserved_29d>",
+	L"<WM_KANJI_reserved_29e>",
+	L"WM_KANJILAST",
+	L"WM_NCMOUSEHOVER",
+	L"WM_MOUSEHOVER",
+	L"WM_NCMOUSELEAVE",
+	L"WM_MOUSELEAVE",
+	L"<WM_TRACKMOUSEEVENT__reserved_2a4>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2a5>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2a6>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2a7>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2a8>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2a9>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2aa>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2ab>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2ac>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2ad>",
+	L"<WM_TRACKMOUSEEVENT__reserved_2ae>",
+	L"WM_TRACKMOUSEEVENT_LAST",
+	L"<undefined>",
+	L"WM_WTSSESSION_CHANGE",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_TABLET_FIRST",
+	L"<WM_TABLET__reserved_2c1>",
+	L"<WM_TABLET__reserved_2c2>",
+	L"<WM_TABLET__reserved_2c3>",
+	L"<WM_TABLET__reserved_2c4>",
+	L"<WM_TABLET__reserved_2c5>",
+	L"<WM_TABLET__reserved_2c6>",
+	L"<WM_TABLET__reserved_2c7>",
+	L"WM_POINTERDEVICEADDED",
+	L"WM_POINTERDEVICEDELETED",
+	L"<WM_TABLET__reserved_2ca>",
+	L"WM_FLICK",
+	L"<WM_TABLET__reserved_2cc>",
+	L"WM_FLICKINTERNAL",
+	L"WM_BRIGHTNESSCHANGED",
+	L"<WM_TABLET__reserved_2cf>",
+	L"<WM_TABLET__reserved_2d0>",
+	L"<WM_TABLET__reserved_2d1>",
+	L"<WM_TABLET__reserved_2d2>",
+	L"<WM_TABLET__reserved_2d3>",
+	L"<WM_TABLET__reserved_2d4>",
+	L"<WM_TABLET__reserved_2d5>",
+	L"<WM_TABLET__reserved_2d6>",
+	L"<WM_TABLET__reserved_2d7>",
+	L"<WM_TABLET__reserved_2d8>",
+	L"<WM_TABLET__reserved_2d9>",
+	L"<WM_TABLET__reserved_2da>",
+	L"<WM_TABLET__reserved_2db>",
+	L"<WM_TABLET__reserved_2dc>",
+	L"<WM_TABLET__reserved_2dd>",
+	L"<WM_TABLET__reserved_2de>",
+	L"WM_TABLET_LAST",
+	L"WM_DPICHANGED",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_CUT",
+	L"WM_COPY",
+	L"WM_PASTE",
+	L"WM_CLEAR",
+	L"WM_UNDO",
+	L"WM_RENDERFORMAT",
+	L"WM_RENDERALLFORMATS",
+	L"WM_DESTROYCLIPBOARD",
+	L"WM_DRAWCLIPBOARD",
+	L"WM_PAINTCLIPBOARD",
+	L"WM_VSCROLLCLIPBOARD",
+	L"WM_SIZECLIPBOARD",
+	L"WM_ASKCBFORMATNAME",
+	L"WM_CHANGECBCHAIN",
+	L"WM_HSCROLLCLIPBOARD",
+	L"WM_QUERYNEWPALETTE",
+	L"WM_PALETTEISCHANGING",
+	L"WM_PALETTECHANGED",
+	L"WM_HOTKEY",
+	L"WM_SYSMENU",
+	L"WM_HOOKMSG",
+	L"WM_EXITPROCESS",
+	L"WM_WAKETHREAD",
+	L"WM_PRINT",
+	L"WM_PRINTCLIENT",
+	L"WM_APPCOMMAND",
+	L"WM_THEMECHANGED",
+	L"WM_UAHINIT",
+	L"WM_DESKTOPNOTIFY",
+	L"WM_CLIPBOARDUPDATE",
+	L"WM_DWMCOMPOSITIONCHANGED",
+	L"WM_DWMNCRENDERINGCHANGED",
+	L"WM_DWMCOLORIZATIONCOLORCHANGED",
+	L"WM_DWMWINDOWMAXIMIZEDCHANGE",
+	L"WM_DWMEXILEFRAME",
+	L"WM_DWMSENDICONICTHUMBNAIL",
+	L"WM_MAGNIFICATION_STARTED",
+	L"WM_MAGNIFICATION_ENDED",
+	L"WM_DWMSENDICONICLIVEPREVIEWBITMAP",
+	L"WM_DWMTHUMBNAILSIZECHANGED",
+	L"WM_MAGNIFICATION_OUTPUT",
+	L"WM_BSDRDATA",
+	L"WM_DWMTRANSITIONSTATECHANGED",
+	L"<undefined>",
+	L"WM_KEYBOARDCORRECTIONCALLOUT",
+	L"WM_KEYBOARDCORRECTIONACTION",
+	L"WM_UIACTION",
+	L"WM_ROUTED_UI_EVENT",
+	L"WM_MEASURECONTROL",
+	L"WM_GETACTIONTEXT",
+	L"<WM_CE_ONLY__reserved_332>",
+	L"WM_FORWARDKEYDOWN",
+	L"WM_FORWARDKEYUP",
+	L"<WM_CE_ONLY__reserved_335>",
+	L"<WM_CE_ONLY__reserved_336>",
+	L"<WM_CE_ONLY__reserved_337>",
+	L"<WM_CE_ONLY__reserved_338>",
+	L"<WM_CE_ONLY__reserved_339>",
+	L"<WM_CE_ONLY__reserved_33a>",
+	L"<WM_CE_ONLY__reserved_33b>",
+	L"<WM_CE_ONLY__reserved_33c>",
+	L"<WM_CE_ONLY__reserved_33d>",
+	L"WM_CE_ONLY_LAST",
+	L"WM_GETTITLEBARINFOEX",
+	L"WM_NOTIFYWOW",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"<undefined>",
+	L"WM_HANDHELDFIRST",
+	L"<WM_HANDHELD_reserved_359>",
+	L"<WM_HANDHELD_reserved_35a>",
+	L"<WM_HANDHELD_reserved_35b>",
+	L"<WM_HANDHELD_reserved_35c>",
+	L"<WM_HANDHELD_reserved_35d>",
+	L"<WM_HANDHELD_reserved_35e>",
+	L"WM_HANDHELDLAST",
+	L"WM_AFXFIRST",
+	L"<WM_AFX_reserved_361>",
+	L"<WM_AFX_reserved_362>",
+	L"<WM_AFX_reserved_363>",
+	L"<WM_AFX_reserved_364>",
+	L"<WM_AFX_reserved_365>",
+	L"<WM_AFX_reserved_366>",
+	L"<WM_AFX_reserved_367>",
+	L"<WM_AFX_reserved_368>",
+	L"<WM_AFX_reserved_369>",
+	L"<WM_AFX_reserved_36a>",
+	L"<WM_AFX_reserved_36b>",
+	L"<WM_AFX_reserved_36c>",
+	L"<WM_AFX_reserved_36d>",
+	L"<WM_AFX_reserved_36e>",
+	L"<WM_AFX_reserved_36f>",
+	L"<WM_AFX_reserved_370>",
+	L"<WM_AFX_reserved_371>",
+	L"<WM_AFX_reserved_372>",
+	L"<WM_AFX_reserved_373>",
+	L"<WM_AFX_reserved_374>",
+	L"<WM_AFX_reserved_375>",
+	L"<WM_AFX_reserved_376>",
+	L"<WM_AFX_reserved_377>",
+	L"<WM_AFX_reserved_378>",
+	L"<WM_AFX_reserved_379>",
+	L"<WM_AFX_reserved_37a>",
+	L"<WM_AFX_reserved_37b>",
+	L"<WM_AFX_reserved_37c>",
+	L"<WM_AFX_reserved_37d>",
+	L"<WM_AFX_reserved_37e>",
+	L"WM_AFXLAST",
+	L"WM_PENWINFIRST",
+	L"<WM_PENWIN_reserved_381>",
+	L"<WM_PENWIN_reserved_382>",
+	L"<WM_PENWIN_reserved_383>",
+	L"<WM_PENWIN_reserved_384>",
+	L"<WM_PENWIN_reserved_385>",
+	L"<WM_PENWIN_reserved_386>",
+	L"<WM_PENWIN_reserved_387>",
+	L"<WM_PENWIN_reserved_388>",
+	L"<WM_PENWIN_reserved_389>",
+	L"<WM_PENWIN_reserved_38a>",
+	L"<WM_PENWIN_reserved_38b>",
+	L"<WM_PENWIN_reserved_38c>",
+	L"<WM_PENWIN_reserved_38d>",
+	L"<WM_PENWIN_reserved_38e>",
+	L"WM_PENWINLAST",
+	L"WM_COALESCE_FIRST",
+	L"<WM_COALESCE__reserved_391>",
+	L"<WM_COALESCE__reserved_392>",
+	L"<WM_COALESCE__reserved_393>",
+	L"<WM_COALESCE__reserved_394>",
+	L"<WM_COALESCE__reserved_395>",
+	L"<WM_COALESCE__reserved_396>",
+	L"<WM_COALESCE__reserved_397>",
+	L"<WM_COALESCE__reserved_398>",
+	L"<WM_COALESCE__reserved_399>",
+	L"<WM_COALESCE__reserved_39a>",
+	L"<WM_COALESCE__reserved_39b>",
+	L"<WM_COALESCE__reserved_39c>",
+	L"<WM_COALESCE__reserved_39d>",
+	L"<WM_COALESCE__reserved_39e>",
+	L"WM_COALESCE_LAST",
+	L"WM_MM_RESERVED_FIRST",
+	L"<WM_MM_RESERVED__reserved_3a1>",
+	L"<WM_MM_RESERVED__reserved_3a2>",
+	L"<WM_MM_RESERVED__reserved_3a3>",
+	L"<WM_MM_RESERVED__reserved_3a4>",
+	L"<WM_MM_RESERVED__reserved_3a5>",
+	L"<WM_MM_RESERVED__reserved_3a6>",
+	L"<WM_MM_RESERVED__reserved_3a7>",
+	L"<WM_MM_RESERVED__reserved_3a8>",
+	L"<WM_MM_RESERVED__reserved_3a9>",
+	L"<WM_MM_RESERVED__reserved_3aa>",
+	L"<WM_MM_RESERVED__reserved_3ab>",
+	L"<WM_MM_RESERVED__reserved_3ac>",
+	L"<WM_MM_RESERVED__reserved_3ad>",
+	L"<WM_MM_RESERVED__reserved_3ae>",
+	L"<WM_MM_RESERVED__reserved_3af>",
+	L"<WM_MM_RESERVED__reserved_3b0>",
+	L"<WM_MM_RESERVED__reserved_3b1>",
+	L"<WM_MM_RESERVED__reserved_3b2>",
+	L"<WM_MM_RESERVED__reserved_3b3>",
+	L"<WM_MM_RESERVED__reserved_3b4>",
+	L"<WM_MM_RESERVED__reserved_3b5>",
+	L"<WM_MM_RESERVED__reserved_3b6>",
+	L"<WM_MM_RESERVED__reserved_3b7>",
+	L"<WM_MM_RESERVED__reserved_3b8>",
+	L"<WM_MM_RESERVED__reserved_3b9>",
+	L"<WM_MM_RESERVED__reserved_3ba>",
+	L"<WM_MM_RESERVED__reserved_3bb>",
+	L"<WM_MM_RESERVED__reserved_3bc>",
+	L"<WM_MM_RESERVED__reserved_3bd>",
+	L"<WM_MM_RESERVED__reserved_3be>",
+	L"<WM_MM_RESERVED__reserved_3bf>",
+	L"<WM_MM_RESERVED__reserved_3c0>",
+	L"<WM_MM_RESERVED__reserved_3c1>",
+	L"<WM_MM_RESERVED__reserved_3c2>",
+	L"<WM_MM_RESERVED__reserved_3c3>",
+	L"<WM_MM_RESERVED__reserved_3c4>",
+	L"<WM_MM_RESERVED__reserved_3c5>",
+	L"<WM_MM_RESERVED__reserved_3c6>",
+	L"<WM_MM_RESERVED__reserved_3c7>",
+	L"<WM_MM_RESERVED__reserved_3c8>",
+	L"<WM_MM_RESERVED__reserved_3c9>",
+	L"<WM_MM_RESERVED__reserved_3ca>",
+	L"<WM_MM_RESERVED__reserved_3cb>",
+	L"<WM_MM_RESERVED__reserved_3cc>",
+	L"<WM_MM_RESERVED__reserved_3cd>",
+	L"<WM_MM_RESERVED__reserved_3ce>",
+	L"<WM_MM_RESERVED__reserved_3cf>",
+	L"<WM_MM_RESERVED__reserved_3d0>",
+	L"<WM_MM_RESERVED__reserved_3d1>",
+	L"<WM_MM_RESERVED__reserved_3d2>",
+	L"<WM_MM_RESERVED__reserved_3d3>",
+	L"<WM_MM_RESERVED__reserved_3d4>",
+	L"<WM_MM_RESERVED__reserved_3d5>",
+	L"<WM_MM_RESERVED__reserved_3d6>",
+	L"<WM_MM_RESERVED__reserved_3d7>",
+	L"<WM_MM_RESERVED__reserved_3d8>",
+	L"<WM_MM_RESERVED__reserved_3d9>",
+	L"<WM_MM_RESERVED__reserved_3da>",
+	L"<WM_MM_RESERVED__reserved_3db>",
+	L"<WM_MM_RESERVED__reserved_3dc>",
+	L"<WM_MM_RESERVED__reserved_3dd>",
+	L"<WM_MM_RESERVED__reserved_3de>",
+	L"WM_MM_RESERVED_LAST",
+	L"WM_INTERNAL_DDE_FIRST",
+	L"<WM_INTERNAL_DDE__reserved_3e1>",
+	L"<WM_INTERNAL_DDE__reserved_3e2>",
+	L"<WM_INTERNAL_DDE__reserved_3e3>",
+	L"<WM_INTERNAL_DDE__reserved_3e4>",
+	L"<WM_INTERNAL_DDE__reserved_3e5>",
+	L"<WM_INTERNAL_DDE__reserved_3e6>",
+	L"<WM_INTERNAL_DDE__reserved_3e7>",
+	L"<WM_INTERNAL_DDE__reserved_3e8>",
+	L"<WM_INTERNAL_DDE__reserved_3e9>",
+	L"<WM_INTERNAL_DDE__reserved_3ea>",
+	L"<WM_INTERNAL_DDE__reserved_3eb>",
+	L"<WM_INTERNAL_DDE__reserved_3ec>",
+	L"<WM_INTERNAL_DDE__reserved_3ed>",
+	L"<WM_INTERNAL_DDE__reserved_3ee>",
+	L"WM_INTERNAL_DDE_LAST",
+	L"WM_CBT_RESERVED_FIRST",
+	L"<WM_CBT_RESERVED__reserved_3f1>",
+	L"<WM_CBT_RESERVED__reserved_3f2>",
+	L"<WM_CBT_RESERVED__reserved_3f3>",
+	L"<WM_CBT_RESERVED__reserved_3f4>",
+	L"<WM_CBT_RESERVED__reserved_3f5>",
+	L"<WM_CBT_RESERVED__reserved_3f6>",
+	L"<WM_CBT_RESERVED__reserved_3f7>",
+	L"<WM_CBT_RESERVED__reserved_3f8>",
+	L"<WM_CBT_RESERVED__reserved_3f9>",
+	L"<WM_CBT_RESERVED__reserved_3fa>",
+	L"<WM_CBT_RESERVED__reserved_3fb>",
+	L"<WM_CBT_RESERVED__reserved_3fc>",
+	L"<WM_CBT_RESERVED__reserved_3fd>",
+	L"<WM_CBT_RESERVED__reserved_3fe>",
+	L"WM_CBT_RESERVED_LAST"
+};
+
+
 #define PRINTPROCEDUREMESSAGSCALLS 0
 
 #ifdef _MSC_VER
@@ -863,10 +1893,13 @@ void	MainFrame::Enable(bool iEnable)
 		(*i)->windowData->Enable(iEnable);
 }
 
+bool blockDraw=false;
+
 LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 #if PRINTPROCEDUREMESSAGESCALL
-	wprintf(L"Begin: %i\n",msg);
+	wprintf(L"Begin %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
+	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"11111111111111111111111111111111111111" : L"");
 #endif
 	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
@@ -874,6 +1907,22 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 
 	switch(msg)
 	{
+		case 0:
+		{
+			if(!wparam)
+				frame->Draw();
+			else
+			{
+				if(frame->BeginDraw((GuiViewport*)wparam))
+				{
+					frame->BroadcastPaintTo((GuiViewport*)wparam);
+					frame->EndDraw();
+				}
+			}
+
+			result=0;
+		}
+		break;
 		case WM_ERASEBKGND:
 			/*An application should return nonzero in response to WM_ERASEBKGND if it processes the message and erases the background;
 			this indicates that no further erasing is required. If the application returns zero, the window will remain marked for erasing.*/ 
@@ -917,98 +1966,99 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 			float tWidth=LOWORD(lparam);
 			float tHeight=HIWORD(lparam);
 
+			if(frame->wasdrawing)
+				DEBUG_BREAK();
+
 			HRESULT result=frame->renderer2DWin32->renderer->Resize(D2D1::SizeU(tWidth,tHeight));
 
 			if(S_OK!=result)
 				DEBUG_BREAK();
-
+			
 			frame->OnSize(tWidth,tHeight);
 		}
 		break;
 		case WM_LBUTTONDOWN:
 		case WM_MBUTTONDOWN:
 		case WM_RBUTTONDOWN:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
 
-				frame->hittest.locked=true;
+			frame->hittest.locked=true;
 
-				::SetCapture(frame->windowDataWin32->hwnd);
+			::SetCapture(frame->windowDataWin32->hwnd);
 
-				MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
+			MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
 
-				tMi.RawButtons()[tIndex]=true;
+			tMi.RawButtons()[tIndex]=true;
 				
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
 
-				if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
-					::SetFocus(frame->windowDataWin32->hwnd);
+			if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
+				::SetFocus(frame->windowDataWin32->hwnd);
 
-				unsigned int tOldTime=tMi.RawTiming()[tIndex];
-				tMi.RawTiming()[tIndex]=Ide::Instance()->timer->GetCurrent();
+			unsigned int tOldTime=tMi.RawTiming()[tIndex];
+			tMi.RawTiming()[tIndex]=Ide::Instance()->timer->GetCurrent();
 
-				unsigned int tFinalButtonIndex=tIndex+1;
+			unsigned int tFinalButtonIndex=tIndex+1;
 
-				if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
-					frame->OnMouseClick(tFinalButtonIndex);
-				else
-					frame->OnMouseDown(tFinalButtonIndex);
-			}
+			if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
+				frame->OnMouseClick(tFinalButtonIndex);
+			else
+				frame->OnMouseDown(tFinalButtonIndex);
+		}
 		break;
 		case WM_LBUTTONUP:
 		case WM_MBUTTONUP:
 		case WM_RBUTTONUP:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
-				MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
-				tMi.RawButtons()[tIndex]=false;
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
+			MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
+			tMi.RawButtons()[tIndex]=false;
 
-				frame->hittest.locked=false;
+			frame->hittest.locked=false;
 				
-				::SetCapture(0);
+			::SetCapture(0);
 
-				frame->OnMouseUp(tIndex+1);
-			}
+			frame->OnMouseUp(tIndex+1);
+		}
 		break;
 		case WM_MOUSEWHEEL:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
-				frame->OnMouseWheel(wheelValue);
-			}
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
+			frame->OnMouseWheel(wheelValue);
+		}
 		break;
 		case WM_MOUSEMOVE:
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
 			frame->OnMouseMove((float)LOWORD(lparam),(float)HIWORD(lparam));
 		break;
 		case WM_KEYDOWN:
-			{
-				result=DefWindowProc(hwnd,msg,wparam,lparam);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-				MSG _msg;
-				PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+			MSG _msg;
+			PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
 
-				if(_msg.message==WM_CHAR)
-				{
-					TranslateMessage(&_msg);
-					DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
-					frame->OnKeyDown(_msg.wParam);
-					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)&_msg.wParam)));
-				}
-				else
-					frame->OnKeyDown(0);
-					//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)0)));
+			if(_msg.message==WM_CHAR)
+			{
+				TranslateMessage(&_msg);
+				DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
+				frame->OnKeyDown(_msg.wParam);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)&_msg.wParam)));
 			}
-			break;
+			else
+				frame->OnKeyDown(0);
+				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)0)));
+		}
+		break;
 		case WM_PAINT:
 		{
+			frame->SetDraw();
 			PAINTSTRUCT ps;
 			BeginPaint(hwnd,&ps);
-			frame->BeginDraw();
-			frame->OnPaint();
-			frame->EndDraw();
 			EndPaint(hwnd,&ps);
 			result=0;
 		}
@@ -1032,10 +2082,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 		}
 		break;
 		default:
-		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			frame->Draw();
-		}
 	}
 
 	/*if(frame)
@@ -1058,7 +2105,8 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 	if(Ide::Instance()->timer->GetLastDelta()>16)
 		PostMessage(hwnd,WM_NULL,0,0);*/
 #if PRINTPROCEDUREMESSAGESCALL
-	wprintf(L"End\n");
+	wprintf(L"End   %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
+	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"00000000000000000000000000000000000000" : L"");
 #endif
 
 	return result;
@@ -1557,12 +2605,7 @@ void DirectXRenderer::Render()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-
-
 //#pragma message (LOCATION " this should go to common opengl part of the project cause there is no os-related call within")
-
-
-
 
 void glCheckError()
 {
@@ -1957,20 +3000,23 @@ void Renderer3DOpenGL::Deinitialize()
 
 void Renderer3DOpenGL::Initialize()
 {
-#if FRAME_RENDERER
+#if RENDERER_FRAMED
 	this->hwnd=this->frameWin32->windowDataWin32->hwnd;
+	this->hdc=this->frameWin32->windowDataWin32->hdc;
 #else
 	vec2 tFrameSize=this->frame->Size();
 	this->hwnd=CreateWindow(WC_DIALOG,L"Renderer3DOpenGL",WS_VISIBLE,0,0,tFrameSize.x,tFrameSize.y,0,0,0,0);
 
 	if(!this->hwnd)
 		Ide::Instance()->subsystem->SystemMessage(L"Creating Renderer window",L"Renderer3DOpenGL::CreateWindow",MB_OK|MB_ICONEXCLAMATION);
+
+	this->hdc=GetDC(this->hwnd);
 #endif
 
 	DWORD error=0;
 
 	if(!this->hdc)
-		Ide::Instance()->subsystem->SystemMessage(L"Getting Device Context",L"GetDC",MB_OK|MB_ICONEXCLAMATION);
+		Ide::Instance()->subsystem->SystemMessage(L"Renderer3DOpenGL::Initialize",L"Creating Device Context",MB_OK|MB_ICONEXCLAMATION);
 
 	PIXELFORMATDESCRIPTOR pfd={0};
 	pfd.nVersion=1;
@@ -2075,6 +3121,9 @@ void Renderer3DOpenGL::Initialize()
 	};
 
 	this->hdc=GetDC(this->hwnd);
+
+	if(!this->hdc)
+		Ide::Instance()->subsystem->SystemMessage(L"Renderer3DOpenGL::Initialize",L"Recreating Device Context",MB_OK|MB_ICONEXCLAMATION);
 
 	UINT numFormats;
 
@@ -3059,12 +4108,15 @@ FrameWin32::~FrameWin32()
 
 	this->threadRenderWin32->Block(false);
 
-#if ENABLE_RENDERER
+#if RENDERER_ENABLED
 	if(this->renderer3D)
 	{
+
+#if RENDERER_THREADED
 		Task* tDeleteOpenGLContext=this->thread->NewTask(L"DestroyOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Deinitialize,this->renderer3DOpenGL)));
 		while(tDeleteOpenGLContext->func);
 		SAFEDELETE(tDeleteOpenGLContext);
+#endif
 
 		SAFEDELETE(this->renderer3D);
 
@@ -3108,12 +4160,6 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 
 	this->windowDataWin32->hdc=::GetDC(this->windowDataWin32->hwnd);
 
-	if(iModal) /*removes the caption style*/
-		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
-
-	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
-	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
-
 	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
 
 	this->iconDown=new PictureRef(Frame::rawDownArrow,Frame::ICON_WH,Frame::ICON_WH);
@@ -3127,18 +4173,28 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 
 	this->thread=new ThreadWin32;
 
-#if ENABLE_RENDERER
+	if(!Ide::Instance()->GetMainFrame())
+	{
+#if RENDERER_ENABLED
 		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
-
 		if(!this->renderer3DOpenGL)
 			DEBUG_BREAK();
-
+#if RENDERER_THREADED
 		Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
 		while(tCreateOpenGLContext->func);
 		SAFEDELETE(tCreateOpenGLContext);
+#else
+		this->renderer3DOpenGL->Initialize();
+#endif //RENDERER_THREADED
+	this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
+#endif //ENABLE_RENDERER
+	}
 
-		this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
-#endif
+	if(iModal) /*removes the caption style*/
+		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
+
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
 
 	this->OnRecreateTarget();
 
@@ -3262,10 +4318,12 @@ int FrameWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	return result;
 }
 
-bool FrameWin32::BeginDraw()
+bool FrameWin32::BeginDraw(void* iPtr)
 {
-	if(!this->wasrender)
+	if(!this->wasdrawing)
 	{
+		this->wasdrawing=iPtr;
+
 		if(this->retarget)
 		{
 			this->OnRecreateTarget();
@@ -3273,8 +4331,7 @@ bool FrameWin32::BeginDraw()
 		}
 
 		this->renderer2DWin32->renderer->BeginDraw();
-		this->wasrender=true;
-
+		
 		return true;
 	}
 	else
@@ -3285,7 +4342,7 @@ bool FrameWin32::BeginDraw()
 }
 void FrameWin32::EndDraw()
 {
-	if(this->wasrender)
+	if(this->wasdrawing)
 	{
 		HRESULT result=renderer2DWin32->renderer->EndDraw();
 
@@ -3303,7 +4360,7 @@ void FrameWin32::EndDraw()
 				wprintf(L"D2D1HwndRenderTarget::Flush error: %x\n",result);
 		}
 
-		this->wasrender=false;
+		this->wasdrawing=0;
 	}
 	else
 		DEBUG_BREAK();
@@ -3371,72 +4428,109 @@ GuiViewport::~GuiViewport()
 {
 	GuiViewport::GetPool().remove(this);
 
-	SAFERELEASE((ID2D1Bitmap*&)this->renderBitmap);
+	SAFERELEASE((ID2D1Bitmap*&)this->bitmap);
 }
 
-void GuiViewport::DrawBuffer(Frame* iFrame,vec4 iVec)
+void GuiViewport::SwapBuffer(Frame* iFrame)
 {
-	if(this->renderBuffer)
+
+}
+
+void GuiViewport::DrawBuffer(Frame* iFrame)
+{
+	if(this->buffer)
 	{
-		Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iFrame->renderer2D;
-		renderer2DWin32->renderer->DrawBitmap((ID2D1Bitmap*&)this->renderBitmap,D2D1::RectF(iVec.x,iVec.y,iVec.z,iVec.w));
-		iFrame->renderer2D->DrawRectangle(iVec.x,iVec.y,iVec.z,iVec.w,0xff0000,1);
+		ID2D1Bitmap*&		tBitmap=(ID2D1Bitmap*&)this->bitmap;
+		Renderer2DWin32*	tRenderer=(Renderer2DWin32*)iFrame->renderer2D;
+
+		int					tx=this->edges.x;
+		int					ty=this->edges.y;
+		int					tz=this->edges.z;
+		int					tw=this->edges.w;
+
+		wprintf(L"drawing\n");
+		
+		tRenderer->renderer->DrawBitmap(tBitmap,D2D1::RectF(tx,ty,tz,tw));
+		tRenderer->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,0xff0000,1);
 	}
 }
+
+void GuiViewport::ResizeBuffers(Frame* iFrame)
+{
+	ID2D1Bitmap*&		tBitmap=(ID2D1Bitmap*&)this->bitmap;
+	Renderer2DWin32*	tRenderer=(Renderer2DWin32*)iFrame->renderer2D;
+	D2D1_SIZE_U			tBitmapSize;
+	HRESULT				tDirect2DResult=S_OK;
+
+	int					tx=this->edges.x;
+	int					ty=this->edges.y;
+	int					tz=this->edges.z;
+	int					tw=this->edges.w;
+	int					tWidth=tz-tx;
+	int					tHeight=tw-ty;
+
+	if(tBitmap)
+		AGGREGATECALL(tBitmap->GetPixelSize,tBitmapSize);
+
+	if(!tBitmap || tBitmapSize.width!=tWidth || tBitmapSize.height!=tHeight || !this->buffer)
+	{
+		wprintf(L"resizing\n");
+
+		int tBufferSize=tWidth*tHeight*4;
+
+		SAFERELEASE(tBitmap);
+		SAFEDELETEARRAY(this->buffer);
+
+		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
+		AGGREGATECALL(tRenderer->renderer->GetPixelFormat,bp.pixelFormat);
+
+		tDirect2DResult=tRenderer->renderer->CreateBitmap(D2D1::SizeU(tWidth,tHeight),bp,&tBitmap);
+
+		if(tDirect2DResult!=S_OK)
+			DEBUG_BREAK();
+
+		this->buffer=new unsigned char[tBufferSize];
+	}
+}
+
+
 
 int GuiViewport::Render(Frame* iFrame)
 {
-	if(Timer::GetInstance()->GetCurrent()-this->lastFrameTime>(1000.0f/this->renderFps))
+#if RENDERER_THREADED
+	if((Timer::GetInstance()->GetCurrent()-this->lastFrameTime)>(1000.0f/this->renderFps))
 		this->lastFrameTime=Ide::Instance()->timer->GetCurrent();
 	else 
 		return 0;
+#endif
+
+	Renderer2DWin32*	tRenderer=(Renderer2DWin32*)iFrame->renderer2D;
+	ID2D1Bitmap*&		tBitmap=(ID2D1Bitmap*&)this->bitmap;
 	
+	int					tx=this->edges.x;
+	int					ty=this->edges.y;
+	int					tz=this->edges.z;
+	int					tw=this->edges.w;
+	int					tWidth=tz-tx;
+	int					tHeight=tw-ty;
 
-	vec4 tCanvas=this->edges;
-	int tWidth=tCanvas.z-tCanvas.x;
-	int tHeight=tCanvas.w-tCanvas.y;
-	vec2 tMouse(iFrame->mouse);
+	vec2				tMouse(iFrame->mouse);
+	D2D1_RECT_U			tBitmapRect={0,0,tWidth,tHeight};
+	HRESULT				tDirect2DResult=S_OK;
+	EditorEntity*		tEntity=this->GetEntity();
 	
-
-	Renderer2DWin32* renderer2DWin32=(Renderer2DWin32*)iFrame->renderer2D;
-
-	ID2D1Bitmap*& rBitmap=(ID2D1Bitmap*&)this->renderBitmap;
-	unsigned char*& rBuffer=(unsigned char*&)this->renderBuffer;
-
-	D2D1_SIZE_F tSize;
-
-	if(rBitmap)
-		//rBitmap->GetSize(&tSize);
-		AGGREGATECALL(rBitmap->GetSize,tSize);
-
-	if(!rBitmap || tSize.width!=tWidth || tSize.height!=tHeight || !this->renderBuffer)
+	if(tEntity)
 	{
-		SAFERELEASE(rBitmap);
-		SAFEDELETEARRAY(this->renderBuffer);
-
-		D2D1_BITMAP_PROPERTIES bp=D2D1::BitmapProperties();
-		//tabContainerWin32->renderer2DWin32->renderer->GetPixelFormat(&bp.pixelFormat);
-		AGGREGATECALL(renderer2DWin32->renderer->GetPixelFormat,bp.pixelFormat);
-
-		renderer2DWin32->renderer->CreateBitmap(D2D1::SizeU(tWidth,tHeight),bp,&rBitmap);
-
-		int rBufferSize=tWidth*tHeight*4;
-
-		rBuffer=new unsigned char[rBufferSize];
-
-		PostMessage((HWND)iFrame->windowData->GetWindowHandle(),WM_NULL,0,0);
-	}
-
-	if(this->Entity())
-	{
-		this->Entity()->world=this->model;
-
-		this->Entity()->update();
+		tEntity->world=this->model;
+		tEntity->update();
 
 		for(std::list<GuiEntity*>::iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
 		{
-			if((*it)->Entity() && (*it)->GetRoot()->GetFrame())
-				(*it)->Entity()->OnPropertiesUpdate((*it)->GetRoot()->GetFrame());
+			EditorEntity*	tEntityPropertiesEntity=(*it)->Entity();
+			Frame*			tEntityPropertiesFrame=(*it)->GetRoot()->GetFrame();
+
+			if(tEntityPropertiesEntity && tEntityPropertiesFrame)
+				tEntityPropertiesEntity->OnPropertiesUpdate(tEntityPropertiesFrame);
 		}
 	}
 
@@ -3445,8 +4539,8 @@ int GuiViewport::Render(Frame* iFrame)
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_SCISSOR_TEST);
 
-	glViewport((int)tCanvas.x,(int)tCanvas.y,tWidth,tHeight);glCheckError();
-	glScissor((int)tCanvas.x,(int)tCanvas.y,tWidth,tHeight);glCheckError();
+	glViewport(0,0,tWidth,tHeight);glCheckError();
+	glScissor(0,0,tWidth,tHeight);glCheckError();
 
 	{
 		int tGuiRectColorBack=0x505050;
@@ -3464,8 +4558,8 @@ int GuiViewport::Render(Frame* iFrame)
 		iFrame->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
 		iFrame->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-		if(this->Entity())
-			iFrame->renderer3D->draw(this->Entity());
+		if(this->GetEntity())
+			iFrame->renderer3D->draw(this->GetEntity());
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -3473,15 +4567,21 @@ int GuiViewport::Render(Frame* iFrame)
 
 		glReadBuffer(GL_BACK);glCheckError();
 
-		glReadPixels((int)tCanvas.x,(int)tCanvas.y,tWidth,tHeight,GL_BGRA,GL_UNSIGNED_BYTE,rBuffer);glCheckError();//@mic should implement pbo for performance
+		glReadPixels(0,0,tWidth,tHeight,GL_BGRA,GL_UNSIGNED_BYTE,this->buffer);glCheckError();//@mic should implement pbo for performance
 
-		D2D1_RECT_U rBitmapRect={0,0,tWidth,tHeight};
+		tDirect2DResult=tBitmap->CopyFromMemory(&tBitmapRect,this->buffer,tWidth/**tHeight*/*4);
 
-		rBitmap->CopyFromMemory(&rBitmapRect,rBuffer,tWidth/**tHeight*/*4);
+		if(tDirect2DResult!=S_OK)
+			DEBUG_BREAK();
 
-		//this->DrawBuffer(iFrame,tCanvas);
+		tDirect2DResult=tRenderer->renderer->Flush();
 
-		iFrame->windowData->PostMessage(0,0,0);//post the draw message
+		if(tDirect2DResult!=S_OK)
+			DEBUG_BREAK();
+
+#if RENDERER_THREADED
+		iFrame->SetDraw(this);
+#endif
 
 		return 1;
 	}

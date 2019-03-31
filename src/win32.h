@@ -360,8 +360,8 @@ struct DLLBUILD WindowDataWin32 : WindowData
 
 	virtual int GetWindowHandle();
 
-	void SendMessage(unsigned iCode,unsigned data1,unsigned data2);
-	void PostMessage(unsigned iCode,unsigned data1,unsigned data2);
+	void SendMessage(unsigned iCode=0,unsigned data1=0,unsigned data2=0);
+	void PostMessage(unsigned iCode=0,unsigned data1=0,unsigned data2=0);
 };
 
 
@@ -377,7 +377,7 @@ struct DLLBUILD FrameWin32 : Frame
 	FrameWin32(float x,float y,float w,float h,FrameWin32* iParentFrame=0,bool iModal=false);
 	~FrameWin32();
 
-	bool BeginDraw();
+	bool BeginDraw(void*);
 	void EndDraw();
 
 	void Destroy();

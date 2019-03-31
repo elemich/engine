@@ -72,8 +72,10 @@ struct DLLBUILD Script;
 
 #define MAX_TOUCH_INPUTS 10
 
-#define ENABLE_RENDERER 0
-#define FRAME_RENDERER 1
+#define RENDERER_ENABLED 1
+#define RENDERER_FRAMED 1
+#define RENDERER_THREADED 0
+#define PRINTPROCEDUREMESSAGESCALL 1
 
 template <typename T> struct DLLBUILD Singleton
 {
@@ -449,7 +451,7 @@ struct DLLBUILD PaintData : MsgData
 	vec4	 clip;
 	vec2	 offset;
 
-	PaintData(GuiRect* iTarget,void* iData):target(iTarget),data(iData),clip(0,0,100000,100000){}
+	PaintData(void* iData=0):data(iData),clip(0,0,100000,100000){}
 };
 
 //MESSAGES END
@@ -800,8 +802,9 @@ struct DLLBUILD GuiPropertyTree : GuiTreeView
 {
 protected:
 	float splitter;
+	bool  splitterpressed;
 public:
-	GuiPropertyTree():splitter(0){}
+	GuiPropertyTree():splitter(0),splitterpressed(false){}
 
 	virtual void Procedure(Frame*,GuiRectMessages,void*);
 	virtual void ItemProcedure(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
@@ -1006,11 +1009,7 @@ template<typename T> struct DLLBUILD GuiProperty : GuiRect
 	}
 };
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 //////////////////GuiTabs///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 struct DLLBUILD GuiViewport : Multiton<GuiViewport> , GuiRect
 {
@@ -1023,14 +1022,16 @@ private:
 
 	GuiViewport();
 
+	Frame* frame;
+
 	GuiButton playStopButton;
 
 	mat4 projection;
 	mat4 view;
 	mat4 model;
 
-	void*			renderBitmap;
-	unsigned char*	renderBuffer;
+	void*			bitmap;
+	unsigned char*	buffer;
 
 	vec2 mouseold;
 
@@ -1047,24 +1048,30 @@ private:
 public:
 
 	virtual int Render(Frame*);
-	virtual void DrawBuffer(Frame*,vec4);
+	virtual void DrawBuffer(Frame*);
+	virtual void SwapBuffer(Frame*);
 	
 	virtual ~GuiViewport();
 
-	virtual EditorEntity* Entity(){return 0;}
+	virtual EditorEntity* GetEntity();
+
+	
 
 	mat4& Projection();
 	mat4& View();
 	mat4& Model();
 
+	Frame* GetFrame(){return this->frame;}
+
 	EditorEntity* GetHoveredEntity();
 	EditorEntity* GetPickedEntity();
 	
-	void SetFps(unsigned int iFps=60);
-	unsigned int GetFps();
+	unsigned int	GetLastFrameTime();
+	void			SetRenderingRate(unsigned int iFps=60);
+	unsigned int	GetRenderingRate();
 
-	//virtual void OnPaint(Frame*);
-	virtual void OnSize(Frame*,const vec4& iEdges);
+	void ResizeBuffers(Frame*);
+
 	virtual void OnMouseWheel(Frame*,const MsgData&);
 	virtual void OnMouseMove(Frame*,const MsgData&);
 	virtual void OnActivate(Frame*);
@@ -1277,8 +1284,8 @@ struct DLLBUILD WindowData
 
 	virtual int GetWindowHandle()=0;
 
-	virtual void SendMessage(unsigned iCode,unsigned data1,unsigned data2)=0;
-	virtual void PostMessage(unsigned iCode,unsigned data1,unsigned data2)=0;
+	virtual void SendMessage(unsigned iCode=0,unsigned data1=0,unsigned data2=0)=0;
+	virtual void PostMessage(unsigned iCode=0,unsigned data1=0,unsigned data2=0)=0;
 };
 
 struct DLLBUILD DrawInstance
@@ -1336,7 +1343,7 @@ struct DLLBUILD Frame
 	MouseData	mousedata;
 
 	bool drag;
-	bool wasrender;
+	void* wasdrawing;
 	bool retarget;
 
 	vec2 previousSize;
@@ -1395,7 +1402,7 @@ public:
 	virtual void Broadcast(GuiRectMessages iMsg,void* iData=&MsgData());
 	virtual void BroadcastTo(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
 	virtual void BroadcastInputTo(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
-	virtual void BroadcastPaintTo(GuiRect*,void* iData=&MsgData());
+	virtual void BroadcastPaintTo(GuiRect*,void* iData=&PaintData());
 
 	template<class C> void GetRects(std::vector<C*>& iRects)
 	{
@@ -1409,10 +1416,11 @@ public:
 	void Draw();
 	void DrawBlock(bool);
 	
-	virtual bool BeginDraw(){return false;}
+	virtual bool BeginDraw(void*){return false;}
 	virtual void EndDraw(){};
 
-	DrawInstance* SetDraw(GuiRect* iRect=0,bool iRemove=true,bool iSkip=false,void* iParam=0);
+	DrawInstance*	SetDraw(GuiRect* iRect=0,bool iRemove=true,bool iSkip=false,void* iParam=0);
+	void			SetDraw(GuiViewport*);
 
 	virtual int TrackGuiSceneViewerPopup(bool iSelected){return -1;}
 	virtual int TrackTabMenuPopup(){return -1;}
@@ -1721,6 +1729,16 @@ struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationControl
 
 	void OnPropertiesCreate();
 	void OnPropertiesUpdate(Frame*);
+
+	/*void update()
+	{
+		AnimationController::update();
+
+		GuiViewport* tViewport=GuiViewport::GetPool().front();
+
+		if(this->AnimationController::play && tViewport && tViewport->GetFrame())
+			tViewport->GetFrame()->SetDraw(tViewport);
+	}*/
 };
 
 struct DLLBUILD EditorMesh : ComponentProperties<Mesh>
