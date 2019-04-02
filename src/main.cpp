@@ -3,7 +3,9 @@
 //int WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 int main()
 {
-	Ide* app = new IdeWin32;
+	Ide* app = Ide::Instance();
+
+	Ide::Instance();
 
 	app->Run();
 

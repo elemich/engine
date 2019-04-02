@@ -196,18 +196,18 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 	Entity* tCurrentSceneRootEntity=(currentScene ? currentScene->GetEntity() : 0);
 
 	if(tCurrentSceneRootEntity)
-		tCurrentSceneRootEntity->update();
+		renderer3D->UpdateEntities(tCurrentSceneRootEntity);
 
 	MatrixStack::Push(MatrixStack::PROJECTION,projection);
 	MatrixStack::Push(MatrixStack::VIEW,view);
 	MatrixStack::Push(MatrixStack::MODEL,modelview);
 
-	renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-	renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-	renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+	renderer3D->DrawLine(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+	renderer3D->DrawLine(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+	renderer3D->DrawLine(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
 	if(tCurrentSceneRootEntity)
-		tCurrentSceneRootEntity->draw(renderer3D);	
+		renderer3D->RenderEntities(tCurrentSceneRootEntity);	
 
 	MatrixStack::Pop(MatrixStack::MODEL);
 	MatrixStack::Pop(MatrixStack::VIEW);
@@ -230,9 +230,9 @@ namespace SerializerHelpers
 {
 	void LoadScriptModule(Script* iScript)
 	{
-		if(iScript->file.size())
+		if(iScript->scriptpath.size())
 		{
-			String tLibFile=L"lib" + iScript->file.Name() + L".so";
+			String tLibFile=L"lib" + iScript->scriptpath.Name() + L".so";
 
 			iScript->handle=dlopen(StringUtils::ToChar(tLibFile).c_str(), 1 /*RTLD_LAZY*/);
 
@@ -647,12 +647,12 @@ void Renderer3DAndroid::draw(Script*)
 
 void Renderer3DAndroid::draw(Gizmo* gizmo)
 {
-	this->draw(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
-	this->draw(vec3(0,0,0),vec3(0,10,0),vec3(0,1,0));
-	this->draw(vec3(0,0,0),vec3(0,0,10),vec3(0,0,1));
+	this->DrawLine(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
+	this->DrawLine(vec3(0,0,0),vec3(0,10,0),vec3(0,1,0));
+	this->DrawLine(vec3(0,0,0),vec3(0,0,10),vec3(0,0,1));
 }
 
-void Renderer3DAndroid::draw(vec3 point,float psize,vec3 col)
+void Renderer3DAndroid::DrawPoint(vec3 point,float psize,vec3 col)
 {
 	Shader* shader=this->shader_unlit_color;
 
@@ -864,7 +864,7 @@ void Renderer3DAndroid::draw(AABB aabb,vec3 color)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void Renderer3DAndroid::draw(vec3 a,vec3 b,vec3 color)
+void Renderer3DAndroid::DrawLine(vec3 a,vec3 b,vec3 color)
 {
 	Shader* shader=this->shader_unlit_color;
 
@@ -908,7 +908,7 @@ void Renderer3DAndroid::draw(vec3 a,vec3 b,vec3 color)
 
 }
 
-void Renderer3DAndroid::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
+void Renderer3DAndroid::DrawText(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
 {
 	Shader* shader=0;//line_color_shader
 
@@ -1205,7 +1205,7 @@ void Renderer3DAndroid::drawUnlitTextured(Mesh* mesh)
 	vec3 lightpos(0,200,-100);
 
 	if(shader==this->shader_shaded_texture)
-		this->draw(lightpos,5);
+		this->DrawPoint(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
@@ -1277,7 +1277,7 @@ void Renderer3DAndroid::draw(Skin* skin)
 	vec3 lightpos(0,200,-100);
 
 	if(shader==this->shader_shaded_texture)
-		this->draw(lightpos,5);
+		this->DrawPoint(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);

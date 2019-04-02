@@ -63,9 +63,9 @@ void AndroidPlugin::OnMenuPressed(Frame*,int iIdx)
 	if(iIdx==this->MenuActionBuild)
 		this->ShowConfigurationPanel();
 	if(iIdx==this->MenuActionInstall)
-		Ide::Instance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" install " + this->Apkname + L".apk");
+		Subsystem::Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" install " + this->Apkname + L".apk");
 	if(iIdx==this->MenuActionUninstall)
-		Ide::Instance()->subsystem->Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" uninstall " + this->Apkname + L".apk");
+		Subsystem::Execute(this->AndroidOutputDirectory,this->AndroidDebugBridge + L" uninstall " + this->Apkname + L".apk");
 }
 
 
@@ -183,28 +183,26 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	String							tResourceDirectory=L"\\";
 
 	{
-		Subsystem* tSubsystem=Ide::Instance()->subsystem;
-
 		//create output directory
 
-		tSubsystem->CreateDirectory(tAndroidOutputDirectory);
+		Subsystem::CreateDir(tAndroidOutputDirectory);
 
 		//create android project directory
 
-		tSubsystem->CreateDirectory(tAndroidProjectDirectory);
+		Subsystem::CreateDir(tAndroidProjectDirectory);
 
 		//create android asset directory
 
-		tSubsystem->CreateDirectory(tAndroidProjectAssetDirectory);
+		Subsystem::CreateDir(tAndroidProjectAssetDirectory);
 
 		//create android jni project directory
 
-		tSubsystem->CreateDirectory(tAndroidProjectJniDirectory);
+		Subsystem::CreateDir(tAndroidProjectJniDirectory);
 
 		//create android res project directory
 
-		tSubsystem->CreateDirectory(tAndroidProjectResDirectory);
-		tSubsystem->CreateDirectory(tAndroidProjectResDirectory + L"\\values");
+		Subsystem::CreateDir(tAndroidProjectResDirectory);
+		Subsystem::CreateDir(tAndroidProjectResDirectory + L"\\values");
 	}
 
 	//pack data and table
@@ -221,7 +219,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 		std::vector<GuiProject*> tGuiProjectViewer;
 
-		//Ide::Instance()->mainframe->CreateTabRects<GuiProjectViewer>(tGuiProjectViewer);
+		//MainFrame::Instance()->CreateTabRects<GuiProjectViewer>(tGuiProjectViewer);
 
 		AndroidHelpers::packResources(tResourceDirectory,&tGuiProjectViewer[0]->GetProjectDirectory(),tPackFile,tTableFile,tAndroidProjectDirectory,tSourcePaths);
 
@@ -237,12 +235,12 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	{
 		tAndroidMk+=L"include $(CLEAR_VARS)\n"
 			L"DSTDIR := " + tAndroidProjectDirectory + L"\n"
-			L"LOCAL_C_INCLUDES := " + Ide::Instance()->compiler->ideSrcPath + L"\n"
+			L"LOCAL_C_INCLUDES := " + GuiCompiler::Instance()->GetSourcesPath() + L"\n"
 			//"LOCAL_STATIC_LIBRARIES := -lEngine\n"
 			L"LOCAL_MODULE := " + ((FilePath)(*si)).Name() + L"\n"
 			L"LOCAL_SRC_FILES := " + (*si) + L"\n"
 			L"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-			L"LOCAL_LDLIBS := -L" + Ide::Instance()->compiler->ideLibPath + L" -lEngine -llog\n"
+			L"LOCAL_LDLIBS := -L" + GuiCompiler::Instance()->GetLibrariesPath() + L" -lEngine -llog\n"
 			L"include $(BUILD_SHARED_LIBRARY)\n\n";
 	}
 
@@ -319,7 +317,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 	//build the native code
 
-	Ide::Instance()->subsystem->Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
+	Subsystem::Execute(tAndroidProjectDirectory,L"C:\\Sdk\\android\\android-ndk-r16b\\ndk-build",tAndroidProjectDirectory + L"\\ndk-build-log.txt",true,true,true);
 
 	//unroll exports (rewrite original script file)
 
@@ -358,8 +356,8 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 		tTableFile.Close();
 	}
 
-	Ide::Instance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tPackFile.path.File() + L" ..",L"",true,true,true);
-	Ide::Instance()->subsystem->Execute(tAndroidProjectAssetDirectory,L"move " + tTableFile.path.File() + L" ..",L"",true,true,true);
+	Subsystem::Execute(tAndroidProjectAssetDirectory,L"move " + tPackFile.path.File() + L" ..",L"",true,true,true);
+	Subsystem::Execute(tAndroidProjectAssetDirectory,L"move " + tTableFile.path.File() + L" ..",L"",true,true,true);
 
 	//File::Delete(tPackFile.path.c_str());
 	//File::Delete(tTableFile.path.c_str());
@@ -370,7 +368,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	String tBuildApk=   L"@echo off\n"
 		L"set PLATFORM=" + tAndroidPlatform + L"\n"
 		L"set BUILDTOOL=" + tAndroidBuildTool + L"\n"
-		L"set LIBDIR=" + Ide::Instance()->compiler->ideLibPath + L"\n"
+		L"set LIBDIR=" + GuiCompiler::Instance()->GetLibrariesPath() + L"\n"
 		L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
 		L"set ADB=" + tAndroidDebugBridge + L"\n"
 		L"set KEYSTORE=" + tKeyname + L"\n"
@@ -416,9 +414,9 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 
 	StringUtils::WriteCharFile(tAndroidProjectDirectory + L"\\buildapk.bat",tBuildApk);
 
-	Ide::Instance()->subsystem->Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
+	Subsystem::Execute(tAndroidProjectDirectory,L"buildapk",L"apk-build-log.txt",true,true,true);
 
-	Ide::Instance()->subsystem->Execute(tAndroidProjectDirectory,L"move " + tApkname + L".apk ..");
+	Subsystem::Execute(tAndroidProjectDirectory,L"move " + tApkname + L".apk ..");
 }
 
 
@@ -469,8 +467,8 @@ void AndroidHelpers::findPlatformDirectories(void* iData)
 	std::vector<String> tPlatformsDirs;
 	std::vector<String> tBuildtoolDirs;
 
-	tPlatformsDirs=Ide::Instance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory);
-	tBuildtoolDirs=Ide::Instance()->subsystem->ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory);
+	tPlatformsDirs=Subsystem::ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkPlatformDirectory);
+	tBuildtoolDirs=Subsystem::ListDirectories(tSdkDirectory + L"\\" + AndroidPluginGlobalDefaults::defaultSdkBuildtoolsDirectory);
 
 	/*tAndroidPlugin->sdkPlatform->property->items=tPlatformsDirs;
 	tAndroidPlugin->sdkBuildtool->property->items=tBuildtoolDirs;
@@ -547,5 +545,5 @@ void AndroidHelpers::compileButtonFunc(void* tData)
 void AndroidHelpers::exitButtonFunc(void* tData)
 {
 	globalAllocatedAndroidPlugin->configurationPanel->Destroy();
-	Ide::Instance()->mainframe->frame->windowData->Enable(true);
+	MainFrame::Instance()->GetFrame()->Enable(true);
 }

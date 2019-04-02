@@ -299,8 +299,8 @@ struct DLLBUILD AnimClip
 
 struct DLLBUILD EntityBase
 {
-	virtual void update(){}
-	virtual void draw(Renderer3DBase*){}
+	virtual void update(Renderer3DBase*){}
+	virtual void render(Renderer3DBase*){}
 };
 
 struct DLLBUILD EntityComponent : EntityBase
@@ -316,10 +316,10 @@ public:
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
-	virtual void update();
-	virtual void draw(Renderer3DBase*);
+	virtual void update(Renderer3DBase*);
+	virtual void render(Renderer3DBase*);
 };
-
+	
 struct DLLBUILD Entity : EntityBase
 {
 private:
@@ -344,13 +344,13 @@ public:
 	Entity();
 	virtual ~Entity();
 
-	virtual Entity* Append(Entity* iEntity);
-	virtual Entity* Remove(Entity* iEntity);
-	const std::list<Entity*>& Childs();
-	const std::list<EntityComponent*>& Components();
-	virtual Entity* Parent();
-	virtual void update();
-	virtual void draw(Renderer3DBase*);
+	virtual Entity*						Append(Entity* iEntity);
+	virtual Entity*						Remove(Entity* iEntity);
+	const std::list<Entity*>&			Childs();
+	const std::list<EntityComponent*>&	Components();
+	virtual Entity*						Parent();
+	virtual void						update(Renderer3DBase*);
+	virtual void						render(Renderer3DBase*);
 
 	template<class C> C* CreateComponent()
 	{
@@ -436,7 +436,7 @@ struct DLLBUILD AnimationController : EntityComponent
 	void Stop();
 	void Play();
 
-	virtual void update();
+	virtual void update(Renderer3DBase*);
 
 	void SetFrame(float iFrame);
 };
@@ -458,7 +458,7 @@ struct DLLBUILD Line : EntityComponent
 
 	std::list<vec3> points;
 
-	void draw(Renderer3DBase*);
+	void render(Renderer3DBase*);
 };
 
 struct DLLBUILD Light : EntityComponent
@@ -528,18 +528,18 @@ struct DLLBUILD Mesh : EntityComponent
 
 	std::vector<Material*> materials;
 
-	void draw(Renderer3DBase*);
+	void render(Renderer3DBase*);
 };
 
 struct DLLBUILD Script : EntityComponent
 {
-	FilePath file;
-	EntityScript* runtime;
-	void* handle;
+	FilePath		scriptpath;
+	EntityScript*	runtime;
+	void*			handle;
 	
 	Script();
 
-	void update();
+	void update(Renderer3DBase*);
 };
 
 struct DLLBUILD EntityScript
@@ -565,8 +565,8 @@ struct DLLBUILD Skin : Mesh
 
 	Skin();
 
-	virtual void		update();
-	void draw(Renderer3DBase*);
+	virtual void	update(Renderer3DBase*);
+	virtual void	render(Renderer3DBase*);
 };
 
 struct DLLBUILD Camera : EntityComponent
@@ -587,7 +587,7 @@ struct DLLBUILD Camera : EntityComponent
 
 	vec3 target;
 
-	void update();
+	virtual void update(Renderer3DBase*);
 };
 
 struct DLLBUILD TextureFile : Texture
@@ -637,6 +637,9 @@ struct DLLBUILD Renderer3DBase
 	Renderer3DBase();
 	virtual ~Renderer3DBase();
 
+	virtual void UpdateEntities(Entity*);
+	virtual void RenderEntities(Entity*);
+
 	virtual void Initialize(){};
 	virtual void Deinitialize(){};
 
@@ -644,14 +647,14 @@ struct DLLBUILD Renderer3DBase
 	virtual Shader* CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh)=0;
 	virtual Shader* CreateShaderProgram(const char* name,const char* pix,const char* frag)=0;
 
-	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
+	virtual void DrawPoint(vec3,float psize=1.0f,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec2)=0;
-	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1))=0;
+	virtual void DrawLine(vec3,vec3,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(vec4)=0;
 	virtual void draw(AABB,vec3 color=vec3(1,1,1))=0;
 	virtual void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1))=0;
 	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
-	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
+	virtual void DrawText(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4)=0;
 	virtual void draw(Bone*)=0;
 	virtual void draw(Mesh*)=0;
 	virtual void draw(Skin*)=0;

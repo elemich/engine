@@ -1,5 +1,6 @@
 #include "win32.h"
 
+GLOBALGETTERFUNC(GlobalIdeInstance,IdeWin32*);
 
 static const wchar_t* gWM_MESSAGES[] = 
 {
@@ -1047,7 +1048,7 @@ void ___saferelease(IUnknown* iPtr)
 	}
 }
 
-bool KeyboardInput::IsPressed(unsigned int iCharCode)
+bool Keyboard::IsPressed(unsigned int iCharCode)
 {
 	return ((::GetKeyState(iCharCode) >> 8) & 0xff)!=0;
 }
@@ -1143,8 +1144,6 @@ void Direct2D::Init()
 {
 	if(!factory)
 	{
-		wprintf(L"Initializing Direct2D\n");
-
 		HRESULT res=S_OK;
 
 		res=CoCreateInstance(CLSID_WICImagingFactory,NULL,CLSCTX_INPROC_SERVER,IID_IWICImagingFactory,(LPVOID*)&Direct2D::imager);
@@ -1759,7 +1758,7 @@ int MenuInterface::Menu(String iName,bool tPopup)
 				mitem.wID=tItemId=this->IncrementMenuId();
 
 
-				MainFrame* tMainFrame=Ide::Instance()->mainframe;
+				MainFrame* tMainFrame=MainFrame::Instance();
 				HWND hwnd=(HWND)tMainFrame->frame->windowData->GetWindowHandle();
 
 				::InsertMenuItem(tMenu,tFirstLevelQuestionMark ? menuIdx-1 : menuIdx,true,&mitem);
@@ -1783,16 +1782,6 @@ int MenuInterface::Menu(String iName,bool tPopup)
 MainFrame::MainFrame():frame(new FrameWin32(0,0,1024,768,0,false))
 {
 	this->frames.push_back(frame);
-
-	GuiFont::CreateFont(L"Verdana",10);
-	GuiFont::CreateFont(L"Verdana",12);
-	GuiFont::CreateFont(L"Verdana",14);
-	GuiFont::CreateFont(L"Verdana",16);
-}
-
-MainFrame::~MainFrame()
-{
-	this->Deintialize();
 }
 
 void MainFrame::Initialize()
@@ -1829,10 +1818,15 @@ void MainFrame::Initialize()
 	float tx1=tdim.x/3.0f;
 	float ty1=tdim.y/3.0f;
 
-	this->frame->AddViewer(new GuiViewer(0,0,tx1,ty1))->AddTab(GuiScene::Instance(),L"Scene");
-	this->frame->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntity::Instance(),L"Properties");
-	this->frame->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tdim.y))->AddTab(GuiProject::Instance(),L"Project");
-	this->frame->AddViewer(new GuiViewer(tx1+4,0,tdim.x,tdim.y))->AddTab(GuiViewport::Instance(),L"Renderer");
+	GuiViewer* tViewer=this->GetFrame()->GetViewers().front();
+
+	tViewer->edges.make(0,0,tx1,ty1);
+	tViewer->AddTab(GuiScene::Instance(),L"Scene");
+
+	this->GetFrame()->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntity::Instance(),L"Properties");
+	this->GetFrame()->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tdim.y))->AddTab(GuiProject::Instance(),L"Project");
+	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,0,tdim.x,ty1*2))->AddTab(GuiViewport::Instance(),L"Renderer");
+	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,ty1*2+4,tdim.x,tdim.y))->AddTab(GuiLogger::GetPool().front(),L"Logger");
 
 	ShowWindow(hwnd,true);
 }
@@ -1849,267 +1843,6 @@ Frame* MainFrame::CreateFrame(float x,float y,float z,float w,Frame* iParentFram
 	this->AddFrame(tFrameWin32);
 
 	return tFrameWin32; 
-}
-
-void   MainFrame::DestroyFrame(Frame* iFrame)
-{
-	this->RemoveFrame(iFrame);
-	SAFEDELETE(iFrame);
-}
-
-void MainFrame::OnMenuPressed(Frame*,int iIdx)
-{
-	if(iIdx==MenuActionExit)
-	{
-
-	}
-	else if(iIdx==MenuActionConfigurePlugin)
-	{
-		Ide::Instance()->pluginsystem->ShowGui();
-	}
-	else if(iIdx==MenuActionProgramInfo)
-	{
-
-	}
-}
-
-Frame* MainFrame::GetFrame()
-{
-	return this->frame;
-}
-
-void	MainFrame::AddFrame(Frame* iFrame)
-{
-	this->frames.push_back(iFrame);
-}
-void	MainFrame::RemoveFrame(Frame* iFrame)
-{
-	this->frames.remove(iFrame);
-}
-
-void	MainFrame::Enable(bool iEnable)
-{
-	for(std::list<Frame*>::iterator i=this->frames.begin();i!=this->frames.end();i++)
-		(*i)->windowData->Enable(iEnable);
-}
-
-bool blockDraw=false;
-
-LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
-{
-#if PRINTPROCEDUREMESSAGESCALL
-	wprintf(L"Begin %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
-	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"11111111111111111111111111111111111111" : L"");
-#endif
-	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-
-	LPARAM result=0;
-
-	switch(msg)
-	{
-		case 0:
-		{
-			if(!wparam)
-				frame->Draw();
-			else
-			{
-				if(frame->BeginDraw((GuiViewport*)wparam))
-				{
-					frame->BroadcastPaintTo((GuiViewport*)wparam);
-					frame->EndDraw();
-				}
-			}
-
-			result=0;
-		}
-		break;
-		case WM_ERASEBKGND:
-			/*An application should return nonzero in response to WM_ERASEBKGND if it processes the message and erases the background;
-			this indicates that no further erasing is required. If the application returns zero, the window will remain marked for erasing.*/ 
-			//wprintf(L"erasing background\n");
-			result=1;
-		break;
-		case WM_NCLBUTTONDOWN:
-		{
-			unsigned tSizeboxCode=0;
-
-			switch(wparam)
-			{
-				case HTBOTTOM:		tSizeboxCode=1;break;
-				case HTBOTTOMLEFT:	tSizeboxCode=2;break;
-				case HTBOTTOMRIGHT:	tSizeboxCode=3;break;
-				case HTTOP:			tSizeboxCode=4;break;
-				case HTTOPLEFT:		tSizeboxCode=5;break;
-				case HTTOPRIGHT:	tSizeboxCode=6;break;
-				case HTLEFT:		tSizeboxCode=7;break;
-				case HTRIGHT:		tSizeboxCode=8;break;
-				default:
-					tSizeboxCode=0;
-			}
-
-			if(tSizeboxCode)
-				frame->OnSizeboxDown(tSizeboxCode);
-
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-		}
-		break;
-		case WM_NCLBUTTONUP:
-		{
-			frame->OnSizeboxUp();
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-		}
-		break;
-		case WM_SIZE:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-
-			float tWidth=LOWORD(lparam);
-			float tHeight=HIWORD(lparam);
-
-			if(frame->wasdrawing)
-				DEBUG_BREAK();
-
-			HRESULT result=frame->renderer2DWin32->renderer->Resize(D2D1::SizeU(tWidth,tHeight));
-
-			if(S_OK!=result)
-				DEBUG_BREAK();
-			
-			frame->OnSize(tWidth,tHeight);
-		}
-		break;
-		case WM_LBUTTONDOWN:
-		case WM_MBUTTONDOWN:
-		case WM_RBUTTONDOWN:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
-
-			frame->hittest.locked=true;
-
-			::SetCapture(frame->windowDataWin32->hwnd);
-
-			MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
-
-			tMi.RawButtons()[tIndex]=true;
-				
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-
-			if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
-				::SetFocus(frame->windowDataWin32->hwnd);
-
-			unsigned int tOldTime=tMi.RawTiming()[tIndex];
-			tMi.RawTiming()[tIndex]=Ide::Instance()->timer->GetCurrent();
-
-			unsigned int tFinalButtonIndex=tIndex+1;
-
-			if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
-				frame->OnMouseClick(tFinalButtonIndex);
-			else
-				frame->OnMouseDown(tFinalButtonIndex);
-		}
-		break;
-		case WM_LBUTTONUP:
-		case WM_MBUTTONUP:
-		case WM_RBUTTONUP:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
-			MouseInput& tMi=Ide::Instance()->inputManager.mouseInput;
-			tMi.RawButtons()[tIndex]=false;
-
-			frame->hittest.locked=false;
-				
-			::SetCapture(0);
-
-			frame->OnMouseUp(tIndex+1);
-		}
-		break;
-		case WM_MOUSEWHEEL:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
-			frame->OnMouseWheel(wheelValue);
-		}
-		break;
-		case WM_MOUSEMOVE:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			frame->OnMouseMove((float)LOWORD(lparam),(float)HIWORD(lparam));
-		break;
-		case WM_KEYDOWN:
-		{
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-			MSG _msg;
-			PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
-
-			if(_msg.message==WM_CHAR)
-			{
-				TranslateMessage(&_msg);
-				DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
-				frame->OnKeyDown(_msg.wParam);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)&_msg.wParam)));
-			}
-			else
-				frame->OnKeyDown(0);
-				//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&Tab::OnGuiKeyDown,tab,(void*)0)));
-		}
-		break;
-		case WM_PAINT:
-		{
-			frame->SetDraw();
-			PAINTSTRUCT ps;
-			BeginPaint(hwnd,&ps);
-			EndPaint(hwnd,&ps);
-			result=0;
-		}
-		break;
-		case WM_MENUCOMMAND:
-		{
-			int itemIdx=wparam;
-			HMENU hMenu=(HMENU)lparam;
-
-			MENUITEMINFO mii={0};
-			mii.cbSize=sizeof(MENUITEMINFO);
-			mii.fMask=MIIM_DATA|MIIM_ID;
-
-			if(GetMenuItemInfo(hMenu,itemIdx,true,&mii))
-			{
-				MenuInterface* tMenuInterface=(MenuInterface*)mii.dwItemData;
-
-				if(tMenuInterface)
-					tMenuInterface->OnMenuPressed(frame,mii.wID);
-			}
-		}
-		break;
-		default:
-			result=DefWindowProc(hwnd,msg,wparam,lparam);
-	}
-
-	/*if(frame)
-	{
-		//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
-		frame->windowDataWin32->msg=0;
-		frame->windowDataWin32->wparam;
-		frame->windowDataWin32->lparam=0;
-	}
-
-	if(frame && frame->concurrentInstances.size())
-	{
-		for(std::list< std::function<void()> >::iterator iterConcurrentInstances=frame->concurrentInstances.begin();iterConcurrentInstances!=frame->concurrentInstances.end();)
-		{
-			(*iterConcurrentInstances)();
-			iterConcurrentInstances=frame->concurrentInstances.erase(iterConcurrentInstances);
-		}
-	}
-
-	if(Ide::Instance()->timer->GetLastDelta()>16)
-		PostMessage(hwnd,WM_NULL,0,0);*/
-#if PRINTPROCEDUREMESSAGESCALL
-	wprintf(L"End   %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
-	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"00000000000000000000000000000000000000" : L"");
-#endif
-
-	return result;
 }
 
 ///////////////////////////////////////////////
@@ -2187,36 +1920,55 @@ void WindowDataWin32::PostMessage(unsigned iCode,unsigned data1,unsigned data2)
 	::PostMessage(this->hwnd,iCode,data1,data2);
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////AppWin32////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+///////////////////IdeWin32////////////////////
+
+
+
+Ide* Ide::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalIdeInstance,IdeWin32);
+}
+
 
 IdeWin32::IdeWin32():
 processThreadHandle(0),
 processHandle(0),
 projectDirHasChanged(false)
 {
+	GlobalIdeInstance()=this;
+
 	HRESULT result;
 
+	result=CoInitialize(0);
+
+	if(S_OK!=result)
+		DEBUG_BREAK();
+
+	Direct2D::Init();
+
+	GuiFont::CreateFont(L"Verdana",10);
+	GuiFont::CreateFont(L"Verdana",12);
+	GuiFont::CreateFont(L"Verdana",14);
+	GuiFont::CreateFont(L"Verdana",16);
+
+	GuiLogger::Instance();
+
+	GuiLogger::Log(L"Direct2D Initialized\n");
+
+
 	if(GuiRectMessages::MAXMESSAGES>=31)
-
-
+		GuiLogger::Log(L"GuiRectMessages are too much\n");
+	
+	//process stuff
 	{
 		this->processHandle=::GetCurrentProcess();
 		this->processId=(unsigned int)::GetProcessId(this->processHandle);
 		this->processThreadHandle=::GetCurrentThread();
 		this->processThreadId=(unsigned int)::GetCurrentThreadId();
 
-		wprintf(L"Engine: process id is %d\n",this->processId);
-		wprintf(L"Engine: process main thread id is %d\n",this->processThreadId);
+		GuiLogger::Log(StringUtils::Format(L"Engine: process id is %d\n",this->processId));
+		GuiLogger::Log(StringUtils::Format(L"Engine: process main thread id is %d\n",this->processThreadId));
 	}
-
-	result=CoInitialize(0);
-
-	if(S_OK!=result)
-		DEBUG_BREAK();
 
 	{//projectFolder
 		wchar_t _pszDisplayName[MAX_PATH]=L"";
@@ -2236,7 +1988,7 @@ projectDirHasChanged(false)
 			if(SHGetPathFromIDList(tmpProjectFolder,path))
 			{
 				this->folderProject=path;
-				wprintf(L"User project folder: %s\n",this->folderProject.c_str());
+				GuiLogger::Log(StringUtils::Format(L"User project folder: %s\n",this->folderProject.c_str()));
 			}
 		}
 	}
@@ -2251,16 +2003,11 @@ projectDirHasChanged(false)
 
 		String pathExecutablePath=this->pathExecutable.Path();
 
-		if(!SetDllDirectory(pathExecutablePath.c_str()))
-			wprintf(L"failed to add dll search path\n");
+		if(!::SetDllDirectory(pathExecutablePath.c_str()))
+			GuiLogger::Log(L"failed to add dll search path\n");
 
-		wprintf(L"Application folder: %s\n",pathExecutablePath.c_str());
+		GuiLogger::Log(StringUtils::Format(L"Application folder: %s\n",pathExecutablePath.c_str()));
 	}
-
-	this->subsystem=new SubsystemWin32;
-	this->compiler=new Compiler;
-
-	this->debugger=new DebuggerWin32;
 
 	{//applicationDataFolder
 		wchar_t ch[5000];
@@ -2269,25 +2016,22 @@ projectDirHasChanged(false)
 
 		this->folderAppData=String(ch) + L"\\EngineAppData";
 
-		if(!PathFileExists(this->folderAppData.c_str()))
+		if(!::PathFileExists(this->folderAppData.c_str()))
 		{
 			SECURITY_ATTRIBUTES sa;
-			CreateDirectory(this->folderAppData.c_str(),&sa);
+			::CreateDirectory(this->folderAppData.c_str(),&sa);
 		}
 		else
 		{
-			this->subsystem->Execute(this->folderAppData,L"del /F /Q *.*");
-			this->subsystem->Execute(this->folderAppData,L"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
+			Subsystem::Execute(this->folderAppData,L"del /F /Q *.*");
+			Subsystem::Execute(this->folderAppData,L"FOR /D %p IN (*.*) DO rmdir \"%p\" /s /q");
 		}
 
-		wprintf(L"Application data folder: %s\n",this->folderAppData.c_str());
+		GuiLogger::Log(StringUtils::Format(L"Application data folder: %s\n",this->folderAppData.c_str()));
 	}
-
-	Direct2D::Init();
 
 	int error=ERROR_SUCCESS;
 
-	this->stringeditor=new StringEditor;
 
 	{
 		this->timer=new TimerWin32;
@@ -2296,26 +2040,22 @@ projectDirHasChanged(false)
 		this->timerThread->NewTask(L"MainTimerTask",std::function<void()>(std::bind(&Timer::update,this->timer)),false);
 	}
 
+	MainFrame::Instance()->Initialize();
+
+
 	this->projectDirChangedThread=new ThreadWin32;
-	this->projectDirChangedThread->NewTask(L"ProjectDirChangedTask",std::function<void()>(std::bind(&Ide::ProjectDirHasChangedFunc,this)),false);
-
-	this->mainframe=new MainFrame;
-
-	this->mainframe->Initialize();
-
-	this->pluginsystem=new PluginSystem;
+	this->projectDirChangedThread->NewTask(L"ProjectDirChangedTask",std::function<void()>(std::bind(&Ide::ScanProjectDirectoryForFileChanges,this)),false);
 }
 
 IdeWin32::~IdeWin32()
 {
-	SAFEDELETE(this->mainframe);
-	SAFEDELETE(this->subsystem);
-	SAFEDELETE(this->compiler);
-	SAFEDELETE(this->debugger);
+	FindCloseChangeNotification(this->projectDirChangeHandle);
 
 	SetDllDirectory(0);
 	Direct2D::Release();
 	CoUninitialize();
+
+	GlobalIdeInstance()=0;
 }
 
 
@@ -2484,18 +2224,16 @@ void IdeWin32::Run()
 		{
 			this->projectDirHasChanged=false;
 
-			Frame* tTab=GuiProject::Instance()->GetRoot()->GetFrame();
+			Frame* tFrame=GuiProject::Instance()->GetRoot()->GetFrame();
 
-			tTab->DrawBlock(true);
+			tFrame->DrawBlock(true);
 
-			/*Msg tChangeDirEvent;
+			tFrame->Message(GuiProject::Instance(),ONDEACTIVATE);
+			tFrame->Message(GuiProject::Instance(),ONACTIVATE);
 
-			GuiProjectViewer::Instance()->OnDeactivate(tTab,tChangeDirEvent);
-			GuiProjectViewer::Instance()->OnActivate(tTab,tChangeDirEvent);*/
+			tFrame->DrawBlock(false);
 
-			tTab->DrawBlock(false);
-
-			tTab->SetDraw();
+			tFrame->SetDraw();
 		}
 	}
 }
@@ -2505,23 +2243,18 @@ void IdeWin32::Sleep(int iMilliseconds)
 	::Sleep(iMilliseconds);
 }
 
-void IdeWin32::ProjectDirHasChangedFunc()
+void IdeWin32::ScanProjectDirectoryForFileChanges()
 {
-	HANDLE tProjectDirChangeHandle=FindFirstChangeNotification(this->folderProject.c_str(),true,
+	this->projectDirChangeHandle=FindFirstChangeNotification(this->folderProject.c_str(),true,
 		FILE_NOTIFY_CHANGE_FILE_NAME|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_ATTRIBUTES|FILE_NOTIFY_CHANGE_SIZE|FILE_NOTIFY_CHANGE_LAST_WRITE|FILE_NOTIFY_CHANGE_SECURITY);
-	DWORD tProjectDirectoryIsChanged=WaitForSingleObject(tProjectDirChangeHandle,INFINITE); 
+	DWORD tProjectDirectoryIsChanged=WaitForSingleObject(this->projectDirChangeHandle,INFINITE); 
 
 	this->projectDirHasChanged = WAIT_OBJECT_0==tProjectDirectoryIsChanged ? true : false;
 
-	FindCloseChangeNotification(tProjectDirChangeHandle);
+	FindCloseChangeNotification(this->projectDirChangeHandle);
 }
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 ///////////////////TimerWin32//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 void TimerWin32::update()
 {
@@ -2615,7 +2348,7 @@ void glCheckError()
 		HGLRC currentContext=wglGetCurrentContext();
 		HDC currentContextDC=wglGetCurrentDC();
 
-		wprintf(L"OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC);
+		GuiLogger::Log(StringUtils::Format(L"OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC));
 
 		DEBUG_BREAK();
 	}
@@ -2643,7 +2376,7 @@ int Renderer3DOpenGL::CreateShader(const char* name,int shader_type, const char*
 
 	if(!shader_id)
 	{
-		wprintf(L"glCreateShader error for %s,%s\n",shader_type,shader_src);glCheckError();
+		GuiLogger::Log(StringUtils::Format(L"glCreateShader error for %s,%s\n",shader_type,shader_src));glCheckError();
 		DEBUG_BREAK();
 		return 0;
 	}
@@ -2656,7 +2389,7 @@ int Renderer3DOpenGL::CreateShader(const char* name,int shader_type, const char*
 	{
 		sprintf(message,"glCompileShader[%s] error:\n",name);
 		glGetShaderInfoLog(shader_id, sizeof(message), &len, &message[strlen(message)]);
-		Ide::Instance()->subsystem->SystemMessage(StringUtils::ToWide(message),L"Engine",MB_OK|MB_ICONEXCLAMATION);
+		Subsystem::SystemMessage(StringUtils::ToWide(message),L"Engine",MB_OK|MB_ICONEXCLAMATION);
 		DEBUG_BREAK();
 	}
 
@@ -2677,7 +2410,7 @@ Shader* Renderer3DOpenGL::CreateProgram(const char* name,const char* vertexsh,co
 
 	if(!tProgram)
 	{
-		wprintf(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh);
+		GuiLogger::Log(StringUtils::Format(L"glCreateProgram error for %s,%s\n",vertexsh,fragmentsh));
 		DEBUG_BREAK();
 		return 0;
 	}
@@ -2692,7 +2425,7 @@ Shader* Renderer3DOpenGL::CreateProgram(const char* name,const char* vertexsh,co
 
 	if (GL_FALSE==tLinkSuccess)
 	{
-		wprintf(L"glLinkProgram error for %s\n",tMessage);
+		GuiLogger::Log(StringUtils::Format(L"glLinkProgram error for %s\n",tMessage));
 		DEBUG_BREAK();
 	}
 
@@ -2733,7 +2466,7 @@ Shader* Renderer3DOpenGL::CreateShaderProgram(const char* name,const char* pix,c
 		shader->init();
 	}
 	else
-		wprintf(L"error creating shader %s\n",name);
+		GuiLogger::Log(StringUtils::Format(L"error creating shader %s\n",name));
 
 	return shader;
 }
@@ -3008,7 +2741,7 @@ void Renderer3DOpenGL::Initialize()
 	this->hwnd=CreateWindow(WC_DIALOG,L"Renderer3DOpenGL",WS_VISIBLE,0,0,tFrameSize.x,tFrameSize.y,0,0,0,0);
 
 	if(!this->hwnd)
-		Ide::Instance()->subsystem->SystemMessage(L"Creating Renderer window",L"Renderer3DOpenGL::CreateWindow",MB_OK|MB_ICONEXCLAMATION);
+		Subsystem::SystemMessage(L"Creating Renderer window",L"Renderer3DOpenGL::CreateWindow",MB_OK|MB_ICONEXCLAMATION);
 
 	this->hdc=GetDC(this->hwnd);
 #endif
@@ -3016,7 +2749,7 @@ void Renderer3DOpenGL::Initialize()
 	DWORD error=0;
 
 	if(!this->hdc)
-		Ide::Instance()->subsystem->SystemMessage(L"Renderer3DOpenGL::Initialize",L"Creating Device Context",MB_OK|MB_ICONEXCLAMATION);
+		Subsystem::SystemMessage(L"Renderer3DOpenGL::Initialize",L"Creating Device Context",MB_OK|MB_ICONEXCLAMATION);
 
 	PIXELFORMATDESCRIPTOR pfd={0};
 	pfd.nVersion=1;
@@ -3123,12 +2856,12 @@ void Renderer3DOpenGL::Initialize()
 	this->hdc=GetDC(this->hwnd);
 
 	if(!this->hdc)
-		Ide::Instance()->subsystem->SystemMessage(L"Renderer3DOpenGL::Initialize",L"Recreating Device Context",MB_OK|MB_ICONEXCLAMATION);
+		Subsystem::SystemMessage(L"Renderer3DOpenGL::Initialize",L"Recreating Device Context",MB_OK|MB_ICONEXCLAMATION);
 
 	UINT numFormats;
 
 	if(!wglChoosePixelFormatARB(this->hdc, pixelFormatAttribList, NULL, 1, &pixelFormat, &numFormats))
-		Ide::Instance()->subsystem->SystemMessage(L"wglChoosePixelFormatARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
+		Subsystem::SystemMessage(L"wglChoosePixelFormatARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 
 	const int versionAttribList[] =
@@ -3139,10 +2872,10 @@ void Renderer3DOpenGL::Initialize()
 	};
 
 	if(!(this->hglrc = wglCreateContextAttribsARB(this->hdc, 0, versionAttribList)))
-		Ide::Instance()->subsystem->SystemMessage(L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
+		Subsystem::SystemMessage(L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 	if(this->hglrc)
-		wprintf(L"HWND: %p, HGLRC: %p, HDC: %p\n",this->hwnd,this->hglrc,this->hdc);
+		GuiLogger::Log(StringUtils::Format(L"HWND: %p, HGLRC: %p, HDC: %p\n",this->hwnd,this->hglrc,this->hdc));
 
 	if(!wglMakeCurrent(this->hdc,this->hglrc))
 		DEBUG_BREAK();
@@ -3176,8 +2909,8 @@ void Renderer3DOpenGL::Initialize()
 		glGenBuffers(1, &pixelBuffer);
 	}*/
 
-	wprintf(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)).c_str());
-	wprintf(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str());
+	GuiLogger::Log(StringUtils::Format(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)).c_str()));
+	GuiLogger::Log(StringUtils::Format(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str()));
 
 	this->shader_unlit=this->CreateShaderProgram("unlit",unlit_vert,unlit_frag);
 	this->shader_unlit_color=this->CreateShaderProgram("unlit_color",unlit_color_vert,unlit_color_frag);
@@ -3230,14 +2963,14 @@ void Renderer3DOpenGL::draw(EntityComponent*)
 
 void Renderer3DOpenGL::draw(Gizmo* gizmo)
 {
-	this->draw(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
-	this->draw(vec3(0,0,0),vec3(0,10,0),vec3(0,1,0));
-	this->draw(vec3(0,0,0),vec3(0,0,10),vec3(0,0,1));
+	this->DrawLine(vec3(0,0,0),vec3(10,0,0),vec3(1,0,0));
+	this->DrawLine(vec3(0,0,0),vec3(0,10,0),vec3(0,1,0));
+	this->DrawLine(vec3(0,0,0),vec3(0,0,10),vec3(0,0,1));
 }
 
 
 
-void Renderer3DOpenGL::draw(vec3 point,float psize,vec3 col)
+void Renderer3DOpenGL::DrawPoint(vec3 point,float psize,vec3 col)
 {
 	Shader* shader=this->shader_unlit_color;
 
@@ -3449,7 +3182,7 @@ void Renderer3DOpenGL::draw(AABB aabb,vec3 color)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
+void Renderer3DOpenGL::DrawLine(vec3 a,vec3 b,vec3 color)
 {
 	Shader* shader=this->shader_unlit_color;
 
@@ -3493,7 +3226,7 @@ void Renderer3DOpenGL::draw(vec3 a,vec3 b,vec3 color)
 
 }
 
-void Renderer3DOpenGL::draw(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
+void Renderer3DOpenGL::DrawText(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
 {
 	Shader* shader=0;//line_color_shader
 
@@ -3790,7 +3523,7 @@ void Renderer3DOpenGL::drawUnlitTextured(Mesh* mesh)
 	vec3 lightpos(0,200,-100);
 
 	if(shader==this->shader_shaded_texture)
-		this->draw(lightpos,5);
+		this->DrawPoint(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
@@ -3862,7 +3595,7 @@ void Renderer3DOpenGL::draw(Skin* skin)
 	vec3 lightpos(0,200,-100);
 
 	if(shader==this->shader_shaded_texture)
-		this->draw(lightpos,5);
+		this->DrawPoint(lightpos,5);
 
 	glEnable(GL_DEPTH_TEST);
 	//glEnable(GL_CULL_FACE);
@@ -3989,7 +3722,7 @@ float signof(float num){return (num>0 ? 1.0f : (num<0 ? -1.0f : 0.0f));}
 
 void Renderer3DOpenGL::draw(Entity* iEntity)
 {
-	iEntity->draw(this);
+	iEntity->render(this);
 }
 
 
@@ -4075,15 +3808,317 @@ void Picture::Release()
 	SAFERELEASE((ID2D1Bitmap*&)this->handle);
 }
 
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ////////////////////TabWin32///////////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-void FrameWin32::Destroy()
+
+LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
-	
+#if PRINTPROCEDUREMESSAGESCALL
+	wprintf(L"Begin %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
+	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"11111111111111111111111111111111111111" : L"");
+#endif
+	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+
+	LPARAM result=0;
+
+	switch(msg)
+	{
+		case 0:
+		{
+			if(!wparam)
+				frame->Draw();
+			else
+			{
+				if(frame->BeginDraw((GuiViewport*)wparam))
+				{
+					frame->BroadcastPaintTo((GuiViewport*)wparam);
+					frame->EndDraw();
+				}
+			}
+
+			result=0;
+		}
+		break;
+		case WM_ERASEBKGND:
+			/*An application should return nonzero in response to WM_ERASEBKGND if it processes the message and erases the background;
+			this indicates that no further erasing is required. If the application returns zero, the window will remain marked for erasing.*/ 
+			//wprintf(L"erasing background\n");
+			result=1;
+		break;
+		case WM_NCLBUTTONDOWN:
+		{
+			unsigned tSizeboxCode=0;
+
+			switch(wparam)
+			{
+				case HTBOTTOM:		tSizeboxCode=1;break;
+				case HTBOTTOMLEFT:	tSizeboxCode=2;break;
+				case HTBOTTOMRIGHT:	tSizeboxCode=3;break;
+				case HTTOP:			tSizeboxCode=4;break;
+				case HTTOPLEFT:		tSizeboxCode=5;break;
+				case HTTOPRIGHT:	tSizeboxCode=6;break;
+				case HTLEFT:		tSizeboxCode=7;break;
+				case HTRIGHT:		tSizeboxCode=8;break;
+				default:
+					tSizeboxCode=0;
+			}
+
+			if(tSizeboxCode)
+				frame->OnSizeboxDown(tSizeboxCode);
+
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+		}
+		break;
+		case WM_NCLBUTTONUP:
+		{
+			frame->OnSizeboxUp();
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+		}
+		break;
+		case WM_SIZE:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+			float tWidth=LOWORD(lparam);
+			float tHeight=HIWORD(lparam);
+
+			if(frame->wasdrawing)
+				DEBUG_BREAK();
+
+			HRESULT result=frame->renderer2DWin32->renderer->Resize(D2D1::SizeU(tWidth,tHeight));
+
+			if(S_OK!=result)
+				DEBUG_BREAK();
+			
+			frame->OnSize(tWidth,tHeight);
+		}
+		break;
+		case WM_LBUTTONDOWN:
+		case WM_MBUTTONDOWN:
+		case WM_RBUTTONDOWN:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
+
+			frame->hittest.locked=true;
+
+			::SetCapture(frame->windowDataWin32->hwnd);
+
+			Mouse& tMi=*Mouse::Instance();
+
+			tMi.RawButtons()[tIndex]=true;
+
+			if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
+				::SetFocus(frame->windowDataWin32->hwnd);
+
+			unsigned int tOldTime=tMi.RawTiming()[tIndex];
+			tMi.RawTiming()[tIndex]=Ide::Instance()->timer->GetCurrent();
+
+			unsigned int tFinalButtonIndex=tIndex+1;
+
+			if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
+				frame->OnMouseClick(tFinalButtonIndex);
+			else
+				frame->OnMouseDown(tFinalButtonIndex);
+		}
+		break;
+		case WM_LBUTTONUP:
+		case WM_MBUTTONUP:
+		case WM_RBUTTONUP:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
+			Mouse& tMi=*Mouse::Instance();
+			tMi.RawButtons()[tIndex]=false;
+
+			frame->hittest.locked=false;
+				
+			::SetCapture(0);
+
+			frame->OnMouseUp(tIndex+1);
+		}
+		break;
+		case WM_MOUSEWHEEL:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			float wheelValue=GET_WHEEL_DELTA_WPARAM(wparam)>0 ? 1.0f : (GET_WHEEL_DELTA_WPARAM(wparam)<0 ? -1.0f : 0);
+			frame->OnMouseWheel(wheelValue);
+		}
+		break;
+		case WM_MOUSELEAVE:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			frame->Message(frame->hittest.hit,ONMOUSEEXIT);
+			frame->trackmouseleave=true;
+			result=0;
+		}
+		break;
+		case WM_MOUSEMOVE:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+			if(frame->trackmouseleave)
+			{
+				TRACKMOUSEEVENT tTrackMouseEvent={sizeof(TRACKMOUSEEVENT),TME_LEAVE,hwnd,HOVER_DEFAULT};
+
+				if(!TrackMouseEvent(&tTrackMouseEvent))
+					DEBUG_BREAK();
+
+				frame->trackmouseleave=false;
+			}
+
+			frame->OnMouseMove((float)LOWORD(lparam),(float)HIWORD(lparam));
+		break;
+		case WM_KEYDOWN:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+			MSG _msg;
+			PeekMessage(&_msg, NULL, 0, 0, PM_NOREMOVE);
+
+			if(_msg.message==WM_CHAR)
+			{
+				TranslateMessage(&_msg);
+				DefWindowProc(_msg.hwnd,_msg.message,_msg.wParam,_msg.lParam);
+				frame->OnKeyDown(_msg.wParam);
+			}
+			else
+				frame->OnKeyDown(0);
+		}
+		break;
+		case WM_PAINT:
+		{
+			frame->SetDraw();
+			PAINTSTRUCT ps;
+			BeginPaint(hwnd,&ps);
+			EndPaint(hwnd,&ps);
+			result=0;
+		}
+		break;
+		case WM_MENUCOMMAND:
+		{
+			int itemIdx=wparam;
+			HMENU hMenu=(HMENU)lparam;
+
+			MENUITEMINFO mii={0};
+			mii.cbSize=sizeof(MENUITEMINFO);
+			mii.fMask=MIIM_DATA|MIIM_ID;
+
+			if(GetMenuItemInfo(hMenu,itemIdx,true,&mii))
+			{
+				MenuInterface* tMenuInterface=(MenuInterface*)mii.dwItemData;
+
+				if(tMenuInterface)
+					tMenuInterface->OnMenuPressed(frame,mii.wID);
+			}
+		}
+		break;
+		default:
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+	}
+
+	/*if(frame)
+	{
+		//tabWin32->evtQueue.push_back(std::function<void()>(std::bind(&WindowDataWin32::CopyProcedureData,tabWin32->windowDataWin32,hwnd,msg,wparam,lparam)));
+		frame->windowDataWin32->msg=0;
+		frame->windowDataWin32->wparam;
+		frame->windowDataWin32->lparam=0;
+	}
+
+	if(frame && frame->concurrentInstances.size())
+	{
+		for(std::list< std::function<void()> >::iterator iterConcurrentInstances=frame->concurrentInstances.begin();iterConcurrentInstances!=frame->concurrentInstances.end();)
+		{
+			(*iterConcurrentInstances)();
+			iterConcurrentInstances=frame->concurrentInstances.erase(iterConcurrentInstances);
+		}
+	}
+
+	if(Ide::Instance()->timer->GetLastDelta()>16)
+		PostMessage(hwnd,WM_NULL,0,0);*/
+#if PRINTPROCEDUREMESSAGESCALL
+	wprintf(L"End   %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
+	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"00000000000000000000000000000000000000" : L"");
+#endif
+
+	return result;
+}
+
+FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFrame,bool iModal):
+	Frame(iX,iY,iW,iH),
+	windowDataWin32((WindowDataWin32*&)windowData),
+	renderer2DWin32((Renderer2DWin32*&)renderer2D),
+	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
+	threadRenderWin32((ThreadWin32*&)thread)
+{
+	this->isModal=iModal;
+
+	windowDataWin32=new WindowDataWin32;
+
+	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
+
+	if(!iModal)
+		tStyle = iParentFrame ? tStyle|WS_CHILD : tStyle|WS_OVERLAPPEDWINDOW;
+	else
+		tStyle |= WS_SIZEBOX;
+
+	HWND tParent=iParentFrame ? iParentFrame->windowDataWin32->hwnd : 0;
+
+	this->windowDataWin32->hwnd=::CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
+
+	if(!this->windowDataWin32->hwnd)
+	{
+		DWORD tError=::GetLastError();
+		DEBUG_BREAK();
+	}
+
+	this->windowDataWin32->hdc=::GetDC(this->windowDataWin32->hwnd);
+
+	this->iconDown=new PictureRef(Frame::rawDownArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconUp=new PictureRef(Frame::rawUpArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconLeft=new PictureRef(Frame::rawLeftArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconRight=new PictureRef(Frame::rawRightArrow,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconFolder=new PictureRef(Frame::rawFolder,Frame::ICON_WH,Frame::ICON_WH);
+	this->iconFile=new PictureRef(Frame::rawFile,Frame::ICON_WH,Frame::ICON_WH);
+
+	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
+
+	this->thread=new ThreadWin32;
+
+	if(!MainFrame::IsInstanced())
+	{
+#if RENDERER_ENABLED
+		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
+		if(!this->renderer3DOpenGL)
+			DEBUG_BREAK();
+#if RENDERER_THREADED
+		Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
+		while(tCreateOpenGLContext->func);
+		SAFEDELETE(tCreateOpenGLContext);
+#else
+		this->renderer3DOpenGL->Initialize();
+#endif //RENDERER_THREADED
+	this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
+#endif //ENABLE_RENDERER
+	}
+
+	this->AddViewer(GuiViewer::Instance());
+
+	if(iModal) /*removes the caption style*/
+		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
+
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
+
+	this->OnRecreateTarget();
+
+	if(iModal)/*visually remove the caption*/
+		::SetWindowPos(this->windowDataWin32->hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_DRAWFRAME);
+
+	ShowWindow(this->windowDataWin32->hwnd,true);
 }
 
 FrameWin32::~FrameWin32()
@@ -4129,83 +4164,10 @@ FrameWin32::~FrameWin32()
 	SAFEDELETE(this->windowDataWin32);
 }
 
-
-FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFrame,bool iModal):
-	Frame(iX,iY,iW,iH),
-	windowDataWin32((WindowDataWin32*&)windowData),
-	renderer2DWin32((Renderer2DWin32*&)renderer2D),
-	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
-	threadRenderWin32((ThreadWin32*&)thread)
+void FrameWin32::Destroy()
 {
-	this->isModal=iModal;
 
-	windowDataWin32=new WindowDataWin32;
-
-	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
-
-	if(!iModal)
-		tStyle = iParentFrame ? tStyle|WS_CHILD : tStyle|WS_OVERLAPPEDWINDOW;
-	else
-		tStyle |= WS_SIZEBOX;
-
-	HWND tParent=iParentFrame ? iParentFrame->windowDataWin32->hwnd : 0;
-
-	this->windowDataWin32->hwnd=::CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
-
-	if(!this->windowDataWin32->hwnd)
-	{
-		DWORD tError=::GetLastError();
-		DEBUG_BREAK();
-	}
-
-	this->windowDataWin32->hdc=::GetDC(this->windowDataWin32->hwnd);
-
-	wprintf(L"Tab size(%d,%d,%d,%d)\n",(int)iX,(int)iY,(int)iW,(int)iH);
-
-	this->iconDown=new PictureRef(Frame::rawDownArrow,Frame::ICON_WH,Frame::ICON_WH);
-	this->iconUp=new PictureRef(Frame::rawUpArrow,Frame::ICON_WH,Frame::ICON_WH);
-	this->iconLeft=new PictureRef(Frame::rawLeftArrow,Frame::ICON_WH,Frame::ICON_WH);
-	this->iconRight=new PictureRef(Frame::rawRightArrow,Frame::ICON_WH,Frame::ICON_WH);
-	this->iconFolder=new PictureRef(Frame::rawFolder,Frame::ICON_WH,Frame::ICON_WH);
-	this->iconFile=new PictureRef(Frame::rawFile,Frame::ICON_WH,Frame::ICON_WH);
-
-	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
-
-	this->thread=new ThreadWin32;
-
-	if(!Ide::Instance()->GetMainFrame())
-	{
-#if RENDERER_ENABLED
-		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
-		if(!this->renderer3DOpenGL)
-			DEBUG_BREAK();
-#if RENDERER_THREADED
-		Task* tCreateOpenGLContext=this->thread->NewTask(L"CreateOpenglContextTask",std::function<void()>(std::bind(&Renderer3DOpenGL::Initialize,this->renderer3DOpenGL)));
-		while(tCreateOpenGLContext->func);
-		SAFEDELETE(tCreateOpenGLContext);
-#else
-		this->renderer3DOpenGL->Initialize();
-#endif //RENDERER_THREADED
-	this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
-#endif //ENABLE_RENDERER
-	}
-
-	if(iModal) /*removes the caption style*/
-		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
-
-	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
-	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
-
-	this->OnRecreateTarget();
-
-	if(iModal)/*visually remove the caption*/
-		::SetWindowPos(this->windowDataWin32->hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_DRAWFRAME);
-
-	ShowWindow(this->windowDataWin32->hwnd,true);
-
-	
 }
-
 
 int FrameWin32::TrackTabMenuPopup()
 {
@@ -4233,10 +4195,10 @@ int FrameWin32::TrackTabMenuPopup()
 	InsertMenu(root,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
 	InsertMenu(root,2,MF_BYPOSITION|MF_STRING,1,L"Remove");
 
-	RECT rc;
-	GetWindowRect(windowDataWin32->hwnd,&rc);
+	POINT tCursorPoint;
+	::GetCursorPos(&tCursorPoint);
 
-	int menuResult=TrackPopupMenu(root,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left,rc.top,0,GetParent(this->windowDataWin32->hwnd),0);
+	int menuResult=TrackPopupMenu(root,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,tCursorPoint.x,tCursorPoint.y,0,this->windowDataWin32->hwnd,0);
 
 	DestroyMenu(create);
 	DestroyMenu(root);
@@ -4271,10 +4233,10 @@ int FrameWin32::TrackGuiSceneViewerPopup(bool iSelected)
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,1,L"New Entity");
 	}
 
-	RECT rc;
-	GetWindowRect(windowDataWin32->hwnd,&rc);
+	POINT tCursorPoint;
+	::GetCursorPos(&tCursorPoint);
 
-	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left,rc.top,0,GetParent(windowDataWin32->hwnd),0);
+	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,tCursorPoint.x,tCursorPoint.y,0,windowDataWin32->hwnd,0);
 
 	DestroyMenu(menu);
 	DestroyMenu(createEntity);
@@ -4308,10 +4270,10 @@ int FrameWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Create,L"Create");
 	}
 
-	RECT rc;
-	GetWindowRect(windowDataWin32->hwnd,&rc);
+	POINT tCursorPoint;
+	::GetCursorPos(&tCursorPoint);
 
-	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,rc.left,rc.top,0,GetParent(windowDataWin32->hwnd),0);
+	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,tCursorPoint.x,tCursorPoint.y,0,windowDataWin32->hwnd,0);
 
 	DestroyMenu(menu);
 
@@ -4436,6 +4398,8 @@ void GuiViewport::SwapBuffer(Frame* iFrame)
 
 }
 
+Frame*	GuiViewport::GetFrame(){return this->frame;}
+
 void GuiViewport::DrawBuffer(Frame* iFrame)
 {
 	if(this->buffer)
@@ -4448,10 +4412,8 @@ void GuiViewport::DrawBuffer(Frame* iFrame)
 		int					tz=this->edges.z;
 		int					tw=this->edges.w;
 
-		wprintf(L"drawing\n");
-		
 		tRenderer->renderer->DrawBitmap(tBitmap,D2D1::RectF(tx,ty,tz,tw));
-		tRenderer->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,0xff0000,1);
+		//tRenderer->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,0xff0000,1);
 	}
 }
 
@@ -4474,8 +4436,6 @@ void GuiViewport::ResizeBuffers(Frame* iFrame)
 
 	if(!tBitmap || tBitmapSize.width!=tWidth || tBitmapSize.height!=tHeight || !this->buffer)
 	{
-		wprintf(L"resizing\n");
-
 		int tBufferSize=tWidth*tHeight*4;
 
 		SAFERELEASE(tBitmap);
@@ -4519,21 +4479,6 @@ int GuiViewport::Render(Frame* iFrame)
 	HRESULT				tDirect2DResult=S_OK;
 	EditorEntity*		tEntity=this->GetEntity();
 	
-	if(tEntity)
-	{
-		tEntity->world=this->model;
-		tEntity->update();
-
-		for(std::list<GuiEntity*>::iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
-		{
-			EditorEntity*	tEntityPropertiesEntity=(*it)->Entity();
-			Frame*			tEntityPropertiesFrame=(*it)->GetRoot()->GetFrame();
-
-			if(tEntityPropertiesEntity && tEntityPropertiesFrame)
-				tEntityPropertiesEntity->OnPropertiesUpdate(tEntityPropertiesFrame);
-		}
-	}
-
 	iFrame->renderer3D->ChangeContext();
 
 	glEnable(GL_DEPTH_TEST);
@@ -4554,12 +4499,12 @@ int GuiViewport::Render(Frame* iFrame)
 		MatrixStack::Push(MatrixStack::VIEW,this->view);
 		MatrixStack::Push(MatrixStack::MODEL,this->model);
 
-		iFrame->renderer3D->draw(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
-		iFrame->renderer3D->draw(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
-		iFrame->renderer3D->draw(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
+		iFrame->renderer3D->DrawLine(vec3(0,0,0),vec3(1000,0,0),vec3(1,0,0));
+		iFrame->renderer3D->DrawLine(vec3(0,0,0),vec3(0,1000,0),vec3(0,1,0));
+		iFrame->renderer3D->DrawLine(vec3(0,0,0),vec3(0,0,1000),vec3(0,0,1));
 
-		if(this->GetEntity())
-			iFrame->renderer3D->draw(this->GetEntity());
+		if(tEntity)
+			iFrame->renderer3D->RenderEntities(tEntity);
 
 		MatrixStack::Pop(MatrixStack::MODEL);
 		MatrixStack::Pop(MatrixStack::VIEW);
@@ -4638,19 +4583,9 @@ int GuiViewport::Render(Frame* iFrame)
 }
 
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+///////////////Subsystem//////////////////
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////SubsystemWin32//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
+bool Subsystem::Execute(String iPath,String iCmdLine,String iOutputFile,bool iInput,bool iError,bool iOutput,bool iNewConsole)
 {
 	if(iPath==L"none")
 		iPath=Ide::Instance()->folderProject;
@@ -4666,8 +4601,8 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 	const int tOldCurrentPathSize=1024;
 	wchar_t tOldCurrentPath[tOldCurrentPathSize];
 
-	GetCurrentDirectory(tOldCurrentPathSize,tOldCurrentPath);
-	SetCurrentDirectory(iPath.c_str());
+	::GetCurrentDirectory(tOldCurrentPathSize,tOldCurrentPath);
+	::SetCurrentDirectory(iPath.c_str());
 
 	String tCommandLine=L"cmd.exe /V /C " + iCmdLine;
 
@@ -4681,45 +4616,45 @@ bool SubsystemWin32::Execute(String iPath,String iCmdLine,String iOutputFile,boo
 		sa.lpSecurityDescriptor = 0;
 		sa.bInheritHandle = !iNewConsole;
 
-		tFileOutput = CreateFile(iOutputFile.c_str(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
+		tFileOutput = ::CreateFile(iOutputFile.c_str(),FILE_APPEND_DATA,FILE_SHARE_WRITE|FILE_SHARE_READ|FILE_SHARE_DELETE,&sa,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL/*|FILE_FLAG_DELETE_ON_CLOSE*/,0);
 
 		if(!tFileOutput)
 			DEBUG_BREAK();
 
 		si.dwFlags |= STARTF_USESTDHANDLES;
-		si.hStdInput = iInput ? tFileOutput : GetStdHandle(STD_INPUT_HANDLE);
-		si.hStdError = iError ? tFileOutput : GetStdHandle(STD_ERROR_HANDLE);
-		si.hStdOutput = iOutput ? tFileOutput : GetStdHandle(STD_OUTPUT_HANDLE);
+		si.hStdInput = iInput ? tFileOutput : ::GetStdHandle(STD_INPUT_HANDLE);
+		si.hStdError = iError ? tFileOutput : ::GetStdHandle(STD_ERROR_HANDLE);
+		si.hStdOutput = iOutput ? tFileOutput : ::GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
-	if(!CreateProcess(0,(wchar_t*)tCommandLine.c_str(),0,0,!iNewConsole,0,0,0,&si,&pi))
+	if(!::CreateProcess(0,(wchar_t*)tCommandLine.c_str(),0,0,!iNewConsole,0,0,0,&si,&pi))
 		return false;
 
-	WaitForSingleObject( pi.hProcess, INFINITE );
+	::WaitForSingleObject( pi.hProcess, INFINITE );
 
-	if(!CloseHandle( pi.hProcess ))
+	if(!::CloseHandle( pi.hProcess ))
 		DEBUG_BREAK();
-	if(!CloseHandle( pi.hThread ))
+	if(!::CloseHandle( pi.hThread ))
 		DEBUG_BREAK();
-	if(tFileOutput && !CloseHandle( tFileOutput ))
+	if(tFileOutput && !::CloseHandle( tFileOutput ))
 		DEBUG_BREAK();
 
-	SetCurrentDirectory(tOldCurrentPath);
+	::SetCurrentDirectory(tOldCurrentPath);
 
 	return true;
 }
 
 
-unsigned int SubsystemWin32::FindProcessId(String iProcessName)
+unsigned int Subsystem::FindProcessId(String iProcessName)
 {
 	PROCESSENTRY32 tProcess;
 	tProcess.dwSize = sizeof(PROCESSENTRY32);
 
-	HANDLE tSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+	HANDLE tSnapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
 
-	if(Process32First(tSnapshot, &tProcess)==TRUE)
+	if(::Process32First(tSnapshot, &tProcess)==TRUE)
 	{
-		while(Process32Next(tSnapshot, &tProcess) == TRUE)
+		while(::Process32Next(tSnapshot, &tProcess) == TRUE)
 		{
 			if(iProcessName==tProcess.szExeFile)
 				return tProcess.th32ProcessID;
@@ -4729,29 +4664,29 @@ unsigned int SubsystemWin32::FindProcessId(String iProcessName)
 	return 0;
 }
 
-unsigned int SubsystemWin32::FindThreadId(unsigned int iProcessId,String iThreadName)
+unsigned int Subsystem::FindThreadId(unsigned int iProcessId,String iThreadName)
 {
 	return 0;
 }
 
-String SubsystemWin32::DirectoryChooser(String iDescription,String iExtension)
+String Subsystem::DirectoryChooser(String iDescription,String iExtension)
 {
 	wchar_t _pszDisplayName[MAX_PATH]=L"";
 
 	BROWSEINFO bi={0};
-	bi.hwndOwner=(HWND)Ide::Instance()->mainframe->frame->windowData->GetWindowHandle();
+	bi.hwndOwner=(HWND)MainFrame::Instance()->GetFrame()->windowData->GetWindowHandle();
 	bi.pszDisplayName=_pszDisplayName;
 	bi.lpszTitle=L"Select Directory";
 
-	PIDLIST_ABSOLUTE tmpFolder=SHBrowseForFolder(&bi);
+	PIDLIST_ABSOLUTE tmpFolder=::SHBrowseForFolder(&bi);
 
-	DWORD err=GetLastError();
+	DWORD err=::GetLastError();
 
 	if(tmpFolder)
 	{
 		wchar_t path[MAX_PATH];
 
-		if(SHGetPathFromIDList(tmpFolder,path))
+		if(::SHGetPathFromIDList(tmpFolder,path))
 		{
 			return path;
 		}
@@ -4760,13 +4695,13 @@ String SubsystemWin32::DirectoryChooser(String iDescription,String iExtension)
 	return L"";
 }
 
-String SubsystemWin32::FileChooser(wchar_t* iFilter,unsigned int iFilterIndex)
+String Subsystem::FileChooser(wchar_t* iFilter,unsigned int iFilterIndex)
 {
 	wchar_t tOutputBuffer[5000]={0};
 	
 	OPENFILENAME openfilename={0};
 	openfilename.lStructSize=sizeof(OPENFILENAME);
-	openfilename.hwndOwner=(HWND)Ide::Instance()->mainframe->frame->windowData->GetWindowHandle();
+	openfilename.hwndOwner=(HWND)MainFrame::Instance()->frame->windowData->GetWindowHandle();
 	openfilename.lpstrFilter=iFilter;
 	openfilename.nFilterIndex=iFilterIndex;
 	openfilename.lpstrFile=tOutputBuffer;
@@ -4774,12 +4709,12 @@ String SubsystemWin32::FileChooser(wchar_t* iFilter,unsigned int iFilterIndex)
 
 	GetOpenFileName(&openfilename);
 
-	DWORD tError=GetLastError();
+	DWORD tError=::GetLastError();
 
 	return openfilename.lpstrFile;
 }
 
-std::vector<String> SubsystemWin32::ListDirectories(String iDir)
+std::vector<String> Subsystem::ListDirectories(String iDir)
 {
 	std::vector<String> tResult;
 
@@ -4788,14 +4723,14 @@ std::vector<String> SubsystemWin32::ListDirectories(String iDir)
 
 	String tScanDir=iDir + L"\\*";
 
-	tHandle=FindFirstFile(tScanDir.c_str(),&tData); //. dir
+	tHandle=::FindFirstFile(tScanDir.c_str(),&tData); //. dir
 
 	if(!tHandle || INVALID_HANDLE_VALUE == tHandle)
 		tResult;
 	else
-		FindNextFile(tHandle,&tData);
+		::FindNextFile(tHandle,&tData);
 
-	while(FindNextFile(tHandle,&tData))
+	while(::FindNextFile(tHandle,&tData))
 	{
 		if(!(tData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 			continue;
@@ -4803,55 +4738,52 @@ std::vector<String> SubsystemWin32::ListDirectories(String iDir)
 		tResult.push_back(tData.cFileName);
 	}
 
-	FindClose(tHandle);
+	::FindClose(tHandle);
 	tHandle=0;
 
 	return tResult;
 }
 
-bool SubsystemWin32::CreateDirectory(String iDir)
+bool Subsystem::CreateDir(String iDir)
 {
 	SECURITY_ATTRIBUTES sa={sizeof(SECURITY_ATTRIBUTES),0,false};
 
 	return ::CreateDirectory(iDir.c_str(),&sa);
 }
 
-bool SubsystemWin32::DirectoryExist(String iDir)
+bool Subsystem::DirectoryExist(String iDir)
 {
 	DWORD tFileAttributes=GetFileAttributes(iDir.c_str());
 
 	return (tFileAttributes!=INVALID_FILE_ATTRIBUTES && (tFileAttributes & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-void* SubsystemWin32::LoadLibrary(String iLibName)
+void* Subsystem::LoadLib(String iLibName)
 {
 	void* tModule=::LoadLibrary(iLibName.c_str());
 
 	if(!tModule)
-		wprintf(L"SubsystemWin32::LoadLibrary: error %d loading module %s\n",GetLastError(),iLibName.c_str());
+		GuiLogger::Log(StringUtils::Format(L"SubsystemWin32::LoadLibrary: error %d loading module %s\n",GetLastError(),iLibName.c_str()));
 
 	return tModule;
 }
 
-bool SubsystemWin32::FreeLibrary(void* iModule)
+bool Subsystem::FreeLib(void* iModule)
 {
 	return ::FreeLibrary((HMODULE)iModule);
 }
 
-void* SubsystemWin32::GetProcAddress(void* iModule,String iAddress)
+void* Subsystem::GetProcAddress(void* iModule,String iAddress)
 {
 	return (void*)::GetProcAddress((HMODULE)iModule,StringUtils::ToChar(iAddress).c_str());
 }
 
-void SubsystemWin32::SystemMessage(String iTitle,String iMessage,unsigned iFlags)
+void Subsystem::SystemMessage(String iTitle,String iMessage,unsigned iFlags)
 {
 	::MessageBox(0,iMessage.c_str(),iTitle.c_str(),iFlags);
 }
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+
 /////////////////DebuggerWin32/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 String ExceptionString(unsigned int iCode)
 {
@@ -4932,7 +4864,7 @@ void DebuggerWin32::ResumeDebuggee()
 	}
 }
 
-DWORD WINAPI debuggeeThreadFunc(LPVOID iDebuggerWin32)
+DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
 {
 	wprintf(L"debuggeeThreadFunc started\n");
 
@@ -5009,7 +4941,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 
 LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 {
-	DebuggerWin32* debuggerWin32=(DebuggerWin32*)Ide::Instance()->debugger;
+	DebuggerWin32* debuggerWin32=(DebuggerWin32*)Debugger::Instance();
 
 	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
 }
@@ -5106,7 +5038,7 @@ DebuggerWin32::DebuggerWin32()
 
 	/*SystemUnhandledException=*/SetUnhandledExceptionFilter(UnhandledException);
 
-	this->debuggeeThread=CreateThread(0,0,debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
+	this->debuggeeThread=CreateThread(0,0,DebuggerWin32::debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
 
 	wprintf(L"Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
 }

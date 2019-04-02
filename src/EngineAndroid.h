@@ -96,14 +96,14 @@ struct Renderer3DAndroid : Renderer3DBase
 	Shader* CreateProgram(const char* name,const char* vertexsh,const char* fragmentsh);
 	Shader* CreateShaderProgram(const char* name,const char* pix,const char* frag);
 
-	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
+	void DrawPoint(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
 	void draw(vec2);
-	void draw(vec3,vec3,vec3 color=vec3(1,1,1));
+	void DrawLine(vec3,vec3,vec3 color=vec3(1,1,1));
 	void draw(vec4);
 	void draw(AABB,vec3 color=vec3(1,1,1));
 	void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1));
 	//void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
-	void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
+	void DrawText(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
 
 	void draw(Light*);
 	void draw(Mesh*);

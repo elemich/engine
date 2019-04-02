@@ -4,34 +4,31 @@
 #include "imgjpg.h"
 #include "imgtga.h"
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 /////////////////////globals///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-/////////////////////globals///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-#define GLOBALGETTERFUNCASSINGLETON(funcName,dataType) \
-	if(!funcName()) \
-	funcName()=new dataType; \
-	return funcName(); \
 
 GLOBALGETTERFUNC(GlobalGuiProjectViewerInstance,GuiProject*);
 GLOBALGETTERFUNC(GlobalGuiSceneViewerInstance,GuiScene*);
-GLOBALGETTERFUNC(GlobalGuiCompilerViewerInstance,std::list<GuiCompiler*>);
+GLOBALGETTERFUNC(GlobalGuiCompilerViewerInstance,GuiCompiler*);
 GLOBALGETTERFUNC(GlobalGuiConsoleViewerInstance,GuiConsole*);
 GLOBALGETTERFUNC(GlobalDefaultFontInstance,GuiFont*);
 GLOBALGETTERFUNC(GlobalFontPoolInstance,std::vector<GuiFont*>);
-GLOBALGETTERFUNC(GlobalIdeInstance,Ide*);
+GLOBALGETTERFUNC(GlobalMainFrameInstance,MainFrame*);
+GLOBALGETTERFUNC(GlobalFrameInstance,std::list<Frame*>);
 GLOBALGETTERFUNC(GlobalScriptViewers,std::list<GuiScript*>);
 GLOBALGETTERFUNC(GlobalViewports,std::list<GuiViewport*>);
 GLOBALGETTERFUNC(GlobalRootProjectDirectory,ResourceNodeDir*);
 GLOBALGETTERFUNC(GlobalGuiEntityViewerInstance,std::list<GuiEntity*>);
+GLOBALGETTERFUNC(GlobalGuiLoggerInstance,std::list<GuiLogger*>);
+GLOBALGETTERFUNC(GlobalPluginSystemInstance,PluginSystem*);
+GLOBALGETTERFUNC(GlobalDebuggerInstance,Debugger*);
+GLOBALGETTERFUNC(GlobalTouchInputInstance,TouchInput*);
+GLOBALGETTERFUNC(GlobalKeyboardInputInstance,Keyboard*);
+GLOBALGETTERFUNC(GlobalMouseInputInstance,Mouse*);
+GLOBALGETTERFUNC(GlobalSubsystemInstance,Subsystem*);
+GLOBALGETTERFUNC(GlobalViewersInstance,std::list<GuiViewer*>);
+GLOBALGETTERFUNC(GlobalStringEditorInstance,StringEditor*);
 
 bool EdgesContainsPoint(const vec4& ivec,const vec2& ipoint)
 {
@@ -70,12 +67,7 @@ bool GetFlag(unsigned int& iFlags,unsigned int iFlag)
 	return (iFlags >> iFlag) & 1U;
 }
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 ///////////////SerializerHelpers///////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 namespace SerializerHelpers
 {
@@ -116,13 +108,7 @@ namespace SerializerHelpers
 	void WriteComponentCode(int,FILE*);
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 ///////////////ResourceNode/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-
 
 ResourceNode::ResourceNode():
 	parent(0),
@@ -296,32 +282,19 @@ void* Resource::Load(FilePath iResourceName)
 	return 0;
 }
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////////AppInterface////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-
-
+///////////////////Ide////////////////
 
 Ide::Ide():
-	timer(0),
-	mainframe(0),
-	compiler(0),
+timer(0),
 	processId(0),
 	processThreadId(0),
-	stringeditor(0),
 	popup(0)
 {
-	GlobalIdeInstance()=this;
+	
 }
-Ide::~Ide(){}
-
-Ide* Ide::Instance()
+Ide::~Ide()
 {
-	return GlobalIdeInstance();
+	
 }
 
 String Ide::GetSceneExtension()
@@ -331,11 +304,6 @@ String Ide::GetSceneExtension()
 String Ide::GetEntityExtension()
 {
 	return L".engineEntity";
-}
-
-MainFrame*	Ide::GetMainFrame()
-{
-	return this->mainframe;
 }
 
 Frame*	Ide::CreatePopup(Frame* iParent,float ix,float iy,float iw,float ih)
@@ -367,19 +335,37 @@ Frame*	Ide::GetPopup()
 	return this->popup;
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 ///////////////////Debugger//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+
 Debugger::Debugger():breaked(false),threadSuspendend(false),runningScript(0),runningScriptFunction(0),debuggerCode(0),lastBreakedAddress(0),sleep(1){}
 
+Debugger* Debugger::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalDebuggerInstance,Debugger);
+}
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+std::vector<Debugger::Breakpoint>& Debugger::GetAllBreakpoint()
+{
+	return this->allAvailableBreakpoints;
+}
+
+std::vector<Debugger::Breakpoint>& Debugger::GetBreakpointSet()
+{
+	return this->breakpointSet;
+}
+/*
+
+Script*			Debugger::GetRunningScript()
+{
+
+}
+
+unsigned char	Debugger::GetRunningScriptFunction()
+{
+
+}*/
+
 ///////////////////TouchInput//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 TouchInput::TouchInput()
 {
@@ -389,6 +375,11 @@ TouchInput::TouchInput()
 		released[i]=0;
 		position[i].make(0,0);
 	}
+}
+
+TouchInput* TouchInput::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalTouchInputInstance,TouchInput);
 }
 
 bool TouchInput::IsPressed(int i){return pressed[i];}
@@ -401,21 +392,28 @@ void TouchInput::SetReleased(bool b,int i){released[i]=b;}
 vec2& TouchInput::GetPosition(int i){return position[i];}
 void   TouchInput::SetPosition(vec2& pos,int i){position[i]=pos;}
 
-MouseInput::MouseInput()
-{}
+///////////////////MouseInput//////////////////
 
-bool MouseInput::Left(){return this->buttons[0];}
-bool MouseInput::Right(){return this->buttons[1];}
-bool MouseInput::Middle(){return this->buttons[2];}
 
-TouchInput InputManager::touchInput;
-MouseInput InputManager::mouseInput;
-KeyboardInput InputManager::keyboardInput;
+Mouse::Mouse(){}
 
-/*
-InputInterface InputManager::voiceInput;
-InputInterface InputManager::joystickInput;*/
+Mouse* Mouse::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalMouseInputInstance,Mouse);
+}
 
+bool Mouse::Left(){return this->buttons[0];}
+bool Mouse::Right(){return this->buttons[1];}
+bool Mouse::Middle(){return this->buttons[2];}
+
+///////////////////KeyboardInput//////////////////
+
+Keyboard::Keyboard(){}
+
+Keyboard* Keyboard::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalKeyboardInputInstance,Keyboard);
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -447,14 +445,14 @@ Frame::Frame(float x,float y,float w,float h):
 	iconFile(0),
 	thread(0),
 	focused(0),
-	pressed(0),
-	hovered(0),
 	isModal(false),
 	hasFrame(true),
-	mousedata(vec2(),0,0,Ide::Instance()->inputManager.mouseInput),
+	mousedata(vec2(),0,0,*Mouse::Instance()),
 	dragcode(0),
 	sizeboxcode(0)
 {
+	GlobalFrameInstance().push_back(this);
+
 	hittest.hit=0;
 	hittest.locked=false;
 	hittest.dragrect[0]=0;
@@ -465,6 +463,7 @@ Frame::Frame(float x,float y,float w,float h):
 
 Frame::~Frame()
 {
+	GlobalFrameInstance().remove(this);
 }
 
 
@@ -488,10 +487,6 @@ void Frame::DrawBlock(bool iBool)
 		}
 	}
 
-	this->SetHover(0);
-	this->SetPressed(0);
-	this->SetFocus(0);
-
 	if(!iBool)
 	{
 		tProjectDirChangedThread->Block(false);
@@ -514,11 +509,26 @@ void Frame::Render()
 		tRenderCounter+=(*i)->Render(this);
 #else
 	{
-		/*if((Timer::GetInstance()->GetCurrent()-(*i)->GetLastFrameTime())>(1000.0f/(*i)->GetRenderingRate()))
+		GuiViewport*			tViewport=*i;
+		Frame*					tViewportFrame=tViewport->GetFrame();
+		EditorEntity*			tEntity=(EditorEntity*)(*i)->GetEntity();
+
+		if(tEntity)
 		{
-			this->lastFrameTime=Ide::Instance()->timer->GetCurrent();
-			this->windowData->SendMessage(0,(int)(*i),0);
-		}*/
+			tEntity->world=tViewport->GetModelMatrix();
+			tViewportFrame->renderer3D->UpdateEntities(tEntity);
+
+			for(std::list<GuiEntity*>::iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
+			{
+				EditorEntity*	tEntityPropertiesEntity=(*it)->Entity();
+				Frame*			tEntityPropertiesFrame=(*it)->GetRoot()->GetFrame();
+
+				if(tEntityPropertiesEntity && tEntityPropertiesFrame)
+					tEntityPropertiesEntity->OnPropertiesUpdate(tEntityPropertiesFrame);
+			}
+
+			tViewportFrame->SetDraw(tViewport);
+		}
 	}
 #endif
 }
@@ -560,7 +570,7 @@ void Frame::Draw()
 		}
 	}
 
-	Ide::Instance()->stringeditor->Draw(this);
+	StringEditor::Instance()->Draw(this);
 }
 
 DrawInstance* Frame::SetDraw(GuiRect* iRect,bool iRemove,bool iSkip,void* iParam)
@@ -573,7 +583,7 @@ DrawInstance* Frame::SetDraw(GuiRect* iRect,bool iRemove,bool iSkip,void* iParam
 
 void Frame::SetDraw(GuiViewport* iViewport)
 {
-	this->windowData->PostMessage(0,(int)iViewport,0);
+	this->windowData->SendMessage(0,(int)iViewport,0);
 }
 
 void Frame::Message(GuiRect* iRect,GuiRectMessages iMsg,void* iData)
@@ -692,7 +702,8 @@ void Frame::OnSize(float iWidth,float iHeight)
 	{
 		for(std::list<GuiViewer*>::iterator i=this->viewers.begin();i!=this->viewers.end();i++)
 		{
-			vec4& tEdges=(*i)->edges;
+			vec4	tSave=(*i)->edges;
+			vec4&	tEdges=(*i)->edges;
 
 			if(tEdges.x!=0)
 				tEdges.x-=2,tEdges.x=iWidth*(1.0f/(this->previousSize.x/tEdges.x)),tEdges.x+=2;
@@ -702,6 +713,13 @@ void Frame::OnSize(float iWidth,float iHeight)
 			tEdges.z+=2,tEdges.z=iWidth*(1.0f/(this->previousSize.x/tEdges.z)),tEdges.z-=2;
 			tEdges.w+=2,tEdges.w=iHeight*(1.0f/(this->previousSize.y/tEdges.w)),tEdges.w-=2;
 
+			/*if((tEdges.z-tEdges.x)<50 || (tEdges.w-tEdges.y)<50)
+			{
+				tEdges=tSave;
+				this->Message(*i,GuiRectMessages::ONSIZE,0);
+				break;
+			}*/
+			
 			this->Message(*i,GuiRectMessages::ONSIZE,0);
 		}
 	}
@@ -803,7 +821,7 @@ void Frame::OnMouseWheel(float iScrollingValue)
 
 void Frame::OnSizeboxDown(unsigned iSizeboxCode)
 {
-
+	this->Message(hittest.hit,GuiRectMessages::ONMOUSEEXIT,0);
 }
 
 void Frame::OnSizeboxUp()
@@ -853,6 +871,11 @@ void Frame::OnMouseDown(unsigned int iButton)
 	}
 }
 
+void Frame::OnMouseLeave()
+{
+
+}
+
 void Frame::OnMouseUp(unsigned int iButton)
 {
 	if(this->drag)
@@ -891,7 +914,15 @@ vec2 Frame::Size()
 	return this->windowData->Size();
 }
 
+std::list<GuiViewer*>& Frame::GetViewers()
+{
+	return this->viewers;
+}
 
+std::list<Frame*>& Frame::GetPool()
+{
+	return GlobalFrameInstance();
+}
 
 void Frame::RemoveViewer(GuiViewer* iViewer)
 {
@@ -909,7 +940,7 @@ GuiViewer* Frame::AddViewer(GuiViewer* iViewer)
 void Frame::OnPaint()
 {
 	vec2 iTabDim=this->Size();
-	this->renderer2D->DrawRectangle(0,0,iTabDim.x,iTabDim.y,0x202020);
+	this->renderer2D->DrawRectangle(0,0,iTabDim.x,iTabDim.y,Frame::COLOR_BACK);
 	this->Broadcast(GuiRectMessages::ONPAINT,&PaintData());
 }
 
@@ -944,37 +975,9 @@ void Frame::SetFocus(GuiRect* iFocusedRect)
 		this->SetDraw(iHoveredRect);*/
 }
 
-void Frame::SetHover(GuiRect* iHoveredRect)
-{
-	/*bool tHoveringHasChanged=(Tab::hovered!=iHoveredRect);
-
-	if(tHoveringHasChanged && Tab::hovered)
-		this->SetDraw(Tab::hovered);
-
-	Tab::hovered=iHoveredRect;
-
-	if(tHoveringHasChanged && iHoveredRect)
-		this->SetDraw(iHoveredRect);*/
-}
-
-void Frame::SetPressed(GuiRect* iPressedRect)
-{
-	Frame::pressed=iPressedRect;
-}
-
 GuiRect* Frame::GetFocus()
 {
 	return Frame::focused;
-}
-
-GuiRect* Frame::GetPressed()
-{
-	return Frame::pressed;
-}
-
-GuiRect* Frame::GetHover()
-{
-	return hittest.hit;
 }
  
 void Frame::PushScissor(vec4 iClip,vec2 iCoord)
@@ -995,6 +998,79 @@ void Frame::PopScissor(ClipData* oClipData)
 	this->clips.pop_back();
 }
 
+void Frame::Enable(bool iEnable)
+{
+	this->windowData->Enable(iEnable);
+}
+
+bool Frame::IsEnabled()
+{
+	return this->windowData->IsEnabled();
+}
+
+/////////////////////MainFrame//////////////////////
+
+
+
+MainFrame::~MainFrame()
+{
+	this->Deintialize();
+}
+
+MainFrame* MainFrame::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalMainFrameInstance,MainFrame);
+}
+
+bool MainFrame::IsInstanced()
+{
+	return GlobalMainFrameInstance() ? true : false;
+}
+
+
+void   MainFrame::DestroyFrame(Frame* iFrame)
+{
+	this->RemoveFrame(iFrame);
+	SAFEDELETE(iFrame);
+}
+
+void MainFrame::OnMenuPressed(Frame*,int iIdx)
+{
+	if(iIdx==MenuActionExit)
+	{
+
+	}
+	else if(iIdx==MenuActionConfigurePlugin)
+	{
+		PluginSystem::Instance()->ShowGui();
+	}
+	else if(iIdx==MenuActionProgramInfo)
+	{
+
+	}
+}
+
+Frame* MainFrame::GetFrame()
+{
+	return this->frame;
+}
+
+void	MainFrame::AddFrame(Frame* iFrame)
+{
+	this->frames.push_back(iFrame);
+}
+void	MainFrame::RemoveFrame(Frame* iFrame)
+{
+	this->frames.remove(iFrame);
+}
+
+void	MainFrame::Enable(bool iEnable)
+{
+	for(std::list<Frame*>::iterator i=this->frames.begin();i!=this->frames.end();i++)
+		(*i)->windowData->Enable(iEnable);
+}
+
+
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1006,40 +1082,55 @@ StringEditor::Cursor::Cursor():cursor(0){}
 
 StringEditor::StringEditor():
 	string(0),
-	tab(0),
+	frame(0),
+	font(0),
+	cursor(0),
 	lastBlinkTime(0),
 	blinking(false),
 	enabled(false),
-	blinkingRate(BLINKRATE)
+	blinkingRate(BLINKRATE)	
 {}
 
 StringEditor::~StringEditor()
 {
 }
 
-void StringEditor::Bind(GuiString* iString)
+StringEditor* StringEditor::Instance()
 {
-	/*this->string=iString;
+	GLOBALGETTERFUNCASSINGLETON(GlobalStringEditorInstance,StringEditor);
+}
 
-	this->tab=iString ? this->string->GetRoot()->tab : 0;
+void StringEditor::Bind(Frame* iFrame,String& iString,GuiFont* iFont)
+{
+	this->string=&iString;
+	this->frame=iFrame;
+	this->font=iFont;
 
-	if(iString && !this->string->cursor)
+	std::map<String*,Cursor*>::iterator i=this->map.find(this->string);
+
+	if(i!=this->map.end())
+		this->cursor=(*i).second;
+	else
 	{
-		this->string->cursor=new Cursor;
-		this->string->cursor->cursor=iString->text->c_str();
-
+		this->cursor=new Cursor;
+		this->cursor->cursor=iString.c_str();
+		this->map.insert(std::pair<String*,Cursor*>(this->string,new Cursor));
 		this->EditText(CARET_RECALC,0);
 	}
 
-	this->enabled=false;*/
+	this->enabled=false;
 }
 
 void StringEditor::Enable(bool iEnable)
 {
 	this->enabled=iEnable;
+	this->string=0;
+	this->cursor=0;
+	this->font=0;
+	this->frame=0;
 }
 
-GuiString* StringEditor::Binded()
+const String* StringEditor::Binded()
 {
 	return this->string;
 }
@@ -1051,7 +1142,7 @@ bool StringEditor::Enabled()
 
 bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 {
-	/*float iFontHeight=this->string->font->GetHeight();
+	float iFontHeight=this->font->GetHeight();
 
 	bool tMustResize=false;
 
@@ -1059,36 +1150,36 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 	{
 	case CARET_RECALC:
 		{
-			const wchar_t*	pText=this->string->text->c_str();
+			const wchar_t*	pText=this->string->c_str();
 
 			bool tCarriageReturn=false;
 			int tCharWidth=0;
 
-			this->string->cursor->caret=vec4(this->string->textEdges.x,this->string->textEdges.y,0,iFontHeight);
+			this->cursor->caret;//vec4(this->string->textEdges.x,this->string->textEdges.y,0,iFontHeight);
 
 			while(*pText)
 			{
 				if(tCarriageReturn)
 				{
-					this->string->cursor->caret.x=0;
-					this->string->cursor->caret.y+=iFontHeight;
+					this->cursor->caret.x=0;
+					this->cursor->caret.y+=iFontHeight;
 					
-					this->string->cursor->rowcol.x+=1;
-					this->string->cursor->rowcol.y=0;
+					this->cursor->rowcol.x+=1;
+					this->cursor->rowcol.y=0;
 
 					tCarriageReturn=false;
 				}
 
-				tCharWidth=this->string->font->GetCharWidth(*pText);
+				tCharWidth=this->font->GetCharWidth(*pText);
 
 				if(*pText=='\n' ||  *pText=='\r')
 					tCarriageReturn=true;
 
-				if(pText==this->string->cursor->cursor)
+				if(pText==this->cursor->cursor)
 					break;
 
-				this->string->cursor->caret.x+=tCharWidth;
-				this->string->cursor->rowcol.y+=1;
+				this->cursor->caret.x+=tCharWidth;
+				this->cursor->rowcol.y+=1;
 
 				pText++;
 			}
@@ -1097,35 +1188,35 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 		}
 		case CARET_CANCEL:
 		{
-			if(this->string->text->empty() || this->string->cursor->cursor==&this->string->text->back())
+			if(this->string->empty() || this->cursor->cursor==&this->string->back())
 				return false;
 
-			std::wstring::iterator sIt=this->string->text->begin()+this->string->cursor->rowcol.y;
+			std::wstring::iterator sIt=this->string->begin()+this->cursor->rowcol.y;
 
-			if(sIt!=this->string->text->end())
-				this->string->text->erase(sIt);
+			if(sIt!=this->string->end())
+				this->string->erase(sIt);
 
 			break;
 		}
 		case CARET_BACKSPACE:
 		{
-			if(this->string->cursor->cursor==this->string->text->c_str())
+			if(this->cursor->cursor==this->string->c_str())
 				return false;
 
-			char tCharCode=*(--this->string->cursor->cursor);
+			char tCharCode=*(--this->cursor->cursor);
 
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
 				//find previous row length
-				const wchar_t*	pText=this->string->cursor->cursor-1;
+				const wchar_t*	pText=this->cursor->cursor-1;
 				unsigned int	tRowCharsWidth=0;
 				unsigned int    tRowCharCount=0;
 
 				while(*pText!='\n' &&  *pText!='\r')
 				{
-					tRowCharsWidth+=this->string->font->GetCharWidth(*pText);
+					tRowCharsWidth+=this->font->GetCharWidth(*pText);
 
-					if(pText==this->string->text->c_str())
+					if(pText==this->string->c_str())
 						break;
 
 					pText--;
@@ -1133,20 +1224,20 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 				}
 
-				this->string->cursor->caret.x=tRowCharsWidth;
-				this->string->cursor->caret.y-=iFontHeight;
-				this->string->cursor->rowcol.x--;
-				this->string->cursor->rowcol.y=tRowCharCount;
+				this->cursor->caret.x=tRowCharsWidth;
+				this->cursor->caret.y-=iFontHeight;
+				this->cursor->rowcol.x--;
+				this->cursor->rowcol.y=tRowCharCount;
 
 				tMustResize=true;
 			}
 			else
 			{
-				this->string->cursor->caret.x-=this->string->font->GetCharWidth(tCharCode);
-				this->string->cursor->rowcol.y--;
+				this->cursor->caret.x-=this->font->GetCharWidth(tCharCode);
+				this->cursor->rowcol.y--;
 			}
 
-			this->string->text->erase(this->string->cursor->cursor-this->string->text->c_str(),1);
+			this->string->erase(this->cursor->cursor-this->string->c_str(),1);
 
 			break;
 		}
@@ -1158,35 +1249,35 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			if(tCharcode=='\n' || tCharcode=='\r')
 			{
-				this->string->cursor->caret.x=0;
-				this->string->cursor->caret.y+=iFontHeight;
-				this->string->cursor->rowcol.x++;
-				this->string->cursor->rowcol.y=0;
+				this->cursor->caret.x=0;
+				this->cursor->caret.y+=iFontHeight;
+				this->cursor->rowcol.x++;
+				this->cursor->rowcol.y=0;
 				tMustResize=true;
 			}
 			else
 			{
-				this->string->cursor->caret.x+=this->string->font->GetCharWidth(tCharcode);
-				this->string->cursor->rowcol.y++;
+				this->cursor->caret.x+=this->font->GetCharWidth(tCharcode);
+				this->cursor->rowcol.y++;
 			}
 
-			size_t tPosition=this->string->cursor->cursor-this->string->text->c_str();
+			size_t tPosition=this->cursor->cursor-this->string->c_str();
 
-			this->string->text->insert(tPosition,1,tCharcode);
-			this->string->cursor->cursor=this->string->text->c_str()+tPosition+1;
+			this->string->insert(tPosition,1,tCharcode);
+			this->cursor->cursor=this->string->c_str()+tPosition+1;
 
 			break;
 		}
 		case CARET_ARROWLEFT:
 		{
-			if(this->string->cursor->cursor==this->string->text->c_str())
+			if(this->cursor->cursor==this->string->c_str())
 				return false;
 
-			char tCharCode=*(--this->string->cursor->cursor);
+			char tCharCode=*(--this->cursor->cursor);
 
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
-				const wchar_t*	pText=this->string->cursor->cursor;
+				const wchar_t*	pText=this->cursor->cursor;
 				unsigned int	tRowLenght=0;
 				unsigned int    tRowCharCount=0;
 
@@ -1194,52 +1285,52 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 				while(true)
 				{
-					if(this->string->cursor->cursor!=pText && (*pText=='\n' || *pText=='\r'))
+					if(this->cursor->cursor!=pText && (*pText=='\n' || *pText=='\r'))
 						break;
 
-					tRowLenght+=this->string->font->GetCharWidth(*pText);
+					tRowLenght+=this->font->GetCharWidth(*pText);
 
-					if(pText==this->string->text->c_str())
+					if(pText==this->string->c_str())
 						break;
 
 					pText--;
 					tRowCharCount++;
 				}
 
-				this->string->cursor->caret.x=tRowLenght;
-				this->string->cursor->caret.y-=iFontHeight;
-				this->string->cursor->rowcol.x--;
-				this->string->cursor->rowcol.y=tRowCharCount;
+				this->cursor->caret.x=tRowLenght;
+				this->cursor->caret.y-=iFontHeight;
+				this->cursor->rowcol.x--;
+				this->cursor->rowcol.y=tRowCharCount;
 			}
 			else
 			{
-				this->string->cursor->caret.x-=this->string->font->GetCharWidth(tCharCode);
-				this->string->cursor->rowcol.y--;
+				this->cursor->caret.x-=this->font->GetCharWidth(tCharCode);
+				this->cursor->rowcol.y--;
 			}
 
 			break;
 		}
 		case CARET_ARROWRIGHT:
 		{
-			char tCharCode=*this->string->cursor->cursor;
+			char tCharCode=*this->cursor->cursor;
 
 			if(tCharCode=='\0')
 				break;
 
 			if(tCharCode=='\n' || tCharCode=='\r')
 			{
-				this->string->cursor->caret.x=0;
-				this->string->cursor->caret.y+=iFontHeight;
-				this->string->cursor->rowcol.x++;
-				this->string->cursor->rowcol.y=0;
+				this->cursor->caret.x=0;
+				this->cursor->caret.y+=iFontHeight;
+				this->cursor->rowcol.x++;
+				this->cursor->rowcol.y=0;
 			}
 			else
 			{
-				this->string->cursor->caret.x+=this->string->font->GetCharWidth(tCharCode);
-				this->string->cursor->rowcol.y++;
+				this->cursor->caret.x+=this->font->GetCharWidth(tCharCode);
+				this->cursor->rowcol.y++;
 			}
 
-			this->string->cursor->cursor++;
+			this->cursor->cursor++;
 
 			break;
 		}
@@ -1250,45 +1341,45 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			//---find current rowhead
 
-			const wchar_t* pText=this->string->cursor->cursor;
+			const wchar_t* pText=this->cursor->cursor;
 
 			//skip the tail of the current row if present
 			if(*pText=='\r' || *pText=='\n')
 				pText--;
 
 			//find the last upper row or the head of the current row
-			while( pText!=this->string->text->c_str() && *pText!='\r' &&  *pText!='\n' )
+			while( pText!=this->string->c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
 			//return if no previous row exists
-			if(pText==this->string->text->c_str())
+			if(pText==this->string->c_str())
 				return false;
 
 			//go to the upper row pre-carriage char
 			pText--;
 
 			//find the last upper superior row or the head of the upper row
-			while( pText!=this->string->text->c_str() && *pText!='\r' &&  *pText!='\n' )
+			while( pText!=this->string->c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
 			//go to the upper superior row pre-carriage char
-			if(pText!=this->string->text->c_str())
+			if(pText!=this->string->c_str())
 				pText++;
 
 			//finally found the upper matching position
-			while( tColumn!=this->string->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			while( tColumn!=this->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
-				tRowCharWidth+=this->string->font->GetCharWidth(*pText);
+				tRowCharWidth+=this->font->GetCharWidth(*pText);
 
 				pText++;
 				tColumn++;
 			}
 
-			this->string->cursor->cursor=pText;
-			this->string->cursor->caret.x=tRowCharWidth;
-			this->string->cursor->caret.y-=iFontHeight;
-			this->string->cursor->rowcol.y=tColumn;
-			this->string->cursor->rowcol.x--;
+			this->cursor->cursor=pText;
+			this->cursor->caret.x=tRowCharWidth;
+			this->cursor->caret.y-=iFontHeight;
+			this->cursor->rowcol.y=tColumn;
+			this->cursor->rowcol.x--;
 
 			break;
 		}
@@ -1299,11 +1390,11 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 
 			//find current rowtail
 
-			const wchar_t* pText=this->string->cursor->cursor;
+			const wchar_t* pText=this->cursor->cursor;
 
 			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
-				this->string->cursor->cursor++;
+				this->cursor->cursor++;
 				pText++;
 			}
 
@@ -1311,44 +1402,43 @@ bool StringEditor::EditText(unsigned int iCaretOp,void* iParam)
 				return false; //no previous row exists
 
 			pText++;
-			this->string->cursor->cursor++;
+			this->cursor->cursor++;
 
 			//finally found the lower matching position
 
-			while( tColumn!=this->string->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			while( tColumn!=this->cursor->rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
-				tRowCharWidth+=this->string->font->GetCharWidth(*pText);
+				tRowCharWidth+=this->font->GetCharWidth(*pText);
 
 				pText++;
-				this->string->cursor->cursor++;
+				this->cursor->cursor++;
 				tColumn++;
 			}
 
-			/ *if(tColumn!=this->string->cursor->rowcol.y)//string is shorter of the lower matching position
-				tRowCharWidth* /
+			/*if(tColumn!=this->string->cursor->rowcol.y)//string is shorter of the lower matching position
+				tRowCharWidth*/
 
-			this->string->cursor->caret.x=tRowCharWidth;
-			this->string->cursor->caret.y+=iFontHeight;
-			this->string->cursor->rowcol.y=tColumn;
-			this->string->cursor->rowcol.x++;
+			this->cursor->caret.x=tRowCharWidth;
+			this->cursor->caret.y+=iFontHeight;
+			this->cursor->rowcol.y=tColumn;
+			this->cursor->rowcol.x++;
 
 			break;
 		}
 	}
 
-	if(tMustResize)
-		this->string->OnSize(this->tab,Msg());
+	/*if(tMustResize)
+		this->string->OnSize(this->frame,Msg());*/
 
-	this->caret=this->string->cursor->caret;
-	this->caretHeight=this->string->font->GetHeight();
+	this->caret=this->cursor->caret;
+	this->caretHeight=this->font->GetHeight();
 
-	//wprintf(L"cursor: %d,col: %d\n",this->string->cursor->cursor-this->string->text->c_str(),this->string->cursor->rowcol.y);*/
-return 0;
+	//wprintf(L"cursor: %d,col: %d\n",this->string->cursor->cursor-this->string->text->c_str(),this->string->cursor->rowcol.y);
 }
 
-void StringEditor::Draw(Frame* iCallerTab)
+void StringEditor::Draw(Frame* iFrame)
 {
-	if(this->tab && iCallerTab==this->tab && this->enabled && this->string && iCallerTab->GetFocus()==this->string)
+	if(this->frame && iFrame==this->frame && this->enabled && this->string)
 	{
 		vec2 p1(this->caret.x,this->caret.y);
 		vec2 p2(this->caret.x,this->caret.y + this->caretHeight);
@@ -1362,14 +1452,14 @@ void StringEditor::Draw(Frame* iCallerTab)
 
 		if(Ide::Instance()->timer->GetCurrent()-this->lastBlinkTime > this->blinkingRate)
 		{
-			if(this->tab->BeginDraw(this->string))
+			if(this->frame->BeginDraw(this->string))
 			{
 				if(this->blinking)
-					this->tab->renderer2D->DrawLine(p1,p2,0x00000000,1);
+					this->frame->renderer2D->DrawLine(p1,p2,0x00000000,1);
 				else
-					this->tab->renderer2D->DrawLine(p1,p2,0xff0000,2);
+					this->frame->renderer2D->DrawLine(p1,p2,0xff0000,2);
 
-				this->tab->EndDraw();
+				this->frame->EndDraw();
 			}
 
 			this->lastBlinkTime=Ide::Instance()->timer->GetCurrent();
@@ -1421,7 +1511,7 @@ vec2 GuiFont::MeasureText(const wchar_t* iText)const
 	float height=0;
 
 	if(!iText)
-		vec2(width,height);
+		return vec2();
 
 	float fontHeight=height=this->height;
 
@@ -1434,7 +1524,7 @@ vec2 GuiFont::MeasureText(const wchar_t* iText)const
 		if(*t=='\n' || *t=='\r')
 		{
 			height+=fontHeight;
-			tWidth>width?width=tWidth:0;
+			width=std::max<float>(width,tWidth);
 			tWidth=0;
 		}
 		else
@@ -1446,18 +1536,59 @@ vec2 GuiFont::MeasureText(const wchar_t* iText)const
 		t++;
 	}
 
-	tWidth>width?width=tWidth:0;
+	width=std::max<float>(width,tWidth);
 
 	return vec2(width,height);
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+vec4 GuiFont::MeasureText2(const wchar_t* iText)const
+{
+	float width=0,tWidth=0;
+	float height=0;
+	unsigned int rows=0;
+	unsigned int cols=0;
+
+	if(!iText)
+		return vec4();
+
+	float fontHeight=height=this->height;
+
+	wchar_t* t=(wchar_t*)iText;
+
+	unsigned int tCol=0;
+
+	while(*t)
+	{
+		float tW=0;
+
+		if(*t=='\n' || *t=='\r')
+		{
+			height+=fontHeight;
+			width=std::max<float>(width,tWidth);
+			tWidth=0;
+
+			rows++;
+
+			cols=std::max<unsigned int>(cols,tCol);
+			tCol=0;
+		}
+		else
+		{
+			tW=this->widths[*t];
+			tWidth+=tW;
+			tCol++;
+		}
+
+		t++;
+	}
+		
+	cols=std::max<unsigned int>(cols,tCol);
+	width=std::max<float>(width,tWidth);
+
+	return vec4(width,height,cols,rows);
+};
+
 //////////////////Renderer2D///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-
 
 Renderer2D::Renderer2D(Frame* iFrame):
 	frame(iFrame),
@@ -1467,13 +1598,6 @@ Renderer2D::Renderer2D(Frame* iFrame):
 }
 
 Renderer2D::~Renderer2D(){}
-
-
-
-vec2 Renderer2D::MeasureText(const wchar_t* iText,const GuiFont* iFont)
-{
-	return iFont->MeasureText(iText);
-}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1659,6 +1783,16 @@ void GuiRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				thtd.hit=this;
 		}
 		break;
+		case ONMOUSEWHEEL:
+		{
+			iFrame->Message(this->parent,ONMOUSEWHEEL,iData);
+		}
+		break;
+		case ONCONTROLEVENT:
+		{
+			iFrame->Message(this->parent,ONCONTROLEVENT,iData);
+		}
+		break;
 		case ONPAINT:
 		{
 			bool tParentColor=this->GetFlag(GuiRectFlag::PARENTCOLOR);
@@ -1671,13 +1805,20 @@ void GuiRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 ////////////////////GuiViewer//////////////////
 
-GuiViewer::GuiViewer():tab(0),frame(0)
+GuiViewer::GuiViewer():tab(0),frame(0),labelsend(0)
 {
+	GlobalViewersInstance().push_back(this);
 }
 
 GuiViewer::GuiViewer(float x,float y,float z,float w):tab(0),frame(0)
 {
+	GlobalViewersInstance().push_back(this);
 	this->edges.make(x,y,z,w);
+}
+
+GuiViewer::~GuiViewer()
+{
+	GlobalViewersInstance().remove(this);
 }
 
 void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
@@ -1731,7 +1872,8 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			vec4	tTabEdges=this->GetTabEdges();
 
-			this->tab->OnSize(iFrame,tTabEdges);
+			if(this->tab)
+				this->tab->OnSize(iFrame,tTabEdges);
 
 			iFrame->BroadcastTo(this->tab,iMsg,&tTabEdges);
 		}
@@ -1742,63 +1884,71 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			MouseData& tmd=*(MouseData*)iData;
 
-			vec4 tBar(this->edges.x,this->edges.y,this->edges.z,this->edges.y+BAR_HEIGHT);
-
-			if(tmd.button==2 && EdgesContainsPoint(tBar,tmd.mouse))
+			switch(tmd.button)
 			{
-				int tabNumberHasChanged=this->tabs.size();
-
-				vec4 tLabel;
-
-				tLabel.x=this->edges.x;
-				tLabel.y=this->edges.y + (BAR_HEIGHT-LABEL_HEIGHT);
-				tLabel.z=tLabel.x+LABEL_LEFT_OFFSET;
-				tLabel.w=tLabel.y+LABEL_HEIGHT;
-
-				for(std::list<String>::iterator i=this->labels.begin();i!=this->labels.end();i++)
+				case 1:
 				{
-					vec2 tTextSize = this->frame->renderer2D->MeasureText((*i).c_str());
-
-					tLabel.x=tLabel.z;
-					tLabel.z=tLabel.x + tTextSize.x + LABEL_RIGHT_OFFSET;
-
-					if(tmd.mouse.x>tLabel.x && tmd.mouse.x<tLabel.z && tmd.mouse.y>tLabel.y &&  tmd.mouse.y<tLabel.w)
+					if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
 					{
-						int menuResult=this->frame->TrackTabMenuPopup();
+						std::list<vec4>::iterator		i=this->rects.begin();
+						std::list<GuiRect*>::iterator	r=this->tabs.begin();
 
-						switch(menuResult)
+						for(;i!=this->rects.end();i++,r++)
 						{
-						case 1:
-							if(this->tabs.size()>1)
-							{
-								//this->Destroy();
-							}
-							break;
-						case 2:
-							//this->selected=this->rects.Append(new GuiViewport());
-							break;
-						case 3:
-							this->AddTab(GuiScene::Instance(),L"");
-							break;
-						case 4:
-							this->AddTab(GuiEntity::Instance(),L"");
-							break;
-						case 5:
-							this->AddTab(GuiProject::Instance(),L"");
-							break;
-						case 6:
-							/*this->tabs.ScriptViewer();
-							this->selected=this->tabs.childs.size()-1;*/
-							break;
-						}
+							vec4 tLabelEdges=*i;
 
-						break;
+							tLabelEdges.x+=this->edges.x;
+							tLabelEdges.z+=this->edges.x;
+							tLabelEdges.y+=this->edges.y;
+							tLabelEdges.w+=this->edges.y;
+
+							if(EdgesContainsPoint(tLabelEdges,tmd.mouse) && this->GetTab()!=*r)
+							{
+								this->SetTab(*r);
+								this->frame->SetDraw(this);
+							}
+						}
 					}
 				}
+				break;
+				case 3:
+				{
+					if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
+					{
+						int tabNumberHasChanged=this->tabs.size();
 
-				if(tabNumberHasChanged!=this->tabs.size())
-					this->frame->SetDraw();
+						for(std::list<vec4>::iterator i=this->rects.begin();i!=this->rects.end();i++)
+						{
+							vec4 tLabelEdges=*i;
+
+							tLabelEdges.x+=this->edges.x;
+							tLabelEdges.z+=this->edges.x;
+							tLabelEdges.y+=this->edges.y;
+							tLabelEdges.w+=this->edges.y;
+
+							if(EdgesContainsPoint(tLabelEdges,tmd.mouse))
+							{
+								int menuResult=this->frame->TrackTabMenuPopup();
+
+								switch(menuResult)
+								{
+									case 1:/*if(this->tabs.size()>1){this->Destroy();}*/break;
+									case 2:/*this->selected=this->rects.Append(new GuiViewport())*/break;
+									case 3:this->AddTab(GuiScene::Instance(),L"Scene");break;
+									case 4:this->AddTab(GuiEntity::Instance(),L"Properties");break;
+									case 5:this->AddTab(GuiProject::Instance(),L"Project");break;
+								}
+							}
+						}
+
+						if(tabNumberHasChanged!=this->tabs.size())
+							this->frame->SetDraw(this);
+					}
+				}
+				break;
 			}
+
+			
 
 			iFrame->BroadcastTo(this->tab,iMsg,iData);
 		}
@@ -1807,28 +1957,26 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		{
 			iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,0x707070);
 
-			vec4 tLabel;
-
-			tLabel.x=this->edges.x;
-			tLabel.y=this->edges.y + (BAR_HEIGHT-LABEL_HEIGHT);
-			tLabel.z=tLabel.x+LABEL_LEFT_OFFSET;
-			tLabel.w=tLabel.y+LABEL_HEIGHT;
-
 			//render label text
 			std::list<String>::iterator labelIter=this->labels.begin();
 			std::list<GuiRect*>::iterator tabIter=this->tabs.begin();
-			for(;labelIter!=this->labels.end();labelIter++,tabIter++)
+			std::list<vec4>::iterator rectIter=this->rects.begin();
+			for(;labelIter!=this->labels.end();labelIter++,tabIter++,rectIter++)
 			{
-				vec2 tTextSize = this->frame->renderer2D->MeasureText((*labelIter).c_str());
+				vec4 tLabel=*rectIter;
 
-				tLabel.x=tLabel.z;
-				tLabel.z=tLabel.x + tTextSize.x + LABEL_RIGHT_OFFSET;
+				tLabel.x+=this->edges.x;
+				tLabel.z+=this->edges.x;
+				tLabel.y+=this->edges.y;
+				tLabel.w+=this->edges.y;
 
 				if(this->tab==*tabIter)
 					this->frame->renderer2D->DrawRectangle(tLabel.x,tLabel.y,tLabel.z,tLabel.w,Frame::COLOR_LABEL);
 
 				this->frame->renderer2D->DrawText(*labelIter,tLabel.x,tLabel.y,tLabel.z,tLabel.w,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
 			}
+
+			this->frame->renderer2D->DrawLine(vec2(this->edges.x,this->edges.y+BAR_HEIGHT-1),vec2(this->edges.z,this->edges.y+BAR_HEIGHT-1),Frame::COLOR_LABEL,2);
 
 			iFrame->BroadcastTo(this->tab,iMsg,iData);
 		}
@@ -1842,11 +1990,35 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 	}
 }
 
+
+GuiViewer*	GuiViewer::Instance()
+{
+	return new GuiViewer;
+}
+
+std::list<GuiViewer*>&	GuiViewer::GetPool()
+{
+	return GlobalViewersInstance();
+}
+
+const std::list<GuiRect*>&      GuiViewer::GetTabs()
+{
+	return this->tabs;
+}
+
+const std::list<String>&        GuiViewer::GetLabels()
+{
+	return this->labels;
+}
+
 GuiRect* GuiViewer::AddTab(GuiRect* iTab,String iLabel)
 {
 	iTab->parent=this;
 	this->tabs.push_back(iTab);
 	this->labels.push_back(iLabel);
+
+	this->UpdateLabelRects();
+
 	this->SetTab(iTab);
 	return iTab;
 }
@@ -1854,6 +2026,7 @@ GuiRect* GuiViewer::AddTab(GuiRect* iTab,String iLabel)
 void GuiViewer::RemoveTab(GuiRect* iTab)
 {
 	this->tabs.remove(iTab);
+	this->UpdateLabelRects();
 	iTab->parent=0;
 }
 
@@ -1898,6 +2071,39 @@ vec4 GuiViewer::GetBorderEdges()
 	return vec4(this->edges.x-4,this->edges.y-4,this->edges.z+4,this->edges.w+4);
 }
 
+vec4 GuiViewer::GetLabelsArea()
+{
+	float ty=this->edges.y + (BAR_HEIGHT-LABEL_HEIGHT);
+
+	return vec4(this->edges.x,ty,this->labelsend,ty+LABEL_HEIGHT);
+}
+
+void GuiViewer::UpdateLabelRects()
+{
+	this->rects.clear();
+	this->labelsend=0;
+
+	vec4 tLabelRect;
+
+	tLabelRect.x=0;
+	tLabelRect.y=BAR_HEIGHT-LABEL_HEIGHT;
+	tLabelRect.z=tLabelRect.x+LABEL_LEFT_OFFSET;
+	tLabelRect.w=tLabelRect.y+LABEL_HEIGHT;
+
+	for(std::list<String>::iterator i=this->labels.begin();i!=this->labels.end();i++)
+	{
+		vec2 tTextSize = GuiFont::GetDefaultFont()->MeasureText((*i).c_str());
+
+		tLabelRect.x=tLabelRect.z;
+		tLabelRect.z=tLabelRect.x + tTextSize.x + LABEL_RIGHT_OFFSET;
+
+		this->rects.push_back(tLabelRect);
+	}
+
+	this->labelsend=tLabelRect.z;
+}
+
+
 Frame* GuiViewer::GetFrame()
 {
 	return this->frame;
@@ -1906,6 +2112,7 @@ Frame* GuiViewer::GetFrame()
 ////////////////////GuiListBoxNode////////////////
 
 GuiListBoxNode::GuiListBoxNode():flags(0){}
+GuiListBoxNode::GuiListBoxNode(const String& iLabel):flags(0),label(iLabel){}
 
 GuiListBox::GuiListBox():hovered(0){}
 
@@ -1919,12 +2126,12 @@ const String&	GuiListBoxNode::GetLabel()
 	return this->label;
 }
 
-float GuiListBoxNode::OnCalcWidth()
+float GuiListBoxNode::GetWidth()
 {
 	return GuiFont::GetDefaultFont()->MeasureText(this->label.c_str()).x;
 }
 
-float GuiListBoxNode::OnCalcHeight()
+float GuiListBoxNode::GetHeight()
 {
 	return Frame::ICON_WH;
 }
@@ -1964,6 +2171,15 @@ void GuiListBox::InsertItems(const std::list<GuiListBoxNode*>& iItems)
 void GuiListBox::RemoveItem(GuiListBoxNode& iItem)	
 {
 	this->items.remove(&iItem);
+	if(this->hovered==&iItem)
+		this->hovered=0;
+	this->CalculateLayout();
+}
+
+void GuiListBox::RemoveAll()	
+{
+	this->items.clear();
+	this->hovered=0;
 	this->CalculateLayout();
 }
 
@@ -1977,10 +2193,31 @@ bool GuiListBox::GetFlag(GuiListBoxNode* iItem,GuiListBoxNode::Flags iFlag)
 	return ::GetFlag(iItem->flags,iFlag);
 }
 
+GuiListBoxNode* GuiListBox::GetHoveredNode()
+{
+	return this->hovered;
+}
+
 void GuiListBox::SetHoverHighlight(Frame* iFrame,bool iValue)
 {
 	this->SetFlag(this->hovered,GuiListBoxNode::HIGHLIGHTED,iValue);
 	iFrame->SetDraw(this,true,false,this->hovered);
+}
+
+GuiListBox::GuiListBoxData GuiListBox::GetListBoxData(void* iData)
+{
+	vec4	tContentEdges=this->GetContentEdges();
+	vec4	tFirstItemEdges(tContentEdges.x,tContentEdges.y,tContentEdges.z,tContentEdges.y);
+
+	GuiListBoxData tTreeViewData={tContentEdges,tFirstItemEdges,0,0,iData,false};
+
+	return tTreeViewData;
+}
+
+void GuiListBox::SetLabelEdges(GuiListBoxNode* iItem,GuiListBoxData& iTvdata)
+{
+	iTvdata.labeledges.y=iTvdata.labeledges.w;
+	iTvdata.labeledges.w=iTvdata.labeledges.y+iItem->GetHeight();
 }
 
 void GuiListBox::CalculateLayout()	
@@ -1992,8 +2229,8 @@ void GuiListBox::CalculateLayout()
 
 	for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end();i++)
 	{
-		float tWidth=(*i)->OnCalcWidth();
-		tTop+=(*i)->OnCalcHeight();
+		float tWidth=(*i)->GetWidth();
+		tTop+=(*i)->GetHeight();
 		
 		this->SetContent(tWidth,tTop-this->edges.y);
 	}
@@ -2001,7 +2238,7 @@ void GuiListBox::CalculateLayout()
 	this->CalculateScrollbarsLayout();
 }
 
-void GuiListBox::ItemProcedure(GuiListBoxNode* iItem,Frame* iFrame,GuiRectMessages iMsg,ListBoxItemData& iLbid)
+void GuiListBox::ItemProcedure(GuiListBoxNode* iItem,Frame* iFrame,GuiRectMessages iMsg,GuiListBoxData& iLbid)
 {
 	switch(iMsg)
 	{
@@ -2009,19 +2246,9 @@ void GuiListBox::ItemProcedure(GuiListBoxNode* iItem,Frame* iFrame,GuiRectMessag
 		{
 			HitTestData& thtd=*(HitTestData*)iLbid.data;
 
-			vec4 tItemEdges(iLbid.edges.x,iLbid.top,iLbid.edges.z,iLbid.top+iItem->OnCalcHeight());
-
-			if(EdgesContainsPoint(tItemEdges,thtd.mouse))
+			if(EdgesContainsPoint(iLbid.labeledges,thtd.mouse))
 			{
-				//draw previous hitted node
-				if(this->hovered)
-					this->SetHoverHighlight(iFrame,false);
-
-				//draw current hitted node
-				this->hovered=iItem;
-				this->hoverededges=tItemEdges;
-				this->SetHoverHighlight(iFrame,true);
-				
+				iLbid.hit=iItem;
 				iLbid.skip=true;
 			}
 		}
@@ -2031,8 +2258,6 @@ void GuiListBox::ItemProcedure(GuiListBoxNode* iItem,Frame* iFrame,GuiRectMessag
 			bool tHighligh=this->GetFlag(iItem,GuiListBoxNode::HIGHLIGHTED);
 			bool tSelected=this->GetFlag(iItem,GuiListBoxNode::SELECTED);
 
-			float tBottom=iLbid.top+iItem->OnCalcHeight();
-
 			unsigned int tColor=(iLbid.idx%2) ? 0x555555 : 0x606060;
 
 			if(tSelected)
@@ -2041,11 +2266,9 @@ void GuiListBox::ItemProcedure(GuiListBoxNode* iItem,Frame* iFrame,GuiRectMessag
 				tColor=BlendColor(0x00ffff,tColor);
 
 			//base rect
-			iFrame->renderer2D->DrawRectangle(iLbid.edges.x,iLbid.top,iLbid.edges.z,tBottom,tColor);
+			iFrame->renderer2D->DrawRectangle(iLbid.labeledges.x,iLbid.labeledges.y,iLbid.labeledges.z,iLbid.labeledges.w,tColor);
 
-			vec4 tEdges(iLbid.edges.x,iLbid.top,iLbid.edges.z,tBottom);
-
-			iItem->OnPaint(this,iFrame,tEdges);
+			iItem->OnPaint(this,iFrame,iLbid.labeledges);
 		}
 		break;
 	}
@@ -2066,14 +2289,28 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				if(this->scrollerhit==0 && this->scrollerpressed==0)
 				{
 					vec4			tContentEdges=this->GetContentEdges();
-					ListBoxItemData tLbid={tContentEdges,tContentEdges.y,0,&thtd,false};
+					GuiListBoxData	tLbid=GetListBoxData(&thtd);
 
 					for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end() && !tLbid.skip;i++)
 					{
+						this->SetLabelEdges(*i,tLbid);
 						this->ItemProcedure(*i,iFrame,iMsg,tLbid);
 						tLbid.idx++;
-						tLbid.top+=(*i)->OnCalcHeight();
 					}
+
+					//draw previous hitted node
+					if(this->hovered)
+						this->SetHoverHighlight(iFrame,false);
+
+					if(tLbid.hit)
+					{
+						//draw current hitted node
+						this->hovered=tLbid.hit;
+						this->hoverededges=tLbid.labeledges;
+						this->SetHoverHighlight(iFrame,true);
+					}
+					else
+						this->hovered=0;
 				}
 				else if(this->hovered)
 				{
@@ -2132,17 +2369,16 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
 			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
 
-			float tTop=tContentEdges.y;
-
-			ListBoxItemData tLbid={tContentEdges,tContentEdges.y,0,pd.data,false};
+			GuiListBoxData tLbid=this->GetListBoxData(pd.data);
 
 			for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end() && !tLbid.skip;i++)
 			{
+				this->SetLabelEdges(*i,tLbid);
+
 				if(pd.data==0 || pd.data==*i)
 					this->ItemProcedure(*i,iFrame,iMsg,tLbid);
 
 				tLbid.idx++;
-				tLbid.top+=(*i)->OnCalcHeight();
 			}
 
 			iFrame->renderer2D->Translate(0,0);
@@ -2163,6 +2399,13 @@ GuiTreeViewNode::GuiTreeViewNode()
 	this->parent=0;
 	this->flags=0;
 	::SetFlag(this->flags,GuiTreeViewNode::EXPANDED,true);
+}
+
+void GuiTreeViewNode::Reset()
+{
+	this->parent=0;
+	this->childs.clear();
+	this->flags=0;
 }
 
 void			GuiTreeViewNode::SetLabel(const String& iLabel){this->label=iLabel;}
@@ -2235,7 +2478,7 @@ GuiTreeView::GuiTreeViewData GuiTreeView::GetTreeViewData(void* iData)
 	vec4	tContentEdges=this->GetContentEdges();
 	vec4	tFirstItemEdges(tContentEdges.x,tContentEdges.y,tContentEdges.z,tContentEdges.y);
 
-	GuiTreeViewData tTreeViewData={0,tContentEdges,tFirstItemEdges,0,iData,false};
+	GuiTreeViewData tTreeViewData={0,tContentEdges,tFirstItemEdges,0,0,iData,false};
 
 	return tTreeViewData;
 }
@@ -2249,7 +2492,15 @@ void GuiTreeView::CalculateLayout()
 	this->CalculateScrollbarsLayout();
 }
 
+GuiTreeViewNode* GuiTreeView::GetHoveredNode()
+{
+	return this->hovered;
+}
 
+GuiTreeViewNode* GuiTreeView::GetRootNode()
+{
+	return this->root;
+}
 
 void GuiTreeView::ItemLayout(Frame* iFrame,GuiTreeViewNode* iItem,GuiTreeViewData& iTvdata)
 {
@@ -2288,6 +2539,24 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					GuiTreeViewData tTreeViewData=this->GetTreeViewData(iData);
 					this->ItemRoll(this->root,iFrame,GuiRectMessages::ONHITTEST,tTreeViewData);
 
+					if(this->hovered)
+					{
+						this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
+						iFrame->SetDraw(this,true,false,this->hovered);
+					}
+
+					if(tTreeViewData.hit)
+					{
+						//draw current hitted node
+						this->hovered=tTreeViewData.hit;
+						this->hoveredg=tTreeViewData.labeledges;
+						this->hoverlvl=tTreeViewData.level;
+
+						this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,true);
+						iFrame->SetDraw(this,true,false,this->hovered);
+					}
+					else
+						this->hovered=0;
 				}
 				else if(this->hovered)
 				{
@@ -2386,6 +2655,9 @@ void GuiTreeView::ItemRoll(GuiTreeViewNode* iItem,Frame* iFrame,GuiRectMessages 
 			this->ItemProcedure(iItem,iFrame,iMsg,iTvdata);
 		}
 
+		if(iTvdata.skip)
+			return;
+
 		iTvdata.idx++;
 
 		if(this->GetFlag(iItem,GuiTreeViewNode::EXPANDED) && iItem->childs.size())
@@ -2394,6 +2666,9 @@ void GuiTreeView::ItemRoll(GuiTreeViewNode* iItem,Frame* iFrame,GuiRectMessages 
 
 			for(std::list<GuiTreeViewNode*>::iterator i=iItem->childs.begin();i!=iItem->childs.end() && !iTvdata.skip;i++)
 				this->ItemRoll(*i,iFrame,iMsg,iTvdata);
+
+			if(!iTvdata.skip)
+				iTvdata.level--;
 		}
 	}
 }
@@ -2412,21 +2687,7 @@ void GuiTreeView::ItemProcedure(GuiTreeViewNode* iItem,Frame* iFrame,GuiRectMess
 
 				if(EdgesContainsPoint(tFullRow,thtd.mouse))
 				{
-					//draw previous hitted node
-					if(this->hovered)
-					{
-						this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
-						iFrame->SetDraw(this,true,false,this->hovered);
-					}
-
-					//draw current hitted node
-					this->hovered=iItem;
-					this->hoveredg=iTvdata.labeledges;
-					this->hoverlvl=iTvdata.level;
-
-					this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,true);
-					iFrame->SetDraw(this,true,false,this->hovered);
-
+					iTvdata.hit=iItem;
 					iTvdata.skip=true;
 				}
 			}
@@ -2480,7 +2741,7 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			GuiTreeView::Procedure(iFrame,iMsg,iData);
 
 			GuiTreeViewData tTreeViewData=this->GetTreeViewData();
-			this->ItemRoll(this->root,iFrame,iMsg,tTreeViewData);
+			this->ItemRoll(this->GetRootNode(),iFrame,iMsg,tTreeViewData);
 		}
 		break;
 		case GuiRectMessages::ONMOUSEDOWN:
@@ -2489,7 +2750,7 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			MouseData& md=*(MouseData*)iData;
 
-			if(this->hovered && md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4))
+			if(this->GetHoveredNode() && md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4))
 				this->splitterpressed=true;
 
 			this->splitterpressed ? iFrame->SetCursor(1) : iFrame->SetCursor(0);
@@ -2537,7 +2798,7 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			GuiTreeView::Procedure(iFrame,iMsg,iData);
 
 			GuiTreeViewData tTreeViewData=this->GetTreeViewData();
-			this->ItemRoll(this->root,iFrame,iMsg,tTreeViewData);
+			this->ItemRoll(this->GetRootNode(),iFrame,iMsg,tTreeViewData);
 		}
 		break;
 	default:
@@ -2551,7 +2812,7 @@ void GuiPropertyTree::CalculateLayout()
 	this->ResetContent();
 	this->splitter=0;
 	GuiTreeViewData tTreeViewData=this->GetTreeViewData();
-	this->ItemLayout(tFrame,this->root,tTreeViewData);
+	this->ItemLayout(tFrame,this->GetRootNode(),tTreeViewData);
 	this->splitter=this->GetContent().x + 10;
 	this->SetContent(this->splitter+154,0);
 	this->Procedure(tFrame,ONACTIVATE,0);
@@ -2660,13 +2921,12 @@ Compiler::~Compiler(){}
 
 String Compiler::Compose(unsigned int iCompiler,EditorScript* iScript)
 {
-	Compiler*			icplr=Ide::Instance()->compiler;
-	Compiler::COMPILER& cplr=icplr->compilers[iCompiler];
+	Compiler::COMPILER& cplr=this->compilers[iCompiler];
 
-	String tOutputModule=iScript->module + L"\\" + iScript->file.Name() + L".dll ";
-	String tScriptSource=Ide::Instance()->folderProject + L"\\" + iScript->file.File();
-	String tIdeSourcePath=Ide::Instance()->compiler->ideSrcPath +  L" ";
-	String tEngineLibrary=icplr->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
+	String tOutputModule=iScript->module + L"\\" + iScript->scriptpath.Name() + L".dll ";
+	String tScriptSource=Ide::Instance()->folderProject + L"\\" + iScript->scriptpath.File();
+	String tIdeSourcePath=this->ideSrcPath +  L" ";
+	String tEngineLibrary=this->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
 
 
 	String tCompilerExecutableString;
@@ -2691,18 +2951,30 @@ String Compiler::Compose(unsigned int iCompiler,EditorScript* iScript)
 	return	tComposedOutput;
 }
 
-bool Compiler::Compile(EditorScript* iScript)
+const String& Compiler::GetSourcesPath()
 {
-	/*if(iScript->runtime)
+	return this->ideSrcPath;
+}
+
+const String& Compiler::GetLibrariesPath()
+{
+	return this->ideLibPath;
+}
+
+bool Compiler::Compile(EditorScript* iEditorScript)
+{
+	if(iEditorScript->runtime)
 		return false;
 
 	bool retVal;
 
-	String tOriginalScriptSource=iScript->LoadScript();
+	iEditorScript->SaveScript();
+
+	String tOriginalScriptSource=iEditorScript->script;
 	String tCompileScriptSource=tOriginalScriptSource;
 
 	{
-		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iScript->Entity()->name + L"_;}";
+		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iEditorScript->Entity()->name + L"_;}";
 		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}\n\n";
 	}
 
@@ -2719,29 +2991,29 @@ bool Compiler::Compile(EditorScript* iScript)
 
 	//create random directory for the module if not exist yet
 
-	if(iScript->module.empty())
-		iScript->module=Ide::Instance()->subsystem->RandomDir(Ide::Instance()->folderAppData,8);
+	if(iEditorScript->module.empty())
+		iEditorScript->module=Subsystem::RandomDir(Ide::Instance()->folderAppData,8);
 
 	//append exports to source
 
-	iScript->SaveScript(tCompileScriptSource);
+	iEditorScript->SaveScript();
 
 	//compose the compiler command line
 
 	unsigned int tCompiler=Compiler::COMPILER_MS;
 
-	String tCommandLineMingW=this->Compose(tCompiler,iScript);
+	String tCommandLineMingW=this->Compose(tCompiler,iEditorScript);
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=Ide::Instance()->subsystem->Execute(iScript->module,tCommandLineMingW,tCompilerErrorOutput.path,true,true,true);
+	bool tExecuteWithSuccess=Subsystem::Execute(iEditorScript->module,tCommandLineMingW,tCompilerErrorOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
 	//unroll exports
 
-	iScript->SaveScript(tOriginalScriptSource);
+	iEditorScript->SaveScript();
 
 	//convert compiler output to readable locale
 
@@ -2749,23 +3021,23 @@ bool Compiler::Compile(EditorScript* iScript)
 
 	//extract and parse breakpoint line addresses
 
-	File tLineAddressesOutput=iScript->module + L"\\laddrss.output";
+	File tLineAddressesOutput=iEditorScript->module + L"\\laddrss.output";
 
-	String tScriptFileName=iScript->file.Name();
+	String tScriptFileName=iEditorScript->scriptpath.Name();
 
 	String tSharedObjectFileName=tScriptFileName + L".dll";
 	String tSharedObjectSourceName=tScriptFileName + L".cpp";
 
 	String tParseLineAddressesCommandLine=L"objdump --dwarf=decodedline " + tSharedObjectFileName + L" | find \""+ tSharedObjectSourceName + L"\" | find /V \":\"";
 
-	tExecuteWithSuccess=Ide::Instance()->subsystem->Execute(iScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	tExecuteWithSuccess=Subsystem::Execute(iEditorScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
 	if(tLineAddressesOutput.Open(L"rb"))
 	{
-		EditorScript* tEditorScript=(EditorScript*)iScript;
+		EditorScript* tEditorScript=(EditorScript*)iEditorScript;
 
 		int tNumberOfLines=tLineAddressesOutput.CountOccurrences('\n');
 
@@ -2784,10 +3056,10 @@ bool Compiler::Compile(EditorScript* iScript)
 
 				sscanf(c,"%lx", &tLineAddress.address);
 				tLineAddress.line=line;
-				tLineAddress.script=iScript;
+				tLineAddress.script=iEditorScript;
 
 
-				Ide::Instance()->debugger->allAvailableBreakpoints.push_back(tLineAddress);
+				Debugger::Instance()->GetAllBreakpoint().push_back(tLineAddress);
 			}
 		}
 
@@ -2799,24 +3071,21 @@ bool Compiler::Compile(EditorScript* iScript)
 
 	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
 
-	EditorScript* tEditorScript=(EditorScript*)iScript;
+	EditorScript* tEditorScript=(EditorScript*)iEditorScript;
 
-	MainContainer* tMainContainer=Ide::Instance()->mainAppWindow;
+	bool noErrors=GuiCompiler::Instance()->ParseCompilerOutputFile(tWideCharCompilationOutput);
 
-	bool noErrors=GuiCompilerViewer::Instance()->ParseCompilerOutputFile(tWideCharCompilationOutput);
-
-	/ *
+	/*
 	guiCompilerViewer->OnSize(tabContainer);
 	guiCompilerViewer->OnActivate(tabContainer);
 
 	if(false==noErrors)
 		tabContainer->SetSelection(guiCompilerViewer);
-	* /
+	*/
 
-	wprintf(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iScript->file.c_str());
+	GuiLogger::Log(StringUtils::Format(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iEditorScript->scriptpath.c_str()));
 
-	return retVal;*/
-return 0;
+	return retVal;
 }
 
 
@@ -2826,35 +3095,35 @@ bool Compiler::LoadScript(EditorScript* iScript)
 		return false;
 
 	EntityScript*	(*tCreateModuleClassFunction)()=0;
-	String          tModuleFile=iScript->module + L"\\" + iScript->file.Name() + L".dll";
+	String          tModuleFile=iScript->module + L"\\" + iScript->scriptpath.Name() + L".dll";
 
 	if(!iScript->handle)
 	{
-		iScript->handle=Ide::Instance()->subsystem->LoadLibrary(tModuleFile.c_str());
+		iScript->handle=Subsystem::LoadLib(tModuleFile.c_str());
 
 		if(!iScript->handle)
 			return false;
 
 	}
 
-	tCreateModuleClassFunction=(EntityScript* (*)())Ide::Instance()->subsystem->GetProcAddress(iScript->handle,L"Create");
+	tCreateModuleClassFunction=(EntityScript* (*)())Subsystem::GetProcAddress(iScript->handle,L"Create");
 
 	if(tCreateModuleClassFunction)
 	{
 		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->Entity();
 
-		Ide::Instance()->debugger->RunDebuggeeFunction(iScript,0);
+		Debugger::Instance()->RunDebuggeeFunction(iScript,0);
 
 		return true;
 	}
 	else
 	{
-		wprintf(L"error creating module %s\n",tModuleFile.c_str());
+		GuiLogger::Log(StringUtils::Format(L"error creating module %s\n",tModuleFile.c_str()));
 
 		SAFEDELETEARRAY(iScript->runtime);
 
-		if(iScript->handle && Ide::Instance()->subsystem->FreeLibrary(iScript->handle))
+		if(iScript->handle && Subsystem::FreeLib(iScript->handle))
 			DEBUG_BREAK();
 	}
 
@@ -2871,16 +3140,16 @@ bool Compiler::UnloadScript(EditorScript* iScript)
 			return false;
 
 		//iScript->runtime->deinit();
-		Ide::Instance()->debugger->RunDebuggeeFunction(iScript,2);
+		Debugger::Instance()->RunDebuggeeFunction(iScript,2);
 
-		if(!Ide::Instance()->subsystem->FreeLibrary(iScript->handle))
+		if(!Subsystem::FreeLib(iScript->handle))
 			return false;
 		else
 			iScript->handle=0;
 
 		if(tDestroyInTheDLL)
 		{
-			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))Ide::Instance()->subsystem->GetProcAddress(iScript->handle,L"Destroy");
+			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))Subsystem::GetProcAddress(iScript->handle,L"Destroy");
 
 			std::vector<GuiViewport*> tGuiViewport;
 
@@ -3418,49 +3687,47 @@ GuiTextBox::~GuiTextBox(){SAFEDELETE(this->cursor);}
 
 bool GuiTextBox::ParseKeyInput(Frame* iFrame,const KeyData& iData)
 {
-	StringEditor&	tStringEditor=*Ide::Instance()->stringeditor;
-
 	bool			tRedraw=false;
 
-	if(tStringEditor.Binded()==this && tStringEditor.Enabled())
+	if(StringEditor::Instance()->Binded()==&this->text && StringEditor::Instance()->Enabled())
 	{
-		unsigned int	tCaretOperation=tStringEditor.CARET_DONTCARE;
+		unsigned int	tCaretOperation=StringEditor::CARET_DONTCARE;
 		void*			tCaretParameter=0;
 
 		if(iData.key)
 		{
 			switch(iData.key)
 			{
-			case 0x08:/*VK_BACK*/tCaretOperation=tStringEditor.CARET_BACKSPACE; break;
+			case 0x08:/*VK_BACK*/tCaretOperation=StringEditor::CARET_BACKSPACE; break;
 			default:
-				tCaretOperation=tStringEditor.CARET_ADD;
+				tCaretOperation=StringEditor::CARET_ADD;
 				tCaretParameter=(char*)iData.key;
 			}
 		}
 		else
 		{
-			if(InputManager::keyboardInput.IsPressed(0x25/*VK_LEFT*/))
-				tCaretOperation=tStringEditor.CARET_ARROWLEFT;
-			if(InputManager::keyboardInput.IsPressed(0x27/*VK_RIGHT*/))
-				tCaretOperation=tStringEditor.CARET_ARROWRIGHT;
-			if(InputManager::keyboardInput.IsPressed(0x26/*VK_UP*/))
-				tCaretOperation=tStringEditor.CARET_ARROWUP;
-			if(InputManager::keyboardInput.IsPressed(0x28/*VK_DOWN*/))
-				tCaretOperation=tStringEditor.CARET_ARROWDOWN;
-			if(InputManager::keyboardInput.IsPressed(0x03/*VK_CANCEL*/))
-				tCaretOperation=tStringEditor.CARET_CANCEL;
-			if(InputManager::keyboardInput.IsPressed(0x2E/*VK_DELETE*/))
-				tCaretOperation=tStringEditor.CARET_CANCEL;
-			if(InputManager::keyboardInput.IsPressed(0x1B/*VK_ESCAPE*/)) 
+			if(Keyboard::Instance()->IsPressed(0x25/*VK_LEFT*/))
+				tCaretOperation=StringEditor::CARET_ARROWLEFT;
+			if(Keyboard::Instance()->IsPressed(0x27/*VK_RIGHT*/))
+				tCaretOperation=StringEditor::CARET_ARROWRIGHT;
+			if(Keyboard::Instance()->IsPressed(0x26/*VK_UP*/))
+				tCaretOperation=StringEditor::CARET_ARROWUP;
+			if(Keyboard::Instance()->IsPressed(0x28/*VK_DOWN*/))
+				tCaretOperation=StringEditor::CARET_ARROWDOWN;
+			if(Keyboard::Instance()->IsPressed(0x03/*VK_CANCEL*/))
+				tCaretOperation=StringEditor::CARET_CANCEL;
+			if(Keyboard::Instance()->IsPressed(0x2E/*VK_DELETE*/))
+				tCaretOperation=StringEditor::CARET_CANCEL;
+			if(Keyboard::Instance()->IsPressed(0x1B/*VK_ESCAPE*/)) 
 			{
-				tStringEditor.Enable(false);
+				StringEditor::Instance()->Enable(false);
 				return false;
 			}
 		}
 
 		tRedraw=true;
 
-		bool tMustResize=tStringEditor.EditText(tCaretOperation,tCaretParameter);
+		bool tMustResize=StringEditor::Instance()->EditText(tCaretOperation,tCaretParameter);
 	}
 
 	return tRedraw;
@@ -3470,23 +3737,19 @@ void GuiTextBox::OnKeyDown(Frame* iFrame,const KeyData& iData)
 {
 	if(this==iFrame->GetFocus())
 	{
-		StringEditor& tStringEditor=*Ide::Instance()->stringeditor;
-
-		if(InputManager::keyboardInput.IsPressed(0x71/*VK_F2*/))
+		if(Keyboard::Instance()->IsPressed(0x71/*VK_F2*/))
 		{
-			tStringEditor.Bind(this);
-			tStringEditor.Enable(true);
+			StringEditor::Instance()->Bind(iFrame,this->text);
+			StringEditor::Instance()->Enable(true);
 		}
-		else if(InputManager::keyboardInput.IsPressed(0x1B/*VK_ESCAPE*/))
+		else if(Keyboard::Instance()->IsPressed(0x1B/*VK_ESCAPE*/))
 		{
-			tStringEditor.Bind(0);
-			tStringEditor.Enable(false);
-
+			StringEditor::Instance()->Enable(false);
 		}
 
 		bool tRedraw=false;
 
-		if(tStringEditor.Binded()==this && tStringEditor.Enabled())
+		if(StringEditor::Instance()->Binded()==&this->text && StringEditor::Instance()->Enabled())
 			tRedraw=this->ParseKeyInput(iFrame,iData);
 
 		if(tRedraw)
@@ -3650,15 +3913,15 @@ void GuiPathHelpers::OnSelectDirectoryButtonPressed(void* iData)
 
 	Frame* iFrame=tGuiPropertyPath->GetRoot()->GetFrame();
 
-	iFrame->isModal ? iFrame->windowData->Enable(false) : Ide::Instance()->mainframe->frame->windowData->Enable(false);
+	iFrame->isModal ? iFrame->windowData->Enable(false) : MainFrame::Instance()->GetFrame()->Enable(false);
 	iFrame->SetDraw();
 
-	String tDirectory=Ide::Instance()->subsystem->DirectoryChooser(L"",L"");
+	String tDirectory=Subsystem::DirectoryChooser(L"",L"");
 
 	if(tDirectory.size())
 		tGuiPropertyPath->path.Text(tDirectory);
 
-	iFrame->isModal ? iFrame->windowData->Enable(true) : Ide::Instance()->mainframe->frame->windowData->Enable(true);
+	iFrame->isModal ? iFrame->windowData->Enable(true) : MainFrame::Instance()->GetFrame()->Enable(true);
 	iFrame->SetDraw();
 
 	if(tGuiPropertyPath->func)
@@ -3843,9 +4106,12 @@ GuiViewport::GuiViewport():
 	pickedEntity(0),
 	renderInstance(0),
 	renderFps(60),
-	bitmap(0)
+	bitmap(0),
+	editorentity(0)
 {
 	GlobalViewports().push_back(this);
+
+	this->flags=0;
 
 	this->projection=this->projection.perspective(90,16/9,1,1000);
 	this->view.move(vec3(100,100,100));
@@ -3866,36 +4132,18 @@ void GuiViewport::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			#endif
 		}
 		break;
-		case ONSIZE:
-		{
-			this->ResizeBuffers(iFrame);
-		}
-		break;
-		case ONACTIVATE:
-		{
-			this->frame=iFrame;
-			/*if(!this->renderInstance)
-				this->renderInstance=iFrame->SetDraw(this,false,true);*/
-		}
-		break;
-		case ONDEACTIVATE:
-		{
-			/*if(this->renderInstance)
-				this->renderInstance->remove=true;*/
-		}
-		break;
 		case ONMOUSEMOVE:
 		{
 			GuiRect::Procedure(iFrame,iMsg,iData);
 
 			MouseData& tmd=*(MouseData*)iData;
 
-			if(InputManager::keyboardInput.IsPressed(0x01/*VK_LBUTTON*/))
+			if(Keyboard::Instance()->IsPressed(0x01/*VK_LBUTTON*/))
 			{
 				float dX=(tmd.mouse.x-this->mouseold.x);
 				float dY=(tmd.mouse.y-this->mouseold.y);
 
-				if(InputManager::keyboardInput.IsPressed(0x011/*VK_CONTROL*/))
+				if(Keyboard::Instance()->IsPressed(0x011/*VK_CONTROL*/))
 				{
 					mat4 mview;
 					vec3 vx,vy,vz;
@@ -3933,16 +4181,46 @@ void GuiViewport::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			this->mouseold=tmd.mouse;
 		}
 		break;
+		case ONMOUSEUP:
+		{
+			/*if(this->IsHovering() && this->pickedEntity)
+			Ide::Instance()->mainAppWindow->mainContainer->Broadcast(GuiRect::Funcs::ONENTITYSELECTED,Msg(this->pickedEntity));
+
+			GuiRect::OnMouseUp(iTab,iData);*/
+		}
+		break;
+		case ONMOUSEWHEEL:
+		{
+			MouseData& md=*(MouseData*)iData;
+
+			if(md.scroller)
+			{
+				this->view*=mat4().translate(0,0,md.scroller*10);
+				iFrame->SetDraw(this);
+			}
+		}
+		break;
+		case ONSIZE:
+		{
+			this->ResizeBuffers(iFrame);
+		}
+		break;
+		case ONACTIVATE:
+		{
+			this->frame=iFrame;
+		}
+		break;
 		default:
 			GuiRect::Procedure(iFrame,iMsg,iData);
 	}
 }
 
-EditorEntity* GuiViewport::GetEntity(){return GuiScene::Instance()->Entity();}
+EditorEntity*		GuiViewport::GetEntity(){return this->editorentity;}
+void				GuiViewport::SetEntity(EditorEntity* iEditorEntity){this->editorentity=iEditorEntity;}
 
-mat4& GuiViewport::Projection(){return this->projection;}
-mat4& GuiViewport::View(){return this->view;}
-mat4& GuiViewport::Model(){return this->model;}
+mat4& GuiViewport::GetProjectionMatrix(){return this->projection;}
+mat4& GuiViewport::GetViewMatrix(){return this->view;}
+mat4& GuiViewport::GetModelMatrix(){return this->model;}
 
 EditorEntity* GuiViewport::GetHoveredEntity(){return 0;}
 EditorEntity* GuiViewport::GetPickedEntity(){return this->pickedEntity;}
@@ -3961,107 +4239,7 @@ GuiViewport* GuiViewport::Instance()
 	return new GuiViewport();
 }
 
-/*
-void GuiViewport::OnPaint(Frame*)
-{
-#if ENABLE_RENDERER
-
-	if(Timer::GetInstance()->GetCurrent()-this->lastFrameTime>(1000.0f/this->renderFps))
-	{
-		this->lastFrameTime=Ide::Instance()->timer->GetCurrent();
-		this->Render(iTab);
-	}
-	else
-		this->DrawBuffer(iTab,this->Edges());
-#endif
-}*/
-
-void GuiViewport::OnMouseWheel(Frame* iFrame,const MsgData& iData)
-{
-	/*GuiRect::OnMouseWheel(iTab,iData);
-
-	float factor=*(float*)iMsg.data;
-
-	this->view*=mat4().translate(0,0,factor*10);*/
-}
-
-void GuiViewport::OnMouseUp(Frame* iFrame,const MsgData& iData)
-{
-	/*if(this->IsHovering() && this->pickedEntity)
-		Ide::Instance()->mainAppWindow->mainContainer->Broadcast(GuiRect::Funcs::ONENTITYSELECTED,Msg(this->pickedEntity));
-
-	GuiRect::OnMouseUp(iTab,iData);*/
-}
-
-void GuiViewport::OnMouseMove(Frame* iFrame,const MsgData& iData)
-{
-	/*GuiRect::OnMouseMove(iTab,iData);
-
-	if(this->IsHovering())
-	{
-		if(InputManager::keyboardInput.IsPressed(0x01/ *VK_LBUTTON* /))
-		{
-			float dX=(iMsg.mouse.x-this->mouseold.x);
-			float dY=(iMsg.mouse.y-this->mouseold.y);
-
-			if(InputManager::keyboardInput.IsPressed(0x011/ *VK_CONTROL* /))
-			{
-				mat4 mview;
-				vec3 vx,vy,vz;
-				vec3 pos;
-				mat4 rot;
-
-				mview=this->view;
-
-				mview.traspose();
-				mview.inverse();
-
-				mview.axes(vx,vy,vz);
-
-				pos=this->model.position();
-
-				this->model.move(vec3());
-
-				if(dY)
-					rot.rotate(dY,vx);
-				this->model.rotate(dX,0,0,1);
-
-				this->model*=rot;
-
-				this->model.move(pos);
-			}
-			else
-			{
-				this->view*=mat4().translate(dX,dY,0);
-			}
-		}
-
-		this->needsPicking=true;
-
-		mouseold=iMsg.mouse;
-	}*/
-}
-
-
-void GuiViewport::OnActivate(Frame* iFrame)
-{
-#if RENDERER_ENABLED
-		//this->renderInstance=iFrame->SetDraw(this,false);
-#endif
-}
-void GuiViewport::OnDeactivate(Frame* iFrame)
-{
-#if RENDERER_ENABLED
-#endif
-}
-
-
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 //////////////////GuiScrollRect////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 GuiScrollRect::GuiScrollRect()
 {
@@ -4110,11 +4288,14 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				{
 					this->scrollerhit=0;
 
-					thtd.off.x+=this->positions[SCROLLH]*this->content[0];
-					thtd.off.y+=this->positions[SCROLLV]*this->content[1];
+					float offx=this->positions[SCROLLH]*this->content[0];
+					float offy=this->positions[SCROLLV]*this->content[1];
 
-					thtd.mouse.x+=thtd.off.x;
-					thtd.mouse.y+=thtd.off.y;
+					thtd.off.x+=offx;
+					thtd.off.y+=offy;
+
+					thtd.mouse.x+=offx;
+					thtd.mouse.y+=offy;
 				}
 			}
 		}
@@ -4132,6 +4313,27 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			
 			pd.offset.x-=this->GetScrollbarPosition(0);
 			pd.offset.y-=this->GetScrollbarPosition(1);
+		}
+		break;
+		case ONMOUSEWHEEL:
+		{
+			MouseData& md=*(MouseData*)iData;
+
+			if(this->IsScrollbarVisible(1) && !md.button && md.scroller)
+			{
+				float tScrollRatio=this->GetScrollerRatio(1)/SCROLLTIP;
+				float tScrollAmount=this->positions[1] + (md.scroller < 0 ? tScrollRatio : -tScrollRatio);
+
+				this->SetScrollbarPosition(1,tScrollAmount);
+
+				/*//update hittest ??
+				iFrame->hittest.off.y-=tScrollAmount;
+				iFrame->hittest.mouse.y-=tScrollAmount;
+				this->Procedure(iFrame,ONHITTEST,&iFrame->hittest);
+				*/
+
+				iFrame->SetDraw(this);
+			}
 		}
 		break;
 		case GuiRectMessages::ONMOUSEDOWN:
@@ -4281,7 +4483,7 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 float GuiScrollRect::GetScrollerRatio(unsigned int iType)
 {
-	return 0;
+	return this->ratios[iType];
 };
 
 void GuiScrollRect::SetScrollbarPosition(unsigned int iType,float iNewPositionPercent)
@@ -4302,6 +4504,11 @@ void GuiScrollRect::SetScrollbarPosition(unsigned int iType,float iNewPositionPe
 float GuiScrollRect::GetScrollbarPosition(unsigned int iType)
 {
 	return this->positions[iType]*this->content[iType];
+}
+
+bool GuiScrollRect::IsScrollbarVisible(unsigned int iType)
+{
+	return this->active[iType];
 }
 
 vec4 GuiScrollRect::GetScrollerEdges(unsigned int iType)
@@ -4348,6 +4555,11 @@ vec4 GuiScrollRect::GetClippingEdges()
 vec4 GuiScrollRect::GetContentEdges()
 {
 	return vec4(this->edges.x,this->edges.y,this->edges.x+this->maxes[0],this->edges.y+this->maxes[1]);
+}
+
+bool GuiScrollRect::IsScrollbarHitted()
+{
+	return this->scrollerhit;
 }
 
 void GuiScrollRect::CalculateScrollbarsLayout()
@@ -4430,14 +4642,18 @@ GuiPanel::GuiPanel()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiScene::GuiScene():entity(0){}
+GuiScene::GuiScene():sceneRootEntity(0){}
 GuiScene* GuiScene::Instance()
 {
 	GLOBALGETTERFUNCASSINGLETON(GlobalGuiSceneViewerInstance,GuiScene);
 }
 
-EditorEntity*	GuiScene::Entity(){return this->entity;}
-void			GuiScene::Entity(EditorEntity* iEntity){this->entity=iEntity;} 
+EditorEntity*		GuiScene::GetSceneRootEntity(){return this->sceneRootEntity;}
+void				GuiScene::SetSceneRootEntity(EditorEntity* iEntity)
+{
+	this->sceneRootEntity=iEntity;
+	this->InsertRoot(iEntity->GetSceneLabel());
+} 
 
 void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 {
@@ -4449,14 +4665,70 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			{
 				EditorEntity* tEntity=(EditorEntity*)iData; 
 
-				if(!this->entity)
+				if(!this->sceneRootEntity)
 				{
-					this->entity=tEntity;
-					this->InsertRoot(this->entity->sceneLabel);
+					this->sceneRootEntity=tEntity;
+					this->InsertRoot(this->sceneRootEntity->GetSceneLabel());
 				}				
 
 				iFrame->SetDraw(this);
 			}
+		}
+		break;
+		case ONMOUSEUP:
+		{
+			GuiTreeView::Procedure(iFrame,iMsg,iData);
+
+			MouseData& md=*(MouseData*)iData;
+
+			if(md.button==3 && !this->IsScrollbarHitted())
+			{
+				int tMenuItem=iFrame->TrackGuiSceneViewerPopup(this->GetHoveredNode());	
+
+				SceneEntityLabel*		tSceneLabel=dynamic_cast<SceneEntityLabel*>(this->GetHoveredNode());
+				EditorPropertiesBase*	tCreatedEditorObject=0;
+
+				switch(tMenuItem)
+				{
+					case 1:
+					{
+						EditorEntity* tEditorEntity=new EditorEntity;
+
+						tEditorEntity->SetName(StringUtils::Format(L"Entity_%i",EditorEntity::GetInstancedEntitiesNumber()));
+
+						tEditorEntity->OnPropertiesCreate();
+
+						if(tSceneLabel)
+						{
+							tSceneLabel->GetValue()->Append(tEditorEntity);
+							this->CalculateLayout();
+						}
+						else if(this->GetSceneRootEntity())
+						{
+							this->GetSceneRootEntity()->Append(tEditorEntity);
+							this->CalculateLayout();
+						}
+						else
+							this->SetSceneRootEntity(tEditorEntity);
+					}
+					break;
+					case 2:
+						//GuiSceneLabelHelpers::hovered->DestroyChilds();
+					break;
+
+					case 3:tCreatedEditorObject=tSceneLabel->GetValue()->CreateComponent<EditorLight>();break;
+					case 4:tCreatedEditorObject=tSceneLabel->GetValue()->CreateComponent<EditorMesh>();break;
+					case 5:tCreatedEditorObject=tSceneLabel->GetValue()->CreateComponent<EditorCamera>();break;
+					case 14:tCreatedEditorObject=tSceneLabel->GetValue()->CreateComponent<EditorScript>();break;
+				}
+
+				if(tCreatedEditorObject)
+					tCreatedEditorObject->OnResourcesCreate();
+
+				if(tMenuItem)
+					iFrame->SetDraw(GuiScene::Instance());
+			}
+			break;
 		}
 		break;
 		default:
@@ -4464,50 +4736,19 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 	}
 }
 
-void EditorEntity::SceneLabel::OnMouseUp(Frame* iFrame,const MouseData& iMd)
+/*
+EditorEntity* EditorEntity::SceneEntityLabel::GetValue()
+{
+	return this->GuiTreeViewItem<EditorEntity*>::GetValue();
+}*/
+
+void SceneEntityLabel::OnMouseUp(Frame* iFrame,const MouseData& iMd)
 {
 	GuiTreeViewItem::OnMouseUp(iFrame,iMd);
 
 	switch(iMd.button)
 	{
-	/*case 3:
-		{
-			int tMenuItem=iFrame->TrackGuiSceneViewerPopup(this);	
-
-			EditorPropertiesBase*	tCreatedEditorObject=0;
-
-			switch(tMenuItem)
-			{
-			case 1:
-				{
-					/ *EditorEntity* tNewEntity=0;
-
-					tCreatedEditorObject=tNewEntity=new EditorEntity;
-
-					tNewEntity->name=L"__00000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-
-					this->entity->Append(tNewEntity);
-
-					tNewEntity->OnPropertiesCreate();* /
-				}
-				break;
-			case 2:
-				//GuiSceneLabelHelpers::hovered->DestroyChilds();
-				break;
-			case 3:tCreatedEditorObject=this->entity->CreateComponent<EditorLight>();break;
-			case 4:tCreatedEditorObject=this->entity->CreateComponent<EditorMesh>();break;
-			case 5:tCreatedEditorObject=this->entity->CreateComponent<EditorCamera>();break;
-			case 14:tCreatedEditorObject=this->entity->CreateComponent<EditorScript>();break;
-			}
-
-			if(tCreatedEditorObject)
-				tCreatedEditorObject->OnResourcesCreate();
-
-			if(tMenuItem)
-				iFrame->SetDraw(this->TreeView());
-		}
-		break;*/
-	case 1:
+		case 1:
 		{
 			for(std::list<GuiEntity*>::const_iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
 				(*it)->Procedure(iFrame,GuiRectMessages::ONENTITYSELECTED,this->GetValue());
@@ -4530,7 +4771,10 @@ void GuiScene::Load(String iFilename)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiEntity::GuiEntity():entity(0){}
+GuiEntity::GuiEntity():entity(0)
+{
+	GlobalGuiEntityViewerInstance().push_back(this);
+}
 
 GuiEntity::~GuiEntity()
 {
@@ -4539,11 +4783,7 @@ GuiEntity::~GuiEntity()
 
 GuiEntity* GuiEntity::Instance()
 {
-	GuiEntity* tNewGuiEntity=new GuiEntity;
-
-	GlobalGuiEntityViewerInstance().push_back(tNewGuiEntity);
-
-	return tNewGuiEntity;
+	return new GuiEntity;
 }
 
 std::list<GuiEntity*>& GuiEntity::GetPool()
@@ -4582,12 +4822,61 @@ void GuiEntity::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 void			GuiEntity::Entity(EditorEntity* iEntity){this->entity=iEntity;}
 EditorEntity*	GuiEntity::Entity(){return this->entity;}
 
+///////////////GuiLogger////////////////
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+GuiLogger::GuiLoggerItem::GuiLoggerItem(const String& iString):GuiListBoxNode(iString)
+{
+	if(this->label.size() && this->label.back()==L'\n')
+		this->label.pop_back();
+
+	vec2 tTextDim=GuiFont::GetDefaultFont()->MeasureText(this->label.c_str());
+	this->height=tTextDim.y*SEZAUREA;
+}
+
+float GuiLogger::GuiLoggerItem::GetHeight(){return this->height;}
+
+GuiLogger::GuiLogger()
+{
+	GlobalGuiLoggerInstance().push_back(this);
+	this->flags=0;
+}
+GuiLogger::~GuiLogger()
+{
+	GlobalGuiLoggerInstance().remove(this);
+
+	this->Clear();
+}
+
+GuiLogger*	GuiLogger::Instance()
+{
+	return new GuiLogger;
+}
+std::list<GuiLogger*>&	GuiLogger::GetPool(){return GlobalGuiLoggerInstance();}
+
+void GuiLogger::AppendLog(const String& iString)
+{
+	GuiLoggerItem* tLog=new GuiLoggerItem(iString);
+
+	this->logs.push_back(tLog);
+	this->InsertItem(*tLog);
+}
+
+void GuiLogger::Clear()
+{
+	for(std::list<GuiLoggerItem*>::iterator i=this->logs.begin();i!=this->logs.end();i++)
+		SAFEDELETE(*i);
+}
+
+void GuiLogger::Log(const String& iString,GuiLogger* iLogger)
+{
+	GuiLogger* tLogger=iLogger ? iLogger : GuiLogger::GetPool().size() ? GuiLogger::GetPool().front() : 0;
+
+	if(tLogger)
+		tLogger->AppendLog(iString);
+}
+
 ///////////////GuiConsoleViewer////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+
 GuiConsole::GuiConsole(){}
 GuiConsole::~GuiConsole(){}
 
@@ -4651,12 +4940,17 @@ void GuiProject::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		}
 		break;
 		case ONACTIVATE:
-			Ide::Instance()->ScanDir(this->projectDirectory->fileName,this->projectDirectory);
-			this->dirView.InsertRoot(this->projectDirectory->dirLabel);
-			this->fileView.InsertItems(this->projectDirectory->fileLabels);
+		{
+			this->Scan();
+		}
+		break;
+		case ONDEACTIVATE:
+		{
+			this->Reset();
+		}
 		break;
 		case ONPAINT:
-			iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,0x202020);
+			iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,Frame::COLOR_BACK);
 		break;
 		default:
 			GuiRect::Procedure(iFrame,iMsg,iData);
@@ -4693,10 +4987,6 @@ GuiProject* GuiProject::Instance()
 	GLOBALGETTERFUNCASSINGLETON(GlobalGuiProjectViewerInstance,GuiProject);
 }
 
-void GuiProject::RefreshAll()
-{
-}
-
 void GuiProject::OnSize(Frame* iFrame,const vec4& iEdges)
 {
 	float tOldWidth=this->edges.z-this->edges.x;
@@ -4728,69 +5018,29 @@ void GuiProject::OnSize(Frame* iFrame,const vec4& iEdges)
 	this->resView.edges.x=this->splitterRight+4;
 }
 
-void GuiProject::OnMouseMove(Frame* iFrame,const MsgData& iData)
+void GuiProject::Scan()
 {
-	/*GuiRect::OnMouseMove(iTab,iData);
-
-	iTab->SetCursor(1);
-
-	if(this->IsPressing())
-	{
-		this->OnSize(iTab,iData);
-
-		if(this->splitterLeftActive)
-		{
-			this->splitterLeft=iMsg.mouse.x;
-			this->dirViewer.OnSize(iTab,iData);
-		}
-
-		this->fileViewer.OnSize(iTab,iData);
-
-		if(this->splitterRightActive)
-		{
-			this->splitterRight=iMsg.mouse.x;
-			this->resViewer.OnSize(iTab,iData);
-		}
-
-		iFrame->SetDraw(this);
-	}*/
+	Ide::Instance()->ScanDir(this->projectDirectory->fileName,this->projectDirectory);
+	this->dirView.InsertRoot(this->projectDirectory->dirLabel);
+	this->fileView.InsertItems(this->projectDirectory->fileLabels);
 }
 
-
-void GuiProject::OnMouseDown(Frame* iFrame,const MsgData& iData)
+void GuiProject::Reset()
 {
-	/*GuiRect::OnMouseDown(iTab,iData);
+	for(std::list<ResourceNode*>::iterator tFile=this->projectDirectory->files.begin();tFile!=this->projectDirectory->files.end();tFile++)
+		SAFEDELETE(*tFile);
 
-	iTab->SetCursor(1);
+	for(std::list<ResourceNodeDir*>::iterator tDir=this->projectDirectory->dirs.begin();tDir!=this->projectDirectory->dirs.end();tDir++)
+		SAFEDELETE(*tDir);
 
-	if(iMsg.mouse.x>=this->splitterLeft && iMsg.mouse.x<=this->splitterLeft+SPLITTER_SIZE)
-		this->splitterLeftActive=true;
-	else if(iMsg.mouse.x>=this->splitterRight && iMsg.mouse.x<=this->splitterRight+SPLITTER_SIZE)
-		this->splitterRightActive=true;*/
+	this->projectDirectory->files.clear();
+	this->projectDirectory->dirs.clear();
+	this->projectDirectory->fileLabels.clear();
+	this->projectDirectory->dirLabel.Reset();
+
+	this->dirView.RemoveRoot();
+	this->fileView.RemoveAll();
 }
-
-void GuiProject::OnMouseUp(Frame* iFrame,const MsgData& iData)
-{
-	/*GuiRect::OnMouseUp(iTab,iData);
-
-	if(this->splitterLeftActive || this->splitterRightActive)
-	{
-		this->splitterLeftActive=false;
-		this->splitterRightActive=false;
-	}*/
-}
-
-
-void GuiProject::OnReparent(Frame* iFrame,const MsgData& iData)
-{
-}
-
-
-void GuiProject::Delete(Frame* iFrame,ResourceNode* iNode)
-{
-
-}
-
 
 void GuiProject::findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,String iExtension)
 {
@@ -4937,101 +5187,151 @@ PictureRef::PictureRef(unsigned char* iRefData,float iWidth,float iHeight):refDa
 
 PictureFile::PictureFile(String iFilename):fileName(iFilename){}
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 ///////////////DrawInstance/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
 
 DrawInstance::DrawInstance(GuiRect* iRect,bool iRemove,bool iSkip,void* iParam):rect(iRect),remove(iRemove),skip(iSkip),param(iParam){}
 DrawInstance::~DrawInstance(){}
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-////////////////////GuiPaper///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+///////////////GuiScript/////////////////
 
-void GuiScript::DrawBreakpoints(Frame* tabContainer)
+GuiScript*	GuiScript::Instance()
 {
-	/*float tFontHeight=GuiFont::GetDefaultFont()->GetHeight();
-
-	std::vector<Debugger::Breakpoint>& breakpoints=Ide::Instance()->debugger->breakpointSet;
-
-	for(size_t i=0;i<breakpoints.size();i++)
-	{
-		if(breakpoints[i].script==this->script)
-		{
-			unsigned int tLineInsertion=this->Edges().y + (breakpoints[i].line - 1) * tFontHeight;
-
-			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
-
-			tabContainer->renderer2D->DrawRectangle(this->Edges().x + 1,tLineInsertion + 1,this->Edges().x/ *+this->editor->margins.x -1* /,tLineInsertion + tFontHeight - 1,tBreakColor,true);
-		}
-	}*/
+	return new GuiScript;
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////GuiScriptViewer/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-std::list<GuiScript*>& GuiScript::GetInstances()
+std::list<GuiScript*>&	GuiScript::GetPool()
 {
 	return GlobalScriptViewers();
 }
 
-
 GuiScript::GuiScript():
-	script(0),
-	lineNumbers(true)
+	editorscript(0),
+	drawnum(true),
+	numrows(0),
+	numcols(0),
+	toolsize(0),
+	font(GuiFont::GetDefaultFont())
 {
-	/*this->GetInstances().push_back(this);
-
-	this->SetName(L"ScriptViewer");
-
-	this->editor=new GuiTextBox;
-	this->lines=new GuiString;
-
-	this->editor->Font(GuiFont::GetFontPool()[3]);
-//	this->GetAutoEdges()->off.make(0,0,0,0);
-
-	this->lines->Alignment(0,0);
-	this->lines->Spot(0,0);
-
-	this->Append(this->lines);
-	this->Append(this->editor);
-
-//	this->lines->GetAutoEdges()->ref.make(0,0,&this->lines->GetEdges().x,0);
-//	this->lines->GetAutoEdges()->off.x=0;
-
-//	this->editor->GetAutoEdges()->ref.make(&this->lines->GetEdges().z,0,0,0);
-*/
-
+	GlobalScriptViewers().push_back(this);
 }
 
 GuiScript::~GuiScript()
 {
-	this->GetInstances().remove(this);
+	GlobalScriptViewers().remove(this);
 }
 
-void GuiScript::Open(Script* iScript)
+void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 {
-	this->script=(EditorScript*)iScript;
+	switch(iMsg)
+	{
+		case ONMOUSEDOWN:
+		{
+			GuiScrollRect::Procedure(iFrame,iMsg,iData);
 
-	this->editor->Text(this->script->LoadScript());
+			MouseData& md=*(MouseData*)iData;
 
-	this->script->scriptViewer=this;
+			if(md.mouse.x < 30)
+			{
+				unsigned int tBreakOnLine=(md.mouse.y-this->edges.y)/GuiFont::GetDefaultFont()->GetHeight() + 1;
+
+				std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Debugger::Instance()->GetAllBreakpoint();
+				std::vector<Debugger::Breakpoint>& tBreakpoints=Debugger::Instance()->GetBreakpointSet();
+
+				for(size_t i=0;i<tAvailableBreakpoints.size();i++)
+				{
+					if(tAvailableBreakpoints[i].script==this->editorscript && tAvailableBreakpoints[i].line==tBreakOnLine)
+					{
+						std::vector<Debugger::Breakpoint>::iterator tFoundedBreakpointIterator=std::find(tBreakpoints.begin(),tBreakpoints.end(),tAvailableBreakpoints[i]);
+
+						bool tAdd=tBreakpoints.end()==tFoundedBreakpointIterator;
+
+						if(tAdd)
+							tBreakpoints.push_back(tAvailableBreakpoints[i]);
+						else
+							tBreakpoints.erase(tFoundedBreakpointIterator);
+
+						Debugger::Instance()->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
+
+						iFrame->SetDraw(this);
+
+						break;
+					}
+				}
+			}
+
+			iFrame->SetFocus(this);
+		}
+		break;
+		case ONKEYDOWN:
+		{
+			if(Keyboard::Instance()->IsPressed(0x11 /*VK_CONTROL*/) && !Keyboard::Instance()->IsPressed(0x12 /*VK_ALT*/))
+			{
+				if(Keyboard::Instance()->IsPressed('S'))
+				this->Save();
+			}
+		}
+		break;
+		case ONPAINT:
+		{
+			GuiRect::Procedure(iFrame,iMsg,iData);
+
+			vec4	tClippingEdges=this->GetClippingEdges();
+			vec4	tContentEdges=this->GetContentEdges();
+
+			float tOffsetx=this->GetScrollbarPosition(0);
+			float tOffsety=this->GetScrollbarPosition(1);
+
+			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
+			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
+
+			iFrame->renderer2D->DrawRectangle(tContentEdges.x,tContentEdges.y,tContentEdges.x+20,tContentEdges.w,0x505050);
+			iFrame->renderer2D->DrawRectangle(tContentEdges.x+20,tContentEdges.y,tContentEdges.x+this->toolsize,tContentEdges.w,0x707070);
+
+			this->DrawLineNumbers(iFrame);
+			this->DrawBreakpoints(iFrame);
+
+			iFrame->renderer2D->DrawText(this->editorscript->script,this->edges.x+this->toolsize,this->edges.y,this->edges.z,this->edges.w);
+
+			iFrame->renderer2D->Translate(0,0);
+			iFrame->renderer2D->PopScissor();
+
+			GuiScrollRect::Procedure(iFrame,iMsg,iData);
+		}
+		break;
+		default:
+			GuiScrollRect::Procedure(iFrame,iMsg,iData);
+	}
 }
 
-bool GuiScript::Save()
+void GuiScript::CalculateLayout()
 {
-	if(this->script)
-		this->script->SaveScript(this->editor->Text());
+	this->ResetContent();
+	vec4 tContent=GuiFont::GetDefaultFont()->MeasureText2(this->editorscript->script.c_str());
+	this->numrows=tContent.w;
+	this->numcols=tContent.z;
+	//left bar is composed by breakpoint width + line number max length
+	this->toolsize=20+GuiFont::GetDefaultFont()->MeasureText(StringUtils::Int(this->numrows).c_str()).x+10;
+	this->SetContent(this->toolsize+tContent.x,tContent.y);
+	this->CalculateScrollbarsLayout();
+}
 
-	return false;
+void GuiScript::Bind(EditorScript* iEditorScript)
+{
+	this->editorscript=iEditorScript;
+	this->editorscript->scriptViewer=this;
+
+	this->editorscript->LoadScript();
+	this->CalculateLayout();
+}
+
+EditorScript* GuiScript::GetBindedScript()
+{
+	return this->editorscript;
+}
+
+void GuiScript::Save()
+{
+	this->editorscript->SaveScript();
 }
 
 
@@ -5041,13 +5341,13 @@ bool GuiScript::Compile()
 	bool compiled=false;
 	bool runned=false;
 
-	if(this->script)
+	if(this->editorscript)
 	{
-		exited=Ide::Instance()->compiler->UnloadScript(this->script);
+		exited=GuiCompiler::Instance()->UnloadScript(this->editorscript);
 
-		compiled=Ide::Instance()->compiler->Compile(this->script);
+		compiled=GuiCompiler::Instance()->Compile(this->editorscript);
 
-		runned=Ide::Instance()->compiler->LoadScript(this->script);
+		runned=GuiCompiler::Instance()->LoadScript(this->editorscript);
 	}
 
 	return exited && compiled && runned;
@@ -5055,69 +5355,11 @@ bool GuiScript::Compile()
 
 
 
-void GuiScript::OnKeyDown(Frame* iFrame,const MsgData& iData)
-{
-	/*if(this->script)
-	{
-		if(InputManager::keyboardInput.IsPressed(0x11/ *VK_CONTROL* /) && !InputManager::keyboardInput.IsPressed(0x12/ *VK_ALT* /))
-		{
-			if(InputManager::keyboardInput.IsPressed('S'))
-				this->Save();
-		}
-	}
-
-	GuiRect::OnKeyDown(iTab,iData);*/
-}
-
 void GuiScript::OnKeyUp(Frame* iFrame,const MsgData& iData)
 {
 	//GuiRect::OnKeyUp(iTab,iData);
 }
 
-void GuiScript::OnLMouseDown(Frame* iFrame,const MsgData& iData)
-{
-	//GuiRect::OnMouseDown(iTab,iData);
-
-	/*if(iMsg.mouse.x < this->editor->margins.x)
-	{
-		unsigned int tBreakOnLine=(iMsg.mouse.y-this->GetEdges().y)/this->editor->font->GetHeight() + 1;
-
-		EditorScript* tEditorScript=(EditorScript*)this->script;
-
-		std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Ide::Instance()->debugger->allAvailableBreakpoints;
-		std::vector<Debugger::Breakpoint>& tBreakpoints=Ide::Instance()->debugger->breakpointSet;
-
-		for(size_t i=0;i<tAvailableBreakpoints.size();i++)
-		{
-			if(tAvailableBreakpoints[i].script==this->script && tAvailableBreakpoints[i].line==tBreakOnLine)
-			{
-				std::vector<Debugger::Breakpoint>::iterator tFoundedBreakpointIterator=std::find(tBreakpoints.begin(),tBreakpoints.end(),tAvailableBreakpoints[i]);
-
-				bool tAdd=tBreakpoints.end()==tFoundedBreakpointIterator;
-
-				if(tAdd)
-					tBreakpoints.push_back(tAvailableBreakpoints[i]);
-				else
-					tBreakpoints.erase(tFoundedBreakpointIterator);
-
-				Ide::Instance()->debugger->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
-
-				iFrame->SetDraw(this);
-
-				break;
-			}
-		}
-	}*/
-
-	iFrame->SetFocus(this->editor);
-}
-
-void GuiScript::OnDeactivate(Frame* iFrame,const MsgData& iData)
-{
-	iFrame->SetFocus(0);
-
-	//GuiRect::OnDeactivate(iTab,iData);
-}
 
 void GuiScript::OnMouseMove(Frame* iFrame,const MsgData& iData)
 {
@@ -5136,17 +5378,11 @@ void GuiScript::OnMouseMove(Frame* iFrame,const MsgData& iData)
 	}*/
 }
 
-void GuiScript::OnSize(Frame* iFrame,const MsgData& iData)
-{
-	/*GuiRect::OnSize(iTab,iData);
-
-	this->lineCount=this->CountScriptLines()-1;*/
-}
 
 
 int GuiScript::CountScriptLines()
 {
-	const wchar_t* t=this->editor->Text().c_str();
+	const wchar_t* t=this->editorscript->script.c_str();
 
 	int tLinesCount=!(*t) ? 0 : 1;
 
@@ -5161,25 +5397,57 @@ int GuiScript::CountScriptLines()
 	return tLinesCount;
 }
 
+void GuiScript::DrawLineNumbers(Frame* iFrame)
+{
+	float tTextHeight=GuiFont::GetDefaultFont()->GetHeight();
+	float tRowX=this->edges.x+25;
+	float tRowY=this->edges.y;
+	float tRowZ=this->toolsize-5;
+
+	for(int i=0;i<this->numrows;i++)
+	{
+		iFrame->renderer2D->DrawText(StringUtils::Int(i+1),tRowX,tRowY,tRowZ,tRowY + tTextHeight);
+		tRowY+=tTextHeight;
+	}
+}
+
+void GuiScript::DrawBreakpoints(Frame* iFrame)
+{
+	float tFontHeight=GuiFont::GetDefaultFont()->GetHeight();
+
+	std::vector<Debugger::Breakpoint>& breakpoints=Debugger::Instance()->GetBreakpointSet();
+
+	for(size_t i=0;i<breakpoints.size();i++)
+	{
+		if(breakpoints[i].script==this->editorscript)
+		{
+			unsigned int tLineInsertion=this->edges.y + (breakpoints[i].line - 1) * tFontHeight;
+
+			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
+
+			iFrame->renderer2D->DrawCircle(this->edges.x + 5,tLineInsertion + 10,this->edges.x,4,tBreakColor);
+		}
+	}
+}
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 ///////////////GuiCompilerViewer///////////////
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-std::list<GuiCompiler*>& GuiCompiler::InnerInstances()
+GuiCompiler* GuiCompiler::Instance()
 {
-	return GlobalGuiCompilerViewerInstance();
+	GLOBALGETTERFUNCASSINGLETON(GlobalGuiCompilerViewerInstance,GuiCompiler);
 }
 
 GuiCompiler::GuiCompiler()
 {
-	GlobalGuiCompilerViewerInstance().push_back(this);
+	GlobalGuiCompilerViewerInstance()=this;
 }
 
 GuiCompiler::~GuiCompiler()
 {
-	GlobalGuiCompilerViewerInstance().remove(this);
 }
 
 const wchar_t* nthOccurrenceInLine(const wchar_t* iStr,char iChar,int iNth)
@@ -5206,16 +5474,7 @@ const wchar_t* nthOccurrenceInLine(const wchar_t* iStr,char iChar,int iNth)
 
 bool GuiCompiler::ParseCompilerOutputFile(String iFileBuffer)
 {
-	/*bool bReturnValue=true;
-
-	//this->RemoveChild(&this->vScrollbar);
-
-	this->Destroy();
-
-	GuiRect* messagesGlue=new GuiRect;
-	this->Append(messagesGlue);
-
-	const int MESSAHE_ROW_HEIGHT=20;
+	bool bReturnValue=true;
 
 	const wchar_t* fileBuffer=iFileBuffer.c_str();
 
@@ -5237,17 +5496,9 @@ bool GuiCompiler::ParseCompilerOutputFile(String iFileBuffer)
 
 			bool simpleMessage=!compileError && !linkError;
 
-			GuiString* tCompilerMessageRow=new GuiString;
-
-			{
-				/ *tCompilerMessageRow->fixed.w=MESSAHE_ROW_HEIGHT;
-				tCompilerMessageRow->alignRect.y=-1;
-				tCompilerMessageRow->alignText.make(-1,0.5f);* /
-			}
-
 			if(simpleMessage)
 			{
-				tCompilerMessageRow->Text(String(LineBegin,LineEnd-LineBegin));
+				this->Log(String(LineBegin,LineEnd-LineBegin));
 			}
 			else
 			{
@@ -5263,39 +5514,20 @@ bool GuiCompiler::ParseCompilerOutputFile(String iFileBuffer)
 				if(ErrorEnd)
 					ErrorEnd+=2;
 
-				tCompilerMessageRow->Text(String(FileEnd,ErrorEnd-FileEnd)+String(ErrorEnd,LineEnd-ErrorEnd));
+				this->Log(String(FileEnd,ErrorEnd-FileEnd)+String(ErrorEnd,LineEnd-ErrorEnd));
 //				tCompilerMessageRow->GetColor(GuiRect::BACKGROUND)=0xff0000;
 			}
 
-//			tCompilerMessageRow->GetAutoEdges()->ref.make(0,&messagesGlue->GetEdges().w);
-
-			this->Append(tCompilerMessageRow);
-
 			LineBegin=++LineEnd;
 		}
-
-		//this->AddChild(&this->vScrollbar);
-
-		//this->contentHeight=messagesGlue->childs.size()*MESSAHE_ROW_HEIGHT;
 	}
 
-	return bReturnValue;*/
+	return bReturnValue;
 	return false;
 }
 
 
-void GuiCompiler::OnSize(Frame* iFrame,const MsgData& iData)
-{
-	/*this->vScrollbar.SetScrollerRatio(this->contentHeight,this->rect.w);
 
-	if(this->childs.size()==2)
-		//we don't need the GuiScrollRect::width cause the newly GuiRect::offset
-		this->vScrollbar.IsVisible() ? this->childs[0]->offsets.z=-GuiScrollBar::SCROLLBAR_TICK : this->childs[0]->offsets.z=0;*/
-
-	//GuiRect::OnSize(iTab,iData);
-
-	/*this->rect.z=this->rect.z;*/
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -5331,6 +5563,14 @@ EditorEntity::EditorEntity():
 	pcAABB(L"AABB",&this->bbox)
 {
 	this->TreeViewNode().SetLabel(L"Entity");
+	this->instancedEntitiesNumber++;
+}
+
+unsigned int EditorEntity::instancedEntitiesNumber=0;
+
+EditorEntity::~EditorEntity()
+{
+	this->instancedEntitiesNumber--;
 }
 
 EditorEntity* EditorEntity::Parent(){return (EditorEntity*)this->Entity::Parent();}
@@ -5343,6 +5583,16 @@ void EditorEntity::SetName(String iName)
 	this->sceneLabel.SetLabel(this->name);
 }
 
+SceneEntityLabel&	EditorEntity::GetSceneLabel()
+{
+	return this->sceneLabel;
+}
+
+unsigned int	EditorEntity::GetInstancedEntitiesNumber()
+{
+	return EditorEntity::instancedEntitiesNumber;
+}
+
 EditorEntity*	EditorEntity::Append(EditorEntity* iEntity)
 {
 	this->Entity::Append(iEntity);
@@ -5353,10 +5603,6 @@ void	EditorEntity::Remove(EditorEntity* iEntity)
 {
 	this->Entity::Remove(iEntity);
 	this->sceneLabel.Remove(iEntity->sceneLabel);
-}
-
-EditorEntity::~EditorEntity()
-{
 }
 
 void EditorEntity::DestroyChilds(){}
@@ -5409,8 +5655,6 @@ void EditorMesh::OnPropertiesCreate()
 	this->TreeViewContainer().Insert(pPolygons);
 	this->TreeViewContainer().Insert(pTextCoord);
 	this->TreeViewContainer().Insert(pVertexIndices);
-
-	this->Entity()->TreeViewContainer().Insert(this->TreeViewContainer());
 }
 
 void EditorMesh::OnPropertiesUpdate(Frame* tab)
@@ -5436,8 +5680,6 @@ void EditorSkin::OnPropertiesCreate()
 {
 	this->TreeViewContainer().Insert(pClusters);
 	this->TreeViewContainer().Insert(pTextures);
-
-	this->Entity()->TreeViewContainer().Insert(this->TreeViewContainer());
 }
 void EditorSkin::OnPropertiesUpdate(Frame* tab)
 {
@@ -5488,8 +5730,6 @@ void EditorAnimation::OnPropertiesCreate()
 	this->TreeViewContainer().Insert(pDuration);
 	this->TreeViewContainer().Insert(pBegin);
 	this->TreeViewContainer().Insert(pEnd);
-
-	this->Entity()->TreeViewContainer().Insert(this->TreeViewContainer());
 }
 void EditorAnimation::OnPropertiesUpdate(Frame* tab)
 {
@@ -5524,8 +5764,6 @@ void EditorAnimationController::OnPropertiesCreate()
 	this->TreeViewContainer().Insert(pDuration);
 	this->TreeViewContainer().Insert(pPlayer);
 	this->TreeViewContainer().Insert(pVelocity);
-
-	this->Entity()->TreeViewContainer().Insert(this->TreeViewContainer());
 }
 
 
@@ -5557,8 +5795,6 @@ void EditorLine::OnPropertiesCreate()
 		this->pointItems.push_back(tPoint);
 		this->pointListBox.Append(tPoint);
 	}*/
-
-	this->Entity()->TreeViewContainer().Insert(this->TreeViewContainer());
 }
 void EditorLine::OnPropertiesUpdate(Frame* tab)
 {
@@ -5583,7 +5819,6 @@ void EditorLine::Append(vec3 iPoint)
 void EditorBone::OnPropertiesCreate()
 {
 	this->TreeViewContainer().SetLabel(L"Bone");
-	this->Entity()->TreeViewContainer().Insert(this->TreeViewContainer());
 }
 void EditorBone::OnPropertiesUpdate(Frame* tab)
 {
@@ -5597,115 +5832,151 @@ void EditorLight::OnPropertiesUpdate(Frame* tab)
 {
 }
 
-void editScriptEditorCallback(void* iData)
+
+///////////////////EditorScript////////////////
+
+EditorScript::EditorScriptButtons::EditorScriptButtons(EditorScript* iEditorScript):editorscript(iEditorScript)
 {
-	/*EditorScript* editorScript=(EditorScript*)iData;
+	this->buttonCompile.Text(L"Compile");
+	this->buttonEdit.Text(L"Edit");
+	this->buttonLaunch.Text(L"Launch");
 
-	Tab* tabContainer=Ide::Instance()->mainAppWindow->mainContainer->tabs[0];
+	this->Append(&this->buttonCompile);
+	this->Append(&this->buttonEdit);
+	this->Append(&this->buttonLaunch);
+}
 
-	if(!tabContainer)
-		DEBUG_BREAK();
-
-	std::list<GuiScriptViewer*>& tGuiScriptViewerInstances=GuiScriptViewer::GetInstances();
-
-	if(GuiScriptViewer::GetInstances().empty())
-		tabContainer->rects.Append(new GuiScriptViewer);
-
-	GuiScriptViewer* guiScriptViewer=GuiScriptViewer::GetInstances().front();
-
-	if(guiScriptViewer)
+void EditorScript::EditorScriptButtons::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
+{
+	switch(iMsg)
 	{
-		guiScriptViewer->Open(editorScript);
-		guiScriptViewer->OnSize(tabContainer,Msg());
-		tabContainer->SetDraw();
-	}*/
-}
+		case ONSIZE:
+		{
+			float ty=this->edges.y;
 
-void compileScriptEditorCallback(void* iData)
+			this->buttonCompile.edges=this->edges;
+			this->buttonEdit.edges=this->edges;
+			this->buttonLaunch.edges=this->edges;
+
+			this->buttonCompile.edges.y=ty;
+			this->buttonCompile.edges.w=ty+20;
+			this->buttonEdit.edges.y=ty+20;
+			this->buttonEdit.edges.w=ty+40;
+			this->buttonLaunch.edges.y=ty+40;
+			this->buttonLaunch.edges.w=ty+60;
+		}
+		break;
+		case ONCONTROLEVENT:
+		{
+			ControlData* cd=(ControlData*)iData;
+
+			if(cd && cd->msg==ONMOUSEUP)
+			{
+				if(cd->control==&this->buttonEdit)
+				{
+					GuiScript* tBindedGuiScript=0;
+
+					for(std::list<GuiScript*>::iterator i=GuiScript::GetPool().begin();i!=GuiScript::GetPool().end();i++)
+					{
+						if((*i)->GetBindedScript()==this->editorscript)
+							tBindedGuiScript=*i;
+					}
+
+					if(tBindedGuiScript)
+						tBindedGuiScript->GetRoot()->SetTab(tBindedGuiScript);
+					else
+					{
+						GuiScript* tGuiScript=GuiScript::Instance();
+						tGuiScript->Bind(this->editorscript);
+
+						iFrame->GetViewers().front()->AddTab(tGuiScript,L"Script");
+					}
+				}
+				else if(cd->control==&this->buttonCompile)
+				{
+					GuiCompiler::Instance()->Compile(this->editorscript);
+				}
+				else if(cd->control==&this->buttonLaunch)
+				{
+
+				}
+			}
+		}
+		break;
+		default:
+			GuiRect::Procedure(iFrame,iMsg,iData);
+	}
+}
+void EditorScript::EditorScriptButtons::SetColor(unsigned int iColor)
 {
-	/*EditorScript* editorScript=(EditorScript*)iData;
+	GuiRect::SetColor(iColor);
 
-    Ide::Instance()->compiler->Compile(editorScript);*/
+	this->buttonCompile.SetColor(iColor);
+	this->buttonEdit.SetColor(iColor);
+	this->buttonLaunch.SetColor(iColor);
 }
 
-
-
-EditorScript::EditorScript():scriptViewer(0)
+EditorScript::EditorScript():
+	scriptViewer(0),
+	spButtons(this),
+	spFilePath(&this->Script::scriptpath,GuiStringProperty::STRING),
+	spIsRunning(&this->Script::runtime,GuiStringProperty::BOOLPTR),
+	pFilePath(L"Path",spFilePath),
+	pIsRunning(L"Running",spIsRunning),
+	pActions(L"Actions",spButtons,60)
 {
 
 };
 
 void EditorScript::OnPropertiesCreate()
 {
-	/*this->PropertyContainer().SetName(L"Bone");
-	this->Entity()->PropertyContainer().Append(this->PropertyContainer());*/
+	this->TreeViewNode().SetLabel(L"Script");
 
-	/*GuiProperty<GuiString>* tFile=container->Property(L"File",new GuiString(this->Script::file));
-	GuiProperty<GuiString>* tRunning=container->Property(L"Running",new GuiString(&this->Script::runtime,StringProperty::BOOLPTR));
-
-	GuiButton* buttonEdit=new GuiButton;
-	buttonEdit->SetName(L"EditorScript Edit Button");
-	buttonEdit->func=editScriptEditorCallback;
-	buttonEdit->param=this;
-	buttonEdit->text=L"Edit";
-//	buttonEdit->GetAutoEdges()->fix.make(0,0,0,20);
-	container->Insert(buttonEdit);
-
-	GuiButton* buttonCompile=new GuiButton;
-	buttonCompile->func=compileScriptEditorCallback;
-	buttonCompile->param=this;
-	buttonCompile->text=L"Compile";
-//	buttonCompile->GetAutoEdges()->fix.make(0,0,0,20);
-	container->Insert(buttonCompile);
-
-	this->buttonLaunch=new GuiButton;
-	this->buttonLaunch->func=launchStopScriptEditorCallback;
-	this->buttonLaunch->param=this;
-	this->buttonLaunch->text=L"Launch";
-//	this->buttonLaunch->GetAutoEdges()->fix.make(0,0,0,20);
-	container->Insert(this->buttonLaunch);*/
+	this->TreeViewContainer().Insert(pFilePath);
+	this->TreeViewContainer().Insert(pIsRunning);
+	this->TreeViewContainer().Insert(pActions);
 }
 void EditorScript::OnPropertiesUpdate(Frame* tab)
 {
 }
 
-void EditorScript::SaveScript(const String& iString)
+void EditorScript::SaveScript()
 {
-	StringUtils::WriteCharFile(this->file,iString,L"wb");
+	StringUtils::WriteCharFile(this->scriptpath,this->script,L"wb");
 }
 
-String EditorScript::LoadScript()
+void EditorScript::LoadScript()
 {
-	return StringUtils::ReadCharFile(this->file,L"rb");
+	this->script=StringUtils::ReadCharFile(this->scriptpath,L"rb");
 }
 
 void EditorScript::OnResourcesCreate()
 {
-	/*if(this->file.empty())
-		this->file=Ide::Instance()->folderProject + L"\\" + this->Entity()->name + L".cpp";
+	if(this->scriptpath.empty())
+		this->scriptpath=Ide::Instance()->folderProject + L"\\" + this->Entity()->name + L".cpp";
 	
-	if(!File::Exist(this->file))
+	if(!File::Exist(this->scriptpath))
 	{
-		if(!File::Create(this->file))
+		if(!File::Create(this->scriptpath))
 			DEBUG_BREAK();
 
-		String tDefaultScript=L"#include \"entities.h\"\n\nstruct " + this->Entity()->name + L"_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
+		this->script=L"#include \"entities.h\"\n\nstruct " + this->Entity()->name + L"_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
 
-		this->SaveScript(tDefaultScript);
+		this->SaveScript();
 	}
 
-	GuiProjectViewer::Instance()->RefreshAll();
+	GuiProject::Instance()->Reset();
+	GuiProject::Instance()->Scan();
 
-	this->resourceNode=ResourceNodeDir::FindFileNode(this->file);
+	this->resourceNode=ResourceNodeDir::FindFileNode(this->scriptpath);
 
 	if(!this->resourceNode)
-		DEBUG_BREAK();*/
+		DEBUG_BREAK();
 }
 
 void EditorCamera::OnPropertiesCreate()
 {
-	/*this->PropertyContainer().SetName(L"Camera");
-	this->Entity()->PropertyContainer().Append(this->PropertyContainer());*/
+	this->TreeViewNode().SetLabel(L"Camera");
 }
 void EditorCamera::OnPropertiesUpdate(Frame* tab)
 {
@@ -5767,6 +6038,11 @@ void PluginSystem::Plugin::PluginListBoxItem::OnMouseMove(GuiListBox*,Frame* iFr
 PluginSystem::PluginSystem():pluginsTab(this){}
 PluginSystem::~PluginSystem(){}	
 
+PluginSystem* PluginSystem::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalPluginSystemInstance,PluginSystem);
+}
+
 PluginSystem::GuiPluginTab::GuiPluginTab(PluginSystem* iPluginSystem):pluginSystem(iPluginSystem)
 {
 	this->exitButton.Text(L"Exit");
@@ -5783,8 +6059,8 @@ void PluginSystem::GuiPluginTab::Procedure(Frame* iFrame,GuiRectMessages iMsg,vo
 
 			if(cd && cd->control==&this->exitButton && cd->msg==ONMOUSEUP)
 			{
-				Ide::Instance()->GetMainFrame()->DestroyFrame(this->GetRoot()->GetFrame());
-				Ide::Instance()->GetMainFrame()->Enable(true);
+				MainFrame::Instance()->DestroyFrame(this->GetRoot()->GetFrame());
+				MainFrame::Instance()->Enable(true);
 			}
 		}
 		break;
@@ -5800,12 +6076,15 @@ void PluginSystem::GuiPluginTab::OnSize(Frame* iFrame,const vec4& iEdges)
 	this->exitButton.edges.make(iEdges.z-110,iEdges.w-25,iEdges.z-10,iEdges.w-5);
 }
 
+
+
 void PluginSystem::ShowGui()
 {
 	this->ScanPluginsDirectory();
 
-	MainFrame*	tMainFrame=Ide::Instance()->GetMainFrame();
+	MainFrame*	tMainFrame=MainFrame::Instance();
 	Frame*		tFrame=0;
+	GuiViewer*	tViewer=0;
 
 	tMainFrame->Enable(false);
 
@@ -5817,10 +6096,9 @@ void PluginSystem::ShowGui()
 	tTabPos.y+=tIdeFrameSize.y/2.0f-tTabSize.y/2.0f;
 
 	tFrame=tMainFrame->CreateFrame(tTabPos.x,tTabPos.y,tTabSize.x,tTabSize.y,0,true);
-
-	this->viewer.edges.make(tTabPos.x,tTabPos.y,tTabPos.x+tTabSize.x,tTabPos.y+tTabSize.y);
-
-	tFrame->AddViewer(&this->viewer);
+	tViewer=tFrame->GetViewers().front();
+	
+	tViewer->edges.make(tTabPos.x,tTabPos.y,tTabPos.x+tTabSize.x,tTabPos.y+tTabSize.y);
 
 	for(std::list<Plugin*>::const_iterator i=this->plugins.begin();i!=this->plugins.end();i++)
 	{
@@ -5829,20 +6107,12 @@ void PluginSystem::ShowGui()
 		this->pluginsTab.InsertItem(tPlugin->listBoxItem);
 	}
 
-	this->viewer.AddTab(&this->pluginsTab,L"Plugins");
+	tViewer->AddTab(&this->pluginsTab,L"Plugins");
 	
 	tFrame->OnSize(tFrame->Size().x,tFrame->Size().y);
 }
 
-
-
-
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 ////////////////////Subsystem//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 String Subsystem::RandomDir(String iWhere,int iSize,String iAlphabet)
 {
@@ -5855,16 +6125,16 @@ String Subsystem::RandomDir(String iWhere,int iSize,String iAlphabet)
 
 		String tFullRandomDirName=iWhere + L"\\" + tRandomWorkingDirectoryName;
 
-		if(!this->DirectoryExist(tRandomWorkingDirectory.c_str()))
+		if(!Subsystem::DirectoryExist(tRandomWorkingDirectory.c_str()))
 			break;
 	}
 
 	tRandomWorkingDirectory=iWhere + L"\\" + tRandomWorkingDirectoryName;
 
-	if(!this->CreateDirectory(tRandomWorkingDirectory.c_str()))
+	if(!Subsystem::CreateDir(tRandomWorkingDirectory.c_str()))
 		DEBUG_BREAK();
 
-	if(!this->DirectoryExist(tRandomWorkingDirectory.c_str()))
+	if(!Subsystem::DirectoryExist(tRandomWorkingDirectory.c_str()))
 		DEBUG_BREAK();
 
 	return tRandomWorkingDirectory;
@@ -6039,7 +6309,7 @@ void SerializerHelpers::Save(Script* tScript,FILE* iFile)
 {
 	WriteComponentCode(Serializer::Script,iFile);
 
-	StringUtils::WriteWstring(iFile,tScript->file);
+	StringUtils::WriteWstring(iFile,tScript->scriptpath);
 }
 
 

@@ -236,14 +236,14 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	char* Name();
 	void ChangeContext();
 
-	void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
+	void DrawPoint(vec3,float psize=1.0f,vec3 color=vec3(1,1,1));
 	void draw(vec2);
-	void draw(vec3,vec3,vec3 color=vec3(1,1,1));
+	void DrawLine(vec3,vec3,vec3 color=vec3(1,1,1));
 	void draw(vec4);
 	void draw(AABB,vec3 color=vec3(1,1,1));
 	void draw(mat4 mtx,float size,vec3 color=vec3(1,1,1));
 	//void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
-	void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
+	void DrawText(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4);
 
 	void draw(Light*);
 	void draw(Mesh*);
@@ -327,12 +327,12 @@ struct DLLBUILD DirectXRenderer : WindowData ,  Renderer3D
 	virtual void  Create(HWND container);
 	virtual void Render();
 
-	virtual void draw(vec3,float psize=1.0f,vec3 color=vec3(1,1,1)){}
+	virtual void DrawPoint(vec3,float psize=1.0f,vec3 color=vec3(1,1,1)){}
 	virtual void draw(vec2){}
-	virtual void draw(vec3,vec3,vec3 color=vec3(1,1,1)){}
+	virtual void DrawLine(vec3,vec3,vec3 color=vec3(1,1,1)){}
 	virtual void draw(vec4){}
 	//virtual void draw(Font*,char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4){}
-	virtual void draw(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4){}
+	virtual void DrawText(char* phrase,float x,float y,float width,float height,float sizex,float sizey,float* color4){}
 
 	virtual void draw(Light*){}
 	virtual void draw(Mesh*){}
@@ -409,34 +409,23 @@ struct DLLBUILD IdeWin32 : Ide
 
 	HANDLE processThreadHandle;
 	HANDLE processHandle;
+	HANDLE projectDirChangeHandle;
 
 	bool projectDirHasChanged;
 
 	void Run();
-	void ProjectDirHasChangedFunc();
+	void ScanProjectDirectoryForFileChanges();
 
 	void ScanDir(String,ResourceNodeDir*);
 	void Sleep(int iMilliseconds=1);
 };
 
-struct DLLBUILD SubsystemWin32 : Subsystem
-{
-	bool Execute(String iPath,String iCmdLine,String iOutputFile=L"",bool iInput=false,bool iError=false,bool iOutput=false,bool iNewConsole=false);
-	unsigned int FindProcessId(String iProcessName);
-	unsigned int FindThreadId(unsigned int iProcessId,String iThreadName);
-	String DirectoryChooser(String iDescription,String iExtension);
-	String FileChooser(wchar_t* iFilter=0,unsigned int iFilterIndex=0);
-	std::vector<String> ListDirectories(String iDir);
-	bool CreateDirectory(String);
-	bool DirectoryExist(String);
-	void* LoadLibrary(String);
-	bool FreeLibrary(void*);
-	void* GetProcAddress(void*,String);
-	void SystemMessage(String iTitle,String iMessage,unsigned iFlags);
-};
+
 
 struct DLLBUILD DebuggerWin32 : Debugger
 {
+	static DWORD WINAPI debuggeeThreadFunc(LPVOID iDebuggerWin32);
+
 	HANDLE debuggeeThread;
 	DWORD  debuggeeThreadId;
 

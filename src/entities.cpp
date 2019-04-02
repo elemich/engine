@@ -151,6 +151,30 @@ Renderer3DBase::~Renderer3DBase()
 	
 }
 
+void Renderer3DBase::UpdateEntities(Entity* iEntity)
+{
+	for(std::list<EntityComponent*>::const_iterator it=iEntity->Components().begin();it!=iEntity->Components().end();it++)
+		(*it)->update(this);
+
+	iEntity->Parent() ? iEntity->world=(iEntity->local * iEntity->Parent()->world) : iEntity->world;
+
+	for(std::list<Entity*>::const_iterator it=iEntity->Childs().begin();it!=iEntity->Childs().end();it++)
+		this->UpdateEntities(*it);
+}
+
+void Renderer3DBase::RenderEntities(Entity* iEntity)
+{
+	this->DrawPoint(iEntity->local.position(),5,vec3(1,1,1));
+
+	for(std::list<EntityComponent*>::const_iterator it=iEntity->Components().begin();it!=iEntity->Components().end();it++)
+		(*it)->render(this);
+
+	for(std::list<Entity*>::const_iterator it=iEntity->Childs().begin();it!=iEntity->Childs().end();it++)
+		this->RenderEntities(*it);
+}
+
+
+
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 //////////////////MatrixStack//////////////////
@@ -529,7 +553,7 @@ void AnimationController::Play()
 }
 
 
-void AnimationController::update()
+void AnimationController::update(Renderer3DBase*)
 {
 	if(this->play)
 	{
@@ -677,7 +701,7 @@ Line::~Line()
 {
 }
 
-void Line::draw(Renderer3DBase* renderer3d)
+void Line::render(Renderer3DBase* renderer3d)
 {
 	for(std::list<vec3>::iterator i=this->points.begin(),j;i!=this->points.end();i++)
 	{
@@ -685,7 +709,7 @@ void Line::draw(Renderer3DBase* renderer3d)
 		std::advance(j,1);
 
 		if(j!=this->points.end())
-			renderer3d->draw(*i,*j,vec3(1,1,1));
+			renderer3d->DrawLine(*i,*j,vec3(1,1,1));
 	}
 }
 
@@ -770,7 +794,7 @@ Mesh::Mesh():
 
 Mesh::~Mesh(){}
 
-void Mesh::draw(Renderer3DBase* renderer3d)
+void Mesh::render(Renderer3DBase* renderer3d)
 {
 	renderer3d->draw(this);
 }
@@ -794,7 +818,7 @@ Skin::Skin():
 }
 
 
-void Skin::update()
+void Skin::update(Renderer3DBase*)
 {
 	if(this->vertexcache)
 		delete [] this->vertexcache;
@@ -861,7 +885,7 @@ void Skin::update()
 	delete [] wcache;
 }
 
-void Skin::draw(Renderer3DBase* renderer3d)
+void Skin::render(Renderer3DBase* renderer3d)
 {
 	renderer3d->draw(this);
 }
@@ -873,7 +897,7 @@ void Skin::draw(Renderer3DBase* renderer3d)
 ///////////////////////////////////////////////
 Script::Script():runtime(0),handle(0){}
 
-void Script::update()
+void Script::update(Renderer3DBase*)
 {
 	if(this->runtime)
         this->runtime->update();
@@ -892,7 +916,7 @@ Camera::Camera(vec3 pos,vec3 target,vec3 up,float iFov,float iRatio,float iNear,
 	this->view.lookat(target,up);
 }
 
-void Camera::update()
+void Camera::update(Renderer3DBase*)
 {
 
 }
@@ -963,8 +987,8 @@ TextureProcedural::TextureProcedural(){}
 EntityComponent::EntityComponent():entity(0){}
 EntityComponent::~EntityComponent(){}
 
-void EntityComponent::update(){}
-void EntityComponent::draw(Renderer3DBase*){}
+void EntityComponent::update(Renderer3DBase*){}
+void EntityComponent::render(Renderer3DBase*){}
 
 Entity* EntityComponent::Entity(){return this->entity;}
 ///////////////////////////////////////////////
@@ -1008,26 +1032,13 @@ const std::list<EntityComponent*>& Entity::Components(){return this->components;
 
 Entity* Entity::Parent(){return this->parent;}
 
-void Entity::update()
+void Entity::update(Renderer3DBase*)
 {
-	for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
-		(*it)->update();
-
-	this->parent ? this->world=(this->local * this->parent->world) : this->world;
-
-	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
-		(*it)->update();
 }
 
-void Entity::draw(Renderer3DBase* renderer)
+void Entity::render(Renderer3DBase* renderer)
 {
-	renderer->draw(this->local.position(),5,vec3(1,1,1));
-
-	for(std::list<EntityComponent*>::iterator it=this->components.begin();it!=this->components.end();it++)
-		(*it)->draw(renderer);
-
-	for(std::list<Entity*>::iterator it=this->childs.begin();it!=this->childs.end();it++)
-		(*it)->draw(renderer);
+	
 }
 
 ///////////////////////////////////////////////
@@ -1262,7 +1273,7 @@ void SerializerHelpers::Load(Line* tLine,FILE* iFile)
 
 void SerializerHelpers::Load(Script* tScript,FILE* iFile)
 {
-	StringUtils::ReadWstring(iFile,tScript->file);
+	StringUtils::ReadWstring(iFile,tScript->scriptpath);
 
 #ifndef EDITORBUILD
 	LoadScriptModule(tScript);

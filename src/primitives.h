@@ -23,11 +23,17 @@
 	return funcName##Instance; \
 	} \
 
+#define GLOBALGETTERFUNCASSINGLETON(funcName,dataType) \
+	if(!funcName()) \
+	funcName()=new dataType; \
+	return funcName(); \
+
 #include <vector>
 #include <list>
 #include <functional>
 #include <algorithm>
 #include <cctype>
+#include <cstdarg>
 #include <cstring> //for g++ str* functions
 #include <string> //for g++ str* functions
 #include <cstdio>
@@ -68,6 +74,10 @@ struct DLLBUILD  ThreadPool;
 struct DLLBUILD  Thread;
 
 
+#define PIGRECO 		3.141592653589793238462643383279502
+#define PIGRECO180	 	0.017453292519943295769236907684886
+#define SEZAUREA	 	1.61803398875
+
 template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 {
 	T v[size];
@@ -101,7 +111,7 @@ namespace StringUtils
 	String DLLBUILD ToWide(const char*);
 	String DLLBUILD ToWide(const std::string&);
 
-	String DLLBUILD Int(int&);
+	String DLLBUILD Int(int);
 	String DLLBUILD Float(float&,int iBefore=2,int iAfter=2);
 
 	bool DLLBUILD WriteCharFile(String iFilename,String iContent,String iMode=L"w");
@@ -110,6 +120,8 @@ namespace StringUtils
 	String DLLBUILD ReadWideFile(String iFilename,String iMode=L"r");
 
 	String RandomString(int iSize,String iAlphabet=L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+
+	String Format (const wchar_t* iFormat, ... );
 }
 
 struct DLLBUILD FilePath : String
@@ -158,9 +170,6 @@ struct DLLBUILD File
 
 namespace Vector
 {
-	#define PI 				3.141592653589793238462643383279502
-	#define PI_OVER_180	 	0.017453292519943295769236907684886
-
 	DLLBUILD float dot(const float *a ,const float *b ,int dim);
 	DLLBUILD float* cross(float* c,const float* a,const float* b);
 	DLLBUILD float* sum(float *c,const float *a ,const float *b,int dim );

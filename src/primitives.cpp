@@ -362,7 +362,7 @@ String StringUtils::ToWide(const std::string& iChars)
 	return tReturnString;
 }
 
-String StringUtils::Int(int& iInt)
+String StringUtils::Int(int iInt)
 {
 	String tString;
 
@@ -501,6 +501,18 @@ String StringUtils::RandomString(int iSize,String iAlphabet)
 	return tReturnString;
 }
 
+String StringUtils::Format (const wchar_t* iFormat, ... )
+{
+	wchar_t tTmp[1000];
+
+	va_list args;
+	va_start (args, iFormat);
+	vswprintf (tTmp,1000,iFormat,args);
+	va_end (args);
+
+	return String(tTmp);
+}
+
 
 //---------------------------------
 
@@ -544,7 +556,7 @@ float* Vector::make(float *v ,int dim,float x,float y,float z,float t)
 
 float Vector::angleg(const float *a,const float *b,int dim)
 {
-    return acos(dot(a,b,dim)/length(a,dim) * length(b,dim)) * (float)(180.0/PI);
+    return acos(dot(a,b,dim)/length(a,dim) * length(b,dim)) * (float)(180.0/PIGRECO);
 }
 
 
@@ -987,7 +999,7 @@ void Matrix::ortho(float* m,float l,float r,float b,float t,float n,float f)
 
 void Matrix::perspective(float* m,float fov,float ratio,float near,float far)
 {
-		float D2R = PI / 180.0;
+		float D2R = PIGRECO / 180.0;
 		float yScale = 1.0 / tan(D2R * fov / 2);
 		float xScale = yScale / ratio;
 		float nearmfar = near - far;
@@ -1061,7 +1073,7 @@ void Matrix::lookat(float* m,float* at,float px,float py,float pz,float ux,float
 
 void Matrix::rotate(float* mr,float* m,float angle,float u,float v,float w)
 {
-    float ang=(float)(angle*PI_OVER_180);
+    float ang=(float)(angle*PIGRECO180);
 	float m2[16] = {0};
 
 	float nrm=sqrt(u*u+v*v+w*w);

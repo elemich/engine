@@ -30,13 +30,13 @@ void Fbx::OnMenuPressed(Frame* iFrame,int iIdx)
 {
 	if(iIdx==MenuActionImport)
 	{
-		Ide::Instance()->mainframe->frame->windowData->Enable(false);
+		MainFrame::Instance()->frame->windowData->Enable(false);
 
 		wchar_t tFbxFilter[]=L"Fbx Files (*.fbx)\0*.fbx\0";
 
-		String tFbxFile=Ide::Instance()->subsystem->FileChooser(tFbxFilter,1);
+		String tFbxFile=Subsystem::FileChooser(tFbxFilter,1);
 
-		Ide::Instance()->mainframe->frame->windowData->Enable(true);
+		MainFrame::Instance()->GetFrame()->Enable(true);
 
 		if(tFbxFile.size())
 		{
