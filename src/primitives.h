@@ -83,21 +83,20 @@ template<class T,int size> struct DLLBUILD  TNumberedVectorInterface
 	T v[size];
 };
 
-template <typename T> struct DLLBUILD  TStaticInstance
+template <typename T> struct DLLBUILD Singleton
 {
 private:
-	static T* instance;
+	void Instancer(){T* tInstance=T::Instance();}
+	bool InstanceQuery(){return T::IsInstanced();}
 public:
-	TStaticInstance()
-	{
-		if(!instance)
-			instance=(T*)this;
-	}
-
-	T* Instance(){return this->instance;}
 };
 
-template <typename T> T* TStaticInstance<T>::instance=0;
+template <typename T> struct DLLBUILD Multiton : Singleton<T>
+{
+private:
+	std::list<T*>& MultitonGetter(){return T::GetPool();}
+public:
+};
 
 typedef std::wstring String;
 
@@ -122,6 +121,7 @@ namespace StringUtils
 	String RandomString(int iSize,String iAlphabet=L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 
 	String Format (const wchar_t* iFormat, ... );
+	void Format (String&,const wchar_t* iFormat, ... );
 }
 
 struct DLLBUILD FilePath : String
@@ -454,20 +454,20 @@ struct DLLBUILD  mat4 : TNumberedVectorInterface<float,16>
 	void zero();
 };
 
-struct DLLBUILD  Timer : TStaticInstance<Timer>
+struct DLLBUILD  Timer : Singleton<Timer>
 {
 protected:
 	unsigned int currentFrameTime;
 	unsigned int currentFrameDeltaTime;
 	unsigned int lastFrameTime;
-public:
+
 	Timer();
+public:
+	static Timer* Instance();
 
 	virtual void update()=0;
 	virtual unsigned int GetCurrent();
 	virtual unsigned int GetLastDelta();
-
-	static Timer* GetInstance();
 };
 
 struct DLLBUILD  Task

@@ -1,5 +1,7 @@
 #include "EngineAndroid.h"
 
+GLOBALGETTERFUNC(GlobalTimerInstance,TimerAndroid*);
+
 const char*     current_dir=NULL;
 
 JavaVM			*globalJvm=NULL;
@@ -264,6 +266,11 @@ namespace SerializerHelpers
 			iScript->handle=0;
 		}
 	}
+}
+
+Timer* Timer::Timer::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalTimerInstance,TimerAndroid);
 }
 
 void TimerAndroid::update()

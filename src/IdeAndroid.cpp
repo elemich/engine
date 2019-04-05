@@ -462,7 +462,7 @@ void AndroidHelpers::findPlatformDirectories(void* iData)
 {
 	AndroidPlugin* tAndroidPlugin=(AndroidPlugin*)iData;
 
-	String tSdkDirectory=tAndroidPlugin->sdkDirProperty->property->path.Text();
+	String tSdkDirectory=tAndroidPlugin->sdkDirProperty->property->path.GetText();
 
 	std::vector<String> tPlatformsDirs;
 	std::vector<String> tBuildtoolDirs;

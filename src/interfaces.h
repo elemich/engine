@@ -66,22 +66,8 @@ struct DLLBUILD Script;
 #define RENDERER_ENABLED 1
 #define RENDERER_FRAMED 1
 #define RENDERER_THREADED 0
+#define CARET_OS 0
 #define PRINTPROCEDUREMESSAGESCALL 0
-
-template <typename T> struct DLLBUILD Singleton
-{
-private:
-	void Instancer(){T* tInstance=T::Instance();}
-	bool InstanceQuery(){return T::IsInstanced();}
-public:
-};
-
-template <typename T> struct DLLBUILD Multiton : Singleton<T>
-{
-private:
-	std::list<T*>& MultitonGetter(){return T::GetPool();}
-public:
-};
 
 struct DLLBUILD GuiFont
 {
@@ -166,10 +152,57 @@ public:
 	unsigned int*	RawTiming(){return previous;}
 };
 
+struct DLLBUILD MsgData
+{
+	bool skipchilds;
+	bool skipall;
+
+	MsgData():skipchilds(false),skipall(false){};
+};
+struct DLLBUILD HitTestData : MsgData
+{
+	vec2				mouse;
+	vec2				off;
+	GuiRect*			hit;
+	bool				locked;
+	vec4				focusrect;
+	GuiRect*			dragrect[4];
+};
+struct DLLBUILD MouseData : MsgData
+{
+	vec2					mouse;
+	unsigned int			button;
+	float					scroller;
+	Mouse&				raw;
+
+	MouseData(const vec2& iMouse,unsigned iBut,float iScr,Mouse& iMi):mouse(iMouse),button(iBut),scroller(iScr),raw(iMi){}
+};
+
+struct DLLBUILD KeyData : MsgData
+{
+	char				key;
+	KeyData(char iKey):key(iKey){}
+};
+struct DLLBUILD ControlData : MsgData
+{
+	GuiRect*		control;
+	unsigned int	msg;
+	void*			data;
+
+	ControlData(GuiRect* iControl,unsigned int iMsg,void* iData):control(iControl),msg(iMsg),data(iData){}
+};
+struct DLLBUILD PaintData : MsgData
+{
+	GuiRect* target;
+	void*	 data;
+	vec4	 clip;
+	vec2	 offset;
+
+	PaintData(void* iData=0):data(iData),clip(0,0,100000,100000){}
+};
+
 struct DLLBUILD Ide
 {
-	Timer*					timer;
-
 	FilePath				folderProject;
 	FilePath				pathExecutable;
 	FilePath				folderAppData;
@@ -267,10 +300,40 @@ public:
 	unsigned char	GetRunningScriptFunction();*/
 };
 
-struct DLLBUILD StringEditor : Singleton<StringEditor>
+struct DLLBUILD GuiCaret : Singleton<GuiCaret>
 {
+protected:
 	static const unsigned int BLINKRATE=300;
 
+	friend Frame;
+
+	GuiRect*			rect;
+	vec2				pos;
+	vec2				dim;
+	unsigned int		lasttime;
+	unsigned int		blinktime;
+	bool				blink;
+	unsigned int		colorback;
+	unsigned int		colorfront;
+
+	void				CheckDraw(Frame*);
+
+	GuiCaret();
+public:
+	static GuiCaret*	Instance();
+
+	void				SetPos(float,float);
+	void				SetDim(float,float);
+	const vec2&			Get();
+	void				Hide();
+	void				Show(GuiRect* iRect,unsigned int tBack,unsigned int tFront);
+	void				SetColors(unsigned int tBack,unsigned int tFront);
+
+	void				Draw(Frame*);
+};
+
+struct DLLBUILD StringEditor : Singleton<StringEditor>
+{
 	enum
 	{
 		CARET_DONTCARE=0,
@@ -288,7 +351,7 @@ struct DLLBUILD StringEditor : Singleton<StringEditor>
 
 	struct DLLBUILD Cursor
 	{
-		const wchar_t*  cursor;
+		const wchar_t*  p;
 		vec2			rowcol;
 		vec2			caret;
 
@@ -296,35 +359,14 @@ struct DLLBUILD StringEditor : Singleton<StringEditor>
 	};
 
 protected:
-	Frame*						frame;
-
-	std::map<String*,Cursor*>	map;
-	String*						string;		
-	Cursor*						cursor;		
-	GuiFont*					font;						
-
-	unsigned int				blinkingRate;
-	unsigned int				lastBlinkTime;
-	bool						blinking;
-	vec2						caret;
-	vec2						caretPast;
-	float						caretHeight;
-	bool						enabled;
 
 	StringEditor();
 public:
 	~StringEditor();
 
 	static StringEditor*	Instance();
-
-	bool					EditText(unsigned int iCaretOp,void* iParam);
-
-	void					Bind(Frame*,String&,GuiFont* iFont=GuiFont::GetDefaultFont());
-	void					Enable(bool);
-	const String*			Binded();
-	bool					Enabled();
-	
-	virtual void			Draw(Frame*);
+	bool					EditText(String& iString,Cursor& iCursor,unsigned int iCaretOp=CARET_DONTCARE,GuiFont* iFont=GuiFont::GetDefaultFont(),void* iParam=0);
+	void					ParseKeyInput(String& iString,Cursor& iCursor,const KeyData& iData,GuiFont* iFont=GuiFont::GetDefaultFont());
 };
 
 
@@ -413,60 +455,14 @@ enum GuiRectMessages
 
 //MESSAGESDATA
 
-struct DLLBUILD MsgData
-{
-	bool skipchilds;
-	bool skipall;
-
-	MsgData():skipchilds(false),skipall(false){};
-};
-struct DLLBUILD HitTestData : MsgData
-{
-	vec2				mouse;
-	vec2				off;
-	GuiRect*			hit;
-	bool				locked;
-	GuiRect*			dragrect[4];
-};
-struct DLLBUILD MouseData : MsgData
-{
-	vec2					mouse;
-	unsigned int			button;
-	float					scroller;
-	Mouse&				raw;
-
-	MouseData(const vec2& iMouse,unsigned iBut,float iScr,Mouse& iMi):mouse(iMouse),button(iBut),scroller(iScr),raw(iMi){}
-};
-
-struct DLLBUILD KeyData : MsgData
-{
-	char				key;
-	KeyData(char iKey):key(iKey){}
-};
-struct DLLBUILD ControlData : MsgData
-{
-	GuiRect*		control;
-	GuiRectMessages	msg;
-	void*			data;
-
-	ControlData(GuiRect* iControl,GuiRectMessages iMsg,void* iData):control(iControl),msg(iMsg),data(iData){}
-};
-struct DLLBUILD PaintData : MsgData
-{
-	GuiRect* target;
-	void*	 data;
-	vec4	 clip;
-	vec2	 offset;
-
-	PaintData(void* iData=0):data(iData),clip(0,0,100000,100000){}
-};
-
 //MESSAGES END
 
 
 
 struct DLLBUILD GuiRect
 {
+	static const unsigned int COLOR_BACK=0x505050;
+
 	virtual	void Procedure(Frame*,GuiRectMessages,void*);
 
 	GuiRect*			parent;
@@ -493,7 +489,7 @@ struct DLLBUILD GuiRect
 
 	virtual void Draw(Frame*);
 
-	GuiRect(unsigned int iState=1,unsigned int iColor=0x505050);
+	GuiRect(unsigned int iState=1,unsigned int iColor=GuiRect::COLOR_BACK);
 	virtual ~GuiRect(){};
 };
 
@@ -501,7 +497,9 @@ struct DLLBUILD GuiRect
 
 struct DLLBUILD GuiViewer : Multiton<GuiViewer> , GuiRect
 {
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	static const unsigned int COLOR_BACK=0x707070;
+
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 	static const int LABEL_LEFT_OFFSET=5;
 	static const int LABEL_RIGHT_OFFSET=10;
@@ -560,11 +558,11 @@ struct DLLBUILD GuiScrollRect : GuiRect
 {
 protected:
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 	static const unsigned int SCROLLH=0;
 	static const unsigned int SCROLLV=1;
-	static const unsigned int SCROLLTIP=20;
+	static const unsigned int TICKNESS=20;
 
 	float clength[2];
 	float ratios[2];
@@ -657,7 +655,7 @@ struct DLLBUILD GuiListBox : GuiScrollRect
 		bool			skip;
 	};
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 	virtual void ItemProcedure(GuiListBoxNode*,Frame*,GuiRectMessages,GuiListBoxData&);
 private:
 	std::list<String>						columns;
@@ -774,7 +772,7 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 		bool				skip;				
 	};
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 private:
 	std::list<GuiListBoxNode*>	selected;
@@ -803,8 +801,8 @@ public:
 
 	virtual void CalculateLayout();
 
-	GuiTreeViewNode* GetHoveredNode();
-	GuiTreeViewNode* GetRootNode();
+	GuiTreeViewNode* GetTreeViewHoveredNode();
+	GuiTreeViewNode* GetTreeViewRootNode();
 };
 
 ////////GuiPropertyTree///////
@@ -849,7 +847,7 @@ protected:
 public:
 	GuiPropertyTree():splitter(0),splitterpressed(false){}
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 	virtual void ItemProcedure(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
 
 	void SetLabelEdges(GuiTreeViewNode*,GuiTreeViewData&);
@@ -857,11 +855,46 @@ public:
 	void CalculateLayout();
 };
 
+struct DLLBUILD GuiString : GuiRect
+{
+	static const unsigned int COLOR_TEXT=0xFFFFFF;
+
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
+
+protected:
+	friend StringEditor;
+
+	String					text;
+	GuiFont*				font;
+	unsigned int			textcolor;
+	vec2					spot;
+	vec2					align;
+	StringEditor::Cursor	cursor;
+public:
+
+	GuiString();
+
+	const String&	GetText();
+	void			SetText(const String&);
+
+	unsigned int	GetTextColor();
+	void			SetTextColor(unsigned int);
+
+	void			SetFont(GuiFont*);
+	GuiFont*		GetFont();
+
+	void			SetSpot(float,float);
+	const vec2&		GetSpot();
+
+	void			SetAlignment(float,float);
+	const vec2&		GetAlignment();
+};
+
 ////////GuiStringProperty/////
 
-struct DLLBUILD GuiStringProperty : GuiRect
+struct DLLBUILD GuiStringProperty : GuiString
 {
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 	enum
 	{
@@ -899,34 +932,7 @@ public:
 	GuiStringProperty(void* iValuePointer1,unsigned int iValueType,void* iValuePointer2=0,unsigned int iValueParameter1=scDefaultParameter1,unsigned int iValueParameter2=scDefaultParameter2);
 };
 
-struct DLLBUILD GuiString : GuiRect
-{
-	static const unsigned int COLOR_TEXT=0xFFFFFF;
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
-
-protected:
-	String			text;
-	GuiFont*		font;
-	unsigned int	color;
-	vec2			spot;
-	vec2			align;
-public:
-
-	GuiString();
-
-	const String&  Text();
-	void	Text(const String&);
-
-	void  Font(GuiFont*);
-	GuiFont*	Font();
-
-	void Spot(float,float);
-	const vec2& Spot();
-
-	void Alignment(float,float);
-	const vec2& Alignment();
-};
 
 struct DLLBUILD GuiTextBox : GuiString
 {
@@ -945,7 +951,7 @@ struct DLLBUILD GuiTextBox : GuiString
 
 struct DLLBUILD GuiButton : GuiString
 {
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 	unsigned buttonflags;
 
@@ -1005,7 +1011,7 @@ struct DLLBUILD GuiPath : GuiRect
 
 struct DLLBUILD GuiAnimationController : GuiRect
 {
-	virtual  void Procedure(Frame*,GuiRectMessages,void*);
+	virtual  void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 protected:
 	AnimationController& animationController;
 
@@ -1041,7 +1047,7 @@ template<typename T> struct DLLBUILD GuiProperty : GuiRect
 	{
 		this->description=new GuiString;
 //		this->description->GetAutoEdges()->scl.make(1,1,0.5f,1);
-		this->description->Text(iDescription);
+		this->description->SetText(iDescription);
 		this->Append(this->description);
 
 		this->property=iProperty ? iProperty : new T;
@@ -1059,7 +1065,7 @@ struct DLLBUILD GuiViewport : Multiton<GuiViewport> , GuiRect
 	static std::list<GuiViewport*>& GetPool();
 	static GuiViewport* Instance();
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 protected:
 
@@ -1121,27 +1127,37 @@ struct DLLBUILD GuiScript : Multiton<GuiScript> , GuiScrollRect
 	static GuiScript*				Instance();
 	static std::list<GuiScript*>&	GetPool();
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 protected:
-	GuiFont*		font;		 
+	static const unsigned int BREAKPOINT_COLUMN_WIDTH=15;
+	static const unsigned int LINENUMBERS_MARGINS=5;
 
-	EditorScript*	editorscript;
+	GuiFont*				font;
+	String					string;
+	StringEditor::Cursor	cursor;
+	EditorScript*			editorscript;
 
-	bool			drawnum;
-	unsigned int	numrows;
-	unsigned int	numcols;
-	float			toolsize;
+	unsigned int			numrows;
+	unsigned int			numcols;
+	float					verticaltoolbar;
 
+	unsigned int			colorbackbreak;
+	unsigned int			colorfrontbreak;
+	unsigned int			colorbacklines;
+	unsigned int			colorfrontlines;
+	unsigned int			colorbackeditor;
+	unsigned int			colorfronteditor;
+	
 	GuiScript();
 public:
 	~GuiScript();
 
-	void Bind(EditorScript*);
 	void Save();
 	bool Compile();
 
-	EditorScript* GetBindedScript();
+	void			SetEditorScript(EditorScript*);
+	EditorScript*	GetEditorScript();
 
 	void OnKeyDown(Frame*,const MsgData&);
 	void OnKeyUp(Frame*,const MsgData&);
@@ -1258,7 +1274,7 @@ struct DLLBUILD GuiPanel : GuiRect
 
 struct DLLBUILD GuiScene : Singleton<GuiScene> , GuiTreeView 
 {
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 private:
 	EditorEntity* sceneRootEntity;
@@ -1276,7 +1292,7 @@ public:
 
 struct DLLBUILD GuiEntity : Multiton<GuiEntity> , GuiPropertyTree
 {
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 private:
 	EditorEntity* entity;
@@ -1285,8 +1301,8 @@ public:
 
 	~GuiEntity();
 
-	void			Entity(EditorEntity*);
-	EditorEntity*	Entity();
+	void			SetEntity(EditorEntity*);
+	EditorEntity*	GetEntity();
 
 	static GuiEntity*				Instance();
 	static std::list<GuiEntity*>&	GetPool();
@@ -1317,7 +1333,7 @@ struct DLLBUILD GuiProject : Singleton<GuiProject> , GuiRect
 
 protected:
 
-	virtual void Procedure(Frame*,GuiRectMessages,void*);
+	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 	DirView dirView;
 	FileView fileView;
@@ -1515,11 +1531,13 @@ public:
 
 	virtual void OnRecreateTarget();
 
-	virtual void Message(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
-	virtual void Broadcast(GuiRectMessages iMsg,void* iData=&MsgData());
-	virtual void BroadcastTo(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
-	virtual void BroadcastInputTo(GuiRect*,GuiRectMessages iMsg,void* iData=&MsgData());
+	virtual void Message(GuiRect*,GuiRectMessages,void* iData=&MsgData());
+	virtual void Broadcast(GuiRectMessages,void* iData=&MsgData());
+	virtual void BroadcastTo(GuiRect*,GuiRectMessages,void* iData=&MsgData());
+	virtual void BroadcastInputTo(GuiRect*,GuiRectMessages,void* iData=&MsgData());
 	virtual void BroadcastPaintTo(GuiRect*,void* iData=&PaintData());
+	template <typename T> void BroadcastToPool(GuiRectMessages,void* iData=&MsgData());
+	template <typename T> void MessagePool(GuiRectMessages,void* iData=&MsgData());
 
 	template<class C> void GetRects(std::vector<C*>& iRects)
 	{
@@ -1657,7 +1675,7 @@ protected:
 
 	struct DLLBUILD GuiPluginTab : Singleton<GuiPluginTab> , GuiListBox
 	{
-		virtual void Procedure(Frame*,GuiRectMessages,void*);
+		virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 		PluginSystem*		pluginSystem;
 		GuiButton			exitButton;
@@ -1696,9 +1714,9 @@ public:
 
 	GuiTreeViewNode& TreeViewNode(){return this->propertytreenode;}
 
-	virtual void OnPropertiesCreate()=0;
-	virtual void OnResourcesCreate()=0;
-	virtual void OnPropertiesUpdate(Frame*)=0;
+	virtual void OnPropertiesCreate(){};
+	virtual void OnResourcesCreate(){};
+	virtual void OnPropertiesUpdate(Frame*){};
 };
 
 template<class T> struct DLLBUILD EntityProperties : EditorPropertiesBase , GuiPropertyTreeContainer<T*> , T
@@ -1899,7 +1917,7 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 {
 	struct DLLBUILD EditorScriptButtons : GuiRect
 	{
-		virtual void Procedure(Frame*,GuiRectMessages,void*);
+		virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 	protected:
 		EditorScript*		editorscript;
 		GuiButton			buttonCompile;
@@ -1990,6 +2008,8 @@ struct DLLBUILD Renderer2D
 
 	virtual void Translate(float,float)=0;
 	virtual void Identity()=0;
+
+	virtual void SetAntialiasing(bool)=0;
 
 	static void EnableCaret();
 	static void DrawCaret();

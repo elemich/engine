@@ -559,7 +559,7 @@ void AnimationController::update(Renderer3DBase*)
 	{
 		this->SetFrame(this->cursor);
 
-		int		tCurrentTime=Timer::GetInstance()->GetCurrent();
+		int		tCurrentTime=Timer::Instance()->GetCurrent();
 
 		float	tCurrentDelta=	this->frameTime ? (tCurrentTime-this->frameTime)/1000.0f : 0;
 

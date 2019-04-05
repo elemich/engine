@@ -1,6 +1,7 @@
 #include "win32.h"
 
 GLOBALGETTERFUNC(GlobalIdeInstance,IdeWin32*);
+GLOBALGETTERFUNC(GlobalTimerInstance,TimerWin32*);
 
 static const wchar_t* gWM_MESSAGES[] = 
 {
@@ -1053,11 +1054,47 @@ bool Keyboard::IsPressed(unsigned int iCharCode)
 	return ((::GetKeyState(iCharCode) >> 8) & 0xff)!=0;
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+//////////////////GuiCaret//////////////////
+
+GuiCaret::GuiCaret():rect(0),blinktime(BLINKRATE)
+{
+	this->dim.make(1,GuiFont::GetDefaultFont()->GetHeight());
+#if CARET_OS
+	::CreateCaret((HWND)MainFrame::Instance()->GetFrame()->windowData->GetWindowHandle(),(HBITMAP)0,1,GuiFont::GetDefaultFont()->GetHeight());
+#endif
+}
+void	GuiCaret::SetPos(float x,float y)
+{
+	this->pos.make(x,y);
+#if CARET_OS
+	::SetCaretPos(x,y);
+#endif
+}
+
+void	GuiCaret::SetDim(float w,float h)
+{
+	this->dim.make(w,h);
+}
+
+void	GuiCaret::Hide()
+{
+	this->rect=0;
+#if CARET_OS
+	::HideCaret((HWND)this->rect->GetRoot()->GetFrame()->windowData->GetWindowHandle());
+#endif
+}
+void	GuiCaret::Show(GuiRect* iRect,unsigned int tBack,unsigned int tFront)
+{
+	this->rect=iRect;
+	this->SetColors(tBack,tFront);
+#if CARET_OS
+	::SelectClipRgn(((FrameWin32*)this->rect->GetRoot()->GetFrame())->windowDataWin32->hdc,::CreateRectRgn(iRect->edges.x,iRect->edges.y,iRect->edges.z,iRect->edges.w));
+	if(!::ShowCaret((HWND)this->rect->GetRoot()->GetFrame()->windowData->GetWindowHandle()))
+		DEBUG_BREAK();
+#endif
+}
+
 //////////////////ThreadWin32//////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 DWORD WINAPI threadFunc(LPVOID data)
 {
@@ -1370,7 +1407,13 @@ void Direct2D::DrawText(Renderer2D* iRenderer,const GuiFont* iFont,unsigned int 
 
 void Direct2D::DrawLine(ID2D1RenderTarget*renderer,ID2D1Brush* brush,vec2 p1,vec2 p2,float iWidth,float iOpacity)
 {
+	/*int p1x=p1.x;
+	int p1y=p1.y;
+	int p2x=p2.x;
+	int p2y=p2.y;*/
+
 	brush->SetOpacity(iOpacity);
+	//renderer->DrawLine(D2D1::Point2F(p1x,p1y),D2D1::Point2F(p2x,p2y),brush,iWidth);
 	renderer->DrawLine(D2D1::Point2F(p1.x,p1.y),D2D1::Point2F(p2.x,p2.y),brush,iWidth);
 }
 
@@ -1473,6 +1516,11 @@ bool Direct2D::LoadBitmapRef(ID2D1RenderTarget* renderer,ID2D1Bitmap*& iHandle,u
 bool Direct2D::LoadBitmapFile(ID2D1RenderTarget* renderer,String iFilename,ID2D1Bitmap*& iHandle,float& iWidth,float& iHeight)
 {
 	return Direct2D::CreateRawBitmap(iFilename.c_str(),false,renderer,iHandle,0,0,0);
+}
+
+void Direct2D::SetAntialiasing(ID2D1RenderTarget* renderer,bool iAntialiasing)
+{
+	renderer->SetAntialiasMode(iAntialiasing ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
 }
 
 ///////////////////////////////////////////////
@@ -1662,13 +1710,12 @@ ID2D1Brush* Renderer2DWin32::SetColorWin32(unsigned int color,float opaque)
 	return this->brush;
 }
 
+void Renderer2DWin32::SetAntialiasing(bool iAntialiasing)
+{
+	Direct2D::SetAntialiasing(this->renderer,iAntialiasing);
+}
 
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 /////////////////MenuInterface/////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 HMENU ____MainMenu=0;
 static int ____MenuInterfaceIds=0;
@@ -1823,6 +1870,8 @@ void MainFrame::Initialize()
 	tViewer->edges.make(0,0,tx1,ty1);
 	tViewer->AddTab(GuiScene::Instance(),L"Scene");
 
+	GuiCaret::Instance();
+
 	this->GetFrame()->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntity::Instance(),L"Properties");
 	this->GetFrame()->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tdim.y))->AddTab(GuiProject::Instance(),L"Project");
 	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,0,tdim.x,ty1*2))->AddTab(GuiViewport::Instance(),L"Renderer");
@@ -1845,13 +1894,17 @@ Frame* MainFrame::CreateFrame(float x,float y,float z,float w,Frame* iParentFram
 	return tFrameWin32; 
 }
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 //////////////////TimerWin32///////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
-TimerWin32::TimerWin32(){}
+TimerWin32::TimerWin32()
+{
+	GlobalTimerInstance()=this;
+}
+
+Timer* Timer::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalTimerInstance,TimerWin32);
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -1921,8 +1974,6 @@ void WindowDataWin32::PostMessage(unsigned iCode,unsigned data1,unsigned data2)
 }
 
 ///////////////////IdeWin32////////////////////
-
-
 
 Ide* Ide::Instance()
 {
@@ -2034,11 +2085,11 @@ projectDirHasChanged(false)
 
 
 	{
-		this->timer=new TimerWin32;
-
 		this->timerThread=new ThreadWin32;
-		this->timerThread->NewTask(L"MainTimerTask",std::function<void()>(std::bind(&Timer::update,this->timer)),false);
+		this->timerThread->NewTask(L"MainTimerTask",std::function<void()>(std::bind(&Timer::update,Timer::Instance())),false);
 	}
+
+	
 
 	MainFrame::Instance()->Initialize();
 
@@ -3830,9 +3881,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 	{
 		case 0:
 		{
-			if(!wparam)
-				frame->Draw();
-			else
+			if(wparam)
 			{
 				if(frame->BeginDraw((GuiViewport*)wparam))
 				{
@@ -3840,6 +3889,14 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 					frame->EndDraw();
 				}
 			}
+			else if(lparam)
+			{
+#if !CARET_OS
+				GuiCaret::Instance()->Draw(frame);
+#endif
+			}
+			else 
+				frame->Draw();
 
 			result=0;
 		}
@@ -3917,7 +3974,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 				::SetFocus(frame->windowDataWin32->hwnd);
 
 			unsigned int tOldTime=tMi.RawTiming()[tIndex];
-			tMi.RawTiming()[tIndex]=Ide::Instance()->timer->GetCurrent();
+			tMi.RawTiming()[tIndex]=Timer::Instance()->GetCurrent();
 
 			unsigned int tFinalButtonIndex=tIndex+1;
 
@@ -4037,7 +4094,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 		}
 	}
 
-	if(Ide::Instance()->timer->GetLastDelta()>16)
+	if(Timer::Instance()->GetLastDelta()>16)
 		PostMessage(hwnd,WM_NULL,0,0);*/
 #if PRINTPROCEDUREMESSAGESCALL
 	wprintf(L"End   %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
@@ -4101,9 +4158,10 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 #else
 		this->renderer3DOpenGL->Initialize();
 #endif //RENDERER_THREADED
-	this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
 #endif //ENABLE_RENDERER
 	}
+
+	this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
 
 	this->AddViewer(GuiViewer::Instance());
 
@@ -4459,7 +4517,7 @@ int GuiViewport::Render(Frame* iFrame)
 {
 #if RENDERER_THREADED
 	if((Timer::GetInstance()->GetCurrent()-this->lastFrameTime)>(1000.0f/this->renderFps))
-		this->lastFrameTime=Ide::Instance()->timer->GetCurrent();
+		this->lastFrameTime=Timer::Instance()->GetCurrent();
 	else 
 		return 0;
 #endif
@@ -4488,7 +4546,7 @@ int GuiViewport::Render(Frame* iFrame)
 	glScissor(0,0,tWidth,tHeight);glCheckError();
 
 	{
-		int tGuiRectColorBack=0x505050;
+		int tGuiRectColorBack=GuiRect::COLOR_BACK;
 		char* pGuiRectColorBack=(char*)&tGuiRectColorBack;
 
 		glClearColor(pGuiRectColorBack[2]/255.0f,pGuiRectColorBack[1]/255.0f,pGuiRectColorBack[0]/255.0f,0.0f);glCheckError();

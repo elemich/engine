@@ -503,14 +503,26 @@ String StringUtils::RandomString(int iSize,String iAlphabet)
 
 String StringUtils::Format (const wchar_t* iFormat, ... )
 {
-	wchar_t tTmp[1000];
-
 	va_list args;
 	va_start (args, iFormat);
-	vswprintf (tTmp,1000,iFormat,args);
+	const int tCount=vswprintf (0,0,iFormat,args)+1;
+	wchar_t* tTmp=new wchar_t[tCount+1];
+	vswprintf (tTmp,tCount,iFormat,args);
+	String tString(tTmp);
+	SAFEDELETEARRAY(tTmp);
 	va_end (args);
 
-	return String(tTmp);
+	return tString;
+}
+
+void StringUtils::Format (String& iString,const wchar_t* iFormat, ... )
+{
+	va_list args;
+	va_start (args, iFormat);
+	const int tCount=vswprintf (0,0,iFormat,args)+1;
+	iString.resize(tCount+1);
+	vswprintf (&iString[0],tCount,iFormat,args);
+	va_end (args);
 }
 
 
@@ -1421,18 +1433,12 @@ mat4& mat4::ortho(float left, float right,float bottom, float top,float near, fl
 
 void mat4::zero(){memset(this->v,0,sizeof(float[16]));}
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 /////////////////////Timer//////////////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-Timer* _________timer=0;
 
 Timer::Timer()
 {
-	_________timer=this->Instance();
 }
+
 
 unsigned int Timer::GetCurrent()
 {
@@ -1443,10 +1449,6 @@ unsigned int Timer::GetLastDelta()
 {
 	return this->currentFrameDeltaTime;
 };
-
-DLLBUILD Timer* GetTimer(){return _________timer;}
-
-Timer* Timer::GetInstance(){return GetTimer();}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////

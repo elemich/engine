@@ -95,7 +95,7 @@ struct DLLBUILD Direct2D
 	static void DrawCircle(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y,float iRadius,float iStroke=0,float iOpacity=1.0f);
 	static void DrawEllipse(ID2D1RenderTarget*renderer,ID2D1Brush* brush,float x,float y,float iRadiusA,float iRadiusB,float iStroke=0,float iOpacity=1.0f);
 	static void DrawBitmap(ID2D1RenderTarget*renderer,ID2D1Bitmap* bitmap,float x,float y, float w,float h);
-	static void DrawCaret(ID2D1RenderTarget* renderer,ID2D1Geometry* caret,ID2D1Brush* iBrush);
+	
 
 	static void PushScissor(ID2D1RenderTarget*renderer,float x,float y,float w,float h);
 	static void PopScissor(ID2D1RenderTarget*);
@@ -105,6 +105,8 @@ struct DLLBUILD Direct2D
 
 	static bool LoadBitmapRef(ID2D1RenderTarget* renderer,ID2D1Bitmap*& iHandle,unsigned char* iData,float iWidth,float iHeight);
 	static bool LoadBitmapFile(ID2D1RenderTarget* renderer,String iFilename,ID2D1Bitmap*& iHandle,float& iWidth,float& iHeight);
+
+	static void SetAntialiasing(ID2D1RenderTarget* renderer,bool iAntialiasing);
 };
 
 
@@ -138,17 +140,17 @@ struct DLLBUILD Renderer2DWin32 : Renderer2D
 	void DrawBitmap(Picture* iImage,float iX,float iY, float iW,float iH);
 	bool LoadBitmap(Picture*);
 
-	unsigned int ReadPixel(float x,float y);
+	unsigned int	ReadPixel(float x,float y);
 
-	void PushScissor(float x,float y,float w,float h);
-	void PopScissor();
+	void			PushScissor(float x,float y,float w,float h);
+	void			PopScissor();
 
-	void Translate(float,float);
-	void Identity();
-	ID2D1Brush* SetColorWin32(unsigned int color,float opaque=1.0f);
+	void			Translate(float,float);
+	void			Identity();
+	ID2D1Brush*		SetColorWin32(unsigned int color,float opaque=1.0f);
+	void			SetAntialiasing(bool);
 
-	bool RecreateTarget(HWND);
-
+	bool			RecreateTarget(HWND);
 };
 
 
