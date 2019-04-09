@@ -364,26 +364,12 @@ String StringUtils::ToWide(const std::string& iChars)
 
 String StringUtils::Int(int iInt)
 {
-	String tString;
-
-	wchar_t tCharInt[100];
-	swprintf(tCharInt,100,L"%d",iInt);
-
-	tString=tCharInt;
-
-	return tString;
+	return StringUtils::Format(L"%d",iInt);
 }
 
 String StringUtils::Float(float& iFloat,int iBefore,int iAfter)
 {
-	String tString;
-
-	wchar_t tCharInt[100];
-	swprintf(tCharInt,100,L"%*.*g",iBefore,iAfter,iFloat);
-
-	tString=tCharInt;
-
-	return tString;
+	return StringUtils::Format(L"%*.*g",iBefore,iAfter,iFloat);
 }
 
 bool StringUtils::WriteWideFile(String iFilename,String iContent,String iMode)
@@ -507,11 +493,10 @@ String StringUtils::Format (const wchar_t* iFormat, ... )
 	va_start (args, iFormat);
 	const int tCount=vswprintf (0,0,iFormat,args)+1;
 	wchar_t* tTmp=new wchar_t[tCount+1];
-	vswprintf (tTmp,tCount,iFormat,args);
+	vswprintf(tTmp,tCount,iFormat,args);
 	String tString(tTmp);
 	SAFEDELETEARRAY(tTmp);
 	va_end (args);
-
 	return tString;
 }
 

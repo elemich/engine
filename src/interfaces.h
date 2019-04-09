@@ -23,7 +23,7 @@ struct DLLBUILD GuiViewport;
 struct DLLBUILD GuiPanel;
 struct DLLBUILD GuiScene;
 struct DLLBUILD GuiEntity;
-struct DLLBUILD GuiCompiler;
+struct DLLBUILD Compiler;
 struct DLLBUILD GuiConsole;
 struct DLLBUILD GuiProject;
 struct DLLBUILD GuiScript;
@@ -33,9 +33,11 @@ struct DLLBUILD GuiPropertyPtr;
 struct DLLBUILD GuiPropertyFloat;
 struct DLLBUILD GuiPropertyBool;
 struct DLLBUILD GuiPropertyAnimationController;
-
 struct DLLBUILD DrawInstance;
 struct DLLBUILD Frame;
+#ifdef _WIN32
+struct DLLBUILD FrameWin32; //for GuiCaret::Draw friendship
+#endif
 struct DLLBUILD MainFrame;
 struct DLLBUILD ResourceNodeDir;
 struct DLLBUILD Compiler;
@@ -66,7 +68,6 @@ struct DLLBUILD Script;
 #define RENDERER_ENABLED 1
 #define RENDERER_FRAMED 1
 #define RENDERER_THREADED 0
-#define CARET_OS 0
 #define PRINTPROCEDUREMESSAGESCALL 0
 
 struct DLLBUILD GuiFont
@@ -82,6 +83,8 @@ struct DLLBUILD GuiFont
 	vec2 MeasureText(const wchar_t*)const;
 	vec4 MeasureText2(const wchar_t*)const;
 	float GetCharWidth(wchar_t)const;
+	float GetStringWidth(const wchar_t*)const;
+	float GetStringWidth(const wchar_t*,const wchar_t*)const;
 
 	static GuiFont* GetDefaultFont();
 	static void		SetDefaultFont(GuiFont*);
@@ -154,9 +157,8 @@ public:
 
 struct DLLBUILD MsgData
 {
-	bool skipchilds;
-	bool skipall;
-
+	bool	skipchilds;
+	bool	skipall;
 	MsgData():skipchilds(false),skipall(false){};
 };
 struct DLLBUILD HitTestData : MsgData
@@ -173,22 +175,20 @@ struct DLLBUILD MouseData : MsgData
 	vec2					mouse;
 	unsigned int			button;
 	float					scroller;
-	Mouse&				raw;
-
+	Mouse&					raw;
 	MouseData(const vec2& iMouse,unsigned iBut,float iScr,Mouse& iMi):mouse(iMouse),button(iBut),scroller(iScr),raw(iMi){}
 };
 
 struct DLLBUILD KeyData : MsgData
 {
-	char				key;
-	KeyData(char iKey):key(iKey){}
+	wchar_t				key;
+	KeyData(wchar_t iKey):key(iKey){}
 };
 struct DLLBUILD ControlData : MsgData
 {
 	GuiRect*		control;
 	unsigned int	msg;
 	void*			data;
-
 	ControlData(GuiRect* iControl,unsigned int iMsg,void* iData):control(iControl),msg(iMsg),data(iData){}
 };
 struct DLLBUILD PaintData : MsgData
@@ -197,8 +197,20 @@ struct DLLBUILD PaintData : MsgData
 	void*	 data;
 	vec4	 clip;
 	vec2	 offset;
-
 	PaintData(void* iData=0):data(iData),clip(0,0,100000,100000){}
+};
+
+struct DLLBUILD MsgPtrData : MsgData
+{
+	void* ptr;
+	MsgPtrData(void* iData=0):ptr(iData){}
+};
+
+struct DLLBUILD EnterExitData : MsgData
+{
+	MouseData&	mousedata;
+	GuiRect*	enterexit;
+	EnterExitData(MouseData& iMouseData,GuiRect* iEnterExit):mousedata(iMouseData),enterexit(iEnterExit){}
 };
 
 struct DLLBUILD Ide
@@ -306,35 +318,43 @@ protected:
 	static const unsigned int BLINKRATE=300;
 
 	friend Frame;
+	friend FrameWin32;
 
+	Frame*				frame;
 	GuiRect*			rect;
-	vec2				pos;
+
 	vec2				dim;
+	vec2				olddim;
+	
+	vec4				caret;
+	vec4				oldcaret;
+	
 	unsigned int		lasttime;
 	unsigned int		blinktime;
 	bool				blink;
 	unsigned int		colorback;
 	unsigned int		colorfront;
 
-	void				CheckDraw(Frame*);
+	void				Blink(Frame*);
+	void				Draw(Frame*,unsigned int iCode=0);
 
 	GuiCaret();
 public:
 	static GuiCaret*	Instance();
 
 	void				SetPos(float,float);
-	void				SetDim(float,float);
-	const vec2&			Get();
-	void				Hide();
-	void				Show(GuiRect* iRect,unsigned int tBack,unsigned int tFront);
-	void				SetColors(unsigned int tBack,unsigned int tFront);
+	vec2				GetPos();
 
-	void				Draw(Frame*);
+	void				SetDim(float,float);
+	
+	void				Hide();
+	void				Show(GuiRect* iRect,unsigned int tBack=0xffffff,unsigned int tFront=0x000000);
+	void				SetColors(unsigned int tBack,unsigned int tFront);
 };
 
 struct DLLBUILD StringEditor : Singleton<StringEditor>
 {
-	enum
+	enum CaretOp
 	{
 		CARET_DONTCARE=0,
 		CARET_RECALC,
@@ -349,24 +369,46 @@ struct DLLBUILD StringEditor : Singleton<StringEditor>
 		CARET_MAX
 	};
 
+	struct DLLBUILD RowData
+	{
+		float			width;
+		unsigned int	cols;
+
+		RowData(float iWidth,unsigned int iNchars):width(iWidth),cols(iNchars){}
+	};
+
 	struct DLLBUILD Cursor
 	{
-		const wchar_t*  p;
-		vec2			rowcol;
-		vec2			caret;
+	protected:
+		friend StringEditor;
+		friend GuiScript;
 
+		unsigned int			p;
+		unsigned int			row;
+		unsigned int			col;
+		vec2					caret;
+		vec2					textpos;
+		std::vector<RowData>	rowdata;
+		vec2					maxes;
+	public:
 		Cursor();
+
+		void Bind(String&);
+		void InsertAt(float x,float y);
+		void Reset();
+		void SetCaretPosition();
 	};
 
 protected:
-
 	StringEditor();
 public:
 	~StringEditor();
 
 	static StringEditor*	Instance();
-	bool					EditText(String& iString,Cursor& iCursor,unsigned int iCaretOp=CARET_DONTCARE,GuiFont* iFont=GuiFont::GetDefaultFont(),void* iParam=0);
-	void					ParseKeyInput(String& iString,Cursor& iCursor,const KeyData& iData,GuiFont* iFont=GuiFont::GetDefaultFont());
+
+	void					InitCursorData(String&,Cursor&,GuiFont* iFont=GuiFont::GetDefaultFont());
+	void					ParseInput(Frame*,GuiRect*,String&,Cursor&,const KeyData&,GuiFont* iFont=GuiFont::GetDefaultFont());
+	void					Edit(Frame*,GuiRect*,String&,Cursor&,CaretOp iCaretOp=CARET_DONTCARE,GuiFont* iFont=GuiFont::GetDefaultFont(),void* iParam=0);
 };
 
 
@@ -481,6 +523,7 @@ struct DLLBUILD GuiRect
 	unsigned			GetColor();
 
 	GuiViewer* GetRoot();
+	bool	   IsDescendantOf(GuiRect*);
 
 	void Append(GuiRect*,bool isChild=true);
 	void Remove(GuiRect*);
@@ -774,7 +817,7 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 
 	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
-private:
+protected:
 	std::list<GuiListBoxNode*>	selected;
 	GuiTreeViewNode*			root;
 	GuiTreeViewNode*			hovered;
@@ -1138,9 +1181,8 @@ protected:
 	StringEditor::Cursor	cursor;
 	EditorScript*			editorscript;
 
-	unsigned int			numrows;
-	unsigned int			numcols;
 	float					verticaltoolbar;
+	unsigned int			horizontaltoolbar;
 
 	unsigned int			colorbackbreak;
 	unsigned int			colorfrontbreak;
@@ -1159,23 +1201,49 @@ public:
 	void			SetEditorScript(EditorScript*);
 	EditorScript*	GetEditorScript();
 
-	void OnKeyDown(Frame*,const MsgData&);
-	void OnKeyUp(Frame*,const MsgData&);
-	void OnLMouseDown(Frame*,const MsgData&);
-	void OnMouseMove(Frame*,const MsgData&);
-	void OnSize(Frame*,const MsgData&);
-	void OnDeactivate(Frame*,const MsgData&);
-
 	int CountScriptLines();
 
 	void DrawLineNumbers(Frame*);
 	void DrawBreakpoints(Frame*);
 	
 	void CalculateLayout();
+	float CalculateVerticalToolbarWidth();
 	
 };
 
-struct DLLBUILD Compiler
+
+struct DLLBUILD GuiLogger : Multiton<GuiLogger> , GuiListBox
+{
+	struct DLLBUILD GuiLoggerItem : GuiListBoxNode
+	{
+	protected:
+		float height;
+	public:
+		GuiLoggerItem(const String& iString);
+		float GetHeight();
+	};
+
+protected:
+	std::list<GuiLoggerItem*>	logs;	
+	GuiLogger();
+public:
+
+	~GuiLogger();
+
+	static GuiLogger*				Instance();
+	static std::list<GuiLogger*>&	GetPool();
+
+	static GuiLogger* GetDefaultLogger();
+
+	void			Clear();
+	void			AppendLog(const String& iString);
+	unsigned int	Count();
+
+	static void Log(const String& iString,GuiLogger* iLogger=GuiLogger::GetDefaultLogger());
+};
+
+
+struct DLLBUILD Compiler : Singleton <Compiler> , GuiLogger
 {
 	enum
 	{
@@ -1212,8 +1280,9 @@ protected:
 
 public:
 
-	~Compiler();
+	static Compiler* Instance();
 
+	~Compiler();
 	
 	const String& GetSourcesPath();
 	const String& GetLibrariesPath();
@@ -1221,49 +1290,11 @@ public:
 	String Compose(unsigned int iCompiler,EditorScript*);
 	bool LoadScript(EditorScript*);
 	bool UnloadScript(EditorScript*);
+	bool ParseCompilerOutputFile(String iFileBuffer);
 };
 
 
 
-struct DLLBUILD GuiLogger : Multiton<GuiLogger> , GuiListBox
-{
-	struct DLLBUILD GuiLoggerItem : GuiListBoxNode
-	{
-	protected:
-		float height;
-	public:
-		GuiLoggerItem(const String& iString);
-		float GetHeight();
-	};
-
-protected:
-	std::list<GuiLoggerItem*>	logs;	
-	GuiLogger();
-public:
-
-	~GuiLogger();
-
-	static GuiLogger*				Instance();
-	static std::list<GuiLogger*>&	GetPool();
-
-	void Clear();
-	void AppendLog(const String& iString);
-
-	static void Log(const String& iString,GuiLogger* iLogger=0);
-};
-
-
-struct DLLBUILD GuiCompiler : Singleton<GuiCompiler> , Compiler , GuiLogger
-{
-protected:
-	GuiCompiler();
-public:
-	~GuiCompiler();
-
-	static GuiCompiler* Instance();
-
-	bool ParseCompilerOutputFile(String);
-};
 
 struct DLLBUILD GuiPanel : GuiRect
 {
@@ -1295,7 +1326,7 @@ struct DLLBUILD GuiEntity : Multiton<GuiEntity> , GuiPropertyTree
 	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 private:
-	EditorEntity* entity;
+	EditorEntity* rootEntityProperties;
 	GuiEntity();
 public:
 
@@ -1473,6 +1504,7 @@ struct DLLBUILD Frame
 	void* wasdrawing;
 	bool retarget;
 	bool trackmouseleave;
+	bool skipFrameMouseExit;
 
 	vec2 previousSize;
 
@@ -1517,8 +1549,8 @@ public:
 	virtual void OnMouseClick(unsigned int iButton);
 	virtual void OnMouseMove(float,float);
 	virtual void OnMouseWheel(float);
-	virtual void OnKeyDown(char iKey);
-	virtual void OnKeyUp(char iKey);
+	virtual void OnKeyDown(wchar_t iKey);
+	virtual void OnKeyUp(wchar_t iKey);
 	virtual void OnSizeboxDown(unsigned);
 	virtual void OnSizeboxUp();
 	virtual void OnMouseLeave();
@@ -1636,7 +1668,7 @@ struct DLLBUILD Subsystem
 	static bool FreeLib(void*);
 	static void* GetProcAddress(void*,String);
 	static void SystemMessage(String iTitle,String iMessage,unsigned iFlags);
-
+	static int TrackMenu(int iPopupMenu,Frame*,float x,float y);
 
 };
 

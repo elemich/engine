@@ -36,9 +36,37 @@
 #include <cstdarg>
 #include <cstring> //for g++ str* functions
 #include <string> //for g++ str* functions
-#include <cstdio>
 
 
+/*
+#define OS_WINDOW 0
+#define OS_LINUX 0
+#define OS_ANDROID 0
+#define OS_MAC 0
+#define OS_IOS 0
+*/
+
+/*
+Linux and Linux-derived           __linux__
+Android                           __ANDROID__ (implies __linux__)
+Linux (non-Android)               __linux__ && !__ANDROID__
+Darwin (Mac OS X and iOS)         __APPLE__
+Akaros (http://akaros.org)        __ros__
+Windows                           _WIN32
+Windows 64 bit                    _WIN64 (implies _WIN32)
+NaCL                              __native_client__
+AsmJS                             __asmjs__
+Fuschia                           __Fuchsia__
+*/
+/*
+Visual Studio       _MSC_VER
+gcc                 __GNUC__
+clang               __clang__
+emscripten          __EMSCRIPTEN__ (for asm.js and webassembly)
+MinGW 32            __MINGW32__
+MinGW-w64 32bit     __MINGW32__
+MinGW-w64 64bit     __MINGW64__
+*/
 
 #ifdef _MSC_VER
 	#ifdef CREATEDLL

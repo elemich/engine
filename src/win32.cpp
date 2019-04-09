@@ -1054,46 +1054,6 @@ bool Keyboard::IsPressed(unsigned int iCharCode)
 	return ((::GetKeyState(iCharCode) >> 8) & 0xff)!=0;
 }
 
-//////////////////GuiCaret//////////////////
-
-GuiCaret::GuiCaret():rect(0),blinktime(BLINKRATE)
-{
-	this->dim.make(1,GuiFont::GetDefaultFont()->GetHeight());
-#if CARET_OS
-	::CreateCaret((HWND)MainFrame::Instance()->GetFrame()->windowData->GetWindowHandle(),(HBITMAP)0,1,GuiFont::GetDefaultFont()->GetHeight());
-#endif
-}
-void	GuiCaret::SetPos(float x,float y)
-{
-	this->pos.make(x,y);
-#if CARET_OS
-	::SetCaretPos(x,y);
-#endif
-}
-
-void	GuiCaret::SetDim(float w,float h)
-{
-	this->dim.make(w,h);
-}
-
-void	GuiCaret::Hide()
-{
-	this->rect=0;
-#if CARET_OS
-	::HideCaret((HWND)this->rect->GetRoot()->GetFrame()->windowData->GetWindowHandle());
-#endif
-}
-void	GuiCaret::Show(GuiRect* iRect,unsigned int tBack,unsigned int tFront)
-{
-	this->rect=iRect;
-	this->SetColors(tBack,tFront);
-#if CARET_OS
-	::SelectClipRgn(((FrameWin32*)this->rect->GetRoot()->GetFrame())->windowDataWin32->hdc,::CreateRectRgn(iRect->edges.x,iRect->edges.y,iRect->edges.z,iRect->edges.w));
-	if(!::ShowCaret((HWND)this->rect->GetRoot()->GetFrame()->windowData->GetWindowHandle()))
-		DEBUG_BREAK();
-#endif
-}
-
 //////////////////ThreadWin32//////////////////
 
 DWORD WINAPI threadFunc(LPVOID data)
@@ -1868,14 +1828,14 @@ void MainFrame::Initialize()
 	GuiViewer* tViewer=this->GetFrame()->GetViewers().front();
 
 	tViewer->edges.make(0,0,tx1,ty1);
-	tViewer->AddTab(GuiScene::Instance(),L"Scene");
+	tViewer->AddTab(GuiViewport::Instance(),L"Renderer");
 
 	GuiCaret::Instance();
 
-	this->GetFrame()->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiEntity::Instance(),L"Properties");
+	this->GetFrame()->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiLogger::GetPool().front(),L"Logger");
 	this->GetFrame()->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tdim.y))->AddTab(GuiProject::Instance(),L"Project");
-	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,0,tdim.x,ty1*2))->AddTab(GuiViewport::Instance(),L"Renderer");
-	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,ty1*2+4,tdim.x,tdim.y))->AddTab(GuiLogger::GetPool().front(),L"Logger");
+	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,0,tdim.x,ty1*2))->AddTab(GuiScene::Instance(),L"Scene");
+	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,ty1*2+4,tdim.x,tdim.y))->AddTab(GuiEntity::Instance(),L"Properties");
 
 	ShowWindow(hwnd,true);
 }
@@ -3881,22 +3841,15 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 	{
 		case 0:
 		{
-			if(wparam)
-			{
-				if(frame->BeginDraw((GuiViewport*)wparam))
-				{
-					frame->BroadcastPaintTo((GuiViewport*)wparam);
-					frame->EndDraw();
-				}
-			}
-			else if(lparam)
-			{
-#if !CARET_OS
-				GuiCaret::Instance()->Draw(frame);
-#endif
-			}
-			else 
+			if(lparam)
+				GuiCaret::Instance()->Draw(frame,wparam);
+			else if(!wparam)
 				frame->Draw();
+			else if(frame->BeginDraw((GuiViewport*)wparam))
+			{
+				frame->BroadcastPaintTo((GuiViewport*)wparam);
+				frame->EndDraw();
+			}	
 
 			result=0;
 		}
@@ -3960,28 +3913,32 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 		case WM_RBUTTONDOWN:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
 
-			frame->hittest.locked=true;
+			if(!frame->skipFrameMouseExit)
+			{
+				unsigned int tIndex=msg==WM_LBUTTONDOWN ? 0 : (msg==WM_RBUTTONDOWN ? 2 : 1);
 
-			::SetCapture(frame->windowDataWin32->hwnd);
+				frame->hittest.locked=true;
 
-			Mouse& tMi=*Mouse::Instance();
+				::SetCapture(frame->windowDataWin32->hwnd);
 
-			tMi.RawButtons()[tIndex]=true;
+				Mouse& tMi=*Mouse::Instance();
 
-			if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
-				::SetFocus(frame->windowDataWin32->hwnd);
+				tMi.RawButtons()[tIndex]=true;
 
-			unsigned int tOldTime=tMi.RawTiming()[tIndex];
-			tMi.RawTiming()[tIndex]=Timer::Instance()->GetCurrent();
+				if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
+					::SetFocus(frame->windowDataWin32->hwnd);
 
-			unsigned int tFinalButtonIndex=tIndex+1;
+				unsigned int tOldTime=tMi.RawTiming()[tIndex];
+				tMi.RawTiming()[tIndex]=Timer::Instance()->GetCurrent();
 
-			if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
-				frame->OnMouseClick(tFinalButtonIndex);
-			else
-				frame->OnMouseDown(tFinalButtonIndex);
+				unsigned int tFinalButtonIndex=tIndex+1;
+
+				if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
+					frame->OnMouseClick(tFinalButtonIndex);
+				else
+					frame->OnMouseDown(tFinalButtonIndex);
+			}
 		}
 		break;
 		case WM_LBUTTONUP:
@@ -3989,15 +3946,19 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 		case WM_RBUTTONUP:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
-			Mouse& tMi=*Mouse::Instance();
-			tMi.RawButtons()[tIndex]=false;
 
-			frame->hittest.locked=false;
-				
-			::SetCapture(0);
+			if(!frame->skipFrameMouseExit)
+			{
+				unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
+				Mouse& tMi=*Mouse::Instance();
+				tMi.RawButtons()[tIndex]=false;
 
-			frame->OnMouseUp(tIndex+1);
+				frame->hittest.locked=false;
+
+				::SetCapture(0);
+
+				frame->OnMouseUp(tIndex+1);
+			}
 		}
 		break;
 		case WM_MOUSEWHEEL:
@@ -4010,7 +3971,10 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 		case WM_MOUSELEAVE:
 		{
 			result=DefWindowProc(hwnd,msg,wparam,lparam);
-			frame->Message(frame->hittest.hit,ONMOUSEEXIT);
+
+			if(!frame->skipFrameMouseExit)
+				frame->OnMouseMove(-100,-100);
+
 			frame->trackmouseleave=true;
 			result=0;
 		}
@@ -4027,7 +3991,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 
 				frame->trackmouseleave=false;
 			}
-
+			
 			frame->OnMouseMove((float)LOWORD(lparam),(float)HIWORD(lparam));
 		break;
 		case WM_KEYDOWN:
@@ -4147,6 +4111,8 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 
 	if(!MainFrame::IsInstanced())
 	{
+		GuiLogger::Log(StringUtils::Format(L"MainFrame: %p , HWND: %p",this,this->windowDataWin32->hwnd));
+
 #if RENDERER_ENABLED
 		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
 		if(!this->renderer3DOpenGL)
@@ -4256,7 +4222,7 @@ int FrameWin32::TrackTabMenuPopup()
 	POINT tCursorPoint;
 	::GetCursorPos(&tCursorPoint);
 
-	int menuResult=TrackPopupMenu(root,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,tCursorPoint.x,tCursorPoint.y,0,this->windowDataWin32->hwnd,0);
+	int menuResult=Subsystem::TrackMenu((int)root,this,tCursorPoint.x,tCursorPoint.y);
 
 	DestroyMenu(create);
 	DestroyMenu(root);
@@ -4294,7 +4260,7 @@ int FrameWin32::TrackGuiSceneViewerPopup(bool iSelected)
 	POINT tCursorPoint;
 	::GetCursorPos(&tCursorPoint);
 
-	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,tCursorPoint.x,tCursorPoint.y,0,windowDataWin32->hwnd,0);
+	int menuResult=Subsystem::TrackMenu((int)menu,this,tCursorPoint.x,tCursorPoint.y);
 
 	DestroyMenu(menu);
 	DestroyMenu(createEntity);
@@ -4302,7 +4268,7 @@ int FrameWin32::TrackGuiSceneViewerPopup(bool iSelected)
 	DestroyMenu(createMesh);
 	DestroyMenu(createScript);
 
-	return result;
+	return menuResult;
 }
 
 namespace FileViewerActions
@@ -4331,11 +4297,11 @@ int FrameWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	POINT tCursorPoint;
 	::GetCursorPos(&tCursorPoint);
 
-	int result=TrackPopupMenu(menu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,tCursorPoint.x,tCursorPoint.y,0,windowDataWin32->hwnd,0);
+	int menuResult=Subsystem::TrackMenu((int)menu,this,tCursorPoint.x,tCursorPoint.y);
 
 	DestroyMenu(menu);
 
-	return result;
+	return menuResult;
 }
 
 bool FrameWin32::BeginDraw(void* iPtr)
@@ -4422,20 +4388,20 @@ void FrameWin32::OnRecreateTarget()
 
 void FrameWin32::SetCursor(int iCursorCode)
 {
-	HCURSOR cursor=0;
+	HCURSOR tCursor=0;
 
 	switch(iCursorCode)
 	{
-		case 0: cursor=LoadCursor(0,IDC_ARROW); break;
-		case 1: cursor=LoadCursor(0,IDC_SIZEWE); break;
-		case 2: cursor=LoadCursor(0,IDC_SIZENS); break;
-		case 3: cursor=LoadCursor(0,IDC_SIZENESW); break;
-		case 4: cursor=LoadCursor(0,IDC_SIZENWSE); break;
-		case 5: cursor=LoadCursor(0,IDC_SIZEALL); break;
+		case 0: tCursor=LoadCursor(0,IDC_ARROW); break;
+		case 1: tCursor=LoadCursor(0,IDC_SIZEWE); break;
+		case 2: tCursor=LoadCursor(0,IDC_SIZENS); break;
+		case 3: tCursor=LoadCursor(0,IDC_SIZENESW); break;
+		case 4: tCursor=LoadCursor(0,IDC_SIZENWSE); break;
+		case 5: tCursor=LoadCursor(0,IDC_SIZEALL); break;
 	}
 
-	if(cursor)
-		::SetCursor(cursor);
+	if(tCursor)
+		::SetCursor(tCursor);
 }
 
 ///////////////////////////////////////////////
@@ -4839,6 +4805,25 @@ void* Subsystem::GetProcAddress(void* iModule,String iAddress)
 void Subsystem::SystemMessage(String iTitle,String iMessage,unsigned iFlags)
 {
 	::MessageBox(0,iMessage.c_str(),iTitle.c_str(),iFlags);
+}
+
+int Subsystem::TrackMenu(int iPopupMenu,Frame* iFrame,float x,float y)
+{
+	//set WM_MOUSELEAVE not to call ONMOUSEEXIT
+	iFrame->skipFrameMouseExit=true;
+
+	int tResult=TrackPopupMenu((HMENU)iPopupMenu,TPM_RETURNCMD |TPM_LEFTALIGN|TPM_TOPALIGN,x,y,0,(HWND)iFrame->windowData->GetWindowHandle(),0);
+
+	//set WM_MOUSELEAVE not to call ONMOUSEEXIT
+	iFrame->skipFrameMouseExit=false;
+
+	//for WM_MOUSEMOVE
+	TRACKMOUSEEVENT tTrackMouseEvent={sizeof(TRACKMOUSEEVENT),TME_LEAVE,(HWND)iFrame->windowData->GetWindowHandle(),HOVER_DEFAULT};
+
+	if(!TrackMouseEvent(&tTrackMouseEvent))
+		DEBUG_BREAK();
+
+	return tResult;
 }
 
 /////////////////DebuggerWin32/////////////////

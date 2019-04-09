@@ -10,7 +10,7 @@
 
 GLOBALGETTERFUNC(GlobalGuiProjectViewerInstance,GuiProject*);
 GLOBALGETTERFUNC(GlobalGuiSceneViewerInstance,GuiScene*);
-GLOBALGETTERFUNC(GlobalGuiCompilerViewerInstance,GuiCompiler*);
+GLOBALGETTERFUNC(GlobalCompilerInstance,Compiler*);
 GLOBALGETTERFUNC(GlobalGuiConsoleViewerInstance,GuiConsole*);
 GLOBALGETTERFUNC(GlobalDefaultFontInstance,GuiFont*);
 GLOBALGETTERFUNC(GlobalFontPoolInstance,std::vector<GuiFont*>);
@@ -448,7 +448,8 @@ Frame::Frame(float x,float y,float w,float h):
 	hasFrame(true),
 	mousedata(vec2(),0,0,*Mouse::Instance()),
 	dragcode(0),
-	sizeboxcode(0)
+	sizeboxcode(0),
+	skipFrameMouseExit(false)
 {
 	GlobalFrameInstance().push_back(this);
 
@@ -533,9 +534,7 @@ void Frame::Render()
 #endif
 #endif
 
-#if !CARET_OS
-	GuiCaret::Instance()->CheckDraw(this);
-#endif
+	GuiCaret::Instance()->Blink(this);
 }
 
 
@@ -580,7 +579,7 @@ DrawInstance* Frame::SetDraw(GuiRect* iRect,bool iRemove,bool iSkip,void* iParam
 {
 	DrawInstance* newInstance=new DrawInstance(iRect,iRemove,iSkip,iParam);
 	this->drawInstances.push_back(newInstance);
-	this->windowData->PostMessage(0,0,0);
+	this->windowData->SendMessage(0,0,0);
 	return newInstance;
 }
 
@@ -781,17 +780,13 @@ void Frame::OnMouseMove(float iX,float iY)
 
 		hit=htd.hit;
 
-		if(hit)
+		if(old!=hit)
 		{
-			if(old!=hit)
-			{
-				this->Message(old,GuiRectMessages::ONMOUSEEXIT);
-				this->Message(hit,GuiRectMessages::ONMOUSEENTER,&mousedata);
-			}
-
-			this->Message(hit,GuiRectMessages::ONMOUSEMOVE,&mousedata);
+			this->Message(old,GuiRectMessages::ONMOUSEEXIT,&EnterExitData(mousedata,hit));
+			this->Message(hit,GuiRectMessages::ONMOUSEENTER,&EnterExitData(mousedata,old));
 		}
-		else
+
+		if(!hit)
 		{
 			if(this->dragcode==1)
 				this->SetCursor(5);
@@ -800,6 +795,8 @@ void Frame::OnMouseMove(float iX,float iY)
 			else if(this->dragcode==3)
 				this->SetCursor(2);
 		}
+		else
+			this->Message(hit,GuiRectMessages::ONMOUSEMOVE,&mousedata);
 	}
 	else
 	{
@@ -836,7 +833,7 @@ void Frame::OnMouseWheel(float iScrollingValue)
 
 void Frame::OnSizeboxDown(unsigned iSizeboxCode)
 {
-	this->Message(hittest.hit,GuiRectMessages::ONMOUSEEXIT);
+	this->Message(hittest.hit,GuiRectMessages::ONMOUSEEXIT,&EnterExitData(this->mousedata,0));
 }
 
 void Frame::OnSizeboxUp()
@@ -960,13 +957,13 @@ void Frame::OnPaint()
 }
 
 
-void Frame::OnKeyDown(char iKey)
+void Frame::OnKeyDown(wchar_t iKey)
 {
 	KeyData tKeyData(iKey);
 	this->Message(this->focused,GuiRectMessages::ONKEYDOWN,&tKeyData);
 }
 
-void Frame::OnKeyUp(char iKey)
+void Frame::OnKeyUp(wchar_t iKey)
 {
 	KeyData tKeyData(iKey);
 	this->Message(this->focused,GuiRectMessages::ONKEYUP,&tKeyData);
@@ -979,15 +976,15 @@ void Frame::OnRecreateTarget()
 
 void Frame::SetFocus(GuiRect* iFocusedRect)
 {
-	/*bool tFocusHasChanged=(Tab::focused!=iFocusedRect);
+	GuiRect* tOldFocus=this->focused;
 
-	if(tFocusHasChanged && Tab::focused)
-		this->SetDraw(Tab::hovered);*/
+	if(tOldFocus && tOldFocus!=iFocusedRect)
+		this->Message(tOldFocus,ONEXITFOCUS,&MsgPtrData(iFocusedRect));
 
-	Frame::focused=iFocusedRect;
+	this->focused=iFocusedRect;
 
-	/*if(tFocusHasChanged && iFocusedRect)
-		this->SetDraw(iHoveredRect);*/
+	if(iFocusedRect!=tOldFocus)
+		this->Message(iFocusedRect,ONENTERFOCUS,&MsgPtrData(tOldFocus));
 }
 
 GuiRect* Frame::GetFocus()
@@ -1093,7 +1090,63 @@ GuiCaret*	GuiCaret::Instance()
 	GLOBALGETTERFUNCASSINGLETON(GlobalCaretInstance,GuiCaret);
 }
 
-void	GuiCaret::Draw(Frame* iFrame)
+
+//////////////////GuiCaret//////////////////
+
+GuiCaret::GuiCaret():rect(0),blinktime(BLINKRATE),frame(0)
+{
+	this->dim.make(1,GuiFont::GetDefaultFont()->GetHeight());
+}
+void	GuiCaret::SetPos(float x,float y)
+{
+	this->oldcaret=this->caret;
+	this->caret.make(x,y,x,y+this->dim.y);
+	if(this->frame)this->frame->windowData->SendMessage(0,1,1);
+}
+
+
+void	GuiCaret::SetDim(float w,float h)
+{
+	this->olddim=this->dim;
+	this->dim.make(w,h);
+	this->SetPos(this->caret.x,this->caret.y);
+}
+
+
+vec2 GuiCaret::GetPos()
+{
+	return vec2(this->caret.x,this->caret.y);
+}
+
+
+void	GuiCaret::SetColors(unsigned int tBack,unsigned int tFront)
+{
+	this->colorback=tBack;
+	this->colorfront=tFront;
+}
+
+
+void	GuiCaret::Hide()
+{
+	this->rect=0;
+}
+void	GuiCaret::Show(GuiRect* iRect,unsigned int tBack,unsigned int tFront)
+{
+	if(iRect)
+	{
+		this->frame=iRect->GetRoot()->GetFrame();
+		this->rect=iRect;
+		this->SetColors(tBack,tFront);
+	}
+	else
+	{
+		this->frame=0;
+		this->rect=0;
+	}
+}
+
+
+void	GuiCaret::Draw(Frame* iFrame,unsigned int iCode)
 {
 	GuiRect*			tRect=this->rect;
 
@@ -1101,13 +1154,10 @@ void	GuiCaret::Draw(Frame* iFrame)
 	GuiRect*			pRect=tRect->Parent();
 	std::list<GuiRect*> tAncestors;
 
-	vec2 tPos=this->pos;
-	vec2 tDim=this->dim;
-
-	vec2 p1=tPos;
-	vec2 p2(p1.x,p1.y+tDim.y);
-
-	bool tBlink=this->blink;
+	vec4 ncaret=this->caret;
+	vec4 ocaret=this->oldcaret;
+	vec2 ndim=this->dim;
+	vec2 odim=this->olddim;
 
 	while(pRect)tAncestors.push_front(pRect),pRect=pRect->Parent();
 
@@ -1122,11 +1172,14 @@ void	GuiCaret::Draw(Frame* iFrame)
 		iFrame->renderer2D->PushScissor(tPd.clip.x,tPd.clip.y,tPd.clip.z,tPd.clip.w);
 		iFrame->renderer2D->Translate(tPd.offset.x,tPd.offset.y);
 
-		if(!tBlink)
-			iFrame->renderer2D->DrawLine(p1,p2,this->colorback,tDim.x);
+		if(!iCode)
+			iFrame->renderer2D->DrawLine(vec2(ncaret.x,ncaret.y),vec2(ncaret.z,ncaret.w),this->blink ? this->colorfront : this->colorback,ndim.x);
 		else
-			iFrame->renderer2D->DrawLine(p1,p2,this->colorfront,tDim.x);
-
+		{
+			iFrame->renderer2D->DrawLine(vec2(ocaret.x,ocaret.y),vec2(ocaret.z,ocaret.w),this->colorback,odim.x);
+			iFrame->renderer2D->DrawLine(vec2(ncaret.x,ncaret.y),vec2(ncaret.z,ncaret.w),this->colorfront,ndim.x);
+		}
+		
 		iFrame->renderer2D->Translate(0,0);
 		iFrame->renderer2D->PopScissor();
 		iFrame->renderer2D->SetAntialiasing(true);
@@ -1135,13 +1188,13 @@ void	GuiCaret::Draw(Frame* iFrame)
 	}
 }
 
-void	GuiCaret::CheckDraw(Frame* iFrame)
+void	GuiCaret::Blink(Frame* iFrame)
 {
 	if(iFrame && this->rect)
 	{
 		if(Timer::Instance()->GetCurrent()-this->lasttime > this->blinktime)
 		{
-			iFrame->windowData->SendMessage(0,0,(int)1);
+			iFrame->windowData->SendMessage(0,0,1);
 
 			this->lasttime=Timer::Instance()->GetCurrent();
 			this->blink=!this->blink;
@@ -1149,22 +1202,41 @@ void	GuiCaret::CheckDraw(Frame* iFrame)
 	}
 }
 
-
-const vec2& GuiCaret::Get()
-{
-	return this->pos;
-}
-
-
-void	GuiCaret::SetColors(unsigned int tBack,unsigned int tFront)
-{
-	this->colorback=tBack;
-	this->colorfront=tFront;
-}
-
 //////////////////StringEditor///////////////////
 
-StringEditor::Cursor::Cursor():p(0){}
+StringEditor::Cursor::Cursor():p(0),caret(-1,-1),row(0),col(0){}
+
+void StringEditor::Cursor::Bind(String& iString)
+{
+	this->p=0;
+	this->row=0;
+	this->col=0;
+	this->caret.make(0,0);
+	this->textpos.make(0,0);
+	this->rowdata.clear();
+}
+
+void StringEditor::Cursor::InsertAt(float x,float y)
+{
+	this->textpos.make(x,y);
+}
+
+void StringEditor::Cursor::Reset()
+{
+	p=0;
+	this->caret.make(-1,-1);
+	this->textpos.make(0,0);
+	this->row=0;
+	this->col=0;
+	this->rowdata.clear();
+}
+
+void StringEditor::Cursor::SetCaretPosition()
+{
+	GuiCaret::Instance()->SetPos(this->textpos.x+this->caret.x,this->textpos.y+this->caret.y);
+}
+
+/////////////////StringEditor///////////////////
 
 StringEditor::StringEditor(){}
 
@@ -1175,11 +1247,9 @@ StringEditor* StringEditor::Instance()
 	GLOBALGETTERFUNCASSINGLETON(GlobalStringEditorInstance,StringEditor);
 }
 
-void StringEditor::ParseKeyInput(String& iString,Cursor& iCursor,const KeyData& iData,GuiFont* iFont)
+void StringEditor::ParseInput(Frame* iFrame,GuiRect* iRect,String& iString,Cursor& iCursor,const KeyData& iData,GuiFont* iFont)
 {
-	bool			tRedraw=false;
-
-	unsigned int	tCaretOperation=StringEditor::CARET_DONTCARE;
+	CaretOp			tCaretOperation=StringEditor::CARET_DONTCARE;
 	void*			tCaretParameter=0;
 
 	if(iData.key)
@@ -1189,7 +1259,7 @@ void StringEditor::ParseKeyInput(String& iString,Cursor& iCursor,const KeyData& 
 		case 0x08:/*VK_BACK*/tCaretOperation=StringEditor::CARET_BACKSPACE; break;
 		default:
 			tCaretOperation=StringEditor::CARET_ADD;
-			tCaretParameter=(char*)iData.key;
+			tCaretParameter=(wchar_t*)&iData.key;
 		}
 	}
 	else
@@ -1213,35 +1283,57 @@ void StringEditor::ParseKeyInput(String& iString,Cursor& iCursor,const KeyData& 
 		}*/
 	}
 
-	bool tMustResize=StringEditor::Instance()->EditText(iString,iCursor,tCaretOperation,iFont,tCaretParameter);
+	this->Edit(iFrame,iRect,iString,iCursor,tCaretOperation,iFont,tCaretParameter);
 }
 
-bool StringEditor::EditText(String& iString,Cursor& iCursor,unsigned int iCaretOp,GuiFont* iFont,void* iParam)
+void	StringEditor::InitCursorData(String& iString,Cursor& iCursor,GuiFont* iFont)
 {
-	float iFontHeight=iFont->GetHeight();
+	iCursor.Bind(iString);
+	this->Edit(0,0,iString,iCursor,CARET_RECALC,iFont,0);
+}
 
-	bool tMustResize=false;
-
+void StringEditor::Edit(Frame* iFrame,GuiRect* iRect,String& str,Cursor& cur,CaretOp iCaretOp,GuiFont* iFont,void* iParam)
+{
+	vec2 tOldCaret=cur.caret;
+	bool tRedraw=false;
+	
 	switch(iCaretOp)
 	{
-	case CARET_RECALC:
+		case CARET_RECALC:
 		{
-			const wchar_t*	pText=iString.c_str();
+			wchar_t*	pText=(wchar_t*)str.c_str();
 
-			bool tCarriageReturn=false;
-			int tCharWidth=0;
+			bool	tCarriageReturn=false;
+			float	tCharWidth=0;
 
-			iCursor.caret.make(0,0);
+			cur.p=0;
+			cur.caret.make(0,0);
+			cur.row=0;
+			cur.col=0;
+			cur.rowdata.clear();
+			cur.rowdata.push_back(RowData(0,0));
+			cur.maxes.make(0,0);
+
+			if(pText)
+			{
+				cur.caret.y+=iFont->GetHeight();
+				cur.maxes.y=cur.caret.y;
+			}
 
 			while(*pText)
 			{
 				if(tCarriageReturn)
 				{
-					iCursor.caret.x=0;
-					iCursor.caret.y+=iFontHeight;
+					cur.rowdata[cur.row].width=cur.caret.x;
+					cur.rowdata[cur.row].cols=cur.col;
+					cur.caret.x=0;
+					cur.caret.y+=iFont->GetHeight();
+					cur.maxes.y=cur.caret.y;
 					
-					iCursor.rowcol.x+=1;
-					iCursor.rowcol.y=0;
+					cur.row+=1;
+					cur.col=0;
+
+					cur.rowdata.push_back(RowData(0,0));
 
 					tCarriageReturn=false;
 				}
@@ -1251,199 +1343,251 @@ bool StringEditor::EditText(String& iString,Cursor& iCursor,unsigned int iCaretO
 				if(*pText=='\n' ||  *pText=='\r')
 					tCarriageReturn=true;
 
-				if(pText==iCursor.p)
-					break;
+				cur.caret.x+=tCharWidth;
+				cur.col+=1;
 
-				iCursor.caret.x+=tCharWidth;
-				iCursor.rowcol.y+=1;
+				cur.maxes.x=std::max<float>(cur.maxes.x,cur.caret.x);
 
 				pText++;
+				cur.p++;
 			}
 
-			break;
+			//reset caret,row and col
+			cur.p=0;
+			cur.row=0;
+			cur.col=0;
+			cur.caret.x=0;
+			cur.caret.y=0;
 		}
+		break;
 		case CARET_CANCEL:
 		{
-			if(iString.empty() || iCursor.p==&iString.back())
-				return false;
+			if(str.empty() || cur.p==(str.size()-1))
+				return;
 
-			std::wstring::iterator sIt=iString.begin()+iCursor.rowcol.y;
+			wchar_t			tChar=*(str.begin()+cur.p);
+			float			tCharWidth=iFont->GetCharWidth(tChar);
 
-			if(sIt!=iString.end())
-				iString.erase(sIt);
+			//erase the char
+			str.erase(str.begin()+cur.p);
 
-			break;
+			///update cursor data///
+			
+			//concat next row if any
+			if(cur.col==cur.rowdata[cur.row].cols)
+			{
+				unsigned int tNextRow=cur.row+1;
+
+				if(cur.rowdata.size()>tNextRow)
+				{
+					cur.rowdata[cur.row].cols+=cur.rowdata[tNextRow].cols;
+					cur.rowdata[cur.row].width+=cur.rowdata[tNextRow].width;
+					cur.rowdata.erase(cur.rowdata.begin() + tNextRow);
+				}
+			}
+
+			//update row char count
+			cur.rowdata[cur.row].cols-=1;
+			//update row width
+			cur.rowdata[cur.row].width-=tCharWidth;
+
+			tRedraw=true;
 		}
+		break;
 		case CARET_BACKSPACE:
 		{
-			if(iCursor.p==iString.c_str())
-				return false;
+			//if current is the first char, skip
+			if(cur.p==0)
+				return;
 
-			char tCharCode=*(--iCursor.p);
+			//get previous char
+			wchar_t	tPrevChar=*(str.begin()+(--cur.p));
+			float	tPrevCharWidth=iFont->GetCharWidth(tPrevChar);
 
-			if(tCharCode=='\n' ||  tCharCode=='\r')
+			//erase the char
+			str.erase(str.begin()+cur.p);
+
+			//concat prev row if any
+			if(tPrevChar=='\n' ||  tPrevChar=='\r')
 			{
-				//find previous row length
-				const wchar_t*	pText=iCursor.p-1;
-				unsigned int	tRowCharsWidth=0;
-				unsigned int    tRowCharCount=0;
+				//previous row index
+				unsigned int tPrevRow=cur.row-1;
 
-				while(*pText!='\n' &&  *pText!='\r')
-				{
-					tRowCharsWidth+=iFont->GetCharWidth(*pText);
+				//decrement charcount and widths of the previous row
+				cur.caret.x	=cur.rowdata[tPrevRow].cols-=1;
+				cur.col		=cur.rowdata[tPrevRow].width-=tPrevCharWidth;
 
-					if(pText==iString.c_str())
-						break;
+				//append current row charcount and widths of the previous row
+				cur.rowdata[tPrevRow].cols+=cur.rowdata[cur.row].cols;
+				cur.rowdata[tPrevRow].width+=cur.rowdata[cur.row].width;
 
-					pText--;
-					tRowCharCount++;
+				//erase current row charcount and widths
+				cur.rowdata.erase(cur.rowdata.begin() + cur.row);
+				cur.rowdata.erase(cur.rowdata.begin() + cur.row);
 
-				}
-
-				iCursor.caret.x=tRowCharsWidth;
-				iCursor.caret.y-=iFontHeight;
-				iCursor.rowcol.x--;
-				iCursor.rowcol.y=tRowCharCount;
-
-				tMustResize=true;
+				//update caret, row and col
+				cur.caret.y-=iFont->GetHeight();
+				cur.row--;
 			}
 			else
 			{
-				iCursor.caret.x-=iFont->GetCharWidth(tCharCode);
-				iCursor.rowcol.y--;
+				cur.rowdata[cur.row].cols--;
+				cur.rowdata[cur.row].width-=tPrevCharWidth;
+				cur.caret.x-=tPrevCharWidth;
+				cur.col--;
 			}
 
-			iString.erase(iCursor.p-iString.c_str(),1);
-
-			break;
+			tRedraw=true;
 		}
+		break;
 		case CARET_ADD:
 		{
-			char tCharcode=*(char*)iParam;
+			wchar_t			tChar=*(wchar_t*)iParam;
+			float			tCharWidth=iFont->GetCharWidth(tChar);
 
-			tCharcode=='\r' ? tCharcode='\n' : 0;
+			str.insert(str.begin()+cur.p,tChar);		
+			cur.p++;
 
-			if(tCharcode=='\n' || tCharcode=='\r')
+			//wants newline
+			if(tChar=='\n' || tChar=='\r')
 			{
-				iCursor.caret.x=0;
-				iCursor.caret.y+=iFontHeight;
-				iCursor.rowcol.x++;
-				iCursor.rowcol.y=0;
-				tMustResize=true;
+				//breaks the row, create another row with part of the current
+				if(cur.col<cur.rowdata[cur.row].cols)
+				{
+					wchar_t*		tfirst=0;
+					wchar_t*		tlast=0;
+					float			trowwidth=0;
+					unsigned int	trowcols=0;
+
+					//create the new row
+					if(!cur.col)
+					{
+						trowwidth=cur.rowdata[cur.row].width;
+						trowcols=cur.rowdata[cur.row].cols;
+					}
+					else
+					{
+						trowcols=cur.rowdata[cur.row].cols-cur.col;
+
+						tfirst=&*(str.begin()+cur.p);
+						tlast=&*(str.begin()+cur.p+trowcols);
+
+						trowwidth=iFont->GetStringWidth(tfirst,tlast);
+					}
+					
+					cur.rowdata.insert(cur.rowdata.begin()+cur.row+1,RowData(trowwidth,trowcols));
+
+					//update the current row
+					trowcols=cur.col+1;
+
+					tfirst=&*(str.begin()+cur.p-trowcols);
+					tlast=&*(str.begin()+cur.p);
+
+					trowwidth=iFont->GetStringWidth(tfirst,tlast);
+
+					cur.rowdata[cur.row].cols=trowcols;
+					cur.rowdata[cur.row].width=trowwidth;
+				}
+				else
+					cur.rowdata.insert(cur.rowdata.begin()+cur.row+1,RowData(0,1));
+
+				cur.caret.x=0;
+				cur.caret.y+=iFont->GetHeight();
+				cur.row++;
+				cur.col=0;
 			}
 			else
 			{
-				iCursor.caret.x+=iFont->GetCharWidth(tCharcode);
-				iCursor.rowcol.y++;
+				cur.rowdata[cur.row].cols++;
+				cur.rowdata[cur.row].width+=tCharWidth;
+
+				cur.caret.x+=tCharWidth;
+				cur.col++;
 			}
 
-			size_t tPosition=iCursor.p-iString.c_str();
-
-			iString.insert(tPosition,1,tCharcode);
-			iCursor.p=iString.c_str()+tPosition+1;
-
-			break;
+			tRedraw=true;
 		}
+		break;
 		case CARET_ARROWLEFT:
 		{
-			if(iCursor.p==iString.c_str())
-				return false;
+			if(cur.p==0)
+				return;
 
-			char tCharCode=*(--iCursor.p);
+			wchar_t tCharCode=*(str.begin()+(--cur.p));
 
 			if(tCharCode=='\n' ||  tCharCode=='\r')
 			{
-				const wchar_t*	pText=iCursor.p;
-				unsigned int	tRowLenght=0;
-				unsigned int    tRowCharCount=0;
+				cur.caret.x=cur.rowdata[cur.row-1].width;
+				cur.caret.y-=iFont->GetHeight();;
+				cur.row--;
+				cur.col=cur.rowdata[cur.row-1].cols;
 
-				//find previous row lengthc
-
-				while(true)
-				{
-					if(iCursor.p!=pText && (*pText=='\n' || *pText=='\r'))
-						break;
-
-					tRowLenght+=iFont->GetCharWidth(*pText);
-
-					if(pText==iString.c_str())
-						break;
-
-					pText--;
-					tRowCharCount++;
-				}
-
-				iCursor.caret.x=tRowLenght;
-				iCursor.caret.y-=iFontHeight;
-				iCursor.rowcol.x--;
-				iCursor.rowcol.y=tRowCharCount;
+				return;
 			}
 			else
 			{
-				iCursor.caret.x-=iFont->GetCharWidth(tCharCode);
-				iCursor.rowcol.y--;
+				cur.caret.x-=iFont->GetCharWidth(tCharCode);
+				cur.col--;
 			}
-
-			break;
 		}
+		break;
 		case CARET_ARROWRIGHT:
 		{
-			char tCharCode=*iCursor.p;
+			wchar_t tCharCode=*(str.begin()+cur.p);
 
 			if(tCharCode=='\0')
 				break;
 
 			if(tCharCode=='\n' || tCharCode=='\r')
 			{
-				iCursor.caret.x=0;
-				iCursor.caret.y+=iFontHeight;
-				iCursor.rowcol.x++;
-				iCursor.rowcol.y=0;
+				cur.caret.x=cur.rowdata[cur.row+1].width;
+				cur.caret.y+=iFont->GetHeight();
+				cur.row++;
+				cur.col=cur.rowdata[cur.row+1].cols;
 			}
 			else
 			{
-				iCursor.caret.x+=iFont->GetCharWidth(tCharCode);
-				iCursor.rowcol.y++;
+				cur.caret.x+=iFont->GetCharWidth(tCharCode);
+				cur.col++;
 			}
 
-			iCursor.p++;
-
-			break;
+			cur.p++;
 		}
+		break;
 		case CARET_ARROWUP:
 		{
-			unsigned int tRowCharWidth=0;
+			float tRowCharWidth=0;
 			unsigned int tColumn=0;
 
 			//---find current rowhead
 
-			const wchar_t* pText=iCursor.p;
+			const wchar_t* pText=&*(str.begin()+cur.p);
 
 			//skip the tail of the current row if present
 			if(*pText=='\r' || *pText=='\n')
 				pText--;
 
 			//find the last upper row or the head of the current row
-			while( pText!=iString.c_str() && *pText!='\r' &&  *pText!='\n' )
+			while( pText!=str.c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
 			//return if no previous row exists
-			if(pText==iString.c_str())
-				return false;
+			if(pText==str.c_str())
+				return;
 
 			//go to the upper row pre-carriage char
 			pText--;
 
 			//find the last upper superior row or the head of the upper row
-			while( pText!=iString.c_str() && *pText!='\r' &&  *pText!='\n' )
+			while( pText!=str.c_str() && *pText!='\r' &&  *pText!='\n' )
 				pText--;
 
 			//go to the upper superior row pre-carriage char
-			if(pText!=iString.c_str())
+			if(pText!=str.c_str())
 				pText++;
 
 			//finally found the upper matching position
-			while( tColumn!=iCursor.rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			while( tColumn!=cur.col && *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
 				tRowCharWidth+=iFont->GetCharWidth(*pText);
 
@@ -1451,59 +1595,64 @@ bool StringEditor::EditText(String& iString,Cursor& iCursor,unsigned int iCaretO
 				tColumn++;
 			}
 
-			iCursor.p=pText;
-			iCursor.caret.x=tRowCharWidth;
-			iCursor.caret.y-=iFontHeight;
-			iCursor.rowcol.y=tColumn;
-			iCursor.rowcol.x--;
-
-			break;
+			cur.p=pText-str.c_str();
+			cur.caret.x=tRowCharWidth;
+			cur.caret.y-=iFont->GetHeight();
+			cur.col=tColumn;
+			cur.row--;
 		}
+		break;
 		case CARET_ARROWDOWN:
 		{
-			unsigned int tRowCharWidth=0;
+			float tRowCharWidth=0;
 			unsigned int tColumn=0;
 
 			//find current rowtail
 
-			const wchar_t* pText=iCursor.p;
+			const wchar_t* pText=&*(str.begin()+cur.p);
 
 			while( *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
-				iCursor.p++;
+				cur.p++;
 				pText++;
 			}
 
 			if(*pText=='\0')
-				return false; //no previous row exists
+				return; //no previous row exists
 
 			pText++;
-			iCursor.p++;
+			cur.p++;
 
 			//finally found the lower matching position
 
-			while( tColumn!=iCursor.rowcol.y && *pText!='\0' && *pText!='\r' && *pText!='\n' )
+			while( tColumn!=cur.col && *pText!='\0' && *pText!='\r' && *pText!='\n' )
 			{
 				tRowCharWidth+=iFont->GetCharWidth(*pText);
 
 				pText++;
-				iCursor.p++;
+				cur.p++;
 				tColumn++;
 			}
 
 			/*if(tColumn!=this->string->cursor->rowcol.y)//string is shorter of the lower matching position
 				tRowCharWidth*/
 
-			iCursor.caret.x=tRowCharWidth;
-			iCursor.caret.y+=iFontHeight;
-			iCursor.rowcol.y=tColumn;
-			iCursor.rowcol.x++;
-
-			break;
+			cur.caret.x=tRowCharWidth;
+			cur.caret.y+=iFont->GetHeight();;
+			cur.col=tColumn;
+			cur.row++;
 		}
+		break;
 	}
 
-	//wprintf(L"cursor: %d,col: %d\n",iString.c_str(),iCursor.rowcol.y);
+	if(iFrame && iRect && tRedraw)
+		iFrame->SetDraw(iRect);
+
+	if(tOldCaret.x!=cur.caret.x || tOldCaret.y!=cur.caret.y)
+		GuiCaret::Instance()->SetPos(cur.textpos.x+cur.caret.x,cur.textpos.y+cur.caret.y);
+
+	if(str.c_str())
+	wprintf(L"idx:%d,%c nrows:%d rowdata:%d,%f rowcol:%d,%d\n",cur.p,*(str.begin()+cur.p),cur.rowdata.size(),cur.rowdata[cur.row].cols,cur.rowdata[cur.row].width,cur.row+1,cur.col+1);
 }
 
 //////////////////Renderer2D///////////////////
@@ -1532,7 +1681,40 @@ float GuiFont::GetHeight()const
 
 float GuiFont::GetCharWidth(wchar_t tCharacter)const
 {
-	return this->widths[tCharacter];
+	return this->widths[tCharacter]<0 ? 0 : this->widths[tCharacter];
+}
+
+float GuiFont::GetStringWidth(const wchar_t* iString)const
+{
+	if(!iString)
+		return 0;
+
+	float		tWidth=0;
+	wchar_t*	t=(wchar_t*)iString;
+
+	while(*t)
+	{
+		tWidth+=this->GetCharWidth(*t);
+		t++;
+	}
+
+	return tWidth;
+}
+float GuiFont::GetStringWidth(const wchar_t* iString,const wchar_t* iEnd)const
+{
+	if(!iString || iString==iEnd)
+		return 0;
+
+	float		tWidth=0;
+	wchar_t*	t=(wchar_t*)iString;
+
+	while(*t && t<iEnd)
+	{
+		tWidth+=this->GetCharWidth(*t);
+		t++;
+	}
+
+	return tWidth;
 }
 
 vec2 GuiFont::MeasureText(const wchar_t* iText)const
@@ -1559,7 +1741,7 @@ vec2 GuiFont::MeasureText(const wchar_t* iText)const
 		}
 		else
 		{
-			tW=this->widths[*t];
+			tW=(*t<255 ? this->widths[*t] : 0);
 			tWidth+=tW;
 		}
 
@@ -1770,7 +1952,12 @@ unsigned	GuiRect::GetColor(){return this->color;}
 
 GuiViewer* GuiRect::GetRoot()
 {
-	return this->parent ? this->parent->GetRoot() : (GuiViewer*)this;
+	return this->parent ? this->parent->GetRoot() : dynamic_cast<GuiViewer*>(this);
+}
+
+bool GuiRect::IsDescendantOf(GuiRect* iRect)
+{
+	return (this==iRect ? true : (this->parent ? this->parent->IsDescendantOf(iRect) : false));
 }
 
 void GuiRect::Append(GuiRect* iChild,bool isChild)
@@ -1900,10 +2087,6 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			iFrame->BroadcastTo(this->tab,iMsg,iData);
 		}
 		break;
-		case ONMOUSEENTER:
-		case ONMOUSEEXIT:
-			GuiRect::Procedure(iFrame,iMsg,iData);
-		break;
 		case ONSIZE:
 		{
 			GuiRect::Procedure(iFrame,iMsg,iData);
@@ -1916,39 +2099,44 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			iFrame->BroadcastTo(this->tab,iMsg,&tTabEdges);
 		}
 		break;
+		case ONMOUSEDOWN:
+			{
+				MouseData& tmd=*(MouseData*)iData;
+
+				if(tmd.button!=1)
+				{
+					GuiRect::Procedure(iFrame,iMsg,iData);
+				}
+				else if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
+				{
+					std::list<vec4>::iterator		i=this->rects.begin();
+					std::list<GuiRect*>::iterator	r=this->tabs.begin();
+
+					for(;i!=this->rects.end();i++,r++)
+					{
+						vec4 tLabelEdges=*i;
+
+						tLabelEdges.x+=this->edges.x;
+						tLabelEdges.z+=this->edges.x;
+						tLabelEdges.y+=this->edges.y;
+						tLabelEdges.w+=this->edges.y;
+
+						if(EdgesContainsPoint(tLabelEdges,tmd.mouse) && this->GetTab()!=*r)
+						{
+							this->SetTab(*r);
+							iFrame->SetFocus(*r);
+							this->frame->SetDraw(this);
+						}
+					}
+				}
+			}
+			break;
 		case ONMOUSEUP:
 		{
-			GuiRect::Procedure(iFrame,iMsg,iData);
-
 			MouseData& tmd=*(MouseData*)iData;
 
 			switch(tmd.button)
 			{
-				case 1:
-				{
-					if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
-					{
-						std::list<vec4>::iterator		i=this->rects.begin();
-						std::list<GuiRect*>::iterator	r=this->tabs.begin();
-
-						for(;i!=this->rects.end();i++,r++)
-						{
-							vec4 tLabelEdges=*i;
-
-							tLabelEdges.x+=this->edges.x;
-							tLabelEdges.z+=this->edges.x;
-							tLabelEdges.y+=this->edges.y;
-							tLabelEdges.w+=this->edges.y;
-
-							if(EdgesContainsPoint(tLabelEdges,tmd.mouse) && this->GetTab()!=*r)
-							{
-								this->SetTab(*r);
-								this->frame->SetDraw(this);
-							}
-						}
-					}
-				}
-				break;
 				case 3:
 				{
 					if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
@@ -1984,13 +2172,17 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					}
 				}
 				break;
+				default:
+					GuiRect::Procedure(iFrame,iMsg,iData);
 			}
-
-			
 
 			iFrame->BroadcastTo(this->tab,iMsg,iData);
 		}
 		break;
+		case ONMOUSEENTER:
+		case ONMOUSEEXIT:
+			iFrame->Message(this->tab,iMsg,iData);
+			break;
 		case ONPAINT:
 		{
 			iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,GuiViewer::COLOR_BACK);
@@ -2347,25 +2539,29 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 						tLbid.idx++;
 					}
 
-					//draw previous hitted node
-					if(this->hovered)
-						this->SetHoverHighlight(iFrame,false);
-
-					if(tLbid.hit)
+					if(this->hovered!=tLbid.hit)
 					{
-						//draw current hitted node
-						this->hovered=tLbid.hit;
-						this->hoverededges=tLbid.labeledges;
-						this->SetHoverHighlight(iFrame,true);
+						//draw previous hitted node
+						if(this->hovered)
+						{
+							this->SetHoverHighlight(iFrame,false);
+							this->hovered=0;
+						}
+
+						if(tLbid.hit)
+						{
+							//draw current hitted node
+							this->hovered=tLbid.hit;
+							this->hoverededges=tLbid.labeledges;
+							this->SetHoverHighlight(iFrame,true);
+						}
 					}
-					else
-						this->hovered=0;
 				}
-				else if(this->hovered)
-				{
-					this->SetHoverHighlight(iFrame,false);
-					this->hovered=0;
-				}
+			}
+			else if(this->hovered)
+			{
+				this->SetHoverHighlight(iFrame,false);
+				this->hovered=0;
 			}
 		}
 		break;
@@ -2395,6 +2591,8 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		break;
 		case ONMOUSEEXIT:
 		{
+			GuiScrollRect::Procedure(iFrame,iMsg,iData);
+
 			//draw previous hitted node
 			if(this->hovered)
 			{
@@ -2486,7 +2684,9 @@ float GuiTreeViewNode::GetHeight()
 }
 void  GuiTreeViewNode::OnExpandos(Frame*,const bool&){}
 void  GuiTreeViewNode::OnMouseDown(Frame*,const MouseData&){}
-void  GuiTreeViewNode::OnMouseUp(Frame*,const MouseData&){}
+void  GuiTreeViewNode::OnMouseUp(Frame*,const MouseData&){}/*
+void  GuiTreeViewNode::OnMouseEnter(Frame*,const MouseData&);
+void  GuiTreeViewNode::OnMouseExit(Frame*,const MouseData&);*/
 
 ////////////////GuiTreeView////////////////
 
@@ -2588,31 +2788,35 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					GuiTreeViewData tTreeViewData=this->GetTreeViewData(iData);
 					this->ItemRoll(this->root,iFrame,GuiRectMessages::ONHITTEST,tTreeViewData);
 
-					if(this->hovered)
-					{
-						this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
-						iFrame->SetDraw(this,true,false,this->hovered);
-					}
+					wprintf(L"hov: 0x%X , hit: 0x%X\n",this->hovered,tTreeViewData.hit);
 
-					if(tTreeViewData.hit)
+					if(this->hovered!=tTreeViewData.hit)
 					{
-						//draw current hitted node
-						this->hovered=tTreeViewData.hit;
-						this->hoveredg=tTreeViewData.labeledges;
-						this->hoverlvl=tTreeViewData.level;
+						if(this->hovered)
+						{
+							this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
+							iFrame->SetDraw(this,true,false,this->hovered);
+							this->hovered=0;
+						}
 
-						this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,true);
-						iFrame->SetDraw(this,true,false,this->hovered);
+						if(tTreeViewData.hit)
+						{
+							//draw current hitted node
+							this->hovered=tTreeViewData.hit;
+							this->hoveredg=tTreeViewData.labeledges;
+							this->hoverlvl=tTreeViewData.level;
+
+							this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,true);
+							iFrame->SetDraw(this,true,false,this->hovered);
+						}
 					}
-					else
-						this->hovered=0;
 				}
-				else if(this->hovered)
-				{
-					this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
-					iFrame->SetDraw(this,true,false,this->hovered);
-					this->hovered=0;
-				}
+			}
+			else if(this->hovered)
+			{
+				this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
+				iFrame->SetDraw(this,true,false,this->hovered);
+				this->hovered=0;
 			}
 		}
 		break;
@@ -2641,16 +2845,6 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			}
 		}
 		break;
-		case ONMOUSEEXIT:
-		{
-			//draw previous hitted node
-			if(this->hovered)
-			{
-				this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
-				iFrame->SetDraw(this,true,false,this->hovered);
-			}
-		}
-		break;
 		case ONPAINT:
 		{
 			PaintData& pd=*(PaintData*)iData;
@@ -2666,9 +2860,7 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(pd.data==0)
 			{
 				GuiRect::Procedure(iFrame,iMsg,iData);
-
 				float tContentBottom=(this->edges.y+this->GetContent().y)<=this->edges.w ? (this->edges.y+this->GetContent().y)-tOffsety : this->edges.w;
-
 				iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,tClippingEdges.z,tContentBottom,Frame::COLOR_BACK);
 			}
 
@@ -2681,6 +2873,16 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			iFrame->renderer2D->PopScissor();
 			
 			if(pd.data==0)GuiScrollRect::Procedure(iFrame,iMsg,pd.data);
+		}
+		break;
+		case ONMOUSEEXIT:
+		{
+			if(this->hovered)
+			{
+				this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
+				iFrame->SetDraw(this,true,false,this->hovered);
+				this->hovered=0;
+			}
 		}
 		break;
 		default:
@@ -2831,7 +3033,10 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			bool tSplitterHovered = this->splitterpressed || (md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4));
 
 			if(tSplitterHovered)
+			{
+				//this->hovered=0;
 				iFrame->SetCursor(1);
+			}
 
 			if(this->splitterpressed && md.raw.Left()) 
 			{
@@ -2845,6 +3050,32 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 					this->Procedure(iFrame,ONSIZE);
 					iFrame->SetDraw(this);
+				}
+			}
+		}
+		break;
+		case ONMOUSEEXIT:
+		{
+			EnterExitData& eed=*(EnterExitData*)iData;
+
+			if(this->hovered)
+			{
+				GuiRect*	tSomeRectIsEnteringMouseAfterThis=eed.enterexit;
+
+				GuiPropertyTreeItem*	tHoveredIsAGuiPropertyTreeItem=dynamic_cast<GuiPropertyTreeItem*>(this->hovered);
+
+				bool					tSomeRectIsEnteringMouseAfterThis_BelongToHovered	=	tSomeRectIsEnteringMouseAfterThis && tHoveredIsAGuiPropertyTreeItem &&
+
+										(
+										tHoveredIsAGuiPropertyTreeItem->GetProperty()==tSomeRectIsEnteringMouseAfterThis ||
+										tSomeRectIsEnteringMouseAfterThis->IsDescendantOf(tHoveredIsAGuiPropertyTreeItem->GetProperty())
+										);
+				
+				if(!tSomeRectIsEnteringMouseAfterThis_BelongToHovered)
+				{
+					this->SetFlag(this->hovered,GuiTreeViewNode::HIGHLIGHTED,false);
+					iFrame->SetDraw(this,true,false,this->hovered);
+					this->hovered=0;
 				}
 			}
 		}
@@ -2871,6 +3102,7 @@ void GuiPropertyTree::CalculateLayout()
 	this->ItemLayout(tFrame,this->GetTreeViewRootNode(),tTreeViewData);
 	this->splitter=this->GetContent().x + 10;
 	this->SetContent(this->splitter+154,0);
+	this->splitter+=this->edges.x;
 	this->Procedure(tFrame,ONACTIVATE);
 	this->Procedure(tFrame,ONSIZE);
 }
@@ -2923,8 +3155,15 @@ void GuiPropertyTree::ItemProcedure(GuiTreeViewNode* iItem,Frame* iFrame,GuiRect
 
 //////////////////Compiler/////////////////////
 
+Compiler* Compiler::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalCompilerInstance,Compiler);
+}
+
 Compiler::Compiler()
 {
+	GlobalCompilerInstance()=this;
+
 	ideSrcPath=Ide::Instance()->pathExecutable.PathUp(5) + L"\\src";
 	ideLibPath=Ide::Instance()->pathExecutable.Path();
 
@@ -2972,7 +3211,10 @@ Compiler::Compiler()
 }
 
 
-Compiler::~Compiler(){}
+Compiler::~Compiler()
+{
+	GlobalCompilerInstance()=0;
+}
 
 
 String Compiler::Compose(unsigned int iCompiler,EditorScript* iScript)
@@ -3129,15 +3371,7 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	EditorScript* tEditorScript=(EditorScript*)iEditorScript;
 
-	bool noErrors=GuiCompiler::Instance()->ParseCompilerOutputFile(tWideCharCompilationOutput);
-
-	/*
-	guiCompilerViewer->OnSize(tabContainer);
-	guiCompilerViewer->OnActivate(tabContainer);
-
-	if(false==noErrors)
-		tabContainer->SetSelection(guiCompilerViewer);
-	*/
+	bool noErrors=Compiler::Instance()->ParseCompilerOutputFile(tWideCharCompilationOutput);
 
 	GuiLogger::Log(StringUtils::Format(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iEditorScript->scriptpath.c_str()));
 
@@ -3229,6 +3463,89 @@ bool Compiler::UnloadScript(EditorScript* iScript)
 	}
 
 	return true;
+}
+
+const wchar_t* nthOccurrenceInLine(const wchar_t* iStr,char iChar,int iNth)
+{
+	const wchar_t* str=iStr;
+	int occurr=0;
+
+	char c=*str;
+
+	while(c!='\0' || c!='\n')
+	{
+		if(c==iChar)
+		{
+			if(++occurr==iNth)
+				return str;
+		}
+
+		c=*(++str);
+	}
+
+	return 0;
+}
+
+
+bool Compiler::ParseCompilerOutputFile(String iFileBuffer)
+{
+	bool bReturnValue=true;
+
+	this->GuiLogger::Clear();
+
+	const wchar_t* fileBuffer=iFileBuffer.c_str();
+
+	if(fileBuffer)
+	{
+		const wchar_t* LineBegin=fileBuffer;
+		const wchar_t* FileEnd=LineBegin;
+		while(*FileEnd++);
+
+		while(LineBegin!=FileEnd-1)
+		{
+			const wchar_t* LineEnd=wcschr(LineBegin,'\n');
+
+			const wchar_t* compileError=wcsstr(LineBegin,L"error C");
+			const wchar_t* linkError=wcsstr(LineBegin,L"error LNK");
+
+			compileError!=0 && LineEnd < compileError ? compileError=0 : 0;
+			linkError!=0 && LineEnd < linkError ? linkError=0 : 0;
+
+			bool simpleMessage=!compileError && !linkError;
+
+			if(simpleMessage)
+			{
+				this->AppendLog(String(LineBegin,LineEnd-LineBegin));
+			}
+			else
+			{
+				bReturnValue=false;
+
+				const wchar_t* FileEnd=nthOccurrenceInLine(LineBegin,':', compileError ? 2 : 1);//the first : should be the volume drive
+
+				if(FileEnd)
+					FileEnd+=2;
+
+				const wchar_t* ErrorEnd=nthOccurrenceInLine(FileEnd,':',1);
+
+				if(ErrorEnd)
+					ErrorEnd+=2;
+
+				this->AppendLog(String(FileEnd,ErrorEnd-FileEnd)+String(ErrorEnd,LineEnd-ErrorEnd));
+			}
+
+			LineBegin=++LineEnd;
+		}
+	}
+
+	if(!this->GuiLogger::GetRoot())
+		this->GetDefaultLogger()->GetRoot()->AddTab(this,L"Compiler");
+
+	if(this->GuiLogger::Count())
+		this->GuiLogger::GetRoot()->SetTab(this);
+
+	return bReturnValue;
+	return false;
 }
 
 
@@ -3398,7 +3715,6 @@ void GuiStringProperty::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData
 
 GuiString::GuiString():align(0.0f,0.5f),spot(0.0f,0.5f),textcolor(GuiString::COLOR_TEXT),font((GuiFont*)GuiFont::GetDefaultFont())
 {
-	this->cursor.p=this->text.c_str();
 }
 
 void GuiString::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
@@ -4065,7 +4381,7 @@ void GuiAnimationController::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* 
 		break;
 		case ONCONTROLEVENT:
 		{
-			GuiRect::Procedure(iFrame,iMsg,iData);
+			//GuiRect::Procedure(iFrame,iMsg,iData);
 
 			ControlData* cd=(ControlData*)iData;
 
@@ -4793,7 +5109,7 @@ void GuiScene::Load(String iFilename)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiEntity::GuiEntity():entity(0)
+GuiEntity::GuiEntity():rootEntityProperties(0)
 {
 	GlobalGuiEntityViewerInstance().push_back(this);
 }
@@ -4821,19 +5137,8 @@ void GuiEntity::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		{
 			EditorEntity* tReceivedEntity=(EditorEntity*)iData;
 
-			if(this->GetEntity()!=tReceivedEntity)
-			{
-				if(tReceivedEntity)
-				{
-					if(!this->GetEntity())
-					{
-						this->SetEntity(tReceivedEntity);
-						this->InsertRoot(tReceivedEntity->TreeViewContainer());
-					}
-					else
-						this->GetEntity()->Append(tReceivedEntity);
-				}
-			}
+			if(tReceivedEntity)
+				this->SetEntity(tReceivedEntity);
 
 			iFrame->SetDraw(this);
 		}
@@ -4843,8 +5148,15 @@ void GuiEntity::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 	}
 }
 
-void			GuiEntity::SetEntity(EditorEntity* iEntity){this->entity=iEntity;}
-EditorEntity*	GuiEntity::GetEntity(){return this->entity;}
+void	GuiEntity::SetEntity(EditorEntity* iEntity)
+{
+	this->rootEntityProperties=iEntity;
+	this->InsertRoot(iEntity->TreeViewContainer());
+}
+EditorEntity*	GuiEntity::GetEntity()
+{
+	return this->rootEntityProperties;
+}
 
 ///////////////GuiLogger////////////////
 
@@ -4877,6 +5189,11 @@ GuiLogger*	GuiLogger::Instance()
 }
 std::list<GuiLogger*>&	GuiLogger::GetPool(){return GlobalGuiLoggerInstance();}
 
+GuiLogger* GuiLogger::GetDefaultLogger()
+{
+	return (GuiLogger::GetPool().size() ? GuiLogger::GetPool().front() : 0);
+}
+
 void GuiLogger::AppendLog(const String& iString)
 {
 	GuiLoggerItem* tLog=new GuiLoggerItem(iString);
@@ -4891,12 +5208,18 @@ void GuiLogger::Clear()
 		SAFEDELETE(*i);
 }
 
+unsigned int GuiLogger::Count()
+{
+	return this->logs.size();
+}
+
+
 void GuiLogger::Log(const String& iString,GuiLogger* iLogger)
 {
-	GuiLogger* tLogger=iLogger ? iLogger : GuiLogger::GetPool().size() ? GuiLogger::GetPool().front() : 0;
-
-	if(tLogger)
-		tLogger->AppendLog(iString);
+	if(iLogger)
+		iLogger->AppendLog(iString);
+	else
+		DEBUG_BREAK();
 }
 
 ///////////////GuiConsoleViewer////////////////
@@ -5231,8 +5554,6 @@ std::list<GuiScript*>&	GuiScript::GetPool()
 GuiScript::GuiScript():
 	font(GuiFont::GetDefaultFont()),
 	editorscript(0),
-	numrows(0),
-	numcols(0),
 	verticaltoolbar(0),
 	colorbackbreak(GuiRect::COLOR_BACK),
 	colorbacklines(GuiRect::COLOR_BACK),
@@ -5288,8 +5609,6 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					}
 				}
 			}
-
-			GuiCaret::Instance()->Show(this,this->colorbackeditor,0x000000);
 		}
 		break;
 		case ONKEYDOWN:
@@ -5300,15 +5619,7 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				this->Save();
 			}
 			else
-			{
-				KeyData& kd=*(KeyData*)iData;
-
-				StringEditor::Instance()->ParseKeyInput(this->string,this->cursor,kd,this->font);
-
-				GuiCaret::Instance()->SetPos(this->edges.x+this->verticaltoolbar+this->cursor.caret.x,this->edges.y+this->cursor.caret.y);
-				GuiCaret::Instance()->SetDim(1,this->font->GetHeight());
-
-			}
+				StringEditor::Instance()->ParseInput(iFrame,this,this->string,this->cursor,*(KeyData*)iData,this->font);
 		}
 		break;
 		case ONPAINT:
@@ -5331,17 +5642,19 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			//text background
 			iFrame->renderer2D->DrawRectangle(tTextEditorEdgeLeft,this->edges.y,tClippingEdges.z,tClippingEdges.w,this->colorbackeditor);
 
+			//////draw text//////
+			float tOffsetx=this->GetScrollbarPosition(0);
+			float tOffsety=this->GetScrollbarPosition(1);
+
 			//////draw clipped vertical toolbar//////
 			iFrame->renderer2D->PushScissor(this->edges.x,this->edges.y,tLineNumbersColRight,tClippingEdges.w);
+			iFrame->renderer2D->Translate(0,-tOffsety);
 
 			this->DrawLineNumbers(iFrame);
 			this->DrawBreakpoints(iFrame);
 
+			iFrame->renderer2D->Translate(0,0);
 			iFrame->renderer2D->PopScissor();
-
-			//////draw text//////
-			float tOffsetx=this->GetScrollbarPosition(0);
-			float tOffsety=this->GetScrollbarPosition(1);
 
 			iFrame->renderer2D->PushScissor(tLineNumbersColRight,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
 			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
@@ -5355,6 +5668,15 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			GuiScrollRect::Procedure(iFrame,iMsg,iData);
 		}
 		break;
+		case ONENTERFOCUS:
+			GuiCaret::Instance()->SetDim(1,this->font->GetHeight());
+			this->cursor.InsertAt(this->edges.x+this->verticaltoolbar,this->edges.y);
+			this->cursor.SetCaretPosition();
+			GuiCaret::Instance()->Show(this,this->colorbackeditor,0x000000);
+		break;
+		case ONEXITFOCUS:
+			GuiCaret::Instance()->Show(0);
+		break;
 		default:
 			GuiScrollRect::Procedure(iFrame,iMsg,iData);
 	}
@@ -5363,17 +5685,22 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 void GuiScript::CalculateLayout()
 {
 	this->ResetContent();
-	vec4 tContent=this->font->MeasureText2(this->string.c_str());
-
-	this->numrows=tContent.w;
-	this->numcols=tContent.z;
-	
-	this->verticaltoolbar=GuiScript::BREAKPOINT_COLUMN_WIDTH;
-	this->verticaltoolbar+=this->font->MeasureText(StringUtils::Int(this->numrows).c_str()).x;
-	this->verticaltoolbar+=GuiScript::LINENUMBERS_MARGINS*2.0f;
-
-	this->SetContent(this->verticaltoolbar+tContent.x,tContent.y);
+	StringEditor::Instance()->InitCursorData(this->string,this->cursor,this->font);
+	this->verticaltoolbar=this->CalculateVerticalToolbarWidth();
+	this->SetContent(this->verticaltoolbar+this->cursor.maxes.x,this->cursor.maxes.y);
 	this->CalculateScrollbarsLayout();
+}
+
+float GuiScript::CalculateVerticalToolbarWidth()
+{
+	float tVerticalToolbarWidth=0;
+	float tLineNumbersWidth=this->font->GetStringWidth(StringUtils::Int(this->cursor.rowdata.size()).c_str());
+
+	tVerticalToolbarWidth=GuiScript::BREAKPOINT_COLUMN_WIDTH;
+	tVerticalToolbarWidth+=tLineNumbersWidth;
+	tVerticalToolbarWidth+=GuiScript::LINENUMBERS_MARGINS*2.0f;
+
+	return tVerticalToolbarWidth;
 }
 
 void GuiScript::SetEditorScript(EditorScript* iEditorScript)
@@ -5382,7 +5709,6 @@ void GuiScript::SetEditorScript(EditorScript* iEditorScript)
 	this->editorscript->scriptViewer=this;
 	this->editorscript->LoadScript();
 	this->string=this->editorscript->script;
-	this->cursor.p=this->string.c_str();
 	this->CalculateLayout();
 }
 
@@ -5406,41 +5732,15 @@ bool GuiScript::Compile()
 
 	if(this->editorscript)
 	{
-		exited=GuiCompiler::Instance()->UnloadScript(this->editorscript);
+		exited=Compiler::Instance()->UnloadScript(this->editorscript);
 
-		compiled=GuiCompiler::Instance()->Compile(this->editorscript);
+		compiled=Compiler::Instance()->Compile(this->editorscript);
 
-		runned=GuiCompiler::Instance()->LoadScript(this->editorscript);
+		runned=Compiler::Instance()->LoadScript(this->editorscript);
 	}
 
 	return exited && compiled && runned;
 }
-
-
-
-void GuiScript::OnKeyUp(Frame* iFrame,const MsgData& iData)
-{
-	//GuiRect::OnKeyUp(iTab,iData);
-}
-
-
-void GuiScript::OnMouseMove(Frame* iFrame,const MsgData& iData)
-{
-	/*GuiRect::OnMouseMove(iTab,iData);
-
-	if(this->IsHovering())
-	{
-		/ *if(iMsg.mouse.x < this->editor->margins.x)
-		{
-
-		}
-		else
-		{
-
-		}* /
-	}*/
-}
-
 
 void GuiScript::DrawLineNumbers(Frame* iFrame)
 {
@@ -5449,9 +5749,9 @@ void GuiScript::DrawLineNumbers(Frame* iFrame)
 	float tRowY=this->edges.y;
 	float tRowZ=tRowX+this->verticaltoolbar-GuiScript::LINENUMBERS_MARGINS;
 
-	for(int i=0;i<this->numrows;i++)
+	for(int i=0;i<this->cursor.rowdata.size();i++)
 	{
-		iFrame->renderer2D->DrawText(StringUtils::Int(i+1),tRowX,tRowY,tRowZ,tRowY + tTextHeight,this->colorfrontlines,this->font);
+		iFrame->renderer2D->DrawText(StringUtils::Format(L"%d",i+1),tRowX,tRowY,tRowZ,tRowY + tTextHeight,this->colorfrontlines,this->font);
 		tRowY+=tTextHeight;
 	}
 }
@@ -5476,104 +5776,6 @@ void GuiScript::DrawBreakpoints(Frame* iFrame)
 		}
 	}
 }
-
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-///////////////GuiCompilerViewer///////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
-
-GuiCompiler* GuiCompiler::Instance()
-{
-	GLOBALGETTERFUNCASSINGLETON(GlobalGuiCompilerViewerInstance,GuiCompiler);
-}
-
-GuiCompiler::GuiCompiler()
-{
-	GlobalGuiCompilerViewerInstance()=this;
-}
-
-GuiCompiler::~GuiCompiler()
-{
-}
-
-const wchar_t* nthOccurrenceInLine(const wchar_t* iStr,char iChar,int iNth)
-{
-	const wchar_t* str=iStr;
-	int occurr=0;
-
-	char c=*str;
-
-	while(c!='\0' || c!='\n')
-	{
-		if(c==iChar)
-		{
-			if(++occurr==iNth)
-				return str;
-		}
-
-		c=*(++str);
-	}
-
-	return 0;
-}
-
-
-bool GuiCompiler::ParseCompilerOutputFile(String iFileBuffer)
-{
-	bool bReturnValue=true;
-
-	const wchar_t* fileBuffer=iFileBuffer.c_str();
-
-	if(fileBuffer)
-	{
-		const wchar_t* LineBegin=fileBuffer;
-		const wchar_t* FileEnd=LineBegin;
-		while(*FileEnd++);
-
-		while(LineBegin!=FileEnd-1)
-		{
-			const wchar_t* LineEnd=wcschr(LineBegin,'\n');
-
-			const wchar_t* compileError=wcsstr(LineBegin,L"error C");
-			const wchar_t* linkError=wcsstr(LineBegin,L"error LNK");
-
-			compileError!=0 && LineEnd < compileError ? compileError=0 : 0;
-			linkError!=0 && LineEnd < linkError ? linkError=0 : 0;
-
-			bool simpleMessage=!compileError && !linkError;
-
-			if(simpleMessage)
-			{
-				this->Log(String(LineBegin,LineEnd-LineBegin));
-			}
-			else
-			{
-				bReturnValue=false;
-
-				const wchar_t* FileEnd=nthOccurrenceInLine(LineBegin,':', compileError ? 2 : 1);//the first : should be the volume drive
-
-				if(FileEnd)
-					FileEnd+=2;
-
-				const wchar_t* ErrorEnd=nthOccurrenceInLine(FileEnd,':',1);
-
-				if(ErrorEnd)
-					ErrorEnd+=2;
-
-				this->Log(String(FileEnd,ErrorEnd-FileEnd)+String(ErrorEnd,LineEnd-ErrorEnd));
-//				tCompilerMessageRow->GetColor(GuiRect::BACKGROUND)=0xff0000;
-			}
-
-			LineBegin=++LineEnd;
-		}
-	}
-
-	return bReturnValue;
-	return false;
-}
-
-
 
 
 
@@ -5941,7 +6143,7 @@ void EditorScript::EditorScriptButtons::Procedure(Frame* iFrame,GuiRectMessages 
 				}
 				else if(cd->control==&this->buttonCompile)
 				{
-					GuiCompiler::Instance()->Compile(this->editorscript);
+					Compiler::Instance()->Compile(this->editorscript);
 				}
 				else if(cd->control==&this->buttonLaunch)
 				{

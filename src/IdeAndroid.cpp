@@ -235,12 +235,12 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	{
 		tAndroidMk+=L"include $(CLEAR_VARS)\n"
 			L"DSTDIR := " + tAndroidProjectDirectory + L"\n"
-			L"LOCAL_C_INCLUDES := " + GuiCompiler::Instance()->GetSourcesPath() + L"\n"
+			L"LOCAL_C_INCLUDES := " + Compiler::Instance()->GetSourcesPath() + L"\n"
 			//"LOCAL_STATIC_LIBRARIES := -lEngine\n"
 			L"LOCAL_MODULE := " + ((FilePath)(*si)).Name() + L"\n"
 			L"LOCAL_SRC_FILES := " + (*si) + L"\n"
 			L"LOCAL_CPPFLAGS := -std=gnu++0x -Wall -fPIE -fpic\n"
-			L"LOCAL_LDLIBS := -L" + GuiCompiler::Instance()->GetLibrariesPath() + L" -lEngine -llog\n"
+			L"LOCAL_LDLIBS := -L" + Compiler::Instance()->GetLibrariesPath() + L" -lEngine -llog\n"
 			L"include $(BUILD_SHARED_LIBRARY)\n\n";
 	}
 
@@ -368,7 +368,7 @@ void AndroidHelpers::compileApk(AndroidPlugin* iAndroidPlugin)
 	String tBuildApk=   L"@echo off\n"
 		L"set PLATFORM=" + tAndroidPlatform + L"\n"
 		L"set BUILDTOOL=" + tAndroidBuildTool + L"\n"
-		L"set LIBDIR=" + GuiCompiler::Instance()->GetLibrariesPath() + L"\n"
+		L"set LIBDIR=" + Compiler::Instance()->GetLibrariesPath() + L"\n"
 		L"set PROJDIR=" + tAndroidProjectDirectory + L"\n"
 		L"set ADB=" + tAndroidDebugBridge + L"\n"
 		L"set KEYSTORE=" + tKeyname + L"\n"
