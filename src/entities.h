@@ -322,7 +322,7 @@ public:
 	
 struct DLLBUILD Entity : EntityBase
 {
-private:
+protected:
 	Entity*					parent;
 
 	std::list<EntityComponent*> components;
@@ -417,7 +417,7 @@ struct DLLBUILD AnimationController : EntityComponent
 	float speed;
 	float cursor;
 
-	bool play;
+	bool playing;
 	bool looped;
 
 	float start;
@@ -679,16 +679,16 @@ struct DLLBUILD Renderer3DBase
 
 struct DLLBUILD Scene
 {
-private:
-	Entity* entity;
-	String name;
+protected:
+	Entity* rootSceneEntity;
+	String	sceneName;
 public:
 
-	String GetName(){return this->name;}
-	void SetName(String iName){this->name=iName;}
+	const String& 	GetSceneName();
+	void			SetSceneName(const String&);
 
-	Entity* GetEntity(){return this->entity;}
-	void SetEntity(Entity* iEntity){this->entity=iEntity;}
+	virtual Entity*			GetSceneRootEntity();
+	virtual void			SetSceneRootEntity(Entity*);
 
 	Scene();
 };

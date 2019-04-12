@@ -62,15 +62,15 @@ Scene* LoadScene(FilePath iSceneResource,FILE* iFile)
 {
 	Scene* tScene=new Scene;
 	//assign the file name to the scene name
-	tScene->SetName(iSceneResource.Name());
+	tScene->SetSceneName(iSceneResource.Name());
 
-	printf("loading scene %s\n",StringUtils::ToChar(tScene->GetName()).c_str());
+	printf("loading scene %s\n",StringUtils::ToChar(tScene->GetSceneName()).c_str());
 
-	tScene->SetEntity(SerializerHelpers::loadSceneEntityRecursively(tScene->GetEntity(),resourceData));
+	tScene->SetSceneRootEntity(SerializerHelpers::loadSceneEntityRecursively(tScene->GetSceneRootEntity(),resourceData));
 
 	//barely load entities and components
-	if(!tScene->GetEntity())
-		printf("error loading scene %s\n",StringUtils::ToChar(tScene->GetName()).c_str());
+	if(!tScene->GetSceneRootEntity())
+		printf("error loading scene %s\n",StringUtils::ToChar(tScene->GetSceneName()).c_str());
 
 	return tScene;
 }
@@ -153,6 +153,8 @@ Renderer3DBase::~Renderer3DBase()
 
 void Renderer3DBase::UpdateEntities(Entity* iEntity)
 {
+	iEntity->update(this);
+
 	for(std::list<EntityComponent*>::const_iterator it=iEntity->Components().begin();it!=iEntity->Components().end();it++)
 		(*it)->update(this);
 
@@ -164,7 +166,7 @@ void Renderer3DBase::UpdateEntities(Entity* iEntity)
 
 void Renderer3DBase::RenderEntities(Entity* iEntity)
 {
-	this->DrawPoint(iEntity->local.position(),5,vec3(1,1,1));
+	iEntity->render(this);
 
 	for(std::list<EntityComponent*>::const_iterator it=iEntity->Components().begin();it!=iEntity->Components().end();it++)
 		(*it)->render(this);
@@ -509,7 +511,7 @@ float cubic_interpolation(float v0, float v1, float v2, float v3, float x)
 AnimationController::AnimationController():
 	speed(1),
 	cursor(0),
-	play(false),
+	playing(false),
 	looped(true),
 	start(0),
 	end(0),
@@ -544,18 +546,18 @@ void AnimationController::AddAnimation(Animation* iAnimation)
 
 void AnimationController::Stop()
 {
-	this->play=false;
+	this->playing=false;
 }
 
 void AnimationController::Play()
 {
-	this->play=true;
+	this->playing=true;
 }
 
 
 void AnimationController::update(Renderer3DBase*)
 {
-	if(this->play)
+	if(this->playing)
 	{
 		this->SetFrame(this->cursor);
 
@@ -1038,7 +1040,7 @@ void Entity::update(Renderer3DBase*)
 
 void Entity::render(Renderer3DBase* renderer)
 {
-	
+	renderer->DrawPoint(this->local.position(),5,vec3(1,1,1));
 }
 
 ///////////////////////////////////////////////
@@ -1047,9 +1049,16 @@ void Entity::render(Renderer3DBase* renderer)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-Scene::Scene():entity(0){}
+Scene::Scene():rootSceneEntity(0)
+{
+	this->SetSceneName(L"Scene");
+}
 
+const String& Scene::GetSceneName(){return this->sceneName;}
+void Scene::SetSceneName(const String& iName){this->sceneName=iName;}
 
+Entity* Scene::GetSceneRootEntity(){return this->rootSceneEntity;}
+void Scene::SetSceneRootEntity(Entity* iEntity){this->rootSceneEntity=iEntity;}
 
 
 ///////////////////////////////////////////////
@@ -1248,7 +1257,7 @@ void SerializerHelpers::Load(AnimationController* tAnimationController,FILE* iFi
 
 	fread(&tAnimationController->speed,sizeof(float),1,iFile);
 	fread(&tAnimationController->cursor,sizeof(float),1,iFile);
-	fread(&tAnimationController->play,sizeof(bool),1,iFile);
+	fread(&tAnimationController->playing,sizeof(bool),1,iFile);
 	fread(&tAnimationController->looped,sizeof(bool),1,iFile);
 	fread(&tAnimationController->start,sizeof(float),1,iFile);
 	fread(&tAnimationController->end,sizeof(float),1,iFile);

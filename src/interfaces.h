@@ -199,13 +199,16 @@ struct DLLBUILD PaintData : MsgData
 	vec2	 offset;
 	PaintData(void* iData=0):data(iData),clip(0,0,100000,100000){}
 };
-
 struct DLLBUILD MsgPtrData : MsgData
 {
 	void* ptr;
 	MsgPtrData(void* iData=0):ptr(iData){}
 };
-
+struct DLLBUILD SizeData : MsgData
+{
+	vec4 edges;
+	SizeData(const vec4& iEdges):edges(iEdges){}
+};
 struct DLLBUILD EnterExitData : MsgData
 {
 	MouseData&	mousedata;
@@ -251,6 +254,7 @@ public:
 
 	String GetSceneExtension();
 	String GetEntityExtension();
+	const FilePath& GetProjectFolder();
 
 	virtual void Sleep(int iMilliseconds=1)=0;
 };
@@ -556,10 +560,17 @@ protected:
 
 	Frame*		frame;
 
+	String				name;
+
+	std::list<GuiViewer*>	siblings[4];
+
 	std::list<GuiRect*>	tabs;
 	std::list<String>	labels;
 	std::list<vec4>		rects;
 	GuiRect*			tab;
+
+	GuiRect*			detachTab;
+	float				detachSpot;
 
 	float				labelsend;
 
@@ -587,8 +598,15 @@ public:
 	vec4		GetTabEdges();
 	vec4		GetBorderEdges();
 
-	void		UpdateLabelRects();
+	void		CalculateTabsRects();
 	vec4		GetLabelsArea();
+
+	String		GetTabLabel(GuiRect* iTab);
+
+	int			GetTabIndex(GuiRect*);
+	vec4		GetRectEdges(const vec4&);
+
+	void		PrintSiblings();
 };
 
 //////////////////////////////////
@@ -896,6 +914,7 @@ public:
 	void SetLabelEdges(GuiTreeViewNode*,GuiTreeViewData&);
 
 	void CalculateLayout();
+	float GetSplitterPos();
 };
 
 struct DLLBUILD GuiString : GuiRect
@@ -1071,6 +1090,8 @@ public:
 		this->stop.SetColor(iColor);
 		this->slider.SetColor(iColor);
 	}
+
+
 };
 
 
@@ -1161,6 +1182,8 @@ public:
 	unsigned int			GetLastFrameTime();
 	void					SetRenderingRate(unsigned int iFps=60);
 	unsigned int			GetRenderingRate();
+
+	virtual void			OnSize(Frame*,const vec4&);
 };
 
 //////////////////GuiScript///////////////////
@@ -1303,22 +1326,22 @@ struct DLLBUILD GuiPanel : GuiRect
 
 
 
-struct DLLBUILD GuiScene : Singleton<GuiScene> , GuiTreeView 
+struct DLLBUILD GuiScene : Multiton<GuiScene> , GuiTreeView , Scene
 {
 	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
-private:
-	EditorEntity* sceneRootEntity;
+protected:
 	GuiScene();
 public:
 
-	EditorEntity*			GetSceneRootEntity(); 
-	void					SetSceneRootEntity(EditorEntity*); 
+	EditorEntity*			GetSceneRootEditorEntity(); 
+	void					SetSceneRootEditorEntity(EditorEntity*); 
 
 	static GuiScene*  Instance();
+	static std::list<GuiScene*>&  GetPool();
 
-	void Save(String);
-	void Load(String);
+	void Save(Frame*,String);
+	void Load(Frame*,String);
 };
 
 struct DLLBUILD GuiEntity : Multiton<GuiEntity> , GuiPropertyTree
@@ -1396,37 +1419,49 @@ public:
 
 	void Delete(Frame*,ResourceNode*);
 
+	float GetLeftSplitter();
+	float GetRightSplitter();
+
 	void findResources(std::vector<ResourceNode*>& oResultArray,ResourceNode* iResourceNode,String iExtension);
 
 	std::vector<ResourceNode*> findResources(String iExtension);
 };
 
-struct DLLBUILD ResourceNode
+struct DLLBUILD ResourceNode : GuiListBoxItem<ResourceNode*>
 {
-	ResourceNode* parent;
+protected:
+	friend ResourceNodeDir;
 
-	FilePath fileName;
-	bool isDir;
+	ResourceNode*	parentNode;
+	friend			Resource;
+	FilePath		fileName;
+public:
+	
+	ResourceNodeDir*		IsDir();
+	ResourceNode*			GetParentNode();
+	FilePath				GetFilename();
+	virtual void			SetFilename(const String& iFilename);
+	String					BuildPath();
 
-	GuiListBoxItem<ResourceNode*> fileLabel;
-
-	String BuildPath();
+	void OnMouseUp(GuiListBox*,Frame*,const vec4&,const MouseData&);
 
 	ResourceNode();
 	virtual ~ResourceNode();
 };
 
-struct DLLBUILD ResourceNodeDir : ResourceNode
+struct DLLBUILD ResourceNodeDir : ResourceNode , GuiTreeViewItem<ResourceNodeDir*>
 {
 	std::list<ResourceNodeDir*> dirs;
-	std::list<ResourceNode*> files;
+	std::list<ResourceNode*>	files;
+	std::list<GuiListBoxNode*>	fileLabels;
 
-	GuiTreeViewItem<ResourceNodeDir*> dirLabel;
-	std::list<GuiListBoxNode*>		  fileLabels;
+	void InsertNode(ResourceNode*);
 
 	static ResourceNodeDir*	FindDirNode(String);
 	static ResourceNode*	FindFileNode(String);
 	static ResourceNodeDir* GetRootDirNode();
+
+	virtual void			SetFilename(const String& iFilename);
 
 	ResourceNodeDir();
 	virtual ~ResourceNodeDir();
@@ -1437,8 +1472,9 @@ struct DLLBUILD WindowData
 	virtual void Enable(bool)=0;
 	virtual bool IsEnabled()=0;
 
-	virtual vec2 Size()=0;
-	virtual vec2 Pos()=0;
+	virtual vec2 GetSize()=0;
+	virtual vec2 GetPos()=0;
+	virtual void SetPos(float x,float y)=0;
 	virtual void Show(bool)=0;
 	virtual bool IsVisible()=0;
 
@@ -1505,6 +1541,7 @@ struct DLLBUILD Frame
 	bool retarget;
 	bool trackmouseleave;
 	bool skipFrameMouseExit;
+	bool dragframe;
 
 	vec2 previousSize;
 
@@ -1540,7 +1577,9 @@ public:
 	std::list<GuiViewer*>& GetViewers();
 
 	void		RemoveViewer(GuiViewer*);
-	GuiViewer*	AddViewer(GuiViewer*);
+	GuiViewer*	AddViewer(GuiViewer*,const String&,unsigned int iPos,GuiViewer* iSibling);
+	GuiViewer*	AddViewer(GuiViewer*,const String&);
+	GuiViewer*	GetMainViewer();
 
 	virtual void OnPaint();
 	virtual void OnSize(float,float);
@@ -1595,11 +1634,8 @@ public:
 
 	virtual void SetCursor(int){};
 
-	void SetFocus(GuiRect*);
-	void SetPressed(GuiRect*);
-	GuiRect* GetFocus();
-	GuiRect* GetHover();
-	GuiRect* GetPressed();
+	void		SetFocus(GuiRect*);
+	GuiRect*	GetFocus();
 
 	void PushScissor(vec4,vec2);
 	void PopScissor(ClipData* oClipData=0);
@@ -1640,7 +1676,7 @@ struct DLLBUILD MainFrame : Singleton<MainFrame> , MenuInterface
 	void Initialize();
 	void Deintialize();
 
-	Frame* CreateFrame(float,float,float,float,Frame* iParentFrame=0,bool iModal=false);
+	Frame* CreateFrame(float,float,float,float,bool iCentered=false);
 	void   DestroyFrame(Frame*);
 
 	void	AddFrame(Frame*);
@@ -1739,16 +1775,17 @@ public:
 struct DLLBUILD  EditorPropertiesBase
 {
 protected:
+	ResourceNode*			resourceNode;
 	GuiPropertyTreeNode& propertytreenode;
 
-	EditorPropertiesBase(GuiPropertyTreeNode& iPropertyTreeNode):propertytreenode(iPropertyTreeNode){}
+	EditorPropertiesBase(GuiPropertyTreeNode& iPropertyTreeNode):propertytreenode(iPropertyTreeNode),resourceNode(0){}
 public:
 
 	GuiTreeViewNode& TreeViewNode(){return this->propertytreenode;}
 
-	virtual void OnPropertiesCreate(){};
-	virtual void OnResourcesCreate(){};
-	virtual void OnPropertiesUpdate(Frame*){};
+	virtual void OnInitProperties(){};
+	virtual void OnInitResources(){};
+	virtual void OnUpdateProperties(Frame*){};
 };
 
 template<class T> struct DLLBUILD EntityProperties : EditorPropertiesBase , GuiPropertyTreeContainer<T*> , T
@@ -1761,21 +1798,20 @@ template<class T> struct DLLBUILD EntityProperties : EditorPropertiesBase , GuiP
 
 	GuiPropertyTreeContainer<T*>& TreeViewContainer(){return *dynamic_cast< GuiPropertyTreeContainer<T*>* >(this);}
 
-	virtual void OnPropertiesCreate(){};
-	virtual void OnResourcesCreate(){};
-	virtual void OnPropertiesUpdate(Frame*){};
+	virtual void OnInitProperties(){};
+	virtual void OnInitResources(){};
+	virtual void OnUpdateProperties(Frame*){};
 };
 
 template<class T> struct DLLBUILD ComponentProperties : EntityProperties<T>
 {
 	EditorEntity* Entity(){return (EditorEntity*)this->T::Entity();}
+	T& GetComponent(){return *this;}
 };
 
-struct DLLBUILD SceneEntityLabel : GuiTreeViewItem<EditorEntity*>
+struct DLLBUILD GuiSceneEntityLabel : GuiTreeViewItem<EditorEntity*>
 {
-	SceneEntityLabel(EditorEntity* iEditorEntity):GuiTreeViewItem<EditorEntity*>(iEditorEntity){}
-
-	//EditorEntity* GetValue();
+	GuiSceneEntityLabel(EditorEntity* iEditorEntity);
 	virtual void OnMouseUp(Frame*,const MouseData&);
 };
 
@@ -1792,13 +1828,11 @@ struct DLLBUILD EditorEntity : EntityProperties<Entity>
 
 	void									DestroyChilds();
 
-	void									OnPropertiesCreate();
-	void									OnPropertiesUpdate(Frame*);
-
-	Entity*									Entity(){return this;}
+	void									OnInitProperties();
+	void									OnUpdateProperties(Frame*);
 
 	void									SetName(String);
-	SceneEntityLabel&						GetSceneLabel();
+	GuiSceneEntityLabel&						GetSceneLabel();
 
 	static unsigned int						GetInstancedEntitiesNumber();
 
@@ -1806,7 +1840,7 @@ struct DLLBUILD EditorEntity : EntityProperties<Entity>
 	{
 		C* tCreatedComponent=this->Entity::CreateComponent<C>();
 		//component->OnResourcesCreate();
-		tCreatedComponent->OnPropertiesCreate();
+		tCreatedComponent->OnInitProperties();
 		tCreatedComponent->Entity()->TreeViewContainer().Insert(tCreatedComponent->TreeViewContainer());
 		return tCreatedComponent;
 	}
@@ -1832,13 +1866,13 @@ private:
 
 	GuiPropertyTreeContainer<AABB*> pcAABB;
 
-	SceneEntityLabel				sceneLabel;
+	GuiSceneEntityLabel				sceneLabel;
 
 	static unsigned int						instancedEntitiesNumber;
 public:
 };
 
-struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationController>
+struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationController> , GuiAnimationController
 {
 	float oldCursor;
 	float minSpeed;
@@ -1849,7 +1883,6 @@ struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationControl
 	GuiStringProperty		spDuration;
 	GuiStringProperty		spBegin;
 	GuiStringProperty		spEnd;
-	GuiAnimationController  acpGuiAnimationController;
 
 	GuiPropertyTreeItem pNumNodes;
 	GuiPropertyTreeItem pVelocity;
@@ -1861,8 +1894,8 @@ struct DLLBUILD EditorAnimationController : ComponentProperties<AnimationControl
 	EditorAnimationController();
 	~EditorAnimationController();
 
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 
 struct DLLBUILD EditorMesh : ComponentProperties<Mesh>
@@ -1881,23 +1914,23 @@ struct DLLBUILD EditorMesh : ComponentProperties<Mesh>
 
 	EditorMesh();
 
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorRoot : ComponentProperties<Root>
 {
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorSkeleton : ComponentProperties<Skeleton>
 {
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorGizmo : ComponentProperties<Gizmo>
 {
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorAnimation : ComponentProperties<Animation>
 {
@@ -1913,13 +1946,13 @@ struct DLLBUILD EditorAnimation : ComponentProperties<Animation>
 
 	EditorAnimation();
 
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorBone : ComponentProperties<Bone>
 {
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorLine : ComponentProperties<Line>
 {
@@ -1933,8 +1966,8 @@ public:
 
 	EditorLine();
 
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 
 	void DestroyPoints();
 	void Append(vec3);
@@ -1942,8 +1975,8 @@ public:
 };
 struct DLLBUILD EditorLight : ComponentProperties<Light>
 {
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorScript : ComponentProperties<Script>
 {
@@ -1962,7 +1995,6 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 	};
 
 	GuiScript*			scriptViewer;
-	ResourceNode*		resourceNode;
 
 	FilePath			module;
 	String				script;
@@ -1977,9 +2009,9 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 
 	EditorScript();
 
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
-	void OnResourcesCreate();
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
+	void OnInitResources();
 
 	//for the debugger
 	void update()
@@ -1992,8 +2024,8 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 };
 struct DLLBUILD EditorCamera : ComponentProperties<Camera>
 {
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 struct DLLBUILD EditorSkin : ComponentProperties<Skin>
 {
@@ -2005,8 +2037,8 @@ struct DLLBUILD EditorSkin : ComponentProperties<Skin>
 
 	EditorSkin();
 
-	void OnPropertiesCreate();
-	void OnPropertiesUpdate(Frame*);
+	void OnInitProperties();
+	void OnUpdateProperties(Frame*);
 };
 
 

@@ -482,9 +482,9 @@ void AndroidHelpers::packResources(String& iCurrentDirectory,ResourceNodeDir* iR
 {
 	//store current dir
 
-	if(iResDir->parent)
+	if(iResDir->GetParentNode())
 	{
-		iCurrentDirectory+=iResDir->fileName.c_str();
+		iCurrentDirectory+=iResDir->GetFilename().c_str();
 		iCurrentDirectory+=L"\\";
 	}
 
@@ -492,7 +492,7 @@ void AndroidHelpers::packResources(String& iCurrentDirectory,ResourceNodeDir* iR
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		File			tSourceFile(Ide::Instance()->folderProject + iCurrentDirectory + (*tResFile)->fileName);
+		File			tSourceFile(Ide::Instance()->GetProjectFolder() + iCurrentDirectory + (*tResFile)->GetFilename());
 		int				tSourceFileDataStart;
 		size_t			tSourceFileDataSize;
 		String			tFinalFileName;

@@ -6,8 +6,6 @@
 
 /////////////////////globals///////////////////
 
-
-
 GLOBALGETTERFUNC(GlobalGuiProjectViewerInstance,GuiProject*);
 GLOBALGETTERFUNC(GlobalGuiSceneViewerInstance,GuiScene*);
 GLOBALGETTERFUNC(GlobalCompilerInstance,Compiler*);
@@ -112,21 +110,73 @@ namespace SerializerHelpers
 ///////////////ResourceNode/////////////////
 
 ResourceNode::ResourceNode():
-	parent(0),
-	isDir(0),
-	fileLabel(this)
+	parentNode(0),
+	GuiListBoxItem<ResourceNode*>(this)
 {
 }
 
 ResourceNode::~ResourceNode()
 {
-	this->parent=0;
+	this->parentNode=0;
 	this->fileName.clear();
-	this->isDir=false;
 }
 
-ResourceNodeDir::ResourceNodeDir():dirLabel(this){}
+ResourceNodeDir* ResourceNode::IsDir(){return dynamic_cast<ResourceNodeDir*>(this);}		 
+ResourceNode* ResourceNode::GetParentNode(){return this->parentNode;}
+FilePath	ResourceNode::GetFilename(){return this->fileName;}
+void	ResourceNode::SetFilename(const String& iFilename)
+{
+	this->fileName=iFilename;
+	this->SetLabel(iFilename);
+}
 
+void ResourceNode::OnMouseUp(GuiListBox* iListBox,Frame* iFrame,const vec4& iEdges,const MouseData& iMouseData)
+{
+	if(iMouseData.button==3)
+	{
+		int tResultMenu=iFrame->TrackProjectFileViewerPopup(this);
+
+		switch(tResultMenu)
+		{
+			case 1:
+			{
+				GuiProject::Instance()->Delete(iFrame,this);
+			}
+			break;
+			case 3://load
+			{
+				if(this->fileName.PointedExtension() == Ide::Instance()->GetSceneExtension())
+				{
+					String tHoveredNodeFilename=this->BuildPath();
+					GuiScene::Instance()->Load(iFrame,this->BuildPath());
+				}
+			}
+			break;
+		}
+	}
+}
+
+String ResourceNode::BuildPath()
+{
+	if(!this->parentNode)
+		return this->fileName;
+
+	String tReturnPath=L"\\" + this->fileName;
+
+	ResourceNode* t=this;
+
+	while(t->parentNode)
+	{
+		tReturnPath.insert(0, !t->parentNode->parentNode ? t->parentNode->fileName : L"\\" + t->parentNode->fileName);
+		t=t->parentNode;
+	}
+	 
+	return tReturnPath;
+}
+
+///////////////ResourceNodeDir//////////////
+
+ResourceNodeDir::ResourceNodeDir():GuiTreeViewItem<ResourceNodeDir*>(this){}
 ResourceNodeDir::~ResourceNodeDir()
 {
 	for(std::list<ResourceNode*>::iterator tFile=this->files.begin();tFile!=this->files.end();tFile++)
@@ -139,29 +189,35 @@ ResourceNodeDir::~ResourceNodeDir()
 	this->dirs.clear();
 }
 
-String ResourceNode::BuildPath()
+void ResourceNodeDir::InsertNode(ResourceNode* iResourceNode)
 {
-	if(!this->parent)
-		return this->fileName;
+	ResourceNodeDir* tResourceNodeDir=iResourceNode->IsDir();
 
-	String tReturnPath=L"\\" + this->fileName;
+	iResourceNode->parentNode=this;
 
-	ResourceNode* t=this;
-
-	while(t->parent)
+	if(tResourceNodeDir)
 	{
-		tReturnPath.insert(0, !t->parent->parent ? t->parent->fileName : L"\\" + t->parent->fileName);
-		t=t->parent;
+		this->dirs.push_back(tResourceNodeDir);
+		this->Insert(*tResourceNodeDir);
 	}
-	 
-	return tReturnPath;
+	else
+		this->files.push_back(iResourceNode);
+
+	this->fileLabels.push_back(iResourceNode);
+}
+
+
+void	ResourceNodeDir::SetFilename(const String& iFilename)
+{
+	ResourceNode::SetFilename(iFilename);
+	this->GuiTreeViewItem<ResourceNodeDir*>::SetLabel(iFilename);
 }
 
 
 
 ResourceNodeDir* ResourceNodeFindDirNode(const String& iFile,ResourceNodeDir* iNode,String &tmp)
 {
-	tmp+= iNode->parent ? L"\\"+iNode->fileName : iNode->fileName;
+	tmp+= iNode->GetParentNode() ? L"\\"+iNode->GetFilename() : iNode->GetFilename();
 
 	if(tmp==iFile)
 		return iNode;
@@ -192,14 +248,14 @@ ResourceNodeDir* ResourceNodeDir::FindDirNode(String iFile)
 
 ResourceNode* ResourceNodeFindFileNode(const String& iFile,ResourceNodeDir* iNode,String &tmp)
 {
-	tmp+= iNode->parent ? L"\\"+iNode->fileName : iNode->fileName;
+	tmp+= iNode->GetParentNode() ? L"\\"+iNode->GetFilename() : iNode->GetFilename();
 
 	if(tmp==iFile)
 		return iNode;
 	
 	for(std::list<ResourceNode*>::iterator iterFile=iNode->files.begin();iterFile!=iNode->files.end();iterFile++)
 	{
-		if((tmp+L"\\"+(*iterFile)->fileName)==iFile)
+		if((tmp+L"\\"+(*iterFile)->GetFilename())==iFile)
 			return *iterFile;
 	}
 
@@ -236,9 +292,9 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 {
 	//store current dir
 
-	if(iResDir->parent)
+	if(iResDir->GetParentNode())
 	{
-		iCurrentDirectory+=iResDir->fileName.c_str();
+		iCurrentDirectory+=iResDir->GetFilename().c_str();
 		iCurrentDirectory+=L"\\";
 	}
 
@@ -246,11 +302,11 @@ String gFindResource(String& iCurrentDirectory,String& iProjectDir,ResourceNodeD
 
 	for(std::list<ResourceNode*>::iterator tResFile=iResDir->files.begin();tResFile!=iResDir->files.end();tResFile++)
 	{
-		String	tVirtualFileName=iCurrentDirectory + (*tResFile)->fileName;
+		String	tVirtualFileName=iCurrentDirectory + (*tResFile)->GetFilename();
 
 		if(tVirtualFileName==iResourceName)
 		{
-			return iProjectDir + iCurrentDirectory + (*tResFile)->fileName;
+			return iProjectDir + iCurrentDirectory + (*tResFile)->GetFilename();
 		}
 	}
 
@@ -303,6 +359,11 @@ String Ide::GetSceneExtension()
 String Ide::GetEntityExtension()
 {
 	return L".engineEntity";
+}
+
+const FilePath& Ide::GetProjectFolder()
+{
+	return this->folderProject;
 }
 
 Frame*	Ide::CreatePopup(Frame* iParent,float ix,float iy,float iw,float ih)
@@ -449,7 +510,8 @@ Frame::Frame(float x,float y,float w,float h):
 	mousedata(vec2(),0,0,*Mouse::Instance()),
 	dragcode(0),
 	sizeboxcode(0),
-	skipFrameMouseExit(false)
+	skipFrameMouseExit(false),
+	dragframe(false)
 {
 	GlobalFrameInstance().push_back(this);
 
@@ -464,6 +526,9 @@ Frame::Frame(float x,float y,float w,float h):
 Frame::~Frame()
 {
 	GlobalFrameInstance().remove(this);
+
+	for(std::list<GuiViewer*>::iterator i=this->viewers.begin();i!=this->viewers.end();i++)
+		SAFEDELETE(*i);
 }
 
 
@@ -502,6 +567,9 @@ struct DLLBUILD MsgClipData
 
 void Frame::Render()
 {
+	if(!this->IsEnabled())
+		return;
+
 #if RENDERER_ENABLED
 	int tRenderCounter=0;
 
@@ -525,7 +593,7 @@ void Frame::Render()
 				Frame*			tEntityPropertiesFrame=(*it)->GetRoot()->GetFrame();
 
 				if(tEntityPropertiesEntity && tEntityPropertiesFrame)
-					tEntityPropertiesEntity->OnPropertiesUpdate(tEntityPropertiesFrame);
+					tEntityPropertiesEntity->OnUpdateProperties(tEntityPropertiesFrame);
 			}
 
 			tViewportFrame->SetDraw(tViewport);
@@ -838,7 +906,7 @@ void Frame::OnSizeboxDown(unsigned iSizeboxCode)
 
 void Frame::OnSizeboxUp()
 {
-
+	this->dragframe=false;
 }
 
 void Frame::OnMouseDown(unsigned int iButton)
@@ -923,7 +991,7 @@ void Frame::OnMouseClick(unsigned int iButton)
 
 vec2 Frame::Size()
 {
-	return this->windowData->Size();
+	return this->windowData->GetSize();
 }
 
 std::list<GuiViewer*>& Frame::GetViewers()
@@ -939,15 +1007,135 @@ std::list<Frame*>& Frame::GetPool()
 void Frame::RemoveViewer(GuiViewer* iViewer)
 {
 	this->viewers.remove(iViewer);
+
+	bool skip=false;
+	
+	//find equal edge
+	for(int tPos=0;tPos<4 && !skip;tPos++)
+	{
+		int	tReciprocal=tPos<2 ? tPos+2 : tPos-2;
+
+		for(std::list<GuiViewer*>::iterator tIter=iViewer->siblings[tPos].begin();tIter!=iViewer->siblings[tPos].end();tIter++)
+		{
+			GuiViewer* tSibling=*tIter;
+
+			if(tSibling->edges.x>=iViewer->edges.x && tSibling->edges.z<=iViewer->edges.z)
+			{
+				tPos==1 ? tSibling->edges.w=iViewer->edges.w : tSibling->edges.y=iViewer->edges.y;
+
+				//erase the sibling link to the removed viewer
+				tSibling->siblings[tReciprocal].remove(iViewer);
+
+				this->BroadcastTo(tSibling,GuiRectMessages::ONSIZE);
+				this->SetDraw(tSibling);
+
+				skip=true;
+			}
+			else if(tSibling->edges.y>=iViewer->edges.y && tSibling->edges.w<=iViewer->edges.w)
+			{
+				!tPos ? tSibling->edges.z=iViewer->edges.z : tSibling->edges.x=iViewer->edges.x;
+
+				//erase the sibling link to the removed viewer
+				tSibling->siblings[tReciprocal].remove(iViewer);
+
+				this->BroadcastTo(tSibling,GuiRectMessages::ONSIZE);
+				this->SetDraw(tSibling);
+				skip=true;
+			}
+		}
+	}
+
+	iViewer->siblings[0].clear();
+	iViewer->siblings[1].clear();
+	iViewer->siblings[2].clear();
+	iViewer->siblings[3].clear();
+
 }
-GuiViewer* Frame::AddViewer(GuiViewer* iViewer)
+GuiViewer* Frame::AddViewer(GuiViewer* iViewer,const String& iName,unsigned int iPos,GuiViewer* iSibling)
 {
+	iViewer->name=iName;
+	iViewer->frame=this;
+	this->viewers.push_back(iViewer);
+
+	if(!this->viewers.size())
+	{
+		vec2 tFrameSize=this->Size();
+		iViewer->edges.make(0,0,tFrameSize.x,tFrameSize.y);
+	}
+	else if(iSibling)
+	{
+		float	tShrinkDim=((iPos%2) ? iSibling->edges.w-iSibling->edges.y : iSibling->edges.z-iSibling->edges.x);
+		int		tReciprocal=iPos<2 ? iPos+2 : iPos-2;
+		int		tOrthoLeft=iPos>0 ? iPos-1 : 3;
+		int		tOrthoLeftReciprocal=tOrthoLeft<2 ? tOrthoLeft+2 : tOrthoLeft-2;
+		int		tOrthoRight=iPos<3 ? iPos+1 : 0;
+		int		tOrthoRightReciprocal=tOrthoRight<2 ? tOrthoRight+2 : tOrthoRight-2;
+		float	tShrinkSign=iPos<2 ? +1 : -1;
+		
+		//copy sibling edges on the new viewer
+		iViewer->edges=iSibling->edges;
+
+		//change the modified edge on the two viewers
+		iSibling->edges[iPos]+=tShrinkSign*(tShrinkDim/2.0f);
+		iViewer->edges[tReciprocal]-=tShrinkSign*(tShrinkDim/2.0f)+tShrinkSign*4.0f;
+
+		//update same and opposite direction links
+		if(iSibling->siblings[iPos].size())
+		{
+			//link to the opposite attach direction is already taken
+			//link to the attach direction
+			iViewer->siblings[iPos]=iSibling->siblings[iPos];
+			iSibling->siblings[iPos].clear();
+
+			for(std::list<GuiViewer*>::iterator i=iViewer->siblings[iPos].begin();i!=iViewer->siblings[iPos].end();i++)
+				*std::find((*i)->siblings[tReciprocal].begin(),(*i)->siblings[tReciprocal].end(),iSibling)=iViewer;
+		}
+
+		//link to left of current direction
+		iViewer->siblings[tOrthoLeft]=iSibling->siblings[tOrthoLeft];
+		
+		for(std::list<GuiViewer*>::iterator i=iViewer->siblings[tOrthoLeft].begin();i!=iViewer->siblings[tOrthoLeft].end();i++)
+			(*i)->siblings[tOrthoLeftReciprocal].push_back(iViewer);
+
+		//link to right of current direction
+		iViewer->siblings[tOrthoRight]=iSibling->siblings[tOrthoRight];
+
+		for(std::list<GuiViewer*>::iterator i=iViewer->siblings[tOrthoRight].begin();i!=iViewer->siblings[tOrthoRight].end();i++)
+			(*i)->siblings[tOrthoRightReciprocal].push_back(iViewer);
+
+		//link viewer with sibling
+		iSibling->siblings[iPos].push_back(iViewer);
+		iViewer->siblings[tReciprocal].push_back(iSibling);
+
+		this->Message(iSibling,GuiRectMessages::ONSIZE);
+		this->Message(iViewer,GuiRectMessages::ONSIZE);
+	}
+	else
+	{
+		//frame borders case
+
+	}
+
+	return iViewer;
+}
+GuiViewer* Frame::AddViewer(GuiViewer* iViewer,const String& iName)
+{
+	if(!this->viewers.size())
+	{
+		vec2 tFrameSize=this->Size();
+		iViewer->edges.make(0,0,tFrameSize.x,tFrameSize.y);
+	}
+
+	iViewer->name=iName;
 	iViewer->frame=this;
 	this->viewers.push_back(iViewer);
 	return iViewer;
 }
 
-
+GuiViewer*	Frame::GetMainViewer()
+{
+	return (this->viewers.size() ? this->viewers.front() : 0);
+}
 
 void Frame::OnPaint()
 {
@@ -1027,6 +1215,9 @@ bool Frame::IsEnabled()
 MainFrame::~MainFrame()
 {
 	this->Deintialize();
+
+	for(std::list<Frame*>::iterator i=this->frames.begin();i!=this->frames.end();i++)
+		SAFEDELETE(*i);
 }
 
 MainFrame* MainFrame::Instance()
@@ -1043,6 +1234,8 @@ bool MainFrame::IsInstanced()
 void   MainFrame::DestroyFrame(Frame* iFrame)
 {
 	this->RemoveFrame(iFrame);
+	if(!MainFrame::Instance()->GetFrame()->windowData->IsEnabled())
+	MainFrame::Instance()->Enable(true);
 	SAFEDELETE(iFrame);
 }
 
@@ -1651,8 +1844,8 @@ void StringEditor::Edit(Frame* iFrame,GuiRect* iRect,String& str,Cursor& cur,Car
 	if(tOldCaret.x!=cur.caret.x || tOldCaret.y!=cur.caret.y)
 		GuiCaret::Instance()->SetPos(cur.textpos.x+cur.caret.x,cur.textpos.y+cur.caret.y);
 
-	if(str.c_str())
-	wprintf(L"idx:%d,%c nrows:%d rowdata:%d,%f rowcol:%d,%d\n",cur.p,*(str.begin()+cur.p),cur.rowdata.size(),cur.rowdata[cur.row].cols,cur.rowdata[cur.row].width,cur.row+1,cur.col+1);
+	if(str.size())
+	wprintf(L"idx:%d, nrows:%d rowdata:%d,%f rowcol:%d,%d\n",cur.p,cur.rowdata.size(),cur.rowdata[cur.row].cols,cur.rowdata[cur.row].width,cur.row+1,cur.col+1);
 }
 
 //////////////////Renderer2D///////////////////
@@ -2030,12 +2223,12 @@ void GuiRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 ////////////////////GuiViewer//////////////////
 
-GuiViewer::GuiViewer():tab(0),frame(0),labelsend(0)
+GuiViewer::GuiViewer():tab(0),frame(0),labelsend(0),detachTab(0)
 {
 	GlobalViewersInstance().push_back(this);
 }
 
-GuiViewer::GuiViewer(float x,float y,float z,float w):tab(0),frame(0)
+GuiViewer::GuiViewer(float x,float y,float z,float w):tab(0),frame(0),labelsend(0),detachTab(0)
 {
 	GlobalViewersInstance().push_back(this);
 	this->edges.make(x,y,z,w);
@@ -2044,6 +2237,9 @@ GuiViewer::GuiViewer(float x,float y,float z,float w):tab(0),frame(0)
 GuiViewer::~GuiViewer()
 {
 	GlobalViewersInstance().remove(this);
+
+	for(std::list<GuiRect*>::iterator i=this->tabs.begin();i!=this->tabs.end();i++)
+		SAFEDELETE(*i);
 }
 
 void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
@@ -2096,87 +2292,203 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(this->tab)
 				this->tab->OnSize(iFrame,tTabEdges);
 
-			iFrame->BroadcastTo(this->tab,iMsg,&tTabEdges);
+			iFrame->BroadcastTo(this->tab,iMsg,&SizeData(tTabEdges));
+		}
+		break;
+		case ONMOUSEMOVE:
+		{
+			MouseData& tmd=*(MouseData*)iData;
+
+			vec4 tLabelsArea=this->GetLabelsArea();
+			bool tLoneInFrame=this->GetTabs().size()==1 && this->GetFrame()->GetViewers().size()==1;
+
+			if(!this->detachTab)
+			{
+				iFrame->dragframe = (tLoneInFrame && EdgesContainsPoint(tLabelsArea,tmd.mouse)) ? true : false;
+			}
+			else
+			{
+				if((tLoneInFrame||(tmd.mouse.y>tLabelsArea.y && tmd.mouse.y<tLabelsArea.w)) && (tmd.mouse.x>this->edges.x && tmd.mouse.x<this->edges.z))
+				{
+					//moving the target rectangle
+
+					std::list<vec4>::iterator		tMovingRect=this->rects.begin();
+					std::list<GuiRect*>::iterator	tMovingTab=this->tabs.begin();
+					std::list<String>::iterator		tMovingLabel=this->labels.begin();
+
+					for(;tMovingRect!=this->rects.end();tMovingRect++,tMovingTab++,tMovingLabel++)
+					{
+						if(this->detachTab==*tMovingTab)
+						{
+							vec4& tRect=(*tMovingRect);
+							float tAdd=this->detachSpot-tmd.mouse.x;
+
+							if((this->edges.x+tRect.x-tAdd)>=this->edges.x && (this->edges.x+tRect.z-tAdd)<=this->edges.z)
+							{
+								tRect.x-=tAdd;
+								tRect.z-=tAdd;
+
+								this->detachSpot=tmd.mouse.x;
+								iFrame->SetDraw(this,true,false,*tMovingTab);
+							}
+
+							break;
+						}
+					}
+
+					//swap tabs if is the case
+
+					std::list<vec4>::iterator		r=this->rects.begin();
+					std::list<GuiRect*>::iterator	t=this->tabs.begin();
+					std::list<String>::iterator		l=this->labels.begin();
+
+
+					for(;r!=this->rects.end();r++,t++,l++)
+					{
+						if(*tMovingTab!=*t)
+						{
+							if(((*r).x>(*tMovingRect).x && (*tMovingRect).x<(*r).z) || ((*r).x>(*tMovingRect).z && (*tMovingRect).z<(*r).z))
+							{
+								GuiRect*	tTmpMovingTab=*tMovingTab;
+								String		tTmpMovingLabel=*tMovingLabel;
+
+								(*tMovingTab)=*t;
+								(*tMovingLabel)=*l;
+								(*t)=tTmpMovingTab;
+								(*l)=tTmpMovingLabel;
+								this->tab=*t;
+
+								this->CalculateTabsRects();
+								iFrame->SetDraw(this,true,false,(void*)1);
+							}
+						}
+					}
+				}
+				else if(this->GetFrame()->GetViewers().size()==1 ^ this->GetTabs().size()==1)
+				{
+					Frame*		tFrame=0;
+					GuiRect*	tTab=this->GetTab();
+					String		tTabLabel;
+
+					if(tTab)
+					{
+						tFrame=MainFrame::Instance()->CreateFrame(0,0,500,300,true);
+
+						if(tFrame)
+						{
+							tTabLabel=this->GetTabLabel(tTab);
+							this->RemoveTab(tTab);
+
+							if(this->GetTabs().size()==0 && this->GetFrame()->GetViewers().size()>1)
+							{
+								this->GetFrame()->RemoveViewer(this);
+								iFrame->hittest.hit=0;
+								tFrame->GetViewers().front()->AddTab(tTab,tTabLabel);
+							}
+							
+							if(this->GetTabs().size()>1)
+								this->SetTab(this->tabs.front());
+						}
+					}
+
+					this->detachTab=0;
+				}
+			}
 		}
 		break;
 		case ONMOUSEDOWN:
-			{
-				MouseData& tmd=*(MouseData*)iData;
+		{
+			MouseData& tmd=*(MouseData*)iData;
 
+			if(tmd.mouse.y<(this->edges.y+GuiViewer::BAR_HEIGHT))
+			{
 				if(tmd.button!=1)
 				{
 					GuiRect::Procedure(iFrame,iMsg,iData);
 				}
 				else if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
 				{
-					std::list<vec4>::iterator		i=this->rects.begin();
-					std::list<GuiRect*>::iterator	r=this->tabs.begin();
+					std::list<vec4>::iterator		r=this->rects.begin();
+					std::list<GuiRect*>::iterator	t=this->tabs.begin();
 
-					for(;i!=this->rects.end();i++,r++)
+					for(;r!=this->rects.end();r++,t++)
 					{
-						vec4 tLabelEdges=*i;
+						vec4 tLabelEdges=this->GetRectEdges(*r);
 
-						tLabelEdges.x+=this->edges.x;
-						tLabelEdges.z+=this->edges.x;
-						tLabelEdges.y+=this->edges.y;
-						tLabelEdges.w+=this->edges.y;
-
-						if(EdgesContainsPoint(tLabelEdges,tmd.mouse) && this->GetTab()!=*r)
+						if(EdgesContainsPoint(tLabelEdges,tmd.mouse))
 						{
-							this->SetTab(*r);
-							iFrame->SetFocus(*r);
-							this->frame->SetDraw(this);
+							if(this->GetTabs().size()==1 ^ this->GetFrame()->GetViewers().size()==1)
+							{
+								this->detachTab=*t;
+								this->detachSpot=tmd.mouse.x;
+							}
+
+							if(this->GetTab()!=*t)
+							{
+								this->SetTab(*t);
+
+								iFrame->SetFocus(*t);
+								this->frame->SetDraw(this);
+
+								break;
+							}
 						}
 					}
 				}
 			}
-			break;
+		}
+		break;
 		case ONMOUSEUP:
 		{
 			MouseData& tmd=*(MouseData*)iData;
 
-			switch(tmd.button)
+			//detach anyway
+			if(tmd.button==1)
 			{
-				case 3:
+				if(this->detachTab && this->tabs.size()==1)
+					this->CalculateTabsRects();
+
+				iFrame->dragframe=false;
+				this->detachTab=0;
+				iFrame->SetDraw(this,true,false,(void*)1);
+			}
+
+			if(tmd.mouse.y<(this->edges.y+GuiViewer::BAR_HEIGHT))
+			{
+				switch(tmd.button)
 				{
-					if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
+				case 3:
 					{
-						int tabNumberHasChanged=this->tabs.size();
-
-						for(std::list<vec4>::iterator i=this->rects.begin();i!=this->rects.end();i++)
+						if(EdgesContainsPoint(this->GetLabelsArea(),tmd.mouse))
 						{
-							vec4 tLabelEdges=*i;
+							int tabNumberHasChanged=this->tabs.size();
 
-							tLabelEdges.x+=this->edges.x;
-							tLabelEdges.z+=this->edges.x;
-							tLabelEdges.y+=this->edges.y;
-							tLabelEdges.w+=this->edges.y;
-
-							if(EdgesContainsPoint(tLabelEdges,tmd.mouse))
+							for(std::list<vec4>::iterator i=this->rects.begin();i!=this->rects.end();i++)
 							{
-								int menuResult=this->frame->TrackTabMenuPopup();
-
-								switch(menuResult)
+								if(EdgesContainsPoint(this->GetRectEdges(*i),tmd.mouse))
 								{
+									int menuResult=this->frame->TrackTabMenuPopup();
+
+									switch(menuResult)
+									{
 									case 1:/*if(this->tabs.size()>1){this->Destroy();}*/break;
 									case 2:/*this->selected=this->rects.Append(new GuiViewport())*/break;
 									case 3:this->AddTab(GuiScene::Instance(),L"Scene");break;
 									case 4:this->AddTab(GuiEntity::Instance(),L"Properties");break;
 									case 5:this->AddTab(GuiProject::Instance(),L"Project");break;
+									}
 								}
 							}
-						}
 
-						if(tabNumberHasChanged!=this->tabs.size())
-							this->frame->SetDraw(this);
+							if(tabNumberHasChanged!=this->tabs.size())
+								this->frame->SetDraw(this);
+						}
 					}
-				}
-				break;
+					break;
 				default:
 					GuiRect::Procedure(iFrame,iMsg,iData);
+				}
 			}
-
-			iFrame->BroadcastTo(this->tab,iMsg,iData);
 		}
 		break;
 		case ONMOUSEENTER:
@@ -2185,30 +2497,44 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			break;
 		case ONPAINT:
 		{
-			iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,GuiViewer::COLOR_BACK);
+			PaintData& pd=*(PaintData*)iData;
 
-			//render label text
-			std::list<String>::iterator labelIter=this->labels.begin();
-			std::list<GuiRect*>::iterator tabIter=this->tabs.begin();
-			std::list<vec4>::iterator rectIter=this->rects.begin();
-			for(;labelIter!=this->labels.end();labelIter++,tabIter++,rectIter++)
+			//render labels
+			iFrame->renderer2D->PushScissor(this->edges.x,this->edges.y,this->edges.z,this->edges.y+BAR_HEIGHT);
+
+			if(!pd.data)
+				iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.w,GuiViewer::COLOR_BACK);
+			else
+				iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,this->edges.z,this->edges.y+BAR_HEIGHT,GuiViewer::COLOR_BACK);
+
+			std::list<String>::iterator		l=this->labels.begin();
+			std::list<GuiRect*>::iterator	t=this->tabs.begin();
+			std::list<vec4>::iterator		r=this->rects.begin();
+
+			for(;l!=this->labels.end();l++,t++,r++)
 			{
-				vec4 tLabel=*rectIter;
+				if(!pd.data || (pd.data && (pd.data==(void*)1 || pd.data==*t)))
+				{
+					vec4 tLabel=this->GetRectEdges(*r);
 
-				tLabel.x+=this->edges.x;
-				tLabel.z+=this->edges.x;
-				tLabel.y+=this->edges.y;
-				tLabel.w+=this->edges.y;
+					if(this->tab==*t)
+						this->frame->renderer2D->DrawRectangle(tLabel.x,tLabel.y,tLabel.z,tLabel.w,Frame::COLOR_LABEL);
 
-				if(this->tab==*tabIter)
-					this->frame->renderer2D->DrawRectangle(tLabel.x,tLabel.y,tLabel.z,tLabel.w,Frame::COLOR_LABEL);
-
-				this->frame->renderer2D->DrawText(*labelIter,tLabel.x,tLabel.y,tLabel.z,tLabel.w,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
+					this->frame->renderer2D->DrawText(*l,tLabel.x,tLabel.y,tLabel.z,tLabel.w,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
+				}
 			}
 
 			this->frame->renderer2D->DrawLine(vec2(this->edges.x,this->edges.y+BAR_HEIGHT-1),vec2(this->edges.z,this->edges.y+BAR_HEIGHT-1),Frame::COLOR_LABEL,2);
 
-			iFrame->BroadcastTo(this->tab,iMsg,iData);
+			iFrame->renderer2D->PopScissor();
+
+			//render tab
+			iFrame->renderer2D->PushScissor(this->edges.x,this->edges.y+BAR_HEIGHT,this->edges.z,this->edges.w);
+
+			if(!pd.data)
+				iFrame->BroadcastTo(this->tab,iMsg,iData);
+
+			iFrame->renderer2D->PopScissor();
 		}
 		break;
 		case ONPREPAINT:
@@ -2258,7 +2584,7 @@ GuiRect* GuiViewer::AddTab(GuiRect* iTab,String iLabel)
 	this->tabs.push_back(iTab);
 	this->labels.push_back(iLabel);
 
-	this->UpdateLabelRects();
+	this->CalculateTabsRects();
 
 	this->SetTab(iTab);
 	return iTab;
@@ -2267,7 +2593,7 @@ GuiRect* GuiViewer::AddTab(GuiRect* iTab,String iLabel)
 void GuiViewer::RemoveTab(GuiRect* iTab)
 {
 	this->tabs.remove(iTab);
-	this->UpdateLabelRects();
+	this->CalculateTabsRects();
 	iTab->parent=0;
 }
 
@@ -2316,10 +2642,66 @@ vec4 GuiViewer::GetLabelsArea()
 {
 	float ty=this->edges.y + (BAR_HEIGHT-LABEL_HEIGHT);
 
-	return vec4(this->edges.x,ty,this->labelsend,ty+LABEL_HEIGHT);
+	return vec4(this->edges.x,ty,this->edges.x+this->labelsend,ty+LABEL_HEIGHT);
 }
 
-void GuiViewer::UpdateLabelRects()
+String GuiViewer::GetTabLabel(GuiRect* iTab)
+{
+	std::list<GuiRect*>::iterator r=this->tabs.begin();
+	std::list<String>::iterator s=this->labels.begin();
+
+	for(;r!=this->tabs.end();r++,s++)
+	{
+		if(iTab==*r)
+			return *s;
+	}
+	 return L"";
+}
+
+int	GuiViewer::GetTabIndex(GuiRect* iTab)
+{
+	unsigned int iIdx=0;
+	for(std::list<GuiRect*>::iterator t=this->tabs.begin();t!=this->tabs.end();t++,iIdx++)
+	{
+		if(iTab==*t)
+			return iIdx;
+	}
+
+	return -1;
+}
+
+vec4	GuiViewer::GetRectEdges(const vec4& iRect)
+{
+	return vec4(iRect.x+this->edges.x,iRect.y+this->edges.y,iRect.z+this->edges.x,iRect.w+this->edges.y);
+}
+
+String globalPositionNames[4]=
+{
+	L"LEFT",
+	L"TOP",
+	L"RIGHT",
+	L"BOTTOM"
+};
+
+void	GuiViewer::PrintSiblings()
+{
+	wprintf(L"%s\n",this->name.c_str());
+
+	for(int s=0;s<4;s++)
+	{
+		wprintf(L"\t%s:",globalPositionNames[s].c_str());
+
+		for(std::list<GuiViewer*>::iterator i=this->siblings[s].begin();i!=this->siblings[s].end();i++)
+		{
+			wprintf(L" %s",(*i)->name.c_str());
+		}
+
+		wprintf(L"\n");
+	}
+
+}
+
+void GuiViewer::CalculateTabsRects()
 {
 	this->rects.clear();
 	this->labelsend=0;
@@ -2788,8 +3170,6 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					GuiTreeViewData tTreeViewData=this->GetTreeViewData(iData);
 					this->ItemRoll(this->root,iFrame,GuiRectMessages::ONHITTEST,tTreeViewData);
 
-					wprintf(L"hov: 0x%X , hit: 0x%X\n",this->hovered,tTreeViewData.hit);
-
 					if(this->hovered!=tTreeViewData.hit)
 					{
 						if(this->hovered)
@@ -3008,7 +3388,7 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			MouseData& md=*(MouseData*)iData;
 
-			if(this->GetTreeViewHoveredNode() && md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4))
+			if(this->GetTreeViewHoveredNode() && md.mouse.x>this->GetSplitterPos() && md.mouse.x<(this->GetSplitterPos()+4))
 				this->splitterpressed=true;
 
 			this->splitterpressed ? iFrame->SetCursor(1) : iFrame->SetCursor(0);
@@ -3030,7 +3410,7 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			MouseData& md=*(MouseData*)iData;
 
-			bool tSplitterHovered = this->splitterpressed || (md.mouse.x>this->splitter && md.mouse.x<(this->splitter+4));
+			bool tSplitterHovered = this->splitterpressed || (md.mouse.x>this->GetSplitterPos() && md.mouse.x<(this->GetSplitterPos()+4));
 
 			if(tSplitterHovered)
 			{
@@ -3046,7 +3426,7 @@ void GuiPropertyTree::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				{
 					iFrame->SetCursor(1);
 
-					this->splitter=md.mouse.x;
+					this->splitter=md.mouse.x-this->edges.x;
 
 					this->Procedure(iFrame,ONSIZE);
 					iFrame->SetDraw(this);
@@ -3102,9 +3482,13 @@ void GuiPropertyTree::CalculateLayout()
 	this->ItemLayout(tFrame,this->GetTreeViewRootNode(),tTreeViewData);
 	this->splitter=this->GetContent().x + 10;
 	this->SetContent(this->splitter+154,0);
-	this->splitter+=this->edges.x;
 	this->Procedure(tFrame,ONACTIVATE);
 	this->Procedure(tFrame,ONSIZE);
+}
+
+float GuiPropertyTree::GetSplitterPos()
+{
+	return this->edges.x+this->splitter;
 }
 
 void GuiPropertyTree::SetLabelEdges(GuiTreeViewNode* iItem,GuiTreeViewData& iTvdata)
@@ -3112,7 +3496,7 @@ void GuiPropertyTree::SetLabelEdges(GuiTreeViewNode* iItem,GuiTreeViewData& iTvd
 	GuiPropertyTreeItem* tPropertyTreeItem=dynamic_cast<GuiPropertyTreeItem*>(iItem);
 
 	GuiTreeView::SetLabelEdges(iItem,iTvdata);
-	iTvdata.labeledges.z=tPropertyTreeItem ? this->splitter : iTvdata.contentedges.z;
+	iTvdata.labeledges.z=tPropertyTreeItem ? this->GetSplitterPos() : iTvdata.contentedges.z;
 }
 
 void GuiPropertyTree::ItemProcedure(GuiTreeViewNode* iItem,Frame* iFrame,GuiRectMessages iMsg,GuiTreeViewData& iGtvd)
@@ -3135,7 +3519,7 @@ void GuiPropertyTree::ItemProcedure(GuiTreeViewNode* iItem,Frame* iFrame,GuiRect
 
 			if(tTreeItem)
 			{
-				tTreeItem->GetProperty()->edges.make(this->splitter+4,iGtvd.labeledges.y,iGtvd.contentedges.z,iGtvd.labeledges.w);
+				tTreeItem->GetProperty()->edges.make(this->GetSplitterPos()+4,iGtvd.labeledges.y,iGtvd.contentedges.z,iGtvd.labeledges.w);
 				iFrame->BroadcastTo(tTreeItem->GetProperty(),ONSIZE);
 			}
 		}
@@ -3222,7 +3606,7 @@ String Compiler::Compose(unsigned int iCompiler,EditorScript* iScript)
 	Compiler::COMPILER& cplr=this->compilers[iCompiler];
 
 	String tOutputModule=iScript->module + L"\\" + iScript->scriptpath.Name() + L".dll ";
-	String tScriptSource=Ide::Instance()->folderProject + L"\\" + iScript->scriptpath.File();
+	String tScriptSource=Ide::Instance()->GetProjectFolder() + L"\\" + iScript->scriptpath.File();
 	String tIdeSourcePath=this->ideSrcPath +  L" ";
 	String tEngineLibrary=this->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
 
@@ -4527,11 +4911,6 @@ void GuiViewport::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			}
 		}
 		break;
-		case ONSIZE:
-		{
-			this->ResizeBuffers(iFrame);
-		}
-		break;
 		case ONACTIVATE:
 		{
 			this->frame=iFrame;
@@ -4555,6 +4934,12 @@ EditorEntity* GuiViewport::GetPickedEntity(){return this->pickedEntity;}
 unsigned int	GuiViewport::GetLastFrameTime(){return this->lastFrameTime;}
 void GuiViewport::SetRenderingRate(unsigned int iFps){this->renderFps=iFps;}
 unsigned int GuiViewport::GetRenderingRate(){return this->renderFps;}
+
+void	GuiViewport::OnSize(Frame* iFrame,const vec4& iEdges)
+{
+	GuiRect::OnSize(iFrame,iEdges);
+	this->ResizeBuffers(iFrame);
+}
 
 std::list<GuiViewport*>& GuiViewport::GetPool()
 {
@@ -4969,18 +5354,35 @@ GuiPanel::GuiPanel()
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-GuiScene::GuiScene():sceneRootEntity(0){}
+GuiScene::GuiScene(){}
 GuiScene* GuiScene::Instance()
 {
 	GLOBALGETTERFUNCASSINGLETON(GlobalGuiSceneViewerInstance,GuiScene);
 }
 
-EditorEntity*		GuiScene::GetSceneRootEntity(){return this->sceneRootEntity;}
-void				GuiScene::SetSceneRootEntity(EditorEntity* iEntity)
+EditorEntity*		GuiScene::GetSceneRootEditorEntity(){return dynamic_cast<EditorEntity*>(this->GetSceneRootEntity());}
+void				GuiScene::SetSceneRootEditorEntity(EditorEntity* iEntity)
 {
-	this->sceneRootEntity=iEntity;
+	this->SetSceneRootEntity(iEntity);
 	this->InsertRoot(iEntity->GetSceneLabel());
+	GuiViewport::GetPool().front()->SetEntity(iEntity);
 } 
+
+GuiSceneEntityLabel::GuiSceneEntityLabel(EditorEntity* iEditorEntity):GuiTreeViewItem<EditorEntity*>(iEditorEntity){}
+
+void GuiSceneEntityLabel::OnMouseUp(Frame* iFrame,const MouseData& iMd)
+{
+	GuiTreeViewItem::OnMouseUp(iFrame,iMd);
+
+	switch(iMd.button)
+	{
+		case 1:
+		{
+			iFrame->MessagePool<GuiEntity>(GuiRectMessages::ONENTITYSELECTED,this->GetValue());
+		}
+		break;
+	}
+}
 
 void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 {
@@ -4992,11 +5394,16 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			{
 				EditorEntity* tEntity=(EditorEntity*)iData; 
 
-				if(!this->sceneRootEntity)
+				if(tEntity)
 				{
-					this->sceneRootEntity=tEntity;
-					this->InsertRoot(this->sceneRootEntity->GetSceneLabel());
-				}				
+					if(!this->GetSceneRootEditorEntity())
+						this->SetSceneRootEditorEntity(tEntity);
+					else
+					{
+						this->GetSceneRootEditorEntity()->Append(tEntity);
+					}
+				}
+
 
 				iFrame->SetDraw(this);
 			}
@@ -5012,7 +5419,7 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			{
 				int tMenuItem=iFrame->TrackGuiSceneViewerPopup(this->GetTreeViewHoveredNode());	
 
-				SceneEntityLabel*		tSceneLabel=dynamic_cast<SceneEntityLabel*>(this->GetTreeViewHoveredNode());
+				GuiSceneEntityLabel*		tSceneLabel=dynamic_cast<GuiSceneEntityLabel*>(this->GetTreeViewHoveredNode());
 				EditorPropertiesBase*	tCreatedEditorObject=0;
 
 				switch(tMenuItem)
@@ -5023,20 +5430,20 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 						tEditorEntity->SetName(StringUtils::Format(L"Entity_%i",EditorEntity::GetInstancedEntitiesNumber()));
 
-						tEditorEntity->OnPropertiesCreate();
+						tEditorEntity->OnInitProperties();
 
 						if(tSceneLabel)
 						{
 							tSceneLabel->GetValue()->Append(tEditorEntity);
 							this->CalculateLayout();
 						}
-						else if(this->GetSceneRootEntity())
+						else if(this->GetSceneRootEditorEntity())
 						{
-							this->GetSceneRootEntity()->Append(tEditorEntity);
+							this->GetSceneRootEditorEntity()->Append(tEditorEntity);
 							this->CalculateLayout();
 						}
 						else
-							this->SetSceneRootEntity(tEditorEntity);
+							this->SetSceneRootEditorEntity(tEditorEntity);
 					}
 					break;
 					case 2:
@@ -5050,7 +5457,7 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				}
 
 				if(tCreatedEditorObject)
-					tCreatedEditorObject->OnResourcesCreate();
+					tCreatedEditorObject->OnInitResources();
 
 				if(tSceneLabel)
 				{
@@ -5070,38 +5477,50 @@ void GuiScene::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			break;
 		}
 		break;
+		case ONKEYDOWN:
+		{
+			if(Keyboard::Instance()->IsPressed(0x11 /*VK_CONTROL*/) && !Keyboard::Instance()->IsPressed(0x12 /*VK_ALT*/))
+			{
+				if(Keyboard::Instance()->IsPressed('S'))
+					this->Save(iFrame,this->GetSceneName()+Ide::Instance()->GetSceneExtension());
+			}
+		}
+		break;
 		default:
 			GuiTreeView::Procedure(iFrame,iMsg,iData);
 	}
 }
 
-/*
-EditorEntity* EditorEntity::SceneEntityLabel::GetValue()
+void GuiScene::Save(Frame* iFrame,String iSceneFilename)
 {
-	return this->GuiTreeViewItem<EditorEntity*>::GetValue();
-}*/
+	File tScriptFile(Ide::Instance()->GetProjectFolder() + L"\\" + iSceneFilename);
 
-void SceneEntityLabel::OnMouseUp(Frame* iFrame,const MouseData& iMd)
-{
-	GuiTreeViewItem::OnMouseUp(iFrame,iMd);
-
-	switch(iMd.button)
+	if(tScriptFile.Open(L"wb"))
 	{
-		case 1:
-		{
-			iFrame->MessagePool<GuiEntity>(GuiRectMessages::ONENTITYSELECTED,this->GetValue());
-		}
-		break;
+		unsigned int total=0;
+		SerializerHelpers::SetEntityId(this->GetSceneRootEditorEntity(),total);
+		SerializerHelpers::saveSceneEntityRecursively(this->GetSceneRootEditorEntity(),tScriptFile);
+		tScriptFile.Close();
 	}
 }
 
-void GuiScene::Save(String iFilename)
+void GuiScene::Load(Frame* iFrame,String iFilename)
 {
-}
+	File tScriptFile(iFilename);
 
-void GuiScene::Load(String iFilename)
-{
+	if(tScriptFile.Open(L"rb"))
+	{
+		GuiLogger::Log(StringUtils::Format(L"loading project %s",iFilename.c_str()));
+		this->GetSceneRootEditorEntity()->DestroyChilds();
 
+		EditorEntity* tEntity=SerializerHelpers::loadSceneEntityRecursively(0,tScriptFile);
+
+		tScriptFile.Close();
+
+		this->SetSceneRootEditorEntity(tEntity);
+		
+		iFrame->SetDraw(this);
+	}
 }
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -5249,9 +5668,9 @@ void GuiProject::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(md.mouse.y>this->edges.y)
 				iFrame->SetCursor(1);
 
-			if(md.mouse.x>=this->splitterLeft && md.mouse.x<=this->splitterLeft+SPLITTER_SIZE)
+			if(md.mouse.x>=this->GetLeftSplitter() && md.mouse.x<=this->GetLeftSplitter()+SPLITTER_SIZE)
 				this->splitterLeftActive=true;
-			else if(md.mouse.x>=this->splitterRight && md.mouse.x<=this->splitterRight+SPLITTER_SIZE)
+			else if(md.mouse.x>=this->GetRightSplitter() && md.mouse.x<=this->GetRightSplitter()+SPLITTER_SIZE)
 				this->splitterRightActive=true;
 		}
 		break;
@@ -5275,9 +5694,9 @@ void GuiProject::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(md.raw.Left())
 			{
 				if(this->splitterLeftActive)
-					this->splitterLeft=md.mouse.x;
+					this->splitterLeft=md.mouse.x-this->edges.x;
 				else if(this->splitterRightActive)
-					this->splitterRight=md.mouse.x;
+					this->splitterRight=md.mouse.x-this->edges.x;
 
 				this->OnSize(iFrame,this->edges);
 				iFrame->BroadcastTo(this,ONSIZE);
@@ -5308,17 +5727,14 @@ GuiProject::GuiProject():
 	projectDirectory(GlobalRootProjectDirectory()),
 	splitterLeftActive(false),
 	splitterRightActive(false),
-	splitterLeft(100),
-	splitterRight(200),
+	splitterLeft(0),
+	splitterRight(0),
 	leftmousepressing(0)
 {
 	this->flags=0;
 
 	projectDirectory=new ResourceNodeDir;
-	this->projectDirectory->fileName=Ide::Instance()->folderProject;
-	this->projectDirectory->isDir=true;
-	this->projectDirectory->dirLabel.SetLabel(this->projectDirectory->fileName);
-	this->projectDirectory->fileLabel.SetLabel(this->projectDirectory->fileName);
+	this->projectDirectory->SetFilename(Ide::Instance()->GetProjectFolder());
 
 	this->Append(&this->dirView);
 	this->Append(&this->fileView);
@@ -5334,10 +5750,29 @@ GuiProject* GuiProject::Instance()
 	GLOBALGETTERFUNCASSINGLETON(GlobalGuiProjectViewerInstance,GuiProject);
 }
 
+float GuiProject::GetLeftSplitter()
+{
+	return this->edges.x+this->splitterLeft;
+}
+
+float GuiProject::GetRightSplitter()
+{
+	return this->edges.x+this->splitterRight;
+}
+
+
 void GuiProject::OnSize(Frame* iFrame,const vec4& iEdges)
 {
 	float tOldWidth=this->edges.z-this->edges.x;
 	float tNewWidth=iEdges.z-iEdges.x;
+
+	if(!this->GetLeftSplitter() || !this->GetRightSplitter())
+	{
+		float tOneThird=tNewWidth/3.0f;
+		this->splitterLeft=tOneThird;
+		this->splitterRight=tOneThird*2.0f;
+	}
+
 	float tLeftPercent=0;
 	float tRightPercent=0;
 
@@ -5355,20 +5790,20 @@ void GuiProject::OnSize(Frame* iFrame,const vec4& iEdges)
 
 	GuiRect::OnSize(iFrame,iEdges);
 
-	this->dirView.edges=this->edges;
-	this->fileView.edges=this->edges;
-	this->resView.edges=this->edges;
+	this->dirView.edges=iEdges;
+	this->fileView.edges=iEdges;
+	this->resView.edges=iEdges;
 
-	this->dirView.edges.z=this->splitterLeft;
-	this->fileView.edges.x=this->splitterLeft+4;
-	this->fileView.edges.z=this->splitterRight;
-	this->resView.edges.x=this->splitterRight+4;
+	this->dirView.edges.z=this->GetLeftSplitter();
+	this->fileView.edges.x=this->GetLeftSplitter()+4;
+	this->fileView.edges.z=this->GetRightSplitter();
+	this->resView.edges.x=this->GetRightSplitter()+4;
 }
 
 void GuiProject::Scan()
 {
-	Ide::Instance()->ScanDir(this->projectDirectory->fileName,this->projectDirectory);
-	this->dirView.InsertRoot(this->projectDirectory->dirLabel);
+	Ide::Instance()->ScanDir(this->projectDirectory->GetFilename(),this->projectDirectory);
+	this->dirView.InsertRoot(*this->projectDirectory);
 	this->fileView.InsertItems(this->projectDirectory->fileLabels);
 }
 
@@ -5383,7 +5818,7 @@ void GuiProject::Reset()
 	this->projectDirectory->files.clear();
 	this->projectDirectory->dirs.clear();
 	this->projectDirectory->fileLabels.clear();
-	this->projectDirectory->dirLabel.Reset();
+	this->projectDirectory->Reset();
 
 	this->dirView.RemoveRoot();
 	this->fileView.RemoveAll();
@@ -5412,6 +5847,27 @@ std::vector<ResourceNode*> GuiProject::findResources(String iExtension)
 	this->findResources(oResultArray,this->projectDirectory,iExtension);
 
 	return oResultArray;
+}
+
+void GuiProject::Delete(Frame* iFrame,ResourceNode* iNode)
+{
+	if(iNode && iNode->GetParentNode())
+	{
+		if(iNode->IsDir())
+		{
+			String tDirName=L"\"" + iNode->GetFilename() + L"\"";
+
+			Subsystem::Execute(iNode->GetParentNode()->BuildPath().c_str(),L"rd /S /Q " + tDirName);
+		}
+		else
+		{
+			String tHoveredResourceNodePath=iNode->BuildPath();
+			String tHoveredResourceNodeEnginePath=tHoveredResourceNodePath+Ide::Instance()->GetEntityExtension();
+
+			File::Delete(tHoveredResourceNodePath.c_str());
+			File::Delete(tHoveredResourceNodeEnginePath.c_str());
+		}
+	}
 }
 
 ////////////////////////////////////////////
@@ -5819,6 +6275,18 @@ unsigned int EditorEntity::instancedEntitiesNumber=0;
 
 EditorEntity::~EditorEntity()
 {
+	for(std::list<EditorEntity*>::const_iterator i=this->Childs().begin();i!=this->Childs().end();i++)
+	{
+		EditorEntity* tEditorEntity=*i;
+		SAFEDELETE(tEditorEntity);
+	}
+
+	for(std::list<EntityComponent*>::const_iterator i=this->components.begin();i!=this->components.end();i++)
+	{
+		EntityComponent* tEntityComponent=*i;
+		SAFEDELETE(tEntityComponent);
+	}
+
 	this->instancedEntitiesNumber--;
 }
 
@@ -5832,7 +6300,7 @@ void EditorEntity::SetName(String iName)
 	this->sceneLabel.SetLabel(this->name);
 }
 
-SceneEntityLabel&	EditorEntity::GetSceneLabel()
+GuiSceneEntityLabel&	EditorEntity::GetSceneLabel()
 {
 	return this->sceneLabel;
 }
@@ -5854,9 +6322,11 @@ void	EditorEntity::Remove(EditorEntity* iEntity)
 	this->sceneLabel.Remove(iEntity->sceneLabel);
 }
 
-void EditorEntity::DestroyChilds(){}
+void EditorEntity::DestroyChilds()
+{
+}
 
-void EditorEntity::OnPropertiesCreate()
+void EditorEntity::OnInitProperties()
 {
 	this->TreeViewContainer().Insert(pName);
 	this->TreeViewContainer().Insert(pPtr);
@@ -5871,14 +6341,14 @@ void EditorEntity::OnPropertiesCreate()
 	pcAABB.Insert(pVolume);
 }
 
-void EditorEntity::OnPropertiesUpdate(Frame* tab)
+void EditorEntity::OnUpdateProperties(Frame* tab)
 {
 	for(std::list<EntityComponent*>::const_iterator it=this->Components().begin();it!=this->Components().end();it++)
 	{
 		EditorPropertiesBase* componentProperties=dynamic_cast<EditorPropertiesBase*>(*it);
 
 		if(componentProperties)
-			componentProperties->OnPropertiesUpdate(tab);
+			componentProperties->OnUpdateProperties(tab);
 	}
 }
 
@@ -5897,7 +6367,7 @@ spControlpoints(&this->ncontrolpoints,GuiStringProperty::INT),
 	this->TreeViewContainer().SetLabel(L"Mesh");
 }
 
-void EditorMesh::OnPropertiesCreate()
+void EditorMesh::OnInitProperties()
 {
 	this->TreeViewContainer().Insert(pControlpoints);
 	this->TreeViewContainer().Insert(pNormals);
@@ -5906,7 +6376,7 @@ void EditorMesh::OnPropertiesCreate()
 	this->TreeViewContainer().Insert(pVertexIndices);
 }
 
-void EditorMesh::OnPropertiesUpdate(Frame* tab)
+void EditorMesh::OnUpdateProperties(Frame* tab)
 {
 }
 
@@ -5925,36 +6395,36 @@ spClusters(&this->nclusters,GuiStringProperty::INT),
 	this->TreeViewContainer().SetLabel(L"Skin");
 }
 
-void EditorSkin::OnPropertiesCreate()
+void EditorSkin::OnInitProperties()
 {
 	this->TreeViewContainer().Insert(pClusters);
 	this->TreeViewContainer().Insert(pTextures);
 }
-void EditorSkin::OnPropertiesUpdate(Frame* tab)
+void EditorSkin::OnUpdateProperties(Frame* tab)
 {
 }
-void EditorRoot::OnPropertiesCreate()
+void EditorRoot::OnInitProperties()
 {
 	/*this->PropertyContainer().SetName(L"Root");
 	this->Entity()->PropertyContainer().Append(this->PropertyContainer());*/
 }
-void EditorRoot::OnPropertiesUpdate(Frame* tab)
+void EditorRoot::OnUpdateProperties(Frame* tab)
 {
 }
-void EditorSkeleton::OnPropertiesCreate()
+void EditorSkeleton::OnInitProperties()
 {
 	/*this->PropertyContainer().SetName(L"Skeleton");
 	this->Entity()->PropertyContainer().Append(this->PropertyContainer());*/
 }
-void EditorSkeleton::OnPropertiesUpdate(Frame* tab)
+void EditorSkeleton::OnUpdateProperties(Frame* tab)
 {
 }
-void EditorGizmo::OnPropertiesCreate()
+void EditorGizmo::OnInitProperties()
 {
 	/*this->PropertyContainer().SetName(L"Sizmo");
 	this->Entity()->PropertyContainer().Append(this->PropertyContainer());*/
 }
-void EditorGizmo::OnPropertiesUpdate(Frame* tab)
+void EditorGizmo::OnUpdateProperties(Frame* tab)
 {
 }
 
@@ -5973,18 +6443,19 @@ EditorAnimation::EditorAnimation():
 	this->TreeViewContainer().SetLabel(L"Animation");
 }
 
-void EditorAnimation::OnPropertiesCreate()
+void EditorAnimation::OnInitProperties()
 {
 	this->TreeViewContainer().Insert(pIsBone);
 	this->TreeViewContainer().Insert(pDuration);
 	this->TreeViewContainer().Insert(pBegin);
 	this->TreeViewContainer().Insert(pEnd);
 }
-void EditorAnimation::OnPropertiesUpdate(Frame* tab)
+void EditorAnimation::OnUpdateProperties(Frame* tab)
 {
 }
 
 EditorAnimationController::EditorAnimationController():
+	GuiAnimationController(this->GetComponent()),
 	minSpeed(0),
 	maxSpeed(2.0f),
 	spNumNodes(&this->animations,GuiStringProperty::ANIMATIONVECSIZE),
@@ -5992,20 +6463,19 @@ EditorAnimationController::EditorAnimationController():
 	spDuration(&this->start,GuiStringProperty::FLOAT2MINUSFLOAT1,&this->end),
 	spBegin(&this->start,GuiStringProperty::FLOAT),
 	spEnd(&this->end,GuiStringProperty::FLOAT),
-	acpGuiAnimationController(*this),
 	pNumNodes(L"NumNodes",spNumNodes),
 	pVelocity(L"Velocity",spVelocity,30),
 	pDuration(L"Duration",spDuration),
 	pBegin(L"Begin",spBegin),
 	pEnd(L"End",spEnd),
-	pPlayer(L"Player",acpGuiAnimationController,50)
+	pPlayer(L"Player",*this,50)
 {
 	this->TreeViewContainer().SetLabel(L"AnimationController");
 }
 
 EditorAnimationController::~EditorAnimationController(){}
 
-void EditorAnimationController::OnPropertiesCreate()
+void EditorAnimationController::OnInitProperties()
 {
 	this->TreeViewContainer().Insert(pNumNodes);
 	this->TreeViewContainer().Insert(pBegin);
@@ -6016,14 +6486,10 @@ void EditorAnimationController::OnPropertiesCreate()
 }
 
 
-void EditorAnimationController::OnPropertiesUpdate(Frame* tab)
+void EditorAnimationController::OnUpdateProperties(Frame* tab)
 {
-	/*if(this->TreeViewContainer().Expanded() && this->oldCursor!=this->cursor)
-	{
-		tab->SetDraw(&this->acpGuiAnimationController.slider);
-
-		this->oldCursor=this->cursor;
-	}*/
+	if(this->playing)
+		tab->SetDraw(&this->GuiAnimationController::slider);
 }
 
 EditorLine::EditorLine():
@@ -6033,7 +6499,7 @@ EditorLine::EditorLine():
 	this->TreeViewContainer().SetLabel(L"Line");
 }
 
-void EditorLine::OnPropertiesCreate()
+void EditorLine::OnInitProperties()
 {
 	this->TreeViewContainer().Insert(pNumSegments);
 
@@ -6045,7 +6511,7 @@ void EditorLine::OnPropertiesCreate()
 		this->pointListBox.Append(tPoint);
 	}*/
 }
-void EditorLine::OnPropertiesUpdate(Frame* tab)
+void EditorLine::OnUpdateProperties(Frame* tab)
 {
 }
 
@@ -6065,19 +6531,19 @@ void EditorLine::Append(vec3 iPoint)
 }
 
 
-void EditorBone::OnPropertiesCreate()
+void EditorBone::OnInitProperties()
 {
 	this->TreeViewContainer().SetLabel(L"Bone");
 }
-void EditorBone::OnPropertiesUpdate(Frame* tab)
+void EditorBone::OnUpdateProperties(Frame* tab)
 {
 }
-void EditorLight::OnPropertiesCreate()
+void EditorLight::OnInitProperties()
 {
 	/*this->PropertyContainer().SetName(L"Light");
 	this->Entity()->PropertyContainer().Append(this->PropertyContainer());*/
 }
-void EditorLight::OnPropertiesUpdate(Frame* tab)
+void EditorLight::OnUpdateProperties(Frame* tab)
 {
 }
 
@@ -6177,7 +6643,7 @@ EditorScript::EditorScript():
 
 };
 
-void EditorScript::OnPropertiesCreate()
+void EditorScript::OnInitProperties()
 {
 	this->TreeViewNode().SetLabel(L"Script");
 
@@ -6185,7 +6651,7 @@ void EditorScript::OnPropertiesCreate()
 	this->TreeViewContainer().Insert(pIsRunning);
 	this->TreeViewContainer().Insert(pActions);
 }
-void EditorScript::OnPropertiesUpdate(Frame* tab)
+void EditorScript::OnUpdateProperties(Frame* tab)
 {
 }
 
@@ -6199,12 +6665,14 @@ void EditorScript::LoadScript()
 	this->script=StringUtils::ReadCharFile(this->scriptpath,L"rb");
 }
 
-void EditorScript::OnResourcesCreate()
+void EditorScript::OnInitResources()
 {
 	if(this->scriptpath.empty())
-		this->scriptpath=Ide::Instance()->folderProject + L"\\" + this->Entity()->name + L".cpp";
+		this->scriptpath=Ide::Instance()->GetProjectFolder() + L"\\" + this->Entity()->name + L".cpp";
+	else
+		this->resourceNode=ResourceNodeDir::FindFileNode(this->scriptpath);
 	
-	if(!File::Exist(this->scriptpath))
+	if(!this->resourceNode && !File::Exist(this->scriptpath))
 	{
 		if(!File::Create(this->scriptpath))
 			DEBUG_BREAK();
@@ -6223,11 +6691,11 @@ void EditorScript::OnResourcesCreate()
 		DEBUG_BREAK();
 }
 
-void EditorCamera::OnPropertiesCreate()
+void EditorCamera::OnInitProperties()
 {
 	this->TreeViewNode().SetLabel(L"Camera");
 }
-void EditorCamera::OnPropertiesUpdate(Frame* tab)
+void EditorCamera::OnUpdateProperties(Frame* tab)
 {
 }
 
@@ -6307,10 +6775,7 @@ void PluginSystem::GuiPluginTab::Procedure(Frame* iFrame,GuiRectMessages iMsg,vo
 			ControlData* cd=(ControlData*)iData;
 
 			if(cd && cd->control==&this->exitButton && cd->msg==ONMOUSEUP)
-			{
 				MainFrame::Instance()->DestroyFrame(this->GetRoot()->GetFrame());
-				MainFrame::Instance()->Enable(true);
-			}
 		}
 		break;
 		default:
@@ -6333,22 +6798,11 @@ void PluginSystem::ShowGui()
 
 	MainFrame*	tMainFrame=MainFrame::Instance();
 	Frame*		tFrame=0;
-	GuiViewer*	tViewer=0;
 
 	tMainFrame->Enable(false);
 
-	vec2 tIdeFrameSize=tMainFrame->GetFrame()->windowData->Size();
-	vec2 tTabSize(500,300);
-	vec2 tTabPos=tMainFrame->GetFrame()->windowData->Pos();
-
-	tTabPos.x+=tIdeFrameSize.x/2.0f-tTabSize.x/2.0f;
-	tTabPos.y+=tIdeFrameSize.y/2.0f-tTabSize.y/2.0f;
-
-	tFrame=tMainFrame->CreateFrame(tTabPos.x,tTabPos.y,tTabSize.x,tTabSize.y,0,true);
-	tViewer=tFrame->GetViewers().front();
+	tFrame=tMainFrame->CreateFrame(0,0,500,300,true);
 	
-	tViewer->edges.make(tTabPos.x,tTabPos.y,tTabPos.x+tTabSize.x,tTabPos.y+tTabSize.y);
-
 	for(std::list<Plugin*>::const_iterator i=this->plugins.begin();i!=this->plugins.end();i++)
 	{
 		Plugin* tPlugin=(*i);
@@ -6356,7 +6810,7 @@ void PluginSystem::ShowGui()
 		this->pluginsTab.InsertItem(tPlugin->listBoxItem);
 	}
 
-	tViewer->AddTab(&this->pluginsTab,L"Plugins");
+	tFrame->GetMainViewer()->AddTab(&this->pluginsTab,L"Plugins");
 	
 	tFrame->OnSize(tFrame->Size().x,tFrame->Size().y);
 }
@@ -6519,7 +6973,7 @@ void SerializerHelpers::Save(AnimationController* tAnimationController,FILE* iFi
 
 	fwrite(&tAnimationController->speed,sizeof(float),1,iFile);
 	fwrite(&tAnimationController->cursor,sizeof(float),1,iFile);
-	fwrite(&tAnimationController->play,sizeof(bool),1,iFile);
+	fwrite(&tAnimationController->playing,sizeof(bool),1,iFile);
 	fwrite(&tAnimationController->looped,sizeof(bool),1,iFile);
 	fwrite(&tAnimationController->start,sizeof(float),1,iFile);
 	fwrite(&tAnimationController->end,sizeof(float),1,iFile);
@@ -6615,7 +7069,8 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 
 	EditorEntity* tEditorEntity=new EditorEntity;
 
-	iEditorEntityParent->Append(tEditorEntity);
+	if(iEditorEntityParent)
+		iEditorEntityParent->Append(tEditorEntity);
 
 	fread(&childsSize,sizeof(unsigned int),1,iFile);
 	fread(&tEditorEntity->id,sizeof(unsigned int),1,iFile);
@@ -6623,7 +7078,7 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 	fread(tEditorEntity->local,sizeof(float),16,iFile);
 	fread(tEditorEntity->world,sizeof(float),16,iFile);
 
-	StringUtils::ReadWstring(iFile,tEditorEntity->name);
+	tEditorEntity->SetName(StringUtils::ReadWstring(iFile));
 
 	fread(tEditorEntity->bbox.a,sizeof(float),3,iFile);
 	fread(tEditorEntity->bbox.b,sizeof(float),3,iFile);
@@ -6651,7 +7106,7 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 			EditorPropertiesBase* tEditorObjectBase=dynamic_cast<EditorPropertiesBase*>(tEditorEntity->Components().back());
 			
 			if(tEditorObjectBase)
-				tEditorObjectBase->OnResourcesCreate();
+				tEditorObjectBase->OnInitResources();
 		}
 	}
 
@@ -6664,8 +7119,8 @@ EditorEntity* SerializerHelpers::loadSceneEntityRecursively(EditorEntity* iEdito
 	BindSkinLinks(tEditorEntity);
 	BindAnimationLinks(tEditorEntity);
 
-	tEditorEntity->OnResourcesCreate();
-	tEditorEntity->OnPropertiesCreate();
+	tEditorEntity->OnInitResources();
+	tEditorEntity->OnInitProperties();
 
 	return tEditorEntity;
 }

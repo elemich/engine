@@ -195,7 +195,7 @@ JNIEXPORT void JNICALL Java_com_android_Engine_EngineLib_step(JNIEnv * env, jobj
 	glClearColor(0.43f,0.43f,0.43f,0.0f);glCheckError();
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
-	Entity* tCurrentSceneRootEntity=(currentScene ? currentScene->GetEntity() : 0);
+	Entity* tCurrentSceneRootEntity=(currentScene ? currentScene->GetSceneRootEntity() : 0);
 
 	if(tCurrentSceneRootEntity)
 		renderer3D->UpdateEntities(tCurrentSceneRootEntity);

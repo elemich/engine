@@ -355,8 +355,9 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	void Enable(bool);
 	bool IsEnabled();
 
-	vec2 Size();
-	vec2 Pos();
+	vec2 GetSize();
+	vec2 GetPos();
+	void SetPos(float x,float y);
 	void Show(bool);
 	bool IsVisible();
 
@@ -376,7 +377,7 @@ struct DLLBUILD FrameWin32 : Frame
 
 	static LRESULT CALLBACK FrameWin32Procedure(HWND,UINT,WPARAM,LPARAM);
 
-	FrameWin32(float x,float y,float w,float h,FrameWin32* iParentFrame=0,bool iModal=false);
+	FrameWin32(float x,float y,float w,float h);
 	~FrameWin32();
 
 	bool BeginDraw(void*);

@@ -207,7 +207,7 @@ EditorEntity* acquireNodeStructure(FbxNode* iFbxNode,EditorEntity* iEntityParent
 	
 	globalMapFromNodeToEntity.insert(std::pair<FbxNode*,EditorEntity*>(iFbxNode,tEntity));
 
-	tEntity->OnPropertiesCreate();
+	tEntity->OnInitProperties();
 		
 	if(iEntityParent && !tEntity->name.size())
 		tEntity->SetName(StringUtils::ToWide(iFbxNode->GetName()));

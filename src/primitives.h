@@ -122,7 +122,7 @@ public:
 template <typename T> struct DLLBUILD Multiton : Singleton<T>
 {
 private:
-	std::list<T*>& MultitonGetter(){return T::GetPool();}
+	const std::list<T*>& MultitonGetter(){return T::GetPool();}
 public:
 };
 
@@ -132,6 +132,7 @@ namespace StringUtils
 {
 	void DLLBUILD WriteWstring(FILE* iFile,String& iWstring);
 	void DLLBUILD ReadWstring(FILE* iFile,String& iWstring);
+	String DLLBUILD ReadWstring(FILE* iFile);
 
 	std::string DLLBUILD ToChar(const String&);
 	std::string DLLBUILD ToChar(const wchar_t*);

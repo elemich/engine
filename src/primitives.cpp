@@ -305,6 +305,13 @@ void StringUtils::ReadWstring(FILE* iFile,String& iWstring)
 	}
 }
 
+String StringUtils::ReadWstring(FILE* iFile)
+{
+	String tResult;
+	StringUtils::ReadWstring(iFile,tResult);
+	return tResult;
+}
+
 std::string StringUtils::ToChar(const String& iString)
 {
 	unsigned int tStrlen=iString.size()+1;

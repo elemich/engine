@@ -1786,7 +1786,7 @@ int MenuInterface::Menu(String iName,bool tPopup)
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
 
-MainFrame::MainFrame():frame(new FrameWin32(0,0,1024,768,0,false))
+MainFrame::MainFrame():frame(new FrameWin32(0,0,1024,768))
 {
 	this->frames.push_back(frame);
 }
@@ -1820,24 +1820,28 @@ void MainFrame::Initialize()
 	this->MenuInfo=this->Menu(L"?",true);
 	this->MenuActionProgramInfo=this->Menu(L"?\\Info",false);
 
-	vec2 tdim=this->frame->Size();
+	GuiViewer* tViewers[5];
 
-	float tx1=tdim.x/3.0f;
-	float ty1=tdim.y/3.0f;
-
-	GuiViewer* tViewer=this->GetFrame()->GetViewers().front();
-
-	tViewer->edges.make(0,0,tx1,ty1);
-	tViewer->AddTab(GuiViewport::Instance(),L"Renderer");
+	tViewers[0]=this->GetFrame()->GetMainViewer();
+	tViewers[0]->AddTab(GuiViewport::Instance(),L"Renderer");
+	tViewers[0]->name=L"Renderer";
 
 	GuiCaret::Instance();
 
-	this->GetFrame()->AddViewer(new GuiViewer(0,ty1+4,tx1,ty1*2))->AddTab(GuiLogger::GetPool().front(),L"Logger");
-	this->GetFrame()->AddViewer(new GuiViewer(0,ty1*2+4,tx1,tdim.y))->AddTab(GuiProject::Instance(),L"Project");
-	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,0,tdim.x,ty1*2))->AddTab(GuiScene::Instance(),L"Scene");
-	this->GetFrame()->AddViewer(new GuiViewer(tx1+4,ty1*2+4,tdim.x,tdim.y))->AddTab(GuiEntity::Instance(),L"Properties");
+	tViewers[1]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Logger",2,tViewers[0]);
+	tViewers[2]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Scene",2,tViewers[0]);
+	tViewers[3]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Properties",2,tViewers[0]);
+	tViewers[4]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Project",3,tViewers[0]);
 
-	ShowWindow(hwnd,true);
+	tViewers[1]->AddTab(GuiLogger::GetPool().front(),L"Logger");
+	tViewers[2]->AddTab(GuiScene::Instance(),L"Scene");
+	tViewers[3]->AddTab(GuiEntity::Instance(),L"Properties");
+	tViewers[4]->AddTab(GuiProject::Instance(),L"Project");
+
+	for(int i=0;i<5;i++)
+		tViewers[i]->PrintSiblings();
+
+	this->GetFrame()->windowData->Show(true);
 }
 
 void MainFrame::Deintialize()
@@ -1845,9 +1849,21 @@ void MainFrame::Deintialize()
 
 }
 
-Frame* MainFrame::CreateFrame(float x,float y,float z,float w,Frame* iParentFrame,bool iModal)
+Frame* MainFrame::CreateFrame(float x,float y,float z,float w,bool iCentered)
 {
-	FrameWin32* tFrameWin32=new FrameWin32(x,y,z,w,(FrameWin32*)iParentFrame,iModal);
+	vec2 tTabPos(x,y);
+
+	if(iCentered)
+	{
+		vec2 tIdeFrameSize=this->GetFrame()->windowData->GetSize();
+		vec2 tTabSize(z,w);
+		tTabPos=this->GetFrame()->windowData->GetPos();
+
+		tTabPos.x+=tIdeFrameSize.x/2.0f-tTabSize.x/2.0f;
+		tTabPos.y+=tIdeFrameSize.y/2.0f-tTabSize.y/2.0f;
+	}
+
+	FrameWin32* tFrameWin32=new FrameWin32(tTabPos.x,tTabPos.y,z,w);
 
 	this->AddFrame(tFrameWin32);
 
@@ -1887,7 +1903,7 @@ bool WindowDataWin32::IsEnabled()
 	return ::IsWindowEnabled(this->hwnd);
 }
 
-vec2 WindowDataWin32::Size()
+vec2 WindowDataWin32::GetSize()
 {
 	RECT tRect;
 	vec2 tSize;
@@ -1899,7 +1915,19 @@ vec2 WindowDataWin32::Size()
 	return tSize;
 }
 
-vec2 WindowDataWin32::Pos()
+void WindowDataWin32::SetPos(float x,float y)
+{
+	RECT	tRect;
+	::GetWindowRect(this->hwnd,&tRect);
+
+	float tWidth=tRect.right-tRect.left;
+	float tHeight=tRect.bottom-tRect.top;
+
+	if(!::MoveWindow(this->hwnd,x,y,tWidth,tHeight,false))
+		DEBUG_BREAK();
+}
+
+vec2 WindowDataWin32::GetPos()
 {
 	RECT tRect;
 
@@ -2177,21 +2205,9 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 			{
 				ResourceNodeDir* dirNode=new ResourceNodeDir;
 
-				iParent->dirs.push_back(dirNode);
-				dirNode->parent=iParent;
-				dirNode->fileName=tCreateNodeFilename;
-				dirNode->isDir=tIsDir;
-
-				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)dirNode->parent;
-
-				dirNode->dirLabel.SetLabel(dirNode->fileName);
-				if(dirNodeParent)
-					dirNodeParent->dirLabel.Insert(dirNode->dirLabel);
-
-				dirNode->fileLabel.SetLabel(dirNode->fileName);
-				if(dirNodeParent)
-					dirNodeParent->fileLabels.push_back(&dirNode->fileLabel);
-
+				dirNode->SetFilename(tCreateNodeFilename);
+				iParent->InsertNode(dirNode);
+				
 
 				this->ScanDir(iDirectory + L"\\"+ tCreateNodeFilename,dirNode);
 			}
@@ -2199,17 +2215,9 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 			{
 				ResourceNode* fileNode=new ResourceNode;
 
-				iParent->files.push_back(fileNode);
-				fileNode->parent=iParent;
-				fileNode->fileName=tCreateNodeFilename;
-				fileNode->isDir=tIsDir;
-
-				ResourceNodeDir* dirNodeParent=(ResourceNodeDir*)fileNode->parent;
-
-				fileNode->fileLabel.SetLabel(fileNode->fileName);
-
-				if(dirNodeParent)
-					dirNodeParent->fileLabels.push_back(&fileNode->fileLabel);
+				fileNode->SetFilename(tCreateNodeFilename);
+				iParent->InsertNode(fileNode);
+				
 			}
 		}
 	}
@@ -2247,6 +2255,12 @@ void IdeWin32::Run()
 			tFrame->SetDraw();
 		}
 	}
+
+	MainFrame*	tMainFrame=MainFrame::Instance();
+	Ide*		tIde=this;
+
+	SAFEDELETE(tMainFrame);
+	SAFEDELETE(tIde);
 }
 
 void IdeWin32::Sleep(int iMilliseconds)
@@ -3830,8 +3844,7 @@ void Picture::Release()
 LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 #if PRINTPROCEDUREMESSAGESCALL
-	wprintf(L"Begin %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
-	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"11111111111111111111111111111111111111" : L"");
+	wprintf(L"%i:%s\n",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
 #endif
 	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
@@ -3852,6 +3865,27 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 			}	
 
 			result=0;
+		}
+		break;
+		case WM_NCHITTEST:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+			//wprintf(L"dragframe: %d, result: %d\n",frame->dragframe,result);
+			
+			if(frame->dragframe)
+			{
+				frame->dragframe=false;
+				result=HTCAPTION;
+			}
+		}
+		break;
+		case WM_CLOSE:
+		{
+			result=DefWindowProc(hwnd,msg,wparam,lparam);
+
+			if(frame==MainFrame::Instance()->GetFrame())
+				PostQuitMessage(0);
 		}
 		break;
 		case WM_ERASEBKGND:
@@ -4060,33 +4094,28 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 
 	if(Timer::Instance()->GetLastDelta()>16)
 		PostMessage(hwnd,WM_NULL,0,0);*/
+/*
 #if PRINTPROCEDUREMESSAGESCALL
 	wprintf(L"End   %i:%s",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
 	wprintf(L"%s\n",(msg==WM_PAINT || msg==WM_NULL) ? L"00000000000000000000000000000000000000" : L"");
 #endif
+*/
 
 	return result;
 }
 
-FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFrame,bool iModal):
+FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 	Frame(iX,iY,iW,iH),
 	windowDataWin32((WindowDataWin32*&)windowData),
 	renderer2DWin32((Renderer2DWin32*&)renderer2D),
 	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
 	threadRenderWin32((ThreadWin32*&)thread)
 {
-	this->isModal=iModal;
-
 	windowDataWin32=new WindowDataWin32;
 
-	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS;
+	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS|(!MainFrame::IsInstanced() ? WS_OVERLAPPEDWINDOW : WS_SIZEBOX);
 
-	if(!iModal)
-		tStyle = iParentFrame ? tStyle|WS_CHILD : tStyle|WS_OVERLAPPEDWINDOW;
-	else
-		tStyle |= WS_SIZEBOX;
-
-	HWND tParent=iParentFrame ? iParentFrame->windowDataWin32->hwnd : 0;
+	HWND tParent=MainFrame::IsInstanced() ? (HWND)MainFrame::Instance()->GetFrame()->windowData->GetWindowHandle() : 0;
 
 	this->windowDataWin32->hwnd=::CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
 
@@ -4095,6 +4124,15 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 		DWORD tError=::GetLastError();
 		DEBUG_BREAK();
 	}
+
+	if(MainFrame::IsInstanced()) /*removes the caption style*/
+		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
+
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
+	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
+
+	if(MainFrame::IsInstanced())/*visually remove the caption*/
+		::SetWindowPos(this->windowDataWin32->hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_DRAWFRAME);
 
 	this->windowDataWin32->hdc=::GetDC(this->windowDataWin32->hwnd);
 
@@ -4125,24 +4163,18 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH,FrameWin32* iParentFr
 		this->renderer3DOpenGL->Initialize();
 #endif //RENDERER_THREADED
 #endif //ENABLE_RENDERER
+
+		this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
 	}
+	else
+		this->mainframe=MainFrame::Instance();
 
-	this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
-
-	this->AddViewer(GuiViewer::Instance());
-
-	if(iModal) /*removes the caption style*/
-		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
-
-	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
-	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
+	this->AddViewer(GuiViewer::Instance(),L"DefViewer");
 
 	this->OnRecreateTarget();
 
-	if(iModal)/*visually remove the caption*/
-		::SetWindowPos(this->windowDataWin32->hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_DRAWFRAME);
-
-	ShowWindow(this->windowDataWin32->hwnd,true);
+	if(MainFrame::IsInstanced())
+		this->windowData->Show(true);
 }
 
 FrameWin32::~FrameWin32()
@@ -4286,7 +4318,7 @@ int FrameWin32::TrackProjectFileViewerPopup(ResourceNode* iResourceNode)
 	{
 		InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Delete,L"Delete");
 
-		if(iResourceNode->fileName.PointedExtension() == Ide::Instance()->GetSceneExtension())
+		if(iResourceNode->GetFilename().PointedExtension() == Ide::Instance()->GetSceneExtension())
 			InsertMenu(menu,0,MF_BYPOSITION|MF_STRING,FileViewerActions::Load,L"Load");
 	}
 	else
