@@ -185,6 +185,7 @@ struct DLLBUILD Renderer3DOpenGL : Renderer3D
 	PFNGLBINDBUFFERPROC glBindBuffer;
 	PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
 	PFNGLBUFFERDATAPROC glBufferData;
+	PFNGLNAMEDBUFFERDATAPROC glNamedBufferData;
 	PFNGLCOMPILESHADERPROC glCompileShader;
 	PFNGLCREATEPROGRAMPROC glCreateProgram;
 	PFNGLCREATESHADERPROC glCreateShader;
@@ -437,7 +438,6 @@ struct DLLBUILD DebuggerWin32 : Debugger
 	DebuggerWin32();
 	~DebuggerWin32();
 
-	void RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex);
 	void SuspendDebuggee();
 	void ResumeDebuggee();
 

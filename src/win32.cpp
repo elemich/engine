@@ -2,6 +2,7 @@
 
 GLOBALGETTERFUNC(GlobalIdeInstance,IdeWin32*);
 GLOBALGETTERFUNC(GlobalTimerInstance,TimerWin32*);
+GLOBALGETTERFUNC(GlobalDebuggerInstance,DebuggerWin32*);
 
 static const wchar_t* gWM_MESSAGES[] = 
 {
@@ -1789,6 +1790,12 @@ int MenuInterface::Menu(String iName,bool tPopup)
 MainFrame::MainFrame():frame(new FrameWin32(0,0,1024,768))
 {
 	this->frames.push_back(frame);
+
+	this->renderingThread=new ThreadWin32;
+	this->renderingTask=this->renderingThread->NewTask(L"RenderingTask",std::function<void()>(std::bind(&MainFrame::Render,this)),false);
+
+	this->caretThread=new ThreadWin32;
+	this->caretTask=this->caretThread->NewTask(L"CaretBlinkTask",std::function<void()>(std::bind(&MainFrame::BlinkCaret,this)),false);
 }
 
 void MainFrame::Initialize()
@@ -1831,7 +1838,7 @@ void MainFrame::Initialize()
 	tViewers[1]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Logger",2,tViewers[0]);
 	tViewers[2]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Scene",2,tViewers[0]);
 	tViewers[3]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Properties",2,tViewers[0]);
-	tViewers[4]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Project",3,tViewers[0]);
+	tViewers[4]=this->GetFrame()->AddViewer(GuiViewer::Instance(),L"Project",3,0);
 
 	tViewers[1]->AddTab(GuiLogger::GetPool().front(),L"Logger");
 	tViewers[2]->AddTab(GuiScene::Instance(),L"Scene");
@@ -1864,9 +1871,8 @@ Frame* MainFrame::CreateFrame(float x,float y,float z,float w,bool iCentered)
 	}
 
 	FrameWin32* tFrameWin32=new FrameWin32(tTabPos.x,tTabPos.y,z,w);
-
+	tFrameWin32->mainframe=this;
 	this->AddFrame(tFrameWin32);
-
 	return tFrameWin32; 
 }
 
@@ -2245,12 +2251,8 @@ void IdeWin32::Run()
 
 			Frame* tFrame=GuiProject::Instance()->GetRoot()->GetFrame();
 
-			tFrame->DrawBlock(true);
-
 			tFrame->Message(GuiProject::Instance(),ONDEACTIVATE);
 			tFrame->Message(GuiProject::Instance(),ONACTIVATE);
-
-			tFrame->DrawBlock(false);
 
 			tFrame->SetDraw();
 		}
@@ -2373,7 +2375,7 @@ void glCheckError()
 		HGLRC currentContext=wglGetCurrentContext();
 		HDC currentContextDC=wglGetCurrentDC();
 
-		GuiLogger::Log(StringUtils::Format(L"OPENGL ERROR %d, HGLRC: %p, HDC: %p\n",err,currentContext,currentContextDC));
+		GuiLogger::Log(StringUtils::Format(L"OPENGL ERROR %d, HGLRC: 0x%X, HDC: 0x%X\n",err,currentContext,currentContextDC));
 
 		DEBUG_BREAK();
 	}
@@ -2813,6 +2815,7 @@ void Renderer3DOpenGL::Initialize()
 	glBindBuffer = (PFNGLBINDBUFFERPROC) wglGetProcAddress("glBindBuffer");
 	glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC) wglGetProcAddress("glBindVertexArray");
 	glBufferData = (PFNGLBUFFERDATAPROC) wglGetProcAddress("glBufferData");
+	glNamedBufferData = (PFNGLNAMEDBUFFERDATAPROC) wglGetProcAddress("glNamedBufferData");
 	glCompileShader = (PFNGLCOMPILESHADERPROC) wglGetProcAddress("glCompileShader");
 	glCreateProgram = (PFNGLCREATEPROGRAMPROC) wglGetProcAddress("glCreateProgram");
 	glCreateShader = (PFNGLCREATESHADERPROC) wglGetProcAddress("glCreateShader");
@@ -2900,12 +2903,12 @@ void Renderer3DOpenGL::Initialize()
 		Subsystem::SystemMessage(L"wglCreateContextAttribsARB fails",L"Engine",MB_OK|MB_ICONEXCLAMATION);
 
 	if(this->hglrc)
-		GuiLogger::Log(StringUtils::Format(L"HWND: %p, HGLRC: %p, HDC: %p\n",this->hwnd,this->hglrc,this->hdc));
+		GuiLogger::Log(StringUtils::Format(L"Renderer3DOpenGL 0x%X, HWND: 0x%X, HGLRC: 0x%X, HDC: 0x%X\n",this,this->hwnd,this->hglrc,this->hdc));
 
 	if(!wglMakeCurrent(this->hdc,this->hglrc))
 		DEBUG_BREAK();
 
-	/*if(!vertexArrayObject)
+	if(!vertexArrayObject)
 	{
 		{
 			glGenFramebuffers(1,&frameBuffer);glCheckError();
@@ -2922,17 +2925,17 @@ void Renderer3DOpenGL::Initialize()
 
 		glGenBuffers(1,&vertexBufferObject);glCheckError();
 		glGenBuffers(1,&textureBufferObject);glCheckError();
-		/ *
+		/*
 		//glGenBuffers(1,&indicesBufferObject);
 
 		glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
 		//glBindBuffer(GL_ARRAY_BUFFER,indicesBufferObject);
 
-		glBufferData(GL_ARRAY_BUFFER,100000,0,GL_DYNAMIC_DRAW);* /
+		glBufferData(GL_ARRAY_BUFFER,100000,0,GL_DYNAMIC_DRAW);*/
 
 
 		glGenBuffers(1, &pixelBuffer);
-	}*/
+	}
 
 	GuiLogger::Log(StringUtils::Format(L"Status: Using GL %s\n", StringUtils::ToWide((const char*)glGetString(GL_VERSION)).c_str()));
 	GuiLogger::Log(StringUtils::Format(L"Status: GLSL ver %s\n",StringUtils::ToWide((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION)).c_str()));
@@ -3214,41 +3217,24 @@ void Renderer3DOpenGL::DrawLine(vec3 a,vec3 b,vec3 color)
 	if(!shader)
 		return;
 
-	float line[]=
-	{
-		a[0],a[1],a[2],
-		b[0],b[1],b[2],
-	};
+	float line[]={a[0],a[1],a[2],b[0],b[1],b[2]};
 
 	shader->Use();
 
 	shader->SetMatrices(MatrixStack::GetViewMatrix()*MatrixStack::GetProjectionMatrix(),MatrixStack::GetModelMatrix());
-
 	shader->SetSelectionColor(false,0,this->frame->mouse,this->frame->Size());
-
-	glEnable(GL_DEPTH_TEST);
-
+	glEnable(GL_DEPTH_TEST);glCheckError();
 	int pos=shader->GetPositionSlot();
 	int col=shader->GetUniform("color");
-
-	glUniform3fv(col,1,color);
-
-	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);
-
-	glBufferData(GL_ARRAY_BUFFER,6*sizeof(float),line,GL_DYNAMIC_DRAW);
-
+	glUniform3fv(col,1,color);glCheckError();
+	glBindBuffer(GL_ARRAY_BUFFER,vertexBufferObject);glCheckError();
+	glBufferData(GL_ARRAY_BUFFER,sizeof(line),line,GL_DYNAMIC_DRAW);glCheckError();
 	glEnableVertexAttribArray(pos);glCheckError();
-
 	glVertexAttribPointer(pos,3,GL_FLOAT,GL_FALSE,0,0);glCheckError();
-
 	glDrawArrays(GL_LINES,0,2);glCheckError();
 	//glDrawElements(GL_TRIANGLES,3,GL_UNSIGNED_INT,)
-
 	glDisableVertexAttribArray(pos);
-
-
 	glDisable(GL_DEPTH_TEST);
-
 }
 
 void Renderer3DOpenGL::DrawText(char* text,float x,float y,float width,float height,float sizex,float sizey,float* color4)
@@ -3844,7 +3830,7 @@ void Picture::Release()
 LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wparam,LPARAM lparam)
 {
 #if PRINTPROCEDUREMESSAGESCALL
-	wprintf(L"%i:%s\n",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
+	wprintf(L"%i:%ls\n",msg,msg<sizeof(gWM_MESSAGES) ? gWM_MESSAGES[msg] : L"unmapped");
 #endif
 	FrameWin32* frame=(FrameWin32*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
@@ -3855,7 +3841,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 		case 0:
 		{
 			if(lparam)
-				GuiCaret::Instance()->Draw(frame,wparam);
+				GuiCaret::Instance()->Draw(wparam);
 			else if(!wparam)
 				frame->Draw();
 			else if(frame->BeginDraw((GuiViewport*)wparam))
@@ -3934,10 +3920,13 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 			if(frame->wasdrawing)
 				DEBUG_BREAK();
 
-			HRESULT result=frame->renderer2DWin32->renderer->Resize(D2D1::SizeU(tWidth,tHeight));
+			if(frame->renderer2DWin32 && frame->renderer2DWin32->renderer)
+			{
+				HRESULT result=frame->renderer2DWin32->renderer->Resize(D2D1::SizeU(tWidth,tHeight));
 
-			if(S_OK!=result)
-				DEBUG_BREAK();
+				if(S_OK!=result)
+					DEBUG_BREAK();
+			}
 			
 			frame->OnSize(tWidth,tHeight);
 		}
@@ -4109,7 +4098,7 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 	windowDataWin32((WindowDataWin32*&)windowData),
 	renderer2DWin32((Renderer2DWin32*&)renderer2D),
 	renderer3DOpenGL((Renderer3DOpenGL*&)renderer3D),
-	threadRenderWin32((ThreadWin32*&)thread)
+	threadRenderWin32((ThreadWin32*&)renderingThread)
 {
 	windowDataWin32=new WindowDataWin32;
 
@@ -4124,6 +4113,8 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 		DWORD tError=::GetLastError();
 		DEBUG_BREAK();
 	}
+
+	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
 
 	if(MainFrame::IsInstanced()) /*removes the caption style*/
 		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
@@ -4143,13 +4134,9 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 	this->iconFolder=new PictureRef(Frame::rawFolder,Frame::ICON_WH,Frame::ICON_WH);
 	this->iconFile=new PictureRef(Frame::rawFile,Frame::ICON_WH,Frame::ICON_WH);
 
-	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
-
-	this->thread=new ThreadWin32;
-
 	if(!MainFrame::IsInstanced())
 	{
-		GuiLogger::Log(StringUtils::Format(L"MainFrame: %p , HWND: %p",this,this->windowDataWin32->hwnd));
+		GuiLogger::Log(StringUtils::Format(L"MainFrame: 0x%X , HWND: 0x%X",this,this->windowDataWin32->hwnd));
 
 #if RENDERER_ENABLED
 		this->renderer3D=this->renderer3DOpenGL=new Renderer3DOpenGL(this);
@@ -4163,11 +4150,7 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 		this->renderer3DOpenGL->Initialize();
 #endif //RENDERER_THREADED
 #endif //ENABLE_RENDERER
-
-		this->renderingTask=this->thread->NewTask(L"TabDrawTask",std::function<void()>(std::bind(&Frame::Render,this)),false);
 	}
-	else
-		this->mainframe=MainFrame::Instance();
 
 	this->AddViewer(GuiViewer::Instance(),L"DefViewer");
 
@@ -4210,8 +4193,6 @@ FrameWin32::~FrameWin32()
 #endif
 
 		SAFEDELETE(this->renderer3D);
-
-		this->threadRenderWin32->DestroyTask(this->renderingTask);
 	}
 #endif
 
@@ -4246,6 +4227,8 @@ int FrameWin32::TrackTabMenuPopup()
 		InsertMenu(create,1,MF_BYPOSITION|MF_STRING,3,L"Scene");
 		InsertMenu(create,2,MF_BYPOSITION|MF_STRING,4,L"Entity");
 		InsertMenu(create,3,MF_BYPOSITION|MF_STRING,5,L"Project");
+		InsertMenu(create,4,MF_BYPOSITION|MF_STRING,6,L"Prova");
+		InsertMenu(create,5,MF_BYPOSITION|MF_STRING,7,L"Prova2");
 		//InsertMenu(create,4,MF_BYPOSITION|MF_STRING,6,"Script");
 	}
 	InsertMenu(root,1,MF_BYPOSITION|MF_SEPARATOR,0,0);
@@ -4534,14 +4517,15 @@ int GuiViewport::Render(Frame* iFrame)
 	D2D1_RECT_U			tBitmapRect={0,0,tWidth,tHeight};
 	HRESULT				tDirect2DResult=S_OK;
 	EditorEntity*		tEntity=this->GetEntity();
-	
+
 	iFrame->renderer3D->ChangeContext();
 
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_SCISSOR_TEST);
+	glEnable(GL_DEPTH_TEST);glCheckError();
+	glEnable(GL_SCISSOR_TEST);glCheckError();
 
 	glViewport(0,0,tWidth,tHeight);glCheckError();
 	glScissor(0,0,tWidth,tHeight);glCheckError();
+
 
 	{
 		int tGuiRectColorBack=GuiRect::COLOR_BACK;
@@ -4549,6 +4533,7 @@ int GuiViewport::Render(Frame* iFrame)
 
 		glClearColor(pGuiRectColorBack[2]/255.0f,pGuiRectColorBack[1]/255.0f,pGuiRectColorBack[0]/255.0f,0.0f);glCheckError();
 		//glClearColor(1,0,0,0);glCheckError();
+
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);glCheckError();
 
 		MatrixStack::Push(MatrixStack::PROJECTION,this->projection);
@@ -4583,7 +4568,6 @@ int GuiViewport::Render(Frame* iFrame)
 #if RENDERER_THREADED
 		iFrame->SetDraw(this);
 #endif
-
 		return 1;
 	}
 
@@ -4807,6 +4791,11 @@ bool Subsystem::CreateDir(String iDir)
 	return ::CreateDirectory(iDir.c_str(),&sa);
 }
 
+bool Subsystem::CancelDir(String iDir)
+{
+	return ::remove(StringUtils::ToChar(iDir).c_str());
+}
+
 bool Subsystem::DirectoryExist(String iDir)
 {
 	DWORD tFileAttributes=GetFileAttributes(iDir.c_str());
@@ -4816,10 +4805,17 @@ bool Subsystem::DirectoryExist(String iDir)
 
 void* Subsystem::LoadLib(String iLibName)
 {
+	FilePath tApplicationFolder=Ide::Instance()->pathExecutable.Path();
+	FilePath tCompilerLibFolder=Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).libDir;
+
+	::SetDllDirectory(tCompilerLibFolder.c_str());
+
 	void* tModule=::LoadLibrary(iLibName.c_str());
 
 	if(!tModule)
-		GuiLogger::Log(StringUtils::Format(L"SubsystemWin32::LoadLibrary: error %d loading module %s\n",GetLastError(),iLibName.c_str()));
+		GuiLogger::Log(StringUtils::Format(L"SubsystemWin32::LoadLibrary: error %d loading module %ls\n",GetLastError(),iLibName.c_str()));
+
+	::SetDllDirectory(0);
 
 	return tModule;
 }
@@ -4829,7 +4825,7 @@ bool Subsystem::FreeLib(void* iModule)
 	return ::FreeLibrary((HMODULE)iModule);
 }
 
-void* Subsystem::GetProcAddress(void* iModule,String iAddress)
+void* Subsystem::GetLibFunction(void* iModule,String iAddress)
 {
 	return (void*)::GetProcAddress((HMODULE)iModule,StringUtils::ToChar(iAddress).c_str());
 }
@@ -4909,7 +4905,7 @@ void DebuggerWin32::PrintThreadContext(void* iThreadContext)
 
 void DebuggerWin32::SuspendDebuggee()
 {
-	if(!this->threadSuspendend)
+	if(!this->suspended)
 	{
 		DWORD tSuspended=0;
 
@@ -4919,13 +4915,13 @@ void DebuggerWin32::SuspendDebuggee()
 		if(tSuspended==(DWORD)0xffffffff)
 			wprintf(L"error suspending debuggee\n");
 		else
-			this->threadSuspendend=true;
+			this->suspended=true;
 	}
 }
 
 void DebuggerWin32::ResumeDebuggee()
 {
-	if(this->threadSuspendend)
+	if(this->suspended)
 	{
 		DWORD tSuspended=0x00000002;
 
@@ -4935,35 +4931,8 @@ void DebuggerWin32::ResumeDebuggee()
 		if(tSuspended==(DWORD)0xffffffff)
 			wprintf(L"error resuming debuggee\n");
 		else
-			this->threadSuspendend=false;
+			this->suspended=false;
 	}
-}
-
-DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
-{
-	wprintf(L"debuggeeThreadFunc started\n");
-
-	DebuggerWin32* tDebuggerWin32=(DebuggerWin32*)iDebuggerWin32;
-
-	while(true)
-	{
-		if(tDebuggerWin32->runningScript)
-		{
-			switch(tDebuggerWin32->runningScriptFunction)
-			{
-				case 0: tDebuggerWin32->runningScript->runtime->init();break;
-				case 1: tDebuggerWin32->runningScript->runtime->update();break;
-				case 2: tDebuggerWin32->runningScript->runtime->deinit();break;
-			};
-
-			tDebuggerWin32->runningScriptFunction=0;
-			tDebuggerWin32->runningScript=0;
-		}
-		
-		::Sleep(tDebuggerWin32->sleep);
-	}
-
-	return 0;
 }
 
 int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
@@ -4999,7 +4968,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 			while(this->breaked);
 		else
 		{
-			wprintf(L"%s on address 0x%p without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;
@@ -5055,6 +5024,11 @@ void DebuggerWin32::SetHardwareBreakpoint(Breakpoint& iLineAddress,bool iSet)
 			}
 		}
 	}
+
+	this->AppendLog(
+		StringUtils::Format(L"%ls: %ls breakpoint on line %d, address 0x%X",
+		iLineAddress.script->sourcepath.File().c_str(),iSet ? L"Set" : L"Unset",iLineAddress.line,iLineAddress.address
+		));
 }
 
 void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
@@ -5075,8 +5049,6 @@ void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
 	{
 		if(!SetThreadContext(this->debuggeeThread,this->threadContext))
 			DEBUG_BREAK();
-		else
-			wprintf(L"%s breakpoint on source 0x%p at line %d address 0x%p\n",iSet ? "adding" : "removing",iLineAddress.script,iLineAddress.line,iLineAddress.address);
 
 		this->ResumeDebuggee();
 	}
@@ -5086,25 +5058,27 @@ void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
 
 void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 {
-	this->breaked=true;
-	this->currentBreakpoint=&iBreakpoint;
-	this->lastBreakedAddress=iBreakpoint.address;
+	if(!this->breaked)
+	{
+		this->breaked=true;
+		this->breakpoint=&iBreakpoint;
+		this->lastBreakedAddress=iBreakpoint.address;
 
-	iBreakpoint.breaked=true;
+		iBreakpoint.breaked=true;
 
-	EditorScript* tEditorScript=(EditorScript*)iBreakpoint.script;
-
-	tEditorScript->scriptViewer->GetRoot()->GetFrame()->SetDraw(tEditorScript->scriptViewer);
-
-	wprintf(L"breakpoint on 0x%p at line %d address 0x%p\n",iBreakpoint.script,iBreakpoint.line,iBreakpoint.address);
+		this->editorscript->GetViewer()->GetRoot()->SetTab(this->editorscript->GetViewer());
+	}
 }
 void DebuggerWin32::ContinueDebuggee()
 {
-	this->breaked=false;
-	this->currentBreakpoint->breaked=false;
-	this->currentBreakpoint=0;
+	if(this->breaked)
+	{
+		this->breaked=false;
+		this->breakpoint->breaked=false;
+		this->breakpoint=0;
 
-	wprintf(L"resuming\n");
+		this->editorscript->GetViewer()->GetRoot()->SetTab(this->editorscript->GetViewer());
+	}
 }
 
 DebuggerWin32::DebuggerWin32()
@@ -5124,22 +5098,49 @@ DebuggerWin32::~DebuggerWin32()
     SAFEDELETE(this->threadContext);
 }
 
-void DebuggerWin32::RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex)
+
+Debugger* Debugger::Instance()
 {
-	if(!this->breaked)
+	GLOBALGETTERFUNCASSINGLETON(GlobalDebuggerInstance,DebuggerWin32);
+}
+
+DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
+{
+	wprintf(L"debuggeeThreadFunc started\n");
+
+	DebuggerWin32* tDebuggerWin32=(DebuggerWin32*)iDebuggerWin32;
+
+	while(true)
 	{
-		/*if(!iDebuggee)
-			DEBUG_BREAK();
+		if(tDebuggerWin32->editorscript)
+		{
+			switch(tDebuggerWin32->function)
+			{
+			case 1: 
+				{
+					tDebuggerWin32->editorscript->runtime->init();
+				}
+				break;
+			case 2:
+				{
+					tDebuggerWin32->editorscript->runtime->update();
+				}
+				break;
+			case 3: 
+				{
+					tDebuggerWin32->editorscript->runtime->deinit();
+				}
+				break;
+			}
+		}
 
-		if(this->script)
-			DEBUG_BREAK();*/
+		tDebuggerWin32->function=0;
+		tDebuggerWin32->editorscript=0;
 
-		this->runningScriptFunction=iFunctionIndex;
-		this->runningScript=iDebuggee;
-
-		while(this->runningScript && !this->breaked);
+		::Sleep(tDebuggerWin32->sleep);
 	}
 
+	return 0;
 }
 
 
@@ -5252,7 +5253,7 @@ void PluginSystem::ScanPluginsDirectory()
 						tPlugin->listBoxItem.SetLabel(tPlugin->name);
 					}
 
-					wprintf(L"%s plugin loaded\n",tPlugin->name.c_str());
+					wprintf(L"%ls plugin loaded\n",tPlugin->name.c_str());
 				}
 			}
 

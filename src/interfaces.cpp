@@ -20,7 +20,6 @@ GLOBALGETTERFUNC(GlobalRootProjectDirectory,ResourceNodeDir*);
 GLOBALGETTERFUNC(GlobalGuiEntityViewerInstance,std::list<GuiEntity*>);
 GLOBALGETTERFUNC(GlobalGuiLoggerInstance,std::list<GuiLogger*>);
 GLOBALGETTERFUNC(GlobalPluginSystemInstance,PluginSystem*);
-GLOBALGETTERFUNC(GlobalDebuggerInstance,Debugger*);
 GLOBALGETTERFUNC(GlobalTouchInputInstance,TouchInput*);
 GLOBALGETTERFUNC(GlobalKeyboardInputInstance,Keyboard*);
 GLOBALGETTERFUNC(GlobalMouseInputInstance,Mouse*);
@@ -397,12 +396,11 @@ Frame*	Ide::GetPopup()
 
 ///////////////////Debugger//////////////////
 
-Debugger::Debugger():breaked(false),threadSuspendend(false),runningScript(0),runningScriptFunction(0),debuggerCode(0),lastBreakedAddress(0),sleep(1){}
-
-Debugger* Debugger::Instance()
+Debugger::Debugger():breaked(false),suspended(false),editorscript(0),function(0),debuggerCode(0),lastBreakedAddress(0),sleep(1)
 {
-	GLOBALGETTERFUNCASSINGLETON(GlobalDebuggerInstance,Debugger);
+	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(this,L"Debugger");
 }
+
 
 std::vector<Debugger::Breakpoint>& Debugger::GetAllBreakpoint()
 {
@@ -413,6 +411,24 @@ std::vector<Debugger::Breakpoint>& Debugger::GetBreakpointSet()
 {
 	return this->breakpointSet;
 }
+
+void Debugger::RunDebuggeeFunction(EditorScript* iDebuggee,unsigned char iFunctionIndex)
+{
+	if(iDebuggee->runtime && iDebuggee->isRunning && !this->breaked)
+	{
+		/*if(!iDebuggee)
+			DEBUG_BREAK();
+
+		if(this->script)
+			DEBUG_BREAK();*/
+
+		this->function=iFunctionIndex;
+		this->editorscript=iDebuggee;
+
+		while(this->editorscript && !this->breaked);
+	}
+}
+
 /*
 
 Script*			Debugger::GetRunningScript()
@@ -503,7 +519,7 @@ Frame::Frame(float x,float y,float w,float h):
 	iconDown(0),
 	iconFolder(0),
 	iconFile(0),
-	thread(0),
+	renderingThread(0),
 	focused(0),
 	isModal(false),
 	hasFrame(true),
@@ -533,77 +549,6 @@ Frame::~Frame()
 
 
 
-
-void Frame::DrawBlock(bool iBool)
-{
-	Thread* tProjectDirChangedThread=Ide::Instance()->projectDirChangedThread;
-
-	if(iBool)
-	{
-		this->renderingTask->Block(iBool);
-		tProjectDirChangedThread->Block(true);
-	}
-
-	for(std::list<DrawInstance*>::iterator iterDrawInstance=this->drawInstances.begin();iterDrawInstance!=this->drawInstances.end();iterDrawInstance++)
-	{
-		if((*iterDrawInstance) && (*iterDrawInstance)->remove==true)
-		{
-			SAFEDELETE(*iterDrawInstance);
-		}
-	}
-
-	if(!iBool)
-	{
-		tProjectDirChangedThread->Block(false);
-		this->renderingTask->Block(iBool);
-	}
-}
-
-struct DLLBUILD MsgClipData
-{
-	vec4 clip;
-	vec2 coord;
-};
-
-void Frame::Render()
-{
-	if(!this->IsEnabled())
-		return;
-
-#if RENDERER_ENABLED
-	int tRenderCounter=0;
-
-	for(std::list<GuiViewport*>::iterator i=GuiViewport::GetPool().begin();i!=GuiViewport::GetPool().end();i++)
-#if RENDERER_THREADED
-		tRenderCounter+=(*i)->Render(this);
-#else
-	{
-		GuiViewport*			tViewport=*i;
-		Frame*					tViewportFrame=tViewport->GetFrame();
-		EditorEntity*			tEntity=(EditorEntity*)(*i)->GetEntity();
-
-		if(tEntity)
-		{
-			tEntity->world=tViewport->GetModelMatrix();
-			tViewportFrame->renderer3D->UpdateEntities(tEntity);
-
-			for(std::list<GuiEntity*>::iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
-			{
-				EditorEntity*	tEntityPropertiesEntity=(*it)->GetEntity();
-				Frame*			tEntityPropertiesFrame=(*it)->GetRoot()->GetFrame();
-
-				if(tEntityPropertiesEntity && tEntityPropertiesFrame)
-					tEntityPropertiesEntity->OnUpdateProperties(tEntityPropertiesFrame);
-			}
-
-			tViewportFrame->SetDraw(tViewport);
-		}
-	}
-#endif
-#endif
-
-	GuiCaret::Instance()->Blink(this);
-}
 
 
 
@@ -1108,13 +1053,41 @@ GuiViewer* Frame::AddViewer(GuiViewer* iViewer,const String& iName,unsigned int 
 		iViewer->siblings[tReciprocal].push_back(iSibling);
 
 		this->Message(iSibling,GuiRectMessages::ONSIZE);
-		this->Message(iViewer,GuiRectMessages::ONSIZE);
 	}
 	else
 	{
-		//frame borders case
+		//insert near frame borders
 
+		int		tReciprocal=iPos<2 ? iPos+2 : iPos-2;
+		float	tShrinkSign=iPos<2 ? +1 : -1;
+		vec4	tFrameBorders;
+
+		//get frame borders
+		{
+			vec2 tFrameSize=this->Size();
+			tFrameBorders.make(0,0,tFrameSize.x,tFrameSize.y);
+		}
+
+		float	tShrinkDim=((iPos%2) ? tFrameBorders.w : tFrameBorders.z)/2.0f;
+
+		//find viewers adjoing with this border
+		for(std::list<GuiViewer*>::iterator i=this->viewers.begin();i!=this->viewers.end();i++)
+		{
+			if((*i)->edges[iPos]==tFrameBorders[iPos])
+			{
+				(*i)->edges[iPos]+=tShrinkSign*tShrinkDim;
+				(*i)->siblings[iPos].push_back(iViewer);
+				iViewer->siblings[tReciprocal].push_back(*i);
+
+				this->Message(*i,GuiRectMessages::ONSIZE);
+			}
+		}
+
+		iViewer->edges=tFrameBorders;
+		iViewer->edges[tReciprocal]-=tShrinkSign*tShrinkDim+tShrinkSign*4.0f;
 	}
+
+	this->Message(iViewer,GuiRectMessages::ONSIZE);
 
 	return iViewer;
 }
@@ -1218,6 +1191,8 @@ MainFrame::~MainFrame()
 
 	for(std::list<Frame*>::iterator i=this->frames.begin();i!=this->frames.end();i++)
 		SAFEDELETE(*i);
+
+	this->renderingThread->DestroyTask(this->renderingTask);
 }
 
 MainFrame* MainFrame::Instance()
@@ -1275,6 +1250,51 @@ void	MainFrame::Enable(bool iEnable)
 		(*i)->windowData->Enable(iEnable);
 }
 
+void MainFrame::Render()
+{
+	if(!this->GetFrame()->IsEnabled())
+		return;
+
+#if RENDERER_ENABLED
+	int tRenderCounter=0;
+
+	for(std::list<GuiViewport*>::iterator i=GuiViewport::GetPool().begin();i!=GuiViewport::GetPool().end();i++)
+#if RENDERER_THREADED
+		tRenderCounter+=(*i)->Render(this);
+#else
+	{
+		GuiViewport*			tViewport=*i;
+		Frame*					tViewportFrame=tViewport->GetFrame();
+		EditorEntity*			tEntity=(EditorEntity*)(*i)->GetEntity();
+
+		if(tEntity && (Timer::Instance()->GetCurrent()-tViewport->GetLastFrameTime())>1000/tViewport->GetRenderingRate())
+		{
+			tViewport->lastFrameTime=tViewport->GetLastFrameTime();
+
+			tEntity->world=tViewport->GetModelMatrix();
+			tViewportFrame->renderer3D->UpdateEntities(tEntity);
+
+			for(std::list<GuiEntity*>::iterator it=GuiEntity::GetPool().begin();it!=GuiEntity::GetPool().end();it++)
+			{
+				EditorEntity*	tEntityPropertiesEntity=(*it)->GetEntity();
+				Frame*			tEntityPropertiesFrame=(*it)->GetRoot()->GetFrame();
+
+				if(tEntityPropertiesEntity && tEntityPropertiesFrame)
+					tEntityPropertiesEntity->OnUpdateProperties(tEntityPropertiesFrame);
+			}
+
+			tViewport->GetRoot()->GetFrame()->SetDraw(tViewport);
+		}
+	}
+#endif
+#endif	
+}
+
+void MainFrame::BlinkCaret()
+{
+	GuiCaret::Instance()->Blink();
+}
+
 //////////////////GuiCaret///////////////////
 
 
@@ -1286,7 +1306,7 @@ GuiCaret*	GuiCaret::Instance()
 
 //////////////////GuiCaret//////////////////
 
-GuiCaret::GuiCaret():rect(0),blinktime(BLINKRATE),frame(0)
+GuiCaret::GuiCaret():rect(0),blinktime(BLINKRATE)
 {
 	this->dim.make(1,GuiFont::GetDefaultFont()->GetHeight());
 }
@@ -1294,7 +1314,9 @@ void	GuiCaret::SetPos(float x,float y)
 {
 	this->oldcaret=this->caret;
 	this->caret.make(x,y,x,y+this->dim.y);
-	if(this->frame)this->frame->windowData->SendMessage(0,1,1);
+
+	if(this->rect)
+		this->rect->GetRoot()->GetFrame()->windowData->SendMessage(0,1,1);
 }
 
 
@@ -1327,20 +1349,19 @@ void	GuiCaret::Show(GuiRect* iRect,unsigned int tBack,unsigned int tFront)
 {
 	if(iRect)
 	{
-		this->frame=iRect->GetRoot()->GetFrame();
 		this->rect=iRect;
 		this->SetColors(tBack,tFront);
 	}
 	else
 	{
-		this->frame=0;
 		this->rect=0;
 	}
 }
 
 
-void	GuiCaret::Draw(Frame* iFrame,unsigned int iCode)
+void	GuiCaret::Draw(unsigned int iCode)
 {
+	Frame*				tFrame=this->rect->GetRoot()->GetFrame();
 	GuiRect*			tRect=this->rect;
 
 	PaintData			tPd;
@@ -1357,37 +1378,37 @@ void	GuiCaret::Draw(Frame* iFrame,unsigned int iCode)
 	tAncestors.push_back(tRect);
 
 	for(std::list<GuiRect*>::const_iterator i=tAncestors.begin();i!=tAncestors.end();i++)
-		(*i)->Procedure(iFrame,GuiRectMessages::ONPREPAINT,&tPd);
+		(*i)->Procedure(tFrame,GuiRectMessages::ONPREPAINT,&tPd);
 
-	if(iFrame->BeginDraw(this))
+	if(tFrame->BeginDraw(this))
 	{
-		iFrame->renderer2D->SetAntialiasing(false);
-		iFrame->renderer2D->PushScissor(tPd.clip.x,tPd.clip.y,tPd.clip.z,tPd.clip.w);
-		iFrame->renderer2D->Translate(tPd.offset.x,tPd.offset.y);
+		tFrame->renderer2D->SetAntialiasing(false);
+		tFrame->renderer2D->PushScissor(tPd.clip.x,tPd.clip.y,tPd.clip.z,tPd.clip.w);
+		tFrame->renderer2D->Translate(tPd.offset.x,tPd.offset.y);
 
 		if(!iCode)
-			iFrame->renderer2D->DrawLine(vec2(ncaret.x,ncaret.y),vec2(ncaret.z,ncaret.w),this->blink ? this->colorfront : this->colorback,ndim.x);
+			tFrame->renderer2D->DrawLine(vec2(ncaret.x,ncaret.y),vec2(ncaret.z,ncaret.w),this->blink ? this->colorfront : this->colorback,ndim.x);
 		else
 		{
-			iFrame->renderer2D->DrawLine(vec2(ocaret.x,ocaret.y),vec2(ocaret.z,ocaret.w),this->colorback,odim.x);
-			iFrame->renderer2D->DrawLine(vec2(ncaret.x,ncaret.y),vec2(ncaret.z,ncaret.w),this->colorfront,ndim.x);
+			tFrame->renderer2D->DrawLine(vec2(ocaret.x,ocaret.y),vec2(ocaret.z,ocaret.w),this->colorback,odim.x);
+			tFrame->renderer2D->DrawLine(vec2(ncaret.x,ncaret.y),vec2(ncaret.z,ncaret.w),this->colorfront,ndim.x);
 		}
 		
-		iFrame->renderer2D->Translate(0,0);
-		iFrame->renderer2D->PopScissor();
-		iFrame->renderer2D->SetAntialiasing(true);
+		tFrame->renderer2D->Translate(0,0);
+		tFrame->renderer2D->PopScissor();
+		tFrame->renderer2D->SetAntialiasing(true);
 
-		iFrame->EndDraw();
+		tFrame->EndDraw();
 	}
 }
 
-void	GuiCaret::Blink(Frame* iFrame)
+void	GuiCaret::Blink()
 {
-	if(iFrame && this->rect)
+	if(this->rect)
 	{
 		if(Timer::Instance()->GetCurrent()-this->lasttime > this->blinktime)
 		{
-			iFrame->windowData->SendMessage(0,0,1);
+			this->rect->GetRoot()->GetFrame()->windowData->SendMessage(0,0,1);
 
 			this->lasttime=Timer::Instance()->GetCurrent();
 			this->blink=!this->blink;
@@ -2237,15 +2258,17 @@ GuiViewer::GuiViewer(float x,float y,float z,float w):tab(0),frame(0),labelsend(
 GuiViewer::~GuiViewer()
 {
 	GlobalViewersInstance().remove(this);
-
-	for(std::list<GuiRect*>::iterator i=this->tabs.begin();i!=this->tabs.end();i++)
-		SAFEDELETE(*i);
 }
 
 void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 {
 	switch(iMsg)
 	{
+		case ONCONTROLEVENT:
+		{
+			//stop
+		}
+		break;
 		case ONHITTEST:
 		{
 			HitTestData& thtd=*(HitTestData*)iData;
@@ -2342,53 +2365,52 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					std::list<GuiRect*>::iterator	t=this->tabs.begin();
 					std::list<String>::iterator		l=this->labels.begin();
 
-
 					for(;r!=this->rects.end();r++,t++,l++)
 					{
-						if(*tMovingTab!=*t)
+						if(*tMovingTab!=*t/* && *t!=this->detachSwap*/)
 						{
-							if(((*r).x>(*tMovingRect).x && (*tMovingRect).x<(*r).z) || ((*r).x>(*tMovingRect).z && (*tMovingRect).z<(*r).z))
+							float tRectX=this->edges.x+(*r).x;
+							float tRectZ=this->edges.x+(*r).z;
+
+							if(tmd.mouse.x>tRectX && tmd.mouse.x<tRectZ)
 							{
 								GuiRect*	tTmpMovingTab=*tMovingTab;
 								String		tTmpMovingLabel=*tMovingLabel;
+								vec4		tTmpMovingRect=*tMovingRect;
 
 								(*tMovingTab)=*t;
 								(*tMovingLabel)=*l;
+								(*tMovingRect)=*r;
 								(*t)=tTmpMovingTab;
 								(*l)=tTmpMovingLabel;
-								this->tab=*t;
+								
+								this->CalculateTabsRects(tTmpMovingTab,&tTmpMovingRect);
+								iFrame->SetDraw(this,true,false,(void*)this->tab);
 
-								this->CalculateTabsRects();
-								iFrame->SetDraw(this,true,false,(void*)1);
+								break;
 							}
 						}
 					}
 				}
-				else if(this->GetFrame()->GetViewers().size()==1 ^ this->GetTabs().size()==1)
+				else if(this->GetFrame()->GetViewers().size()>1 || this->GetTabs().size()>1)
 				{
-					Frame*		tFrame=0;
+					Frame*		tFrame=MainFrame::Instance()->CreateFrame(0,0,500,300,true);
 					GuiRect*	tTab=this->GetTab();
 					String		tTabLabel;
 
-					if(tTab)
+					if(tFrame)
 					{
-						tFrame=MainFrame::Instance()->CreateFrame(0,0,500,300,true);
+						tTabLabel=this->GetTabLabel(tTab);
+						this->RemoveTab(tTab);
 
-						if(tFrame)
+						if(this->GetTabs().size()==0 && this->GetFrame()->GetViewers().size()>1)
 						{
-							tTabLabel=this->GetTabLabel(tTab);
-							this->RemoveTab(tTab);
-
-							if(this->GetTabs().size()==0 && this->GetFrame()->GetViewers().size()>1)
-							{
-								this->GetFrame()->RemoveViewer(this);
-								iFrame->hittest.hit=0;
-								tFrame->GetViewers().front()->AddTab(tTab,tTabLabel);
-							}
-							
-							if(this->GetTabs().size()>1)
-								this->SetTab(this->tabs.front());
+							this->GetFrame()->RemoveViewer(this);
+							iFrame->hittest.hit=0;
 						}
+
+						tFrame->GetMainViewer()->AddTab(tTab,tTabLabel);
+						iFrame->SetDraw();
 					}
 
 					this->detachTab=0;
@@ -2413,11 +2435,11 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 					for(;r!=this->rects.end();r++,t++)
 					{
-						vec4 tLabelEdges=this->GetRectEdges(*r);
+						vec4 tLabelEdges=this->GetLabelRectEdges(*r);
 
 						if(EdgesContainsPoint(tLabelEdges,tmd.mouse))
 						{
-							if(this->GetTabs().size()==1 ^ this->GetFrame()->GetViewers().size()==1)
+							if(this->GetFrame()->GetViewers().size()>1 || this->GetTabs().size()>1)
 							{
 								this->detachTab=*t;
 								this->detachSpot=tmd.mouse.x;
@@ -2445,7 +2467,7 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			//detach anyway
 			if(tmd.button==1)
 			{
-				if(this->detachTab && this->tabs.size()==1)
+				if(this->detachTab)
 					this->CalculateTabsRects();
 
 				iFrame->dragframe=false;
@@ -2465,7 +2487,7 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 							for(std::list<vec4>::iterator i=this->rects.begin();i!=this->rects.end();i++)
 							{
-								if(EdgesContainsPoint(this->GetRectEdges(*i),tmd.mouse))
+								if(EdgesContainsPoint(this->GetLabelRectEdges(*i),tmd.mouse))
 								{
 									int menuResult=this->frame->TrackTabMenuPopup();
 
@@ -2476,7 +2498,11 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 									case 3:this->AddTab(GuiScene::Instance(),L"Scene");break;
 									case 4:this->AddTab(GuiEntity::Instance(),L"Properties");break;
 									case 5:this->AddTab(GuiProject::Instance(),L"Project");break;
+									case 6:this->AddTab(new GuiRect,L"Panel");break;
+									case 7:this->AddTab(new GuiRect,L"Panel2");break;
 									}
+
+									break;
 								}
 							}
 
@@ -2511,16 +2537,34 @@ void GuiViewer::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			std::list<GuiRect*>::iterator	t=this->tabs.begin();
 			std::list<vec4>::iterator		r=this->rects.begin();
 
+			//draw all labels or other than detached
 			for(;l!=this->labels.end();l++,t++,r++)
 			{
-				if(!pd.data || (pd.data && (pd.data==(void*)1 || pd.data==*t)))
+				if(pd.data!=*t)
 				{
-					vec4 tLabel=this->GetRectEdges(*r);
-
+					vec4 tLabel=this->GetLabelRectEdges(*r);
 					if(this->tab==*t)
 						this->frame->renderer2D->DrawRectangle(tLabel.x,tLabel.y,tLabel.z,tLabel.w,Frame::COLOR_LABEL);
-
 					this->frame->renderer2D->DrawText(*l,tLabel.x,tLabel.y,tLabel.z,tLabel.w,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
+				}
+			}
+			
+			//draw detached above all labels
+			if(pd.data && pd.data!=(void*)1)
+			{
+				l=this->labels.begin();
+				t=this->tabs.begin();
+				r=this->rects.begin();
+
+				for(;l!=this->labels.end();l++,t++,r++)
+				{
+					if(pd.data==*t)
+					{
+						vec4 tLabel=this->GetLabelRectEdges(*r);
+						if(this->tab==*t)
+							this->frame->renderer2D->DrawRectangle(tLabel.x,tLabel.y,tLabel.z,tLabel.w,Frame::COLOR_LABEL);
+						this->frame->renderer2D->DrawText(*l,tLabel.x,tLabel.y,tLabel.z,tLabel.w,vec2(0.5f,0.5f),vec2(0.5f,0.5f),GuiString::COLOR_TEXT);
+					}
 				}
 			}
 
@@ -2592,13 +2636,44 @@ GuiRect* GuiViewer::AddTab(GuiRect* iTab,String iLabel)
 
 void GuiViewer::RemoveTab(GuiRect* iTab)
 {
-	this->tabs.remove(iTab);
-	this->CalculateTabsRects();
-	iTab->parent=0;
+	//if tab is part of this GuiViewer
+	if(std::find(this->tabs.begin(),this->tabs.end(),iTab)!=this->tabs.end())
+	{
+		//remove tab parent
+		iTab->parent=0;
+		
+		//remove all GuiViewer data relative to the tab
+		std::list<String>::iterator			l=this->labels.begin();
+		std::list<GuiRect*>::iterator		t=this->tabs.begin();
+		std::list<vec4>::iterator			r=this->rects.begin();
+
+		for(;t!=this->tabs.end();l++,t++,r++)
+		{
+			if(iTab==*t)
+			{
+				this->labels.erase(l);
+				this->tabs.erase(t);
+				this->rects.erase(r);
+
+				break;
+			}
+		}
+
+		if(this->tabs.size()!=0)
+			this->SetTab(this->tabs.front());
+
+		//recalc labels
+		this->CalculateTabsRects();
+	}
+	
 }
 
 void GuiViewer::SetTab(GuiRect* iTab)
 {
+	//check if tab belongs to GuiViewer
+	if(std::find(this->tabs.begin(),this->tabs.end(),iTab)==this->tabs.end())
+		return;
+
 	if(this->tab && this->tab!=iTab)
 	{
 		if(this->tab->GetFlag(GuiRectFlag::ACTIVE))
@@ -2670,7 +2745,7 @@ int	GuiViewer::GetTabIndex(GuiRect* iTab)
 	return -1;
 }
 
-vec4	GuiViewer::GetRectEdges(const vec4& iRect)
+vec4	GuiViewer::GetLabelRectEdges(const vec4& iRect)
 {
 	return vec4(iRect.x+this->edges.x,iRect.y+this->edges.y,iRect.z+this->edges.x,iRect.w+this->edges.y);
 }
@@ -2685,15 +2760,15 @@ String globalPositionNames[4]=
 
 void	GuiViewer::PrintSiblings()
 {
-	wprintf(L"%s\n",this->name.c_str());
+	wprintf(L"%ls\n",this->name.c_str());
 
 	for(int s=0;s<4;s++)
 	{
-		wprintf(L"\t%s:",globalPositionNames[s].c_str());
+		wprintf(L"\t%ls:",globalPositionNames[s].c_str());
 
 		for(std::list<GuiViewer*>::iterator i=this->siblings[s].begin();i!=this->siblings[s].end();i++)
 		{
-			wprintf(L" %s",(*i)->name.c_str());
+			wprintf(L" %ls",(*i)->name.c_str());
 		}
 
 		wprintf(L"\n");
@@ -2701,7 +2776,7 @@ void	GuiViewer::PrintSiblings()
 
 }
 
-void GuiViewer::CalculateTabsRects()
+void GuiViewer::CalculateTabsRects(GuiRect* tExclude,vec4* tExcludeRect)
 {
 	this->rects.clear();
 	this->labelsend=0;
@@ -2713,15 +2788,24 @@ void GuiViewer::CalculateTabsRects()
 	tLabelRect.z=tLabelRect.x+LABEL_LEFT_OFFSET;
 	tLabelRect.w=tLabelRect.y+LABEL_HEIGHT;
 
-	for(std::list<String>::iterator i=this->labels.begin();i!=this->labels.end();i++)
+	std::list<String>::iterator			l=this->labels.begin();
+	std::list<GuiRect*>::iterator		t=this->tabs.begin();
+
+	wprintf(L"Labels: ");
+
+	for(;t!=this->tabs.end();l++,t++)
 	{
-		vec2 tTextSize = GuiFont::GetDefaultFont()->MeasureText((*i).c_str());
+		vec2 tTextSize = GuiFont::GetDefaultFont()->MeasureText((*l).c_str());
 
 		tLabelRect.x=tLabelRect.z;
 		tLabelRect.z=tLabelRect.x + tTextSize.x + LABEL_RIGHT_OFFSET;
 
-		this->rects.push_back(tLabelRect);
+		(tExclude==*t)  ? this->rects.push_back(*tExcludeRect) : this->rects.push_back(tLabelRect);
+
+		wprintf(L"%ls ",(*l).c_str());
 	}
+
+	wprintf(L"\n");
 
 	this->labelsend=tLabelRect.z;
 }
@@ -2777,7 +2861,7 @@ void  GuiListBoxNode::OnMouseMove(GuiListBox*,Frame*,const vec4& iEdges,const Mo
 
 }
 
-////////////////////GuiListBox////////////////
+////////////////////GuiListBox////////////////<
 
 void GuiListBox::InsertItem(GuiListBoxNode& iItem)
 {
@@ -3251,7 +3335,7 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			iFrame->renderer2D->Translate(0,0);
 			iFrame->renderer2D->PopScissor();
-			
+
 			if(pd.data==0)GuiScrollRect::Procedure(iFrame,iMsg,pd.data);
 		}
 		break;
@@ -3553,6 +3637,8 @@ Compiler::Compiler()
 
 	COMPILER msCompiler={L"ms",
 						 L"vc2010",
+						 L"",
+						 L"",
 						 L"cl.exe ",
 						 L"linker.exe ",
 						 L" /nologo /MDd /ZI /EHsc ",
@@ -3567,6 +3653,8 @@ Compiler::Compiler()
 
 	COMPILER mingwCompiler={L"mingw",
 							L"i686-w64-mingw32",
+							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\bin",
+							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\lib",
 							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
 							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
 							L" -O0 -g -shared ",
@@ -3579,6 +3667,8 @@ Compiler::Compiler()
 
 	COMPILER llvmCompiler={L"llvm",
 						   L"5.0.0 32bit",
+						   L"",
+						   L"",
 						   L"c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
 						   L"c:\\sdk\\llvm32\\bin\\lld-link.exe ",
 						   L" /nologo /MDd /ZI /EHsc ",
@@ -3601,38 +3691,6 @@ Compiler::~Compiler()
 }
 
 
-String Compiler::Compose(unsigned int iCompiler,EditorScript* iScript)
-{
-	Compiler::COMPILER& cplr=this->compilers[iCompiler];
-
-	String tOutputModule=iScript->module + L"\\" + iScript->scriptpath.Name() + L".dll ";
-	String tScriptSource=Ide::Instance()->GetProjectFolder() + L"\\" + iScript->scriptpath.File();
-	String tIdeSourcePath=this->ideSrcPath +  L" ";
-	String tEngineLibrary=this->ideLibPath + L"\\" + cplr.engineLibraryName + cplr.engineLibraryExtension + L" ";
-
-
-	String tCompilerExecutableString;
-
-	if(iCompiler==Compiler::COMPILER_MS)
-		tCompilerExecutableString=L"vcvars32.bat && ";
-
-	tCompilerExecutableString+=cplr.compilerExecutable;
-
-	String	tComposedOutput=tCompilerExecutableString +
-		cplr.compilerFlags +
-		cplr.includeHeadersPrefix +
-		tIdeSourcePath +
-		tScriptSource +
-		cplr.linkerFlags +
-		cplr.outputCommand +
-		tOutputModule +
-		tEngineLibrary +
-		cplr.includeLibPrefix + 
-		cplr.additionalLibs;
-
-	return	tComposedOutput;
-}
-
 const String& Compiler::GetSourcesPath()
 {
 	return this->ideSrcPath;
@@ -3652,16 +3710,16 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	iEditorScript->SaveScript();
 
-	String tOriginalScriptSource=iEditorScript->script;
-	String tCompileScriptSource=tOriginalScriptSource;
+	//create random directory and append the filename for the module if not exist yet
 
-	{
-		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iEditorScript->Entity()->name + L"_;}";
-		tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}\n\n";
-	}
+	if(iEditorScript->libpath.empty())
+		iEditorScript->libpath=Subsystem::RandomDir(Ide::Instance()->folderAppData,8)+L"\\"+iEditorScript->sourcepath.Name()+L".dll";
 
-	File tCompilerErrorOutput=Ide::Instance()->folderAppData + L"\\error.output";
+	unsigned int	tCompilerType=Compiler::COMPILER_MINGW;
+	FilePath		tTmpCompileSourceFile=iEditorScript->libpath.Path() + L"\\" + iEditorScript->sourcepath.File();
 
+	//set compiler error output path
+	File tCompilerErrorOutput=iEditorScript->libpath.Path()+L"\\error.output";
 
 	//delete error.output
 
@@ -3671,31 +3729,58 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 			DEBUG_BREAK();
 	}
 
-	//create random directory for the module if not exist yet
-
-	if(iEditorScript->module.empty())
-		iEditorScript->module=Subsystem::RandomDir(Ide::Instance()->folderAppData,8);
-
 	//append exports to source
 
-	iEditorScript->SaveScript();
+	{
+		String	tCompileScriptSource=iEditorScript->sourcetext;
 
+				tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) EntityScript* Create(){return new " + iEditorScript->Entity()->name + L";}";
+				tCompileScriptSource+=L"\n\nextern \"C\" __declspec(dllexport) void Destroy(EntityScript* iDestroy){SAFEDELETE(iDestroy);}\n\n";
+
+		StringUtils::WriteCharFile(tTmpCompileSourceFile,tCompileScriptSource,L"wb");
+	}
+	
 	//compose the compiler command line
 
-	unsigned int tCompiler=Compiler::COMPILER_MS;
+	String	tComposedOutput;
 
-	String tCommandLineMingW=this->Compose(tCompiler,iEditorScript);
+	{
+		Compiler::COMPILER& tCompiler=this->compilers[tCompilerType];
+
+		String tIdeSourcePath=this->ideSrcPath +  L" ";
+		String tEngineLibrary=this->ideLibPath + L"\\" + tCompiler.engineLibraryName + tCompiler.engineLibraryExtension + L" ";
+
+
+		String tCompilerExecutableString;
+
+		if(tCompilerType==Compiler::COMPILER_MS)
+			tCompilerExecutableString=L"vcvars32.bat && ";
+
+		tCompilerExecutableString+=tCompiler.compilerExecutable;
+
+		tComposedOutput=tCompilerExecutableString +
+			tCompiler.compilerFlags +
+			tCompiler.includeHeadersPrefix +
+			tIdeSourcePath +
+			tTmpCompileSourceFile +
+			tCompiler.linkerFlags +
+			tCompiler.outputCommand +
+			iEditorScript->libpath.File() + L" " +
+			tEngineLibrary +
+			tCompiler.includeLibPrefix + 
+			tCompiler.additionalLibs;
+	}
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=Subsystem::Execute(iEditorScript->module,tCommandLineMingW,tCompilerErrorOutput.path,true,true,true);
+	bool tExecuteWithSuccess=Subsystem::Execute(iEditorScript->libpath.Path(),tComposedOutput,tCompilerErrorOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
 	//unroll exports
 
-	iEditorScript->SaveScript();
+	Subsystem::CancelDir(tTmpCompileSourceFile);
 
 	//convert compiler output to readable locale
 
@@ -3703,36 +3788,32 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	//extract and parse breakpoint line addresses
 
-	File tLineAddressesOutput=iEditorScript->module + L"\\laddrss.output";
+	File tSourceLineAddressesOutput=iEditorScript->libpath.Path() + L"\\laddrss.output";
 
-	String tScriptFileName=iEditorScript->scriptpath.Name();
+	String tParseLineAddressesCommandLine=this->compilers[COMPILER_MINGW].binDir + L"\\" + L"objdump --dwarf=decodedline " + iEditorScript->libpath + L" | find \""+ iEditorScript->sourcepath.Name() + L".cpp" + L"\" | find /V \":\"";
 
-	String tSharedObjectFileName=tScriptFileName + L".dll";
-	String tSharedObjectSourceName=tScriptFileName + L".cpp";
-
-	String tParseLineAddressesCommandLine=L"objdump --dwarf=decodedline " + tSharedObjectFileName + L" | find \""+ tSharedObjectSourceName + L"\" | find /V \":\"";
-
-	tExecuteWithSuccess=Subsystem::Execute(iEditorScript->module,tParseLineAddressesCommandLine,tLineAddressesOutput.path,true,true,true);
+	tExecuteWithSuccess=Subsystem::Execute(iEditorScript->libpath.Path(),tParseLineAddressesCommandLine,tSourceLineAddressesOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
-	if(tLineAddressesOutput.Open(L"rb"))
+	if(tSourceLineAddressesOutput.Open(L"rb"))
 	{
-		EditorScript* tEditorScript=(EditorScript*)iEditorScript;
-
-		int tNumberOfLines=tLineAddressesOutput.CountOccurrences('\n');
+		std::vector<Debugger::Breakpoint>&	tAllBreakpoints=Debugger::Instance()->GetAllBreakpoint();
+		int									tNumberOfAddressesLinesFound=tSourceLineAddressesOutput.CountOccurrences('\n');
+		int									tNumberOfSourceLines=std::count(iEditorScript->sourcetext.begin(),iEditorScript->sourcetext.end(),L'\n');
+		
 
 		char c[500];
 		unsigned int line;
 
-		for(int i=0;i<tNumberOfLines;i++)
+		for(int i=0;i<tNumberOfAddressesLinesFound;i++)
 		{
-			fscanf(tLineAddressesOutput.data,"%s",c);
-			fscanf(tLineAddressesOutput.data,"%u",&line);
-			fscanf(tLineAddressesOutput.data,"%s",&c);
+			fscanf(tSourceLineAddressesOutput.data,"%s",c);
+			fscanf(tSourceLineAddressesOutput.data,"%u",&line);
+			fscanf(tSourceLineAddressesOutput.data,"%s",&c);
 
-			if(i>7)//skip source exports
+			if(line<tNumberOfSourceLines)//skip source exports
 			{
 				Debugger::Breakpoint tLineAddress;
 
@@ -3741,23 +3822,17 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 				tLineAddress.script=iEditorScript;
 
 
-				Debugger::Instance()->GetAllBreakpoint().push_back(tLineAddress);
+				tAllBreakpoints.push_back(tLineAddress);
 			}
 		}
 
-		tLineAddressesOutput.Close();
+		tSourceLineAddressesOutput.Close();
 
-		if(!tLineAddressesOutput.Delete())
+		if(!tSourceLineAddressesOutput.Delete())
 			DEBUG_BREAK();
 	}
 
-	//spawn a compilerViewer and show it if errors  @mic best to send message to the guicompilerviewer
-
-	EditorScript* tEditorScript=(EditorScript*)iEditorScript;
-
 	bool noErrors=Compiler::Instance()->ParseCompilerOutputFile(tWideCharCompilationOutput);
-
-	GuiLogger::Log(StringUtils::Format(L"%s on compiling %s\n",noErrors ? "OK" : "ERROR",iEditorScript->scriptpath.c_str()));
 
 	return retVal;
 }
@@ -3765,35 +3840,33 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 bool Compiler::LoadScript(EditorScript* iScript)
 {
-	if(!iScript->module.size())
+	if(!iScript->libpath.size())
 		return false;
 
 	EntityScript*	(*tCreateModuleClassFunction)()=0;
-	String          tModuleFile=iScript->module + L"\\" + iScript->scriptpath.Name() + L".dll";
+	String          tModuleFile=iScript->libpath + L"\\" + iScript->sourcepath.Name() + L".dll";
 
 	if(!iScript->handle)
 	{
-		iScript->handle=Subsystem::LoadLib(tModuleFile.c_str());
+		iScript->handle=Subsystem::LoadLib(iScript->libpath.c_str());
 
 		if(!iScript->handle)
 			return false;
-
 	}
 
-	tCreateModuleClassFunction=(EntityScript* (*)())Subsystem::GetProcAddress(iScript->handle,L"Create");
+	tCreateModuleClassFunction=(EntityScript* (*)())Subsystem::GetLibFunction(iScript->handle,L"Create");
 
 	if(tCreateModuleClassFunction)
 	{
 		iScript->runtime=tCreateModuleClassFunction();
 		iScript->runtime->entity=iScript->Entity();
-
-		Debugger::Instance()->RunDebuggeeFunction(iScript,0);
+		wprintf(L"entity: 0x%X\n",iScript->runtime->entity);
 
 		return true;
 	}
 	else
 	{
-		GuiLogger::Log(StringUtils::Format(L"error creating module %s\n",tModuleFile.c_str()));
+		this->Log(StringUtils::Format(L"error creating module %s\n",tModuleFile.c_str()),this);
 
 		SAFEDELETEARRAY(iScript->runtime);
 
@@ -3823,22 +3896,20 @@ bool Compiler::UnloadScript(EditorScript* iScript)
 
 		if(tDestroyInTheDLL)
 		{
-			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))Subsystem::GetProcAddress(iScript->handle,L"Destroy");
+			void (*DestroyScript)(EntityScript*)=(void(*)(EntityScript*))Subsystem::GetLibFunction(iScript->handle,L"Destroy");
 
 			std::vector<GuiViewport*> tGuiViewport;
 
 			//Ide::Instance()->mainAppWindow->CreateTabRects<GuiViewport>(tGuiViewport);
 
-			Frame* tabContainerRunningUpdater=(Frame*)tGuiViewport[0]->GetRoot()->GetFrame();
+			MainFrame::Instance()->renderingTask->pause=true;
 
-			tabContainerRunningUpdater->renderingTask->pause=true;
-
-			while(tabContainerRunningUpdater->renderingTask->executing);
+			while(MainFrame::Instance()->renderingTask->executing);
 
 			DestroyScript(iScript->runtime);
 			iScript->runtime=0;
 
-			tabContainerRunningUpdater->renderingTask->pause=false;
+			MainFrame::Instance()->renderingTask->pause=false;
 		}
 		else
 			iScript->runtime=0;
@@ -3932,6 +4003,10 @@ bool Compiler::ParseCompilerOutputFile(String iFileBuffer)
 	return false;
 }
 
+const Compiler::COMPILER& Compiler::GetCompiler(Type iType)
+{
+	return this->compilers[iType];
+}
 
 ///////////////////////////////////////////////
 ///////////////////////////////////////////////
@@ -4655,7 +4730,10 @@ void GuiSlider::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			MouseData* md=(MouseData*)iData;
 
 			if(md && md->raw.Left())
+			{
 				this->SetPosition(iFrame,md->mouse);
+				iFrame->Message(this->parent,ONCONTROLEVENT,&ControlData(this,iMsg,iData));
+			}
 		}
 		break;
 		case ONPAINT:
@@ -4730,12 +4808,12 @@ float GuiSlider::Max(){return *this->maximum;}
 
 GuiAnimationController::GuiAnimationController(AnimationController& iAnimationController):
 	animationController(iAnimationController),
-	slider(&animationController.cursor,&this->animationController.start,&this->animationController.end)
+	position(&animationController.cursor,&this->animationController.start,&this->animationController.end)
 {
 	this->play.SetText(L"Play");
 	this->stop.SetText(L"Stop");
 
-	this->Append(&this->slider);
+	this->Append(&this->position);
 	this->Append(&this->play);
 	this->Append(&this->stop);
 }
@@ -4758,7 +4836,7 @@ void GuiAnimationController::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* 
 			tStopEdges.x=tPlayEdges.z=tHalfWidth;
 			tStopEdges.w=tPlayEdges.w=edges.w;
 
-			this->slider.edges=tSliderEdges;
+			this->position.edges=tSliderEdges;
 			this->stop.edges=tStopEdges;
 			this->play.edges=tPlayEdges;
 		}
@@ -4769,15 +4847,15 @@ void GuiAnimationController::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* 
 
 			ControlData* cd=(ControlData*)iData;
 
-			if(cd->control==&this->slider)
+			if(cd->control==&this->position)
 			{
 				if(cd->msg==ONMOUSEMOVE)
 				{
-					float value=this->slider.Value();
+					MouseData* md=(MouseData*)cd->data;
 
-					if(value!=this->slider.Value())
+					if(md && md->raw.Left())
 					{
-						this->animationController.SetFrame(this->slider.Value());
+						this->animationController.SetFrame(this->position.Value());
 						iFrame->SetDraw(this);
 					}
 				}
@@ -5339,7 +5417,7 @@ void GuiScrollRect::ResetContent()
 	this->CalculateScrollbarsLayout();
 }
 
-const vec2& GuiScrollRect::GetContent(){return this->content;}
+vec2 GuiScrollRect::GetContent(){return vec2(this->content[0],this->content[1]);}
 
 //////////////////////GuiPanel/////////////////
 
@@ -5581,7 +5659,7 @@ EditorEntity*	GuiEntity::GetEntity()
 
 GuiLogger::GuiLoggerItem::GuiLoggerItem(const String& iString):GuiListBoxNode(iString)
 {
-	if(this->label.size() && this->label.back()==L'\n')
+	if(this->label.size() && this->label.back()==L'\n' || this->label.back()==L'\r')
 		this->label.pop_back();
 
 	vec2 tTextDim=GuiFont::GetDefaultFont()->MeasureText(this->label.c_str());
@@ -5619,6 +5697,13 @@ void GuiLogger::AppendLog(const String& iString)
 
 	this->logs.push_back(tLog);
 	this->InsertItem(*tLog);
+
+	wprintf(L"%ls",iString.c_str());
+	if(iString.back()!=L'\n')
+		wprintf(L"\n");
+
+	if(this->GetRoot())
+		this->GetRoot()->SetTab(this);
 }
 
 void GuiLogger::Clear()
@@ -6037,9 +6122,9 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			MouseData& md=*(MouseData*)iData;
 
-			if(md.mouse.x < GuiScript::BREAKPOINT_COLUMN_WIDTH)
+			if(md.mouse.x < this->edges.x+GuiScript::BREAKPOINT_COLUMN_WIDTH)
 			{
-				unsigned int tBreakOnLine=(md.mouse.y-this->edges.y)/GuiFont::GetDefaultFont()->GetHeight() + 1;
+				unsigned int tBreakOnLine=(md.mouse.y-this->edges.y)/this->font->GetHeight() + 1;
 
 				std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Debugger::Instance()->GetAllBreakpoint();
 				std::vector<Debugger::Breakpoint>& tBreakpoints=Debugger::Instance()->GetBreakpointSet();
@@ -6072,7 +6157,11 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			if(Keyboard::Instance()->IsPressed(0x11 /*VK_CONTROL*/) && !Keyboard::Instance()->IsPressed(0x12 /*VK_ALT*/))
 			{
 				if(Keyboard::Instance()->IsPressed('S'))
-				this->Save();
+					this->Save();
+			}
+			else if(Keyboard::Instance()->IsPressed(0x74 /*VK_F5*/))
+			{
+				Debugger::Instance()->ContinueDebuggee();
 			}
 			else
 				StringEditor::Instance()->ParseInput(iFrame,this,this->string,this->cursor,*(KeyData*)iData,this->font);
@@ -6164,7 +6253,7 @@ void GuiScript::SetEditorScript(EditorScript* iEditorScript)
 	this->editorscript=iEditorScript;
 	this->editorscript->scriptViewer=this;
 	this->editorscript->LoadScript();
-	this->string=this->editorscript->script;
+	this->string=this->editorscript->sourcetext;
 	this->CalculateLayout();
 }
 
@@ -6175,27 +6264,8 @@ EditorScript* GuiScript::GetEditorScript()
 
 void GuiScript::Save()
 {
-	this->editorscript->script=this->string;
+	this->editorscript->sourcetext=this->string;
 	this->editorscript->SaveScript();
-}
-
-
-bool GuiScript::Compile()
-{
-	bool exited=false;
-	bool compiled=false;
-	bool runned=false;
-
-	if(this->editorscript)
-	{
-		exited=Compiler::Instance()->UnloadScript(this->editorscript);
-
-		compiled=Compiler::Instance()->Compile(this->editorscript);
-
-		runned=Compiler::Instance()->LoadScript(this->editorscript);
-	}
-
-	return exited && compiled && runned;
 }
 
 void GuiScript::DrawLineNumbers(Frame* iFrame)
@@ -6214,7 +6284,7 @@ void GuiScript::DrawLineNumbers(Frame* iFrame)
 
 void GuiScript::DrawBreakpoints(Frame* iFrame)
 {
-	float tFontHeight=GuiFont::GetDefaultFont()->GetHeight();
+	float tFontHeight=this->font->GetHeight();
 
 	std::vector<Debugger::Breakpoint>& breakpoints=Debugger::Instance()->GetBreakpointSet();
 
@@ -6228,7 +6298,7 @@ void GuiScript::DrawBreakpoints(Frame* iFrame)
 
 			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
 
-			iFrame->renderer2D->DrawCircle(this->edges.x + tBreakpointRay,tLineInsertion + 10,this->edges.x,tBreakpointRay,tBreakColor);
+			iFrame->renderer2D->DrawCircle(this->edges.x + tBreakpointRay,tLineInsertion + 10,tBreakpointRay,tBreakColor);
 		}
 	}
 }
@@ -6489,7 +6559,7 @@ void EditorAnimationController::OnInitProperties()
 void EditorAnimationController::OnUpdateProperties(Frame* tab)
 {
 	if(this->playing)
-		tab->SetDraw(&this->GuiAnimationController::slider);
+		tab->SetDraw(&this->GuiAnimationController::position);
 }
 
 EditorLine::EditorLine():
@@ -6587,10 +6657,12 @@ void EditorScript::EditorScriptButtons::Procedure(Frame* iFrame,GuiRectMessages 
 
 			if(cd && cd->msg==ONMOUSEUP)
 			{
+				//open the script for editing
 				if(cd->control==&this->buttonEdit)
 				{
 					GuiScript* tBindedGuiScript=0;
 
+					//reuse existing GuiScript belonging this file
 					for(std::list<GuiScript*>::iterator i=GuiScript::GetPool().begin();i!=GuiScript::GetPool().end();i++)
 					{
 						if((*i)->GetEditorScript()==this->editorscript)
@@ -6598,22 +6670,37 @@ void EditorScript::EditorScriptButtons::Procedure(Frame* iFrame,GuiRectMessages 
 					}
 
 					if(tBindedGuiScript)
+						//if already exists set as current tab
 						tBindedGuiScript->GetRoot()->SetTab(tBindedGuiScript);
 					else
 					{
+						//create a new GuiScript for this script
+
 						GuiScript* tGuiScript=GuiScript::Instance();
 						tGuiScript->SetEditorScript(this->editorscript);
 
-						iFrame->GetViewers().front()->AddTab(tGuiScript,L"Script");
+						iFrame->GetMainViewer()->AddTab(tGuiScript,this->editorscript->sourcepath.File());
 					}
 				}
 				else if(cd->control==&this->buttonCompile)
 				{
-					Compiler::Instance()->Compile(this->editorscript);
+					this->editorscript->CompileScript();
+
 				}
 				else if(cd->control==&this->buttonLaunch)
 				{
-
+					if(!this->editorscript->isRunning)
+					{
+							this->buttonLaunch.SetText(L"Stop");
+							this->editorscript->init();
+							iFrame->SetDraw(this);
+					}
+					else
+					{
+						this->buttonLaunch.SetText(L"Start");
+						this->editorscript->deinit();
+						iFrame->SetDraw(this);
+					}
 				}
 			}
 		}
@@ -6633,9 +6720,10 @@ void EditorScript::EditorScriptButtons::SetColor(unsigned int iColor)
 
 EditorScript::EditorScript():
 	scriptViewer(0),
+	isRunning(0),
 	spButtons(this),
-	spFilePath(&this->Script::scriptpath,GuiStringProperty::STRING),
-	spIsRunning(&this->Script::runtime,GuiStringProperty::BOOLPTR),
+	spFilePath(&this->Script::sourcepath,GuiStringProperty::STRING),
+	spIsRunning(&this->isRunning,GuiStringProperty::BOOLPTR),
 	pFilePath(L"Path",spFilePath),
 	pIsRunning(L"Running",spIsRunning),
 	pActions(L"Actions",spButtons,60)
@@ -6657,38 +6745,75 @@ void EditorScript::OnUpdateProperties(Frame* tab)
 
 void EditorScript::SaveScript()
 {
-	StringUtils::WriteCharFile(this->scriptpath,this->script,L"wb");
+	StringUtils::WriteCharFile(this->sourcepath,this->sourcetext,L"wb");
 }
 
 void EditorScript::LoadScript()
 {
-	this->script=StringUtils::ReadCharFile(this->scriptpath,L"rb");
+	this->sourcetext=StringUtils::ReadCharFile(this->sourcepath,L"rb");
+}
+
+bool EditorScript::CompileScript()
+{
+	bool exited=false;
+	bool compiled=false;
+	bool runned=false;
+
+	exited=Compiler::Instance()->UnloadScript(this);
+	compiled=Compiler::Instance()->Compile(this);
+	runned=Compiler::Instance()->LoadScript(this);
+
+	return (exited && compiled && runned);
+}
+
+void EditorScript::init()
+{
+	this->isRunning=true;
+	Debugger::Instance()->RunDebuggeeFunction(this,1);
+}
+
+void EditorScript::update()
+{
+	Debugger::Instance()->RunDebuggeeFunction(this,2);
+}
+
+void EditorScript::deinit()
+{
+	Debugger::Instance()->RunDebuggeeFunction(this,3);
+	this->isRunning=false;
+}
+
+GuiScript*	EditorScript::GetViewer()
+{
+	return this->scriptViewer;
 }
 
 void EditorScript::OnInitResources()
 {
-	if(this->scriptpath.empty())
-		this->scriptpath=Ide::Instance()->GetProjectFolder() + L"\\" + this->Entity()->name + L".cpp";
+	if(this->sourcepath.empty())
+		this->sourcepath=Ide::Instance()->GetProjectFolder() + L"\\" + this->Entity()->name + L".cpp";
 	else
-		this->resourceNode=ResourceNodeDir::FindFileNode(this->scriptpath);
+		this->resourceNode=ResourceNodeDir::FindFileNode(this->sourcepath);
 	
-	if(!this->resourceNode && !File::Exist(this->scriptpath))
+	if(!this->resourceNode && !File::Exist(this->sourcepath))
 	{
-		if(!File::Create(this->scriptpath))
+		if(!File::Create(this->sourcepath))
 			DEBUG_BREAK();
 
-		this->script=L"#include \"entities.h\"\n\nstruct " + this->Entity()->name + L"_ : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
+		this->sourcetext=L"#include \"entities.h\"\n\nstruct " + this->Entity()->name + L" : EntityScript\n{\n\t int counter;\n\tvoid init()\n\t{\n\t\tcounter=0;\n\tthis->entity->local.identity();\n\t\tprintf(\"inited\\n\");\n\t}\n\n\tvoid update()\n\t{\n\t\tthis->entity->local.translate(0.1f,0,0);\n\t//printf(\"counter: %d\\n\",counter);\n\tcounter++;\n\t}\n\n\tvoid deinit()\n\t{\n\t\tprintf(\"deinited\\n\");\n\t}\n\n};\n";
 
 		this->SaveScript();
+
+		GuiProject::Instance()->Reset();
+		GuiProject::Instance()->Scan();
+
+		this->resourceNode=ResourceNodeDir::FindFileNode(this->sourcepath);
+
+		if(!this->resourceNode)
+			DEBUG_BREAK();
 	}
-
-	GuiProject::Instance()->Reset();
-	GuiProject::Instance()->Scan();
-
-	this->resourceNode=ResourceNodeDir::FindFileNode(this->scriptpath);
-
-	if(!this->resourceNode)
-		DEBUG_BREAK();
+	else
+		LoadScript();
 }
 
 void EditorCamera::OnInitProperties()
@@ -6963,7 +7088,7 @@ void SerializerHelpers::Save(AnimationController* tAnimationController,FILE* iFi
 
 		for(int i=0;i<tAnimationIdsSize;i++)
 		{
-			wprintf(L"animation[%d] entity: %s\n",i,tAnimationController->animations[i]->Entity()->name.c_str());
+			wprintf(L"animation[%d] entity: %ls\n",i,tAnimationController->animations[i]->Entity()->name.c_str());
 			tAnimationIdsArray[i]=tAnimationController->animations[i]->Entity()->id;
 		}
 
@@ -7012,7 +7137,7 @@ void SerializerHelpers::Save(Script* tScript,FILE* iFile)
 {
 	WriteComponentCode(Serializer::Script,iFile);
 
-	StringUtils::WriteWstring(iFile,tScript->scriptpath);
+	StringUtils::WriteWstring(iFile,tScript->sourcepath);
 }
 
 

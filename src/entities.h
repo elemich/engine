@@ -299,8 +299,10 @@ struct DLLBUILD AnimClip
 
 struct DLLBUILD EntityBase
 {
-	virtual void update(Renderer3DBase*){}
+	virtual void init(){}
+	virtual void update(){}
 	virtual void render(Renderer3DBase*){}
+	virtual void deinit(){}
 };
 
 struct DLLBUILD EntityComponent : EntityBase
@@ -316,7 +318,7 @@ public:
 
 	template<class C> C* is(){return dynamic_cast<C*>(this);}
 
-	virtual void update(Renderer3DBase*);
+	virtual void update();
 	virtual void render(Renderer3DBase*);
 };
 	
@@ -349,7 +351,7 @@ public:
 	const std::list<Entity*>&			Childs();
 	const std::list<EntityComponent*>&	Components();
 	virtual Entity*						Parent();
-	virtual void						update(Renderer3DBase*);
+	virtual void						update();
 	virtual void						render(Renderer3DBase*);
 
 	template<class C> C* CreateComponent()
@@ -436,9 +438,9 @@ struct DLLBUILD AnimationController : EntityComponent
 	void Stop();
 	void Play();
 
-	virtual void update(Renderer3DBase*);
+	virtual void update();
 
-	void SetFrame(float iFrame);
+	void SetFrame(float iCursor);
 };
 
 struct DLLBUILD Bone : EntityComponent
@@ -533,13 +535,13 @@ struct DLLBUILD Mesh : EntityComponent
 
 struct DLLBUILD Script : EntityComponent
 {
-	FilePath		scriptpath;
+	FilePath		sourcepath;
 	EntityScript*	runtime;
 	void*			handle;
 	
 	Script();
 
-	void update(Renderer3DBase*);
+	virtual void update();
 };
 
 struct DLLBUILD EntityScript
@@ -565,7 +567,7 @@ struct DLLBUILD Skin : Mesh
 
 	Skin();
 
-	virtual void	update(Renderer3DBase*);
+	virtual void	update();
 	virtual void	render(Renderer3DBase*);
 };
 
@@ -587,7 +589,7 @@ struct DLLBUILD Camera : EntityComponent
 
 	vec3 target;
 
-	virtual void update(Renderer3DBase*);
+	virtual void update();
 };
 
 struct DLLBUILD TextureFile : Texture

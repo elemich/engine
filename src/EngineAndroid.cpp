@@ -232,9 +232,9 @@ namespace SerializerHelpers
 {
 	void LoadScriptModule(Script* iScript)
 	{
-		if(iScript->scriptpath.size())
+		if(iScript->sourcepath.size())
 		{
-			String tLibFile=L"lib" + iScript->scriptpath.Name() + L".so";
+			String tLibFile=L"lib" + iScript->sourcepath.Name() + L".so";
 
 			iScript->handle=dlopen(StringUtils::ToChar(tLibFile).c_str(), 1 /*RTLD_LAZY*/);
 
@@ -251,7 +251,6 @@ namespace SerializerHelpers
 					if(iScript->runtime)
 					{
 						iScript->runtime->entity=iScript->Entity();
-						iScript->runtime->init();
 					}
 				}
 			}

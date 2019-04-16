@@ -56,7 +56,6 @@
   <ItemGroup>
     <None Include="build\win32\x86\debug\makefile" />
     <None Include="build\win32\x86\debug\makefile-ms" />
-    <None Include="ClassDiagram1.cd" />
     <None Include="makefile" />
     <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
     <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />

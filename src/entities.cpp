@@ -153,12 +153,12 @@ Renderer3DBase::~Renderer3DBase()
 
 void Renderer3DBase::UpdateEntities(Entity* iEntity)
 {
-	iEntity->update(this);
+	iEntity->update();
 
 	for(std::list<EntityComponent*>::const_iterator it=iEntity->Components().begin();it!=iEntity->Components().end();it++)
-		(*it)->update(this);
+		(*it)->update();
 
-	iEntity->Parent() ? iEntity->world=(iEntity->local * iEntity->Parent()->world) : iEntity->world;
+	iEntity->Parent() ? iEntity->world=(iEntity->local * iEntity->Parent()->world) : iEntity->world=iEntity->local *iEntity->world;
 
 	for(std::list<Entity*>::const_iterator it=iEntity->Childs().begin();it!=iEntity->Childs().end();it++)
 		this->UpdateEntities(*it);
@@ -555,7 +555,7 @@ void AnimationController::Play()
 }
 
 
-void AnimationController::update(Renderer3DBase*)
+void AnimationController::update()
 {
 	if(this->playing)
 	{
@@ -573,7 +573,7 @@ void AnimationController::update(Renderer3DBase*)
 	}
 }
 
-void AnimationController::SetFrame(float iFrame)
+void AnimationController::SetFrame(float iCursor)
 {
 	for(size_t i=0;i<this->animations.size();i++)
 	{
@@ -610,7 +610,7 @@ void AnimationController::SetFrame(float iFrame)
 						{
 							if(keyIdx!=lastKeyIdx)
 							{
-								if(!(iFrame>=curve.frames[keyIdx]->time && iFrame<=curve.frames[keyIdx+1]->time))
+								if(!(iCursor>=curve.frames[keyIdx]->time && iCursor<=curve.frames[keyIdx+1]->time))
 									continue;
 
 								Keyframe	*aa=curve.frames[(keyIdx>0 ? keyIdx-1 : keyIdx)];
@@ -618,7 +618,7 @@ void AnimationController::SetFrame(float iFrame)
 								Keyframe	*cc=curve.frames[keyIdx+1];
 								Keyframe	*dd=curve.frames[(keyIdx < lastKeyIdx-1 ? keyIdx+2 : keyIdx+1)];
 
-								float		t=(iFrame - bb->time) / (cc->time - bb->time);
+								float		t=(iCursor - bb->time) / (cc->time - bb->time);
 
 								val=cubic_interpolation(aa->value,bb->value,cc->value,dd->value,t);
 
@@ -650,7 +650,6 @@ void AnimationController::SetFrame(float iFrame)
 
 				anim->Entity()->local=rm*sm*tm;
 			}
-
 		}
 	}
 }
@@ -820,7 +819,7 @@ Skin::Skin():
 }
 
 
-void Skin::update(Renderer3DBase*)
+void Skin::update()
 {
 	if(this->vertexcache)
 		delete [] this->vertexcache;
@@ -899,7 +898,7 @@ void Skin::render(Renderer3DBase* renderer3d)
 ///////////////////////////////////////////////
 Script::Script():runtime(0),handle(0){}
 
-void Script::update(Renderer3DBase*)
+void Script::update()
 {
 	if(this->runtime)
         this->runtime->update();
@@ -918,7 +917,7 @@ Camera::Camera(vec3 pos,vec3 target,vec3 up,float iFov,float iRatio,float iNear,
 	this->view.lookat(target,up);
 }
 
-void Camera::update(Renderer3DBase*)
+void Camera::update()
 {
 
 }
@@ -989,7 +988,7 @@ TextureProcedural::TextureProcedural(){}
 EntityComponent::EntityComponent():entity(0){}
 EntityComponent::~EntityComponent(){}
 
-void EntityComponent::update(Renderer3DBase*){}
+void EntityComponent::update(){}
 void EntityComponent::render(Renderer3DBase*){}
 
 Entity* EntityComponent::Entity(){return this->entity;}
@@ -1034,7 +1033,7 @@ const std::list<EntityComponent*>& Entity::Components(){return this->components;
 
 Entity* Entity::Parent(){return this->parent;}
 
-void Entity::update(Renderer3DBase*)
+void Entity::update()
 {
 }
 
@@ -1071,7 +1070,7 @@ void SerializerHelpers::SetEntityId(Entity* iEntity,unsigned int& iId)
 {
 	iEntity->id=iId;
 
-	wprintf(L"entity %s, id %i\n",iEntity->name.c_str(),iId);
+	wprintf(L"entity %ls, id %i\n",iEntity->name.c_str(),iId);
 
 	for(std::list<Entity*>::const_iterator entityIter=iEntity->Childs().begin();entityIter!=iEntity->Childs().end();entityIter++)
 		SetEntityId(*entityIter,++iId);
@@ -1282,7 +1281,7 @@ void SerializerHelpers::Load(Line* tLine,FILE* iFile)
 
 void SerializerHelpers::Load(Script* tScript,FILE* iFile)
 {
-	StringUtils::ReadWstring(iFile,tScript->scriptpath);
+	StringUtils::ReadWstring(iFile,tScript->sourcepath);
 
 #ifndef EDITORBUILD
 	LoadScriptModule(tScript);

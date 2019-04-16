@@ -259,72 +259,15 @@ public:
 	virtual void Sleep(int iMilliseconds=1)=0;
 };
 
-struct DLLBUILD Debugger : Singleton<Debugger>
-{
-	struct DLLBUILD Breakpoint
-	{
-		void* address;
-		int   line;
-		Script* script;
-		bool breaked;
-
-		Breakpoint():address(0),line(0),script(0),breaked(0){}
-
-		bool operator==(const Breakpoint& iLineAddress){return address==iLineAddress.address && line==iLineAddress.line;}
-	};
-protected:
-	std::vector<Breakpoint> allAvailableBreakpoints;
-	std::vector<Breakpoint> breakpointSet;
-
-	bool   breaked;
-	Breakpoint* currentBreakpoint;
-
-	void* lastBreakedAddress;
-
-	bool threadSuspendend;
-
-	int debuggerCode;
-
-	Script*			runningScript;
-	unsigned char	runningScriptFunction;
-
-	int sleep;
-
-	Debugger();
-public:
-
-	static Debugger* Instance();
-
-	virtual void RunDebuggeeFunction(Script* iDebuggee,unsigned char iFunctionIndex){}
-	virtual void SuspendDebuggee(){}
-	virtual void ResumeDebuggee(){}
-
-	virtual void SetBreakpoint(Breakpoint&,bool){}
-
-	virtual void BreakDebuggee(Breakpoint&){}
-	virtual void ContinueDebuggee(){}
-
-	virtual int HandleHardwareBreakpoint(void*){return 0;}
-	virtual void SetHardwareBreakpoint(Breakpoint&,bool){}
-
-	virtual void PrintThreadContext(void*){}
-
-	std::vector<Breakpoint>& GetAllBreakpoint();
-	std::vector<Breakpoint>& GetBreakpointSet();
-
-	/*Script*			GetRunningScript();
-	unsigned char	GetRunningScriptFunction();*/
-};
-
 struct DLLBUILD GuiCaret : Singleton<GuiCaret>
 {
 protected:
 	static const unsigned int BLINKRATE=300;
 
+	friend MainFrame;
 	friend Frame;
 	friend FrameWin32;
 
-	Frame*				frame;
 	GuiRect*			rect;
 
 	vec2				dim;
@@ -339,8 +282,8 @@ protected:
 	unsigned int		colorback;
 	unsigned int		colorfront;
 
-	void				Blink(Frame*);
-	void				Draw(Frame*,unsigned int iCode=0);
+	void				Blink();
+	void				Draw(unsigned int iCode=0);
 
 	GuiCaret();
 public:
@@ -598,13 +541,13 @@ public:
 	vec4		GetTabEdges();
 	vec4		GetBorderEdges();
 
-	void		CalculateTabsRects();
+	void		CalculateTabsRects(GuiRect* tExclude=0,vec4* tExcludeRect=0);
 	vec4		GetLabelsArea();
 
 	String		GetTabLabel(GuiRect* iTab);
 
 	int			GetTabIndex(GuiRect*);
-	vec4		GetRectEdges(const vec4&);
+	vec4		GetLabelRectEdges(const vec4&);
 
 	void		PrintSiblings();
 };
@@ -645,7 +588,7 @@ public:
 
 	void SetContent(float iHor,float iVer);
 	void ResetContent();
-	const vec2& GetContent();
+	vec2 GetContent();
 
 	float GetScrollbarPosition(unsigned int iType);
 	float GetScrollerRatio(unsigned int iType);
@@ -1079,7 +1022,7 @@ protected:
 
 	GuiButton play;
 	GuiButton stop;
-	GuiSlider slider;
+	GuiSlider position;
 public:
 	GuiAnimationController(AnimationController&);
 
@@ -1088,7 +1031,7 @@ public:
 		GuiRect::SetColor(iColor);
 		this->play.SetColor(iColor);
 		this->stop.SetColor(iColor);
-		this->slider.SetColor(iColor);
+		this->position.SetColor(iColor);
 	}
 
 
@@ -1132,6 +1075,9 @@ struct DLLBUILD GuiViewport : Multiton<GuiViewport> , GuiRect
 	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 protected:
+
+	friend Frame;
+	friend MainFrame;
 
 	GuiViewport();
 
@@ -1219,7 +1165,6 @@ public:
 	~GuiScript();
 
 	void Save();
-	bool Compile();
 
 	void			SetEditorScript(EditorScript*);
 	EditorScript*	GetEditorScript();
@@ -1233,7 +1178,6 @@ public:
 	float CalculateVerticalToolbarWidth();
 	
 };
-
 
 struct DLLBUILD GuiLogger : Multiton<GuiLogger> , GuiListBox
 {
@@ -1265,10 +1209,66 @@ public:
 	static void Log(const String& iString,GuiLogger* iLogger=GuiLogger::GetDefaultLogger());
 };
 
+struct DLLBUILD Debugger : Singleton<Debugger> , GuiLogger
+{
+	struct DLLBUILD Breakpoint
+	{
+		void*	address;
+		int		line;
+		Script* script;
+		bool	breaked;
+
+		Breakpoint():address(0),line(0),script(0),breaked(0){}
+
+		bool operator==(const Breakpoint& iLineAddress){return address==iLineAddress.address && line==iLineAddress.line;}
+	};
+protected:
+	std::vector<Breakpoint> allAvailableBreakpoints;
+	std::vector<Breakpoint> breakpointSet;
+
+	EditorScript*		editorscript;
+	Breakpoint*			breakpoint;
+
+	void*				lastBreakedAddress;
+
+	bool				suspended;
+	bool				breaked;
+
+	int					debuggerCode;
+
+	unsigned int		function;
+
+	int					sleep;
+
+	Debugger();
+public:
+
+	static Debugger* Instance();
+
+	virtual void RunDebuggeeFunction(EditorScript* iDebuggee,unsigned char iFunctionIndex);
+	virtual void SuspendDebuggee(){}
+	virtual void ResumeDebuggee(){}
+
+	virtual void SetBreakpoint(Breakpoint&,bool){}
+
+	virtual void BreakDebuggee(Breakpoint&){}
+	virtual void ContinueDebuggee(){}
+
+	virtual int HandleHardwareBreakpoint(void*){return 0;}
+	virtual void SetHardwareBreakpoint(Breakpoint&,bool){}
+
+	virtual void PrintThreadContext(void*){}
+
+	std::vector<Breakpoint>& GetAllBreakpoint();
+	std::vector<Breakpoint>& GetBreakpointSet();
+
+	/*Script*			GetRunningScript();
+	unsigned char	GetRunningScriptFunction();*/
+};
 
 struct DLLBUILD Compiler : Singleton <Compiler> , GuiLogger
 {
-	enum
+	enum Type
 	{
 		COMPILER_MS=0,
 		COMPILER_MINGW,
@@ -1283,6 +1283,8 @@ protected:
 	{
 		String name;
 		String version;
+		String binDir;
+		String libDir;
 		String compilerExecutable;
 		String linkerExecutable;
 		String compilerFlags;
@@ -1310,10 +1312,10 @@ public:
 	const String& GetSourcesPath();
 	const String& GetLibrariesPath();
 	bool Compile(EditorScript*);
-	String Compose(unsigned int iCompiler,EditorScript*);
 	bool LoadScript(EditorScript*);
 	bool UnloadScript(EditorScript*);
 	bool ParseCompilerOutputFile(String iFileBuffer);
+	const COMPILER& GetCompiler(Type);
 };
 
 
@@ -1560,13 +1562,11 @@ struct DLLBUILD Frame
 
 	std::list<ClipData>		clips;
 	
-	Task*	 renderingTask;
-
 	vec2 mouse;
 
 	unsigned int lastFrameTime;
 
-	Thread* thread;
+	Thread* renderingThread;
 protected:
 	Frame(float x,float y,float w,float h);
 public:
@@ -1618,9 +1618,7 @@ public:
 			selectedRect->Get(iRects);*/
 	}
 
-	void Render();
 	void Draw();
-	void DrawBlock(bool);
 	
 	virtual bool BeginDraw(void*){return false;}
 	virtual void EndDraw(){};
@@ -1667,6 +1665,12 @@ struct DLLBUILD MainFrame : Singleton<MainFrame> , MenuInterface
 	int MenuActionConfigurePlugin;
 	int MenuActionProgramInfo;
 
+	Thread*  renderingThread;
+	Task*	 renderingTask;
+
+	Thread*  caretThread;
+	Task*	 caretTask;
+
 	MainFrame();
 	virtual ~MainFrame();
 
@@ -1678,15 +1682,13 @@ struct DLLBUILD MainFrame : Singleton<MainFrame> , MenuInterface
 
 	Frame* CreateFrame(float,float,float,float,bool iCentered=false);
 	void   DestroyFrame(Frame*);
-
 	void	AddFrame(Frame*);
 	void	RemoveFrame(Frame*);
-
 	Frame* GetFrame();
-
 	void OnMenuPressed(Frame*,int iIdx);
-
 	void Enable(bool);
+	void Render();
+	void BlinkCaret();
 };
 
 struct DLLBUILD Subsystem
@@ -1698,11 +1700,12 @@ struct DLLBUILD Subsystem
 	static String FileChooser(wchar_t* iFilter=0,unsigned int iFilterIndex=0);
 	static std::vector<String> ListDirectories(String iDir);
 	static bool CreateDir(String);
+	static bool CancelDir(String);
 	static bool DirectoryExist(String);
 	static String RandomDir(String iWhere,int iSize,String iAlphabet=L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 	static void* LoadLib(String);
 	static bool FreeLib(void*);
-	static void* GetProcAddress(void*,String);
+	static void* GetLibFunction(void*,String);
 	static void SystemMessage(String iTitle,String iMessage,unsigned iFlags);
 	static int TrackMenu(int iPopupMenu,Frame*,float x,float y);
 
@@ -1980,6 +1983,16 @@ struct DLLBUILD EditorLight : ComponentProperties<Light>
 };
 struct DLLBUILD EditorScript : ComponentProperties<Script>
 {
+	enum State
+	{
+		IDLE=0,
+		INIT,
+		UPDATE,
+		DEINIT,
+		BREAK,
+		MAXSTATE
+	};
+
 	struct DLLBUILD EditorScriptButtons : GuiRect
 	{
 		virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
@@ -1994,10 +2007,17 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 		void SetColor(unsigned int);
 	};
 
+protected:
+	friend Debugger;
+	friend Compiler;
+	friend GuiScript;
+
 	GuiScript*			scriptViewer;
 
-	FilePath			module;
-	String				script;
+	bool				isRunning;
+
+	FilePath			libpath;
+	String				sourcetext;
 
 	GuiStringProperty	spFilePath;
 	GuiStringProperty	spIsRunning;
@@ -2006,21 +2026,23 @@ struct DLLBUILD EditorScript : ComponentProperties<Script>
 	GuiPropertyTreeItem	pFilePath;
 	GuiPropertyTreeItem	pIsRunning;
 	GuiPropertyTreeItem	pActions;
+public:
 
 	EditorScript();
 
-	void OnInitProperties();
-	void OnUpdateProperties(Frame*);
-	void OnInitResources();
-
-	//for the debugger
-	void update()
-	{
-		this->runtime ? Debugger::Instance()->RunDebuggeeFunction(this,1),true : false;
-	}
+	void	OnInitProperties();
+	void	OnUpdateProperties(Frame*);
+	void	OnInitResources();
 
 	void	SaveScript();
 	void	LoadScript();
+	bool	CompileScript();
+
+	void    init();
+	void    deinit();
+	void	update();
+
+	GuiScript*	GetViewer();
 };
 struct DLLBUILD EditorCamera : ComponentProperties<Camera>
 {
