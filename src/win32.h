@@ -446,10 +446,11 @@ struct DLLBUILD DebuggerWin32 : Debugger
 	void BreakDebuggee(Breakpoint&);
 	void ContinueDebuggee();
 
-
+	void ReadStackTrace(void*);
 	int HandleHardwareBreakpoint(void*);
 	void SetHardwareBreakpoint(Breakpoint&,bool);
 
 	void PrintThreadContext(void*);
+	
 };
 #endif //WIN32_H

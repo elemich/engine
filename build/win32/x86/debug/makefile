@@ -29,7 +29,7 @@ CLOPT= -fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) -c
 
 STATICCPPDRIVER= -static -lstdc++
 
-WIN32LIBD= $(STATICCPPDRIVER) -luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32
+WIN32LIBD= $(STATICCPPDRIVER) -luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lDbghelp
 FBXLIB=-llibfbxsdk-md -ladvapi32
 
 primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h

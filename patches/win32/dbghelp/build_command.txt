@@ -1,0 +1,1 @@
+C:\Sdk\mingw32\i686-w64-mingw32\bin>dlltool -v --as=C:\Sdk\mingw32\i686-w64-mingw32\bin\as.exe -d dbghelp.def -D dbghelp.dll -l libsomedll.a

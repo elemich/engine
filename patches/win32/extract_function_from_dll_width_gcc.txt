@@ -1,0 +1,18 @@
+C:\Sdk\mingw32\i686-w64-mingw32\bin>nm -l -n -C C:\Users\Michele\AppData\Roaming\EngineAppData\tS9rbUMf\entity_1.dll | find "Entity_1.cpp"
+nm: Dwarf Error: Could not find abbrev number 3771.
+67741450 t .text        C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:1
+67741450 T pippo()      C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:1
+6774147f T dojob()      C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:5
+67741494 T dojob1()     C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:11
+677414a2 T dojob2(int, float, void*)    C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:16
+677414b0 T peppe()      C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:43
+677414b6 T Create       C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:45
+6774155b T Destroy      C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:47
+67747458 t .text$_ZN8Entity_14initEv    C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:23
+67747458 T Entity_1::init()     C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:23
+67747484 t .text$_ZN8Entity_16deinitEv  C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:37
+67747484 T Entity_1::deinit()   C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:37
+6774749c t .text$_ZN8Entity_16updateEv  C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:30
+6774749c T Entity_1::update()   C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:30
+677474e0 t .text$_ZN8Entity_1C1Ev       C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:20
+677474e0 T Entity_1::Entity_1() C:/Users/Michele/AppData/Roaming/EngineAppData/tS9rbUMf/Entity_1.cpp:20

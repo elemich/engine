@@ -1,4 +1,5 @@
 #include "win32.h"
+#include "dbghelp.h"
 
 GLOBALGETTERFUNC(GlobalIdeInstance,IdeWin32*);
 GLOBALGETTERFUNC(GlobalTimerInstance,TimerWin32*);
@@ -5066,6 +5067,8 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 		iBreakpoint.breaked=true;
 
+		this->ReadStackTrace(iBreakpoint.address);
+
 		this->editorscript->GetViewer()->GetRoot()->SetTab(this->editorscript->GetViewer());
 	}
 }
@@ -5089,7 +5092,7 @@ DebuggerWin32::DebuggerWin32()
 
 	this->debuggeeThread=CreateThread(0,0,DebuggerWin32::debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
 
-	wprintf(L"Debugger: debuggee thread id is %d\n",this->debuggeeThreadId);
+	GuiLogger::Log(StringUtils::Format(L"Debugger thread: 0x%X, ID: %d\n",this->debuggeeThread,this->debuggeeThreadId));
 }
 
 DebuggerWin32::~DebuggerWin32()
@@ -5143,12 +5146,80 @@ DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
 	return 0;
 }
 
+void DebuggerWin32::ReadStackTrace(void* iAddress)
+{
+	HANDLE process = GetCurrentProcess();
+	HANDLE thread = this->debuggeeThread;
 
-///////////////////////////////////////////////
-///////////////////////////////////////////////
+	CONTEXT context;
+	memset(&context, 0, sizeof(CONTEXT));
+	context.ContextFlags = CONTEXT_FULL;
+	RtlCaptureContext(&context);
+
+	SymInitialize(process, NULL, TRUE);
+
+	DWORD image;
+	STACKFRAME stackframe;
+	ZeroMemory(&stackframe, sizeof(STACKFRAME));
+
+#ifdef _M_IX86
+	image = IMAGE_FILE_MACHINE_I386;
+	stackframe.AddrPC.Offset = (DWORD64)iAddress;
+	stackframe.AddrPC.Mode = AddrModeFlat;
+	stackframe.AddrFrame.Offset = context.Ebp ;
+	stackframe.AddrFrame.Mode = AddrModeFlat;
+	stackframe.AddrStack.Offset = context.Esp;
+	stackframe.AddrStack.Mode = AddrModeFlat;
+#elif _M_X64
+	image = IMAGE_FILE_MACHINE_AMD64;
+	stackframe.AddrPC.Offset = context.Rip;
+	stackframe.AddrPC.Mode = AddrModeFlat;
+	stackframe.AddrFrame.Offset = context.Rsp;
+	stackframe.AddrFrame.Mode = AddrModeFlat;
+	stackframe.AddrStack.Offset = context.Rsp;
+	stackframe.AddrStack.Mode = AddrModeFlat;
+#elif _M_IA64
+	image = IMAGE_FILE_MACHINE_IA64;
+	stackframe.AddrPC.Offset = context.StIIP;
+	stackframe.AddrPC.Mode = AddrModeFlat;
+	stackframe.AddrFrame.Offset = context.IntSp;
+	stackframe.AddrFrame.Mode = AddrModeFlat;
+	stackframe.AddrBStore.Offset = context.RsBSP;
+	stackframe.AddrBStore.Mode = AddrModeFlat;
+	stackframe.AddrStack.Offset = context.IntSp;
+	stackframe.AddrStack.Mode = AddrModeFlat;
+#endif
+
+	for (size_t i = 0; i < 25; i++) {
+
+		BOOL result = StackWalk(
+			image, process, thread,
+			&stackframe, &context, NULL, 
+			SymFunctionTableAccess, SymGetModuleBase, NULL);
+
+		if (!result) { break; }
+
+		char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+		PSYMBOL_INFO symbol = (PSYMBOL_INFO)buffer;
+		symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+		symbol->MaxNameLen = MAX_SYM_NAME;
+
+		
+		
+
+		DWORD64 displacement = 0;
+		if (SymFromAddr(process, stackframe.AddrPC.Offset, &displacement, symbol)) {
+			printf("[%i] %s\n", i, symbol->Name);
+		} else {
+			printf("[%i] ???\n", i);
+		}
+
+	}
+
+	SymCleanup(process);
+}
+
 /////////////////PluginSystemWin32/////////////
-///////////////////////////////////////////////
-///////////////////////////////////////////////
 
 static bool STLRemovePlugins(PluginSystem::Plugin* iPlugin)
 {

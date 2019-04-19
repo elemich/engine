@@ -1259,6 +1259,8 @@ public:
 
 	virtual void PrintThreadContext(void*){}
 
+	virtual void ReadStackTrace(void*){}
+
 	std::vector<Breakpoint>& GetAllBreakpoint();
 	std::vector<Breakpoint>& GetBreakpointSet();
 
@@ -2043,6 +2045,8 @@ public:
 	void	update();
 
 	GuiScript*	GetViewer();
+
+	FilePath GetLibPath();
 };
 struct DLLBUILD EditorCamera : ComponentProperties<Camera>
 {

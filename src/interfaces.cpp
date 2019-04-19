@@ -3657,7 +3657,7 @@ Compiler::Compiler()
 							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\lib",
 							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
 							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
-							L" -O0 -g -shared ",
+							L" --verbose -O0 -g -shared ",
 							L"",
 							L" -o ",
 							L"enginelibMingW",
@@ -3785,6 +3785,11 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 	//convert compiler output to readable locale
 
 	String tWideCharCompilationOutput=StringUtils::ReadCharFile(tCompilerErrorOutput.path,L"rb");
+
+	//extract pdb with cv2pdb
+
+	String tTargetPdb=iEditorScript->libpath.Path() + L"\\" + iEditorScript->libpath.Name() + L".pdb";
+	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"cv2pdb " + iEditorScript->libpath + L" " + tTargetPdb);
 
 	//extract and parse breakpoint line addresses
 
@@ -6751,6 +6756,11 @@ void EditorScript::SaveScript()
 void EditorScript::LoadScript()
 {
 	this->sourcetext=StringUtils::ReadCharFile(this->sourcepath,L"rb");
+}
+
+FilePath EditorScript::GetLibPath()
+{
+	return this->libpath;
 }
 
 bool EditorScript::CompileScript()
