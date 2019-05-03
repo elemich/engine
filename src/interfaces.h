@@ -1259,7 +1259,7 @@ public:
 
 	virtual void PrintThreadContext(void*){}
 
-	virtual void ReadStackTrace(void*){}
+	virtual void StackUnwind(EditorScript*,void*){}
 
 	std::vector<Breakpoint>& GetAllBreakpoint();
 	std::vector<Breakpoint>& GetBreakpointSet();

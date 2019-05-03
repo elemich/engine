@@ -1,0 +1,1 @@
+nm -l -n -C entity_1.dll | findstr /R "T.*\.cpp"

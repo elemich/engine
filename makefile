@@ -10,11 +10,13 @@ x86d:
  @echo --ms build--
  
  @cd $(DIRDST)
- @nmake.exe -f $(DIRDST)\makefile-ms /NOLOGO /S engineMS.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
+ @nmake.exe -f $(DIRDST)\makefile_ms /NOLOGO /S engineMS.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
       
  @echo --mingw build--
+ @c:\sdk\mingw32\bin\mingw32-make -s -f $(DIRDST)\makefile_mingw engineMingW.exe -C $(DIRDST) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
  
- @c:\sdk\mingw32\bin\mingw32-make -s -f $(DIRDST)\makefile engineMingW.exe -C $(DIRDST) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
+# @echo --LLVM build--
+# @nmake.exe -f $(DIRDST)\makefile_llvm /NOLOGO /S engineLLVM.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
   
  @echo --ndk-build build--        
  

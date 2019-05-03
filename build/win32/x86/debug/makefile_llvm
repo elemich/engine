@@ -1,0 +1,60 @@
+SDKDIR=c:\sdk
+
+MINGWDIR=$(SDKDIR)\clang
+COMPILER=$(SDKDIR)\clang\bin\i386-mingw32-llvm-g++.exe --sysroot=$(MINGWDIR)
+LINKER=$(SDKDIR)\llvm32\bin\clang-cl.exe
+
+
+OPENGLSDK=$(SDKDIR)\OpenGL
+FBXSDK="$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\include"
+
+INCPATH=-I$(OPENGLSDK) -I$(FBXSDK) -I$(MINGWDIR)\include
+LIBPATH=-L$(MINGWDIR)\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
+
+CLOPT= -fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) -c
+
+STATICCPPDRIVER=-static -lstdc++
+
+WIN32LIBD= $(STATICCPPDRIVER) -luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lDbghelp
+FBXLIB=-llibfbxsdk-md -ladvapi32
+
+primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
+	@echo primitives.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
+
+entities.o: primitives.o $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
+	@echo entities.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
+
+imgjpg.o: entities.o $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
+	@echo imgjpg.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
+
+imgpng.o: entities.o $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
+	@echo imgpng.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
+
+imgtga.o: entities.o $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
+	@echo imgtga.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
+
+interfaces.o: imgjpg.o imgpng.o imgtga.o $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
+	@echo interfaces.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
+
+win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
+	@echo win32.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp 
+
+fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+	@echo fbxutil.o
+	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
+
+enginelibLLVM.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
+	@echo enginelibLLVM.dll
+	$(COMPILER) $(LIBPATH) -Wno-address-of-temporary -g -o enginelibLLVM.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,enginelibLLVM.a $(WIN32LIBD) 
+
+engineLLVM.exe: enginelibLLVM.dll $(DIRSRC)\main.cpp
+	@echo engineLLVM.exe
+	$(COMPILER) -fpermissive -g -w -O0 $(INCPATH) $(LIBPATH) -o enginelibLLVM.exe enginelibLLVM.dll $(DIRSRC)\main.cpp $(STATICCPPDRIVER) 
+

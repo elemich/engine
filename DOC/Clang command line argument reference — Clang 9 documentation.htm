@@ -1,0 +1,3716 @@
+
+  Clang 9 documentation <https://clang.llvm.org/docs/index.html>
+
+
+    Clang command line argument reference
+
+«  Objective-C Automatic Reference Counting (ARC)
+<https://clang.llvm.org/docs/AutomaticReferenceCounting.html>   ::  
+Contents <https://clang.llvm.org/docs/index.html>   ::   Attributes in
+Clang <https://clang.llvm.org/docs/AttributeReference.html>  »
+
+
+  Clang command line argument reference¶
+  <#clang-command-line-argument-reference>
+
+  * Introduction <#introduction>
+  * Actions <#actions>
+  * Compilation flags <#compilation-flags>
+      o Preprocessor flags <#preprocessor-flags>
+          + Include path management <#include-path-management>
+          + Dependency file generation <#dependency-file-generation>
+          + Dumping preprocessor state <#dumping-preprocessor-state>
+      o Diagnostic flags <#diagnostic-flags>
+      o Target-independent compilation options
+        <#target-independent-compilation-options>
+          + OpenCL flags <#opencl-flags>
+      o Target-dependent compilation options
+        <#target-dependent-compilation-options>
+          + AARCH64 <#aarch64>
+          + AMDGPU <#amdgpu>
+          + ARM <#arm>
+          + Hexagon <#hexagon>
+          + Hexagon <#id1>
+          + MIPS <#mips>
+          + PowerPC <#powerpc>
+          + WebAssembly <#webassembly>
+          + X86 <#x86>
+          + RISCV <#riscv>
+      o Optimization level <#optimization-level>
+      o Debug information generation <#debug-information-generation>
+          + Kind and level of debug information
+            <#kind-and-level-of-debug-information>
+              # Debug level <#debug-level>
+              # Debugger to tune debug information for
+                <#debugger-to-tune-debug-information-for>
+          + Debug information flags <#debug-information-flags>
+  * Static analyzer flags <#static-analyzer-flags>
+  * Fortran compilation flags <#fortran-compilation-flags>
+  * Linker flags <#linker-flags>
+
+
+    Introduction <#id4>¶ <#introduction>
+
+This page lists the command line arguments currently supported by the
+GCC-compatible |clang| and |clang++| drivers.
+
+|-B<dir>||||, ||--prefix||<arg>||, ||--prefix||=<arg>|¶
+<#cmdoption-clang-b-dir>
+
+Add <dir> to search path for binaries and object files used implicitly
+
+|-F<arg>|||¶ <#cmdoption-clang-f-arg>
+
+Add directory to framework include search path
+
+|-ObjC|||¶ <#cmdoption-clang-objc>
+
+Treat source input files as Objective-C inputs
+
+|-ObjC++|||¶ <#cmdoption-clang1-objc>
+
+Treat source input files as Objective-C++ inputs
+
+|-Qn||||, ||-fno-ident|||¶ <#cmdoption-clang-qn>
+
+Do not emit metadata containing compiler name and version
+
+|-Qunused-arguments|||¶ <#cmdoption-clang-qunused-arguments>
+
+Don’t emit warning for unused driver arguments
+
+|-Qy||||, ||-fident|||¶ <#cmdoption-clang-qy>
+
+Emit metadata containing compiler name and version
+
+|-Wa,<arg>,<arg2>...|||¶ <#cmdoption-clang-wa-arg-arg2>
+
+Pass the comma separated arguments in <arg> to the assembler
+
+|-Wlarge-by-value-copy||=<arg>|¶ <#cmdoption-clang-wlarge-by-value-copy>
+
+|-Xarch_<arg1>||<arg2>|¶ <#cmdoption-clang-xarch-arg1>
+
+|-Xcuda-fatbinary||<arg>|¶ <#cmdoption-clang-xcuda-fatbinary>
+
+Pass <arg> to fatbinary invocation
+
+|-Xcuda-ptxas||<arg>|¶ <#cmdoption-clang-xcuda-ptxas>
+
+Pass <arg> to the ptxas assembler
+
+|-Xopenmp-target||<arg>|¶ <#cmdoption-clang-xopenmp-target>
+
+Pass <arg> to the target offloading toolchain.
+
+|-Xopenmp-target||=<triple> <arg>|¶ <#cmdoption-clang1-xopenmp-target>
+
+Pass <arg> to the target offloading toolchain identified by <triple>.
+
+|-Z<arg>|||¶ <#cmdoption-clang-z-arg>
+
+|-a<arg>||||, ||--profile-blocks|||¶ <#cmdoption-clang-a-arg>
+
+|-all_load|||¶ <#cmdoption-clang-all-load>
+
+|-allowable_client||<arg>|¶ <#cmdoption-clang-allowable-client>
+
+|--analyze|||¶ <#cmdoption-clang-analyze>
+
+Run the static analyzer
+
+|--analyze-auto|||¶ <#cmdoption-clang-analyze-auto>
+
+|--analyzer-no-default-checks|||¶
+<#cmdoption-clang-analyzer-no-default-checks>
+
+|--analyzer-output<arg>|||¶ <#cmdoption-clang-analyzer-output-arg>
+
+Static analyzer report output format
+(html|plist|plist-multi-file|plist-html|text).
+
+|-ansi||||, ||--ansi|||¶ <#cmdoption-clang-ansi>
+
+|-arch||<arg>|¶ <#cmdoption-clang-arch>
+
+|-arch_errors_fatal|||¶ <#cmdoption-clang1-arch-errors-fatal>
+
+|-arch_only||<arg>|¶ <#cmdoption-clang2-arch-only>
+
+|-arcmt-migrate-emit-errors|||¶ <#cmdoption-clang-arcmt-migrate-emit-errors>
+
+Emit ARC errors even if the migrator can fix them
+
+|-arcmt-migrate-report-output||<arg>|¶
+<#cmdoption-clang-arcmt-migrate-report-output>
+
+Output path for the plist report
+
+|--autocomplete||=<arg>|¶ <#cmdoption-clang-autocomplete>
+
+|-bind_at_load|||¶ <#cmdoption-clang-bind-at-load>
+
+|-bundle|||¶ <#cmdoption-clang-bundle>
+
+|-bundle_loader||<arg>|¶ <#cmdoption-clang1-bundle-loader>
+
+|-cfguard|||¶ <#cmdoption-clang-cfguard>
+
+Emit tables required for Windows Control Flow Guard.
+
+|-client_name<arg>|||¶ <#cmdoption-clang-client-name-arg>
+
+|-compatibility_version<arg>|||¶
+<#cmdoption-clang-compatibility-version-arg>
+
+|--config||<arg>|¶ <#cmdoption-clang-config>
+
+Specifies configuration file
+
+|--constant-cfstrings|||¶ <#cmdoption-clang-constant-cfstrings>
+
+|-coverage||||, ||--coverage|||¶ <#cmdoption-clang-coverage>
+
+|--cuda-compile-host-device|||¶ <#cmdoption-clang-cuda-compile-host-device>
+
+Compile CUDA code for both host and device (default). Has no effect on
+non-CUDA compilations.
+
+|--cuda-device-only|||¶ <#cmdoption-clang-cuda-device-only>
+
+Compile CUDA code for device only
+
+|--cuda-gpu-arch||=<arg>||, ||--no-cuda-gpu-arch||=<arg>|¶
+<#cmdoption-clang-cuda-gpu-arch>
+
+CUDA GPU architecture (e.g. sm_35). May be specified more than once.
+
+|--cuda-host-only|||¶ <#cmdoption-clang-cuda-host-only>
+
+Compile CUDA code for host only. Has no effect on non-CUDA compilations.
+
+|--cuda-include-ptx||=<arg>||, ||--no-cuda-include-ptx||=<arg>|¶
+<#cmdoption-clang-cuda-include-ptx>
+
+Include PTX for the following GPU architecture (e.g. sm_35) or ‘all’.
+May be specified more than once.
+
+|--cuda-noopt-device-debug||||, ||--no-cuda-noopt-device-debug|||¶
+<#cmdoption-clang-cuda-noopt-device-debug>
+
+Enable device-side debug info generation. Disables ptxas optimizations.
+
+|-current_version<arg>|||¶ <#cmdoption-clang-current-version-arg>
+
+|-dead_strip|||¶ <#cmdoption-clang-dead-strip>
+
+|-dependency-dot||<arg>|¶ <#cmdoption-clang-dependency-dot>
+
+Filename to write DOT-formatted header dependencies to
+
+|-dependency-file||<arg>|¶ <#cmdoption-clang-dependency-file>
+
+Filename (or -) to write dependency output to
+
+|-dumpmachine|||¶ <#cmdoption-clang-dumpmachine>
+
+|-dumpversion|||¶ <#cmdoption-clang-dumpversion>
+
+|--dyld-prefix||=<arg>||, ||--dyld-prefix||<arg>|¶
+<#cmdoption-clang-dyld-prefix>
+
+|-dylib_file||<arg>|¶ <#cmdoption-clang-dylib-file>
+
+|-dylinker|||¶ <#cmdoption-clang-dylinker>
+
+|-dylinker_install_name<arg>|||¶
+<#cmdoption-clang1-dylinker-install-name-arg>
+
+|-dynamic|||¶ <#cmdoption-clang-dynamic>
+
+|-dynamiclib|||¶ <#cmdoption-clang-dynamiclib>
+
+|-emit-ast|||¶ <#cmdoption-clang-emit-ast>
+
+Emit Clang AST files for source inputs
+
+|-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang<arg>|||¶
+<#cmdoption-clang-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang-arg>
+
+Trivial automatic variable initialization to zero is only here for
+benchmarks, it’ll eventually be removed, and I’m OK with that because
+I’m only using it to benchmark
+
+|-exported_symbols_list||<arg>|¶ <#cmdoption-clang-exported-symbols-list>
+
+|-faligned-new||=<arg>|¶ <#cmdoption-clang-faligned-new>
+
+|-fcuda-approx-transcendentals||||,
+||-fno-cuda-approx-transcendentals|||¶
+<#cmdoption-clang-fcuda-approx-transcendentals>
+
+Use approximate transcendental functions
+
+|-fcuda-flush-denormals-to-zero||||,
+||-fno-cuda-flush-denormals-to-zero|||¶
+<#cmdoption-clang-fcuda-flush-denormals-to-zero>
+
+Flush denormal floating point values to zero in CUDA device mode.
+
+|-fcuda-short-ptr||||, ||-fno-cuda-short-ptr|||¶
+<#cmdoption-clang-fcuda-short-ptr>
+
+Use 32-bit pointers for accessing const/local/shared address spaces.
+
+|-ffixed-r19|||¶ <#cmdoption-clang-ffixed-r19>
+
+Reserve register r19 (Hexagon only)
+
+|-fgpu-rdc||||, ||-fcuda-rdc||||, ||-fno-gpu-rdc|||¶
+<#cmdoption-clang-fgpu-rdc>
+
+Generate relocatable device code, also known as separate compilation mode.
+
+|-fheinous-gnu-extensions|||¶ <#cmdoption-clang-fheinous-gnu-extensions>
+
+|-flat_namespace|||¶ <#cmdoption-clang-flat-namespace>
+
+|-fopenmp-targets||=<arg1>,<arg2>...|¶ <#cmdoption-clang-fopenmp-targets>
+
+Specify comma-separated list of triples OpenMP offloading targets to be
+supported
+
+|-force_cpusubtype_ALL|||¶ <#cmdoption-clang-force-cpusubtype-all>
+
+|-force_flat_namespace|||¶ <#cmdoption-clang1-force-flat-namespace>
+
+|-force_load||<arg>|¶ <#cmdoption-clang2-force-load>
+
+|-framework||<arg>|¶ <#cmdoption-clang-framework>
+
+|-frtlib-add-rpath||||, ||-fno-rtlib-add-rpath|||¶
+<#cmdoption-clang-frtlib-add-rpath>
+
+Add -rpath with architecture-specific resource directory to the linker flags
+
+|--gcc-toolchain||=<arg>||, ||-gcc-toolchain||<arg>|¶
+<#cmdoption-clang-gcc-toolchain>
+
+Use the gcc toolchain at the given directory
+
+|-gcodeview|||¶ <#cmdoption-clang-gcodeview>
+
+Generate CodeView debug information
+
+|-gcodeview-ghash||||, ||-gno-codeview-ghash|||¶
+<#cmdoption-clang-gcodeview-ghash>
+
+Emit type record hashes in a .debug$H section
+
+|-headerpad_max_install_names<arg>|||¶
+<#cmdoption-clang-headerpad-max-install-names-arg>
+
+|-help||||, ||--help|||¶ <#cmdoption-clang-help>
+
+Display available options
+
+|--help-hidden|||¶ <#cmdoption-clang-help-hidden>
+
+Display help for hidden options
+
+|--hip-link|||¶ <#cmdoption-clang-hip-link>
+
+Link clang-offload-bundler bundles for HIP
+
+|-image_base||<arg>|¶ <#cmdoption-clang-image-base>
+
+|-index-header-map|||¶ <#cmdoption-clang-index-header-map>
+
+Make the next included directory (-I or -F) an indexer header map
+
+|-init||<arg>|¶ <#cmdoption-clang-init>
+
+|-install_name||<arg>|¶ <#cmdoption-clang-install-name>
+
+|-keep_private_externs|||¶ <#cmdoption-clang-keep-private-externs>
+
+|-lazy_framework||<arg>|¶ <#cmdoption-clang-lazy-framework>
+
+|-lazy_library||<arg>|¶ <#cmdoption-clang1-lazy-library>
+
+|-mbig-endian||||, ||-EB|||¶ <#cmdoption-clang-mbig-endian>
+
+|-mbranch-protection||=<arg>|¶ <#cmdoption-clang-mbranch-protection>
+
+Enforce targets of indirect branches and function returns
+
+|--migrate|||¶ <#cmdoption-clang-migrate>
+
+Run the migrator
+
+|-mios-simulator-version-min||=<arg>||,
+||-miphonesimulator-version-min||=<arg>|¶
+<#cmdoption-clang-mios-simulator-version-min>
+
+|-mlinker-version||=<arg>|¶ <#cmdoption-clang-mlinker-version>
+
+|-mlittle-endian||||, ||-EL|||¶ <#cmdoption-clang-mlittle-endian>
+
+|-mllvm||<arg>|¶ <#cmdoption-clang-mllvm>
+
+Additional arguments to forward to LLVM’s option processing
+
+|-module-dependency-dir||<arg>|¶ <#cmdoption-clang-module-dependency-dir>
+
+Directory to dump module dependencies to
+
+|-mtvos-simulator-version-min||=<arg>||,
+||-mappletvsimulator-version-min||=<arg>|¶
+<#cmdoption-clang-mtvos-simulator-version-min>
+
+|-multi_module|||¶ <#cmdoption-clang-multi-module>
+
+|-multiply_defined||<arg>|¶ <#cmdoption-clang-multiply-defined>
+
+|-multiply_defined_unused||<arg>|¶
+<#cmdoption-clang1-multiply-defined-unused>
+
+|-mwatchos-simulator-version-min||=<arg>||,
+||-mwatchsimulator-version-min||=<arg>|¶
+<#cmdoption-clang-mwatchos-simulator-version-min>
+
+|--no-cuda-version-check|||¶ <#cmdoption-clang-no-cuda-version-check>
+
+Don’t error out if the detected version of the CUDA install is too low
+for the requested CUDA gpu architecture.
+
+|-no-integrated-cpp||||, ||--no-integrated-cpp|||¶
+<#cmdoption-clang-no-integrated-cpp>
+
+|-no_dead_strip_inits_and_terms|||¶
+<#cmdoption-clang-no-dead-strip-inits-and-terms>
+
+|-nobuiltininc|||¶ <#cmdoption-clang-nobuiltininc>
+
+Disable builtin #include directories
+
+|-nocudainc|||¶ <#cmdoption-clang-nocudainc>
+
+|-nocudalib|||¶ <#cmdoption-clang-nocudalib>
+
+|-nodefaultlibs|||¶ <#cmdoption-clang-nodefaultlibs>
+
+|-nofixprebinding|||¶ <#cmdoption-clang-nofixprebinding>
+
+|-nolibc|||¶ <#cmdoption-clang-nolibc>
+
+|-nomultidefs|||¶ <#cmdoption-clang-nomultidefs>
+
+|-nopie||||, ||-no-pie|||¶ <#cmdoption-clang-nopie>
+
+|-noprebind|||¶ <#cmdoption-clang-noprebind>
+
+|-noseglinkedit|||¶ <#cmdoption-clang-noseglinkedit>
+
+|-nostartfiles|||¶ <#cmdoption-clang-nostartfiles>
+
+|-nostdinc||||, ||--no-standard-includes|||¶ <#cmdoption-clang-nostdinc>
+
+|-nostdinc++|||¶ <#cmdoption-clang1-nostdinc>
+
+Disable standard #include directories for the C++ standard library
+
+|-nostdlib||||, ||--no-standard-libraries|||¶ <#cmdoption-clang-nostdlib>
+
+|-nostdlib++|||¶ <#cmdoption-clang1-nostdlib>
+
+|-nostdlibinc|||¶ <#cmdoption-clang-nostdlibinc>
+
+|-o<file>||||, ||--output||<arg>||, ||--output||=<arg>|¶
+<#cmdoption-clang-o-file>
+
+Write output to <file>
+
+|-objcmt-atomic-property|||¶ <#cmdoption-clang-objcmt-atomic-property>
+
+Make migration to ‘atomic’ properties
+
+|-objcmt-migrate-all|||¶ <#cmdoption-clang-objcmt-migrate-all>
+
+Enable migration to modern ObjC
+
+|-objcmt-migrate-annotation|||¶ <#cmdoption-clang-objcmt-migrate-annotation>
+
+Enable migration to property and method annotations
+
+|-objcmt-migrate-designated-init|||¶
+<#cmdoption-clang-objcmt-migrate-designated-init>
+
+Enable migration to infer NS_DESIGNATED_INITIALIZER for initializer methods
+
+|-objcmt-migrate-instancetype|||¶
+<#cmdoption-clang-objcmt-migrate-instancetype>
+
+Enable migration to infer instancetype for method result type
+
+|-objcmt-migrate-literals|||¶ <#cmdoption-clang-objcmt-migrate-literals>
+
+Enable migration to modern ObjC literals
+
+|-objcmt-migrate-ns-macros|||¶ <#cmdoption-clang-objcmt-migrate-ns-macros>
+
+Enable migration to NS_ENUM/NS_OPTIONS macros
+
+|-objcmt-migrate-property|||¶ <#cmdoption-clang-objcmt-migrate-property>
+
+Enable migration to modern ObjC property
+
+|-objcmt-migrate-property-dot-syntax|||¶
+<#cmdoption-clang-objcmt-migrate-property-dot-syntax>
+
+Enable migration of setter/getter messages to property-dot syntax
+
+|-objcmt-migrate-protocol-conformance|||¶
+<#cmdoption-clang-objcmt-migrate-protocol-conformance>
+
+Enable migration to add protocol conformance on classes
+
+|-objcmt-migrate-readonly-property|||¶
+<#cmdoption-clang-objcmt-migrate-readonly-property>
+
+Enable migration to modern ObjC readonly property
+
+|-objcmt-migrate-readwrite-property|||¶
+<#cmdoption-clang-objcmt-migrate-readwrite-property>
+
+Enable migration to modern ObjC readwrite property
+
+|-objcmt-migrate-subscripting|||¶
+<#cmdoption-clang-objcmt-migrate-subscripting>
+
+Enable migration to modern ObjC subscripting
+
+|-objcmt-ns-nonatomic-iosonly|||¶
+<#cmdoption-clang-objcmt-ns-nonatomic-iosonly>
+
+Enable migration to use NS_NONATOMIC_IOSONLY macro for setting
+property’s ‘atomic’ attribute
+
+|-objcmt-returns-innerpointer-property|||¶
+<#cmdoption-clang-objcmt-returns-innerpointer-property>
+
+Enable migration to annotate property with NS_RETURNS_INNER_POINTER
+
+|-objcmt-whitelist-dir-path||=<arg>||,
+||-objcmt-white-list-dir-path||=<arg>|¶
+<#cmdoption-clang-objcmt-whitelist-dir-path>
+
+Only modify files with a filename contained in the provided directory path
+
+|-object|||¶ <#cmdoption-clang-object>
+
+|-p||||, ||--profile|||¶ <#cmdoption-clang-p>
+
+|-pagezero_size<arg>|||¶ <#cmdoption-clang-pagezero-size-arg>
+
+|-pg|||¶ <#cmdoption-clang-pg>
+
+Enable mcount instrumentation
+
+|-pie|||¶ <#cmdoption-clang-pie>
+
+|-pipe||||, ||--pipe|||¶ <#cmdoption-clang-pipe>
+
+Use pipes between commands, when possible
+
+|-prebind|||¶ <#cmdoption-clang-prebind>
+
+|-prebind_all_twolevel_modules|||¶
+<#cmdoption-clang1-prebind-all-twolevel-modules>
+
+|-preload|||¶ <#cmdoption-clang-preload>
+
+|--print-diagnostic-categories|||¶
+<#cmdoption-clang-print-diagnostic-categories>
+
+|-print-effective-triple||||, ||--print-effective-triple|||¶
+<#cmdoption-clang-print-effective-triple>
+
+Print the effective target triple
+
+|-print-file-name||=<file>||, ||--print-file-name||=<file>||,
+||--print-file-name||<arg>|¶ <#cmdoption-clang-print-file-name>
+
+Print the full library path of <file>
+
+|-print-ivar-layout|||¶ <#cmdoption-clang-print-ivar-layout>
+
+Enable Objective-C Ivar layout bitmap print trace
+
+|-print-libgcc-file-name||||, ||--print-libgcc-file-name|||¶
+<#cmdoption-clang-print-libgcc-file-name>
+
+Print the library path for the currently used compiler runtime library
+(“libgcc.a” or “libclang_rt.builtins.*.a”)
+
+|-print-multi-directory||||, ||--print-multi-directory|||¶
+<#cmdoption-clang-print-multi-directory>
+
+|-print-multi-lib||||, ||--print-multi-lib|||¶
+<#cmdoption-clang-print-multi-lib>
+
+|-print-prog-name||=<name>||, ||--print-prog-name||=<name>||,
+||--print-prog-name||<arg>|¶ <#cmdoption-clang-print-prog-name>
+
+Print the full program path of <name>
+
+|-print-resource-dir||||, ||--print-resource-dir|||¶
+<#cmdoption-clang-print-resource-dir>
+
+Print the resource directory pathname
+
+|-print-search-dirs||||, ||--print-search-dirs|||¶
+<#cmdoption-clang-print-search-dirs>
+
+Print the paths used for finding libraries and programs
+
+|-print-target-triple||||, ||--print-target-triple|||¶
+<#cmdoption-clang-print-target-triple>
+
+Print the normalized target triple
+
+|-private_bundle|||¶ <#cmdoption-clang-private-bundle>
+
+|-pthread||||, ||-no-pthread|||¶ <#cmdoption-clang-pthread>
+
+Support POSIX threads in generated code
+
+|-pthreads|||¶ <#cmdoption-clang-pthreads>
+
+|-rdynamic|||¶ <#cmdoption-clang-rdynamic>
+
+|-read_only_relocs||<arg>|¶ <#cmdoption-clang-read-only-relocs>
+
+|-relocatable-pch||||, ||--relocatable-pch|||¶
+<#cmdoption-clang-relocatable-pch>
+
+Whether to build a relocatable precompiled header
+
+|-remap|||¶ <#cmdoption-clang-remap>
+
+|-rewrite-legacy-objc|||¶ <#cmdoption-clang-rewrite-legacy-objc>
+
+Rewrite Legacy Objective-C source to C++
+
+|-rtlib||=<arg>||, ||--rtlib||=<arg>||, ||--rtlib||<arg>|¶
+<#cmdoption-clang-rtlib>
+
+Compiler runtime library to use
+
+|-save-stats||=<arg>||, ||--save-stats||=<arg>||,
+||-save-stats||(equivalent to -save-stats=cwd)||,
+||--save-stats||(equivalent to -save-stats=cwd)|¶
+<#cmdoption-clang-save-stats>
+
+Save llvm statistics.
+
+|-save-temps||=<arg>||, ||--save-temps||=<arg>||,
+||-save-temps||(equivalent to -save-temps=cwd)||,
+||--save-temps||(equivalent to -save-temps=cwd)|¶
+<#cmdoption-clang-save-temps>
+
+Save intermediate compilation results.
+
+|-sectalign||<arg1> <arg2> <arg3>|¶ <#cmdoption-clang-sectalign>
+
+|-sectcreate||<arg1> <arg2> <arg3>|¶ <#cmdoption-clang-sectcreate>
+
+|-sectobjectsymbols||<arg1> <arg2>|¶ <#cmdoption-clang-sectobjectsymbols>
+
+|-sectorder||<arg1> <arg2> <arg3>|¶ <#cmdoption-clang-sectorder>
+
+|-seg1addr<arg>|||¶ <#cmdoption-clang-seg1addr-arg>
+
+|-seg_addr_table||<arg>|¶ <#cmdoption-clang-seg-addr-table>
+
+|-seg_addr_table_filename||<arg>|¶
+<#cmdoption-clang1-seg-addr-table-filename>
+
+|-segaddr||<arg1> <arg2>|¶ <#cmdoption-clang-segaddr>
+
+|-segcreate||<arg1> <arg2> <arg3>|¶ <#cmdoption-clang-segcreate>
+
+|-seglinkedit|||¶ <#cmdoption-clang-seglinkedit>
+
+|-segprot||<arg1> <arg2> <arg3>|¶ <#cmdoption-clang-segprot>
+
+|-segs_read_<arg>|||¶ <#cmdoption-clang-segs-read-arg>
+
+|-segs_read_only_addr||<arg>|¶ <#cmdoption-clang1-segs-read-only-addr>
+
+|-segs_read_write_addr||<arg>|¶ <#cmdoption-clang2-segs-read-write-addr>
+
+|-serialize-diagnostics||<arg>||, ||--serialize-diagnostics||<arg>|¶
+<#cmdoption-clang-serialize-diagnostics>
+
+Serialize compiler diagnostics to a file
+
+|-shared||||, ||--shared|||¶ <#cmdoption-clang-shared>
+
+|-shared-libgcc|||¶ <#cmdoption-clang-shared-libgcc>
+
+|-shared-libsan||||, ||-shared-libasan|||¶ <#cmdoption-clang-shared-libsan>
+
+Dynamically link the sanitizer runtime
+
+|-single_module|||¶ <#cmdoption-clang-single-module>
+
+|-specs||=<arg>||, ||--specs||=<arg>|¶ <#cmdoption-clang-specs>
+
+|-static||||, ||--static|||¶ <#cmdoption-clang-static>
+
+|-static-libgcc|||¶ <#cmdoption-clang-static-libgcc>
+
+|-static-libsan|||¶ <#cmdoption-clang-static-libsan>
+
+Statically link the sanitizer runtime
+
+|-static-libstdc++|||¶ <#cmdoption-clang-static-libstdc>
+
+|-static-pie|||¶ <#cmdoption-clang-static-pie>
+
+|-std-default||=<arg>|¶ <#cmdoption-clang-std-default>
+
+|-stdlib||=<arg>||, ||--stdlib||=<arg>||, ||--stdlib||<arg>|¶
+<#cmdoption-clang-stdlib>
+
+C++ standard library to use
+
+|-sub_library<arg>|||¶ <#cmdoption-clang-sub-library-arg>
+
+|-sub_umbrella<arg>|||¶ <#cmdoption-clang1-sub-umbrella-arg>
+
+|--sysroot||=<arg>||, ||--sysroot||<arg>|¶ <#cmdoption-clang-sysroot>
+
+|--target-help|||¶ <#cmdoption-clang-target-help>
+
+|--target||=<arg>||, ||-target||<arg>|¶ <#cmdoption-clang-target>
+
+Generate code for the given target
+
+|-time|||¶ <#cmdoption-clang-time>
+
+Time individual commands
+
+|-traditional||||, ||--traditional|||¶ <#cmdoption-clang-traditional>
+
+|-traditional-cpp||||, ||--traditional-cpp|||¶
+<#cmdoption-clang-traditional-cpp>
+
+Enable some traditional CPP emulation
+
+|-twolevel_namespace|||¶ <#cmdoption-clang-twolevel-namespace>
+
+|-twolevel_namespace_hints|||¶ <#cmdoption-clang1-twolevel-namespace-hints>
+
+|-umbrella||<arg>|¶ <#cmdoption-clang-umbrella>
+
+|-unexported_symbols_list||<arg>|¶
+<#cmdoption-clang-unexported-symbols-list>
+
+|-unwindlib||=<arg>||, ||--unwindlib||=<arg>|¶ <#cmdoption-clang-unwindlib>
+
+Unwind library to use
+
+|-v||||, ||--verbose|||¶ <#cmdoption-clang-v>
+
+Show commands to run and use verbose output
+
+|--verify-debug-info|||¶ <#cmdoption-clang-verify-debug-info>
+
+Verify the binary representation of debug output
+
+|--version|||¶ <#cmdoption-clang-version>
+
+Print version information
+
+|-w||||, ||--no-warnings|||¶ <#cmdoption-clang-w>
+
+Suppress all warnings
+
+|-weak-l<arg>|||¶ <#cmdoption-clang-weak-l-arg>
+
+|-weak_framework||<arg>|¶ <#cmdoption-clang-weak-framework>
+
+|-weak_library||<arg>|¶ <#cmdoption-clang1-weak-library>
+
+|-weak_reference_mismatches||<arg>|¶
+<#cmdoption-clang2-weak-reference-mismatches>
+
+|-whatsloaded|||¶ <#cmdoption-clang-whatsloaded>
+
+|-whyload|||¶ <#cmdoption-clang-whyload>
+
+|-working-directory<arg>||||, ||-working-directory||=<arg>|¶
+<#cmdoption-clang-working-directory-arg>
+
+Resolve file paths relative to the specified directory
+
+|-x<language>||||, ||--language||<arg>||, ||--language||=<arg>|¶
+<#cmdoption-clang-x-language>
+
+Treat subsequent input files as having type <language>
+
+|-y<arg>|||¶ <#cmdoption-clang-y-arg>
+
+
+    Actions <#id5>¶ <#actions>
+
+The action to perform on the input.
+
+|-E||||, ||--preprocess|||¶ <#cmdoption-clang-e>
+
+Only run the preprocessor
+
+|-S||||, ||--assemble|||¶ <#cmdoption-clang-s>
+
+Only run preprocess and compilation steps
+
+|-c||||, ||--compile|||¶ <#cmdoption-clang-c>
+
+Only run preprocess, compile, and assemble steps
+
+|-emit-llvm|||¶ <#cmdoption-clang-emit-llvm>
+
+Use the LLVM representation for assembler and object files
+
+|-fsyntax-only|||¶ <#cmdoption-clang-fsyntax-only>
+
+|-module-file-info|||¶ <#cmdoption-clang-module-file-info>
+
+Provide information about a particular module file
+
+|--precompile|||¶ <#cmdoption-clang-precompile>
+
+Only precompile the input
+
+|-rewrite-objc|||¶ <#cmdoption-clang-rewrite-objc>
+
+Rewrite Objective-C source to C++
+
+|-verify-pch|||¶ <#cmdoption-clang-verify-pch>
+
+Load and verify that a pre-compiled header file is not stale
+
+
+    Compilation flags <#id6>¶ <#compilation-flags>
+
+Flags controlling the behavior of Clang during compilation. These flags
+have no effect during actions that do not perform compilation.
+
+|-Xassembler||<arg>|¶ <#cmdoption-clang-xassembler>
+
+Pass <arg> to the assembler
+
+|-Xclang||<arg>|¶ <#cmdoption-clang-xclang>
+
+Pass <arg> to the clang compiler
+
+|-fclang-abi-compat||=<version>|¶ <#cmdoption-clang-fclang-abi-compat>
+
+Attempt to match the ABI of Clang <version>
+
+|-fcomment-block-commands||=<arg>,<arg2>...|¶
+<#cmdoption-clang-fcomment-block-commands>
+
+Treat each comma separated argument in <arg> as a documentation comment
+block command
+
+|-fcomplete-member-pointers||||, ||-fno-complete-member-pointers|||¶
+<#cmdoption-clang-fcomplete-member-pointers>
+
+Require member pointer base types to be complete if they would be
+significant under the Microsoft ABI
+
+|-fcrash-diagnostics-dir||=<arg>|¶ <#cmdoption-clang-fcrash-diagnostics-dir>
+
+|-fdeclspec||||, ||-fno-declspec|||¶ <#cmdoption-clang-fdeclspec>
+
+Allow __declspec as a keyword
+
+|-fdepfile-entry||=<arg>|¶ <#cmdoption-clang-fdepfile-entry>
+
+|-fdiagnostics-fixit-info||||, ||-fno-diagnostics-fixit-info|||¶
+<#cmdoption-clang-fdiagnostics-fixit-info>
+
+|-fdiagnostics-format||=<arg>|¶ <#cmdoption-clang-fdiagnostics-format>
+
+|-fdiagnostics-parseable-fixits|||¶
+<#cmdoption-clang-fdiagnostics-parseable-fixits>
+
+Print fix-its in machine parseable form
+
+|-fdiagnostics-print-source-range-info|||¶
+<#cmdoption-clang-fdiagnostics-print-source-range-info>
+
+Print source range spans in numeric form
+
+|-fdiagnostics-show-category||=<arg>|¶
+<#cmdoption-clang-fdiagnostics-show-category>
+
+|-fdiscard-value-names||||, ||-fno-discard-value-names|||¶
+<#cmdoption-clang-fdiscard-value-names>
+
+Discard value names in LLVM IR
+
+|-fexperimental-isel||||, ||-fno-experimental-isel|||¶
+<#cmdoption-clang-fexperimental-isel>
+
+Enables the experimental global instruction selector
+
+|-fexperimental-new-pass-manager||||,
+||-fno-experimental-new-pass-manager|||¶
+<#cmdoption-clang-fexperimental-new-pass-manager>
+
+Enables an experimental new pass manager in LLVM.
+
+|-ffine-grained-bitfield-accesses||||,
+||-fno-fine-grained-bitfield-accesses|||¶
+<#cmdoption-clang-ffine-grained-bitfield-accesses>
+
+Use separate accesses for consecutive bitfield runs with legal widths
+and alignments.
+
+|-finline-functions||||, ||-fno-inline-functions|||¶
+<#cmdoption-clang-finline-functions>
+
+Inline suitable functions
+
+|-finline-hint-functions|||¶ <#cmdoption-clang-finline-hint-functions>
+
+Inline functions which are (explicitly or implicitly) marked inline
+
+|-fno-crash-diagnostics|||¶ <#cmdoption-clang-fno-crash-diagnostics>
+
+Disable auto-generation of preprocessed source files and a script for
+reproduction during a clang crash
+
+|-fno-sanitize-blacklist|||¶ <#cmdoption-clang-fno-sanitize-blacklist>
+
+Don’t use blacklist file for sanitizers
+
+|-fparse-all-comments|||¶ <#cmdoption-clang-fparse-all-comments>
+
+|-frecord-command-line||||, ||-fno-record-command-line||||,
+||-frecord-gcc-switches|||¶ <#cmdoption-clang-frecord-command-line>
+
+|-fsanitize-address-field-padding||=<arg>|¶
+<#cmdoption-clang-fsanitize-address-field-padding>
+
+Level of field padding for AddressSanitizer
+
+|-fsanitize-address-globals-dead-stripping|||¶
+<#cmdoption-clang-fsanitize-address-globals-dead-stripping>
+
+Enable linker dead stripping of globals in AddressSanitizer
+
+|-fsanitize-address-poison-custom-array-cookie||||,
+||-fno-sanitize-address-poison-custom-array-cookie|||¶
+<#cmdoption-clang-fsanitize-address-poison-custom-array-cookie>
+
+Enable poisoning array cookies when using custom operator new[] in
+AddressSanitizer
+
+|-fsanitize-address-use-after-scope||||,
+||-fno-sanitize-address-use-after-scope|||¶
+<#cmdoption-clang-fsanitize-address-use-after-scope>
+
+Enable use-after-scope detection in AddressSanitizer
+
+|-fsanitize-address-use-odr-indicator||||,
+||-fno-sanitize-address-use-odr-indicator|||¶
+<#cmdoption-clang-fsanitize-address-use-odr-indicator>
+
+Enable ODR indicator globals to avoid false ODR violation reports in
+partially sanitized programs at the cost of an increase in binary size
+
+|-fsanitize-blacklist||=<arg>|¶ <#cmdoption-clang-fsanitize-blacklist>
+
+Path to blacklist file for sanitizers
+
+|-fsanitize-cfi-cross-dso||||, ||-fno-sanitize-cfi-cross-dso|||¶
+<#cmdoption-clang-fsanitize-cfi-cross-dso>
+
+Enable control flow integrity (CFI) checks for cross-DSO calls.
+
+|-fsanitize-cfi-icall-generalize-pointers|||¶
+<#cmdoption-clang-fsanitize-cfi-icall-generalize-pointers>
+
+Generalize pointers in CFI indirect call type signature checks
+
+|-fsanitize-coverage||=<arg1>,<arg2>...||,
+||-fno-sanitize-coverage||=<arg1>,<arg2>...|¶
+<#cmdoption-clang-fsanitize-coverage>
+
+Specify the type of coverage instrumentation for Sanitizers
+
+|-fsanitize-hwaddress-abi||=<arg>|¶
+<#cmdoption-clang-fsanitize-hwaddress-abi>
+
+Select the HWAddressSanitizer ABI to target (interceptor or platform,
+default interceptor)
+
+|-fsanitize-link-c++-runtime|||¶ <#cmdoption-clang-fsanitize-link-c-runtime>
+
+|-fsanitize-memory-track-origins||||,
+||-fno-sanitize-memory-track-origins|||¶
+<#cmdoption-clang-fsanitize-memory-track-origins>
+
+Enable origins tracking in MemorySanitizer
+
+|-fsanitize-memory-track-origins||=<arg>|¶
+<#cmdoption-clang1-fsanitize-memory-track-origins>
+
+Enable origins tracking in MemorySanitizer
+
+|-fsanitize-memory-use-after-dtor||||,
+||-fno-sanitize-memory-use-after-dtor|||¶
+<#cmdoption-clang-fsanitize-memory-use-after-dtor>
+
+Enable use-after-destroy detection in MemorySanitizer
+
+|-fsanitize-minimal-runtime||||, ||-fno-sanitize-minimal-runtime|||¶
+<#cmdoption-clang-fsanitize-minimal-runtime>
+
+|-fsanitize-recover||||, ||-fno-sanitize-recover|||¶
+<#cmdoption-clang-fsanitize-recover>
+
+|-fsanitize-recover||=<arg1>,<arg2>...||,
+||-fno-sanitize-recover||=<arg1>,<arg2>...|¶
+<#cmdoption-clang1-fsanitize-recover>
+
+Enable recovery for specified sanitizers
+
+|-fsanitize-stats||||, ||-fno-sanitize-stats|||¶
+<#cmdoption-clang-fsanitize-stats>
+
+Enable sanitizer statistics gathering.
+
+|-fsanitize-thread-atomics||||, ||-fno-sanitize-thread-atomics|||¶
+<#cmdoption-clang-fsanitize-thread-atomics>
+
+Enable atomic operations instrumentation in ThreadSanitizer (default)
+
+|-fsanitize-thread-func-entry-exit||||,
+||-fno-sanitize-thread-func-entry-exit|||¶
+<#cmdoption-clang-fsanitize-thread-func-entry-exit>
+
+Enable function entry/exit instrumentation in ThreadSanitizer (default)
+
+|-fsanitize-thread-memory-access||||,
+||-fno-sanitize-thread-memory-access|||¶
+<#cmdoption-clang-fsanitize-thread-memory-access>
+
+Enable memory access instrumentation in ThreadSanitizer (default)
+
+|-fsanitize-trap||=<arg1>,<arg2>...||,
+||-fno-sanitize-trap||=<arg1>,<arg2>...|¶ <#cmdoption-clang-fsanitize-trap>
+
+Enable trapping for specified sanitizers
+
+|-fsanitize-undefined-strip-path-components||=<number>|¶
+<#cmdoption-clang-fsanitize-undefined-strip-path-components>
+
+Strip (or keep only, if negative) a given number of path components when
+emitting check metadata.
+
+|-fsanitize-undefined-trap-on-error||||,
+||-fno-sanitize-undefined-trap-on-error|||¶
+<#cmdoption-clang-fsanitize-undefined-trap-on-error>
+
+|-fsanitize||=<check>,<arg2>...||, ||-fno-sanitize||=<arg1>,<arg2>...|¶
+<#cmdoption-clang-fsanitize>
+
+Turn on runtime checks for various forms of undefined or suspicious
+behavior. See user manual for available checks
+
+|-moutline||||, ||-mno-outline|||¶ <#cmdoption-clang-moutline>
+
+Enable function outlining (AArch64 only)
+
+|--param||<arg>||, ||--param||=<arg>|¶ <#cmdoption-clang-param>
+
+|-std||=<arg>||, ||--std||=<arg>||, ||--std||<arg>|¶ <#cmdoption-clang-std>
+
+Language standard to compile for
+
+
+      Preprocessor flags <#id7>¶ <#preprocessor-flags>
+
+Flags controlling the behavior of the Clang preprocessor.
+
+|-C||||, ||--comments|||¶ <#cmdoption-clang-comments>
+
+Include comments in preprocessed output
+
+|-CC||||, ||--comments-in-macros|||¶ <#cmdoption-clang-cc>
+
+Include comments from within macros in preprocessed output
+
+|-D<macro>||=<value>||, ||--define-macro||<arg>||,
+||--define-macro||=<arg>|¶ <#cmdoption-clang-d-macro>
+
+Define <macro> to <value> (or 1 if <value> omitted)
+
+|-H||||, ||--trace-includes|||¶ <#cmdoption-clang-h>
+
+Show header includes and nesting depth
+
+|-P||||, ||--no-line-commands|||¶ <#cmdoption-clang-no-line-commands>
+
+Disable linemarker output in -E mode
+
+|-U<macro>||||, ||--undefine-macro||<arg>||,
+||--undefine-macro||=<arg>|¶ <#cmdoption-clang-u-macro>
+
+Undefine macro <macro>
+
+|-Wp,<arg>,<arg2>...|||¶ <#cmdoption-clang-wp-arg-arg2>
+
+Pass the comma separated arguments in <arg> to the preprocessor
+
+|-Xpreprocessor||<arg>|¶ <#cmdoption-clang-xpreprocessor>
+
+Pass <arg> to the preprocessor
+
+
+        Include path management <#id8>¶ <#include-path-management>
+
+Flags controlling how |#include|s are resolved to files.
+
+|-I<dir>||||, ||--include-directory||<arg>||,
+||--include-directory||=<arg>|¶ <#cmdoption-clang-i-dir>
+
+Add directory to include search path
+
+|-I-||||, ||--include-barrier|||¶ <#cmdoption-clang-i>
+
+Restrict all prior -I flags to double-quoted inclusion and remove
+current directory from include path
+
+|--cuda-path-ignore-env|||¶ <#cmdoption-clang-cuda-path-ignore-env>
+
+Ignore environment variables to detect CUDA installation
+
+|--cuda-path||=<arg>|¶ <#cmdoption-clang-cuda-path>
+
+CUDA installation path
+
+|-cxx-isystem<directory>|||¶ <#cmdoption-clang-cxx-isystem-directory>
+
+Add directory to the C++ SYSTEM include search path
+
+|-fbuild-session-file||=<file>|¶ <#cmdoption-clang-fbuild-session-file>
+
+Use the last modification time of <file> as the build session timestamp
+
+|-fbuild-session-timestamp||=<time since Epoch in seconds>|¶
+<#cmdoption-clang-fbuild-session-timestamp>
+
+Time when the current build session started
+
+|-fmodule-file||=[<name>=]<file>|¶ <#cmdoption-clang-fmodule-file>
+
+Specify the mapping of module name to precompiled module file, or load a
+module file if name is omitted.
+
+|-fmodules-cache-path||=<directory>|¶ <#cmdoption-clang-fmodules-cache-path>
+
+Specify the module cache path
+
+|-fmodules-disable-diagnostic-validation|||¶
+<#cmdoption-clang-fmodules-disable-diagnostic-validation>
+
+Disable validation of the diagnostic options when loading the module
+
+|-fmodules-prune-after||=<seconds>|¶ <#cmdoption-clang-fmodules-prune-after>
+
+Specify the interval (in seconds) after which a module file will be
+considered unused
+
+|-fmodules-prune-interval||=<seconds>|¶
+<#cmdoption-clang-fmodules-prune-interval>
+
+Specify the interval (in seconds) between attempts to prune the module cache
+
+|-fmodules-user-build-path||<directory>|¶
+<#cmdoption-clang-fmodules-user-build-path>
+
+Specify the module user build path
+
+|-fmodules-validate-once-per-build-session|||¶
+<#cmdoption-clang-fmodules-validate-once-per-build-session>
+
+Don’t verify input files for the modules if the module has been
+successfully validated or loaded during this build session
+
+|-fmodules-validate-system-headers||||,
+||-fno-modules-validate-system-headers|||¶
+<#cmdoption-clang-fmodules-validate-system-headers>
+
+Validate the system headers that a module depends on when loading the module
+
+|-fprebuilt-module-path||=<directory>|¶
+<#cmdoption-clang-fprebuilt-module-path>
+
+Specify the prebuilt module path
+
+|-idirafter<arg>||||, ||--include-directory-after||<arg>||,
+||--include-directory-after||=<arg>|¶ <#cmdoption-clang-idirafter-arg>
+
+Add directory to AFTER include search path
+
+|-iframework<arg>|||¶ <#cmdoption-clang-iframework-arg>
+
+Add directory to SYSTEM framework search path
+
+|-iframeworkwithsysroot<directory>|||¶
+<#cmdoption-clang-iframeworkwithsysroot-directory>
+
+Add directory to SYSTEM framework search path, absolute paths are
+relative to -isysroot
+
+|-imacros<file>||||, ||--imacros<file>||||, ||--imacros||=<arg>|¶
+<#cmdoption-clang-imacros-file>
+
+Include macros from file before parsing
+
+|-include<file>||||, ||--include<file>||||, ||--include||=<arg>|¶
+<#cmdoption-clang-include-file>
+
+Include file before parsing
+
+|-include-pch||<file>|¶ <#cmdoption-clang-include-pch>
+
+Include precompiled header file
+
+|-iprefix<dir>||||, ||--include-prefix||<arg>||,
+||--include-prefix||=<arg>|¶ <#cmdoption-clang-iprefix-dir>
+
+Set the -iwithprefix/-iwithprefixbefore prefix
+
+|-iquote<directory>|||¶ <#cmdoption-clang-iquote-directory>
+
+Add directory to QUOTE include search path
+
+|-isysroot<dir>|||¶ <#cmdoption-clang-isysroot-dir>
+
+Set the system root directory (usually /)
+
+|-isystem<directory>|||¶ <#cmdoption-clang-isystem-directory>
+
+Add directory to SYSTEM include search path
+
+|-isystem-after<directory>|||¶ <#cmdoption-clang-isystem-after-directory>
+
+Add directory to end of the SYSTEM include search path
+
+|-ivfsoverlay<arg>|||¶ <#cmdoption-clang-ivfsoverlay-arg>
+
+Overlay the virtual filesystem described by file over the real file system
+
+|-iwithprefix<dir>||||, ||--include-with-prefix||<arg>||,
+||--include-with-prefix-after||<arg>||,
+||--include-with-prefix-after||=<arg>||,
+||--include-with-prefix||=<arg>|¶ <#cmdoption-clang-iwithprefix-dir>
+
+Set directory to SYSTEM include search path with prefix
+
+|-iwithprefixbefore<dir>||||, ||--include-with-prefix-before||<arg>||,
+||--include-with-prefix-before||=<arg>|¶
+<#cmdoption-clang-iwithprefixbefore-dir>
+
+Set directory to include search path with prefix
+
+|-iwithsysroot<directory>|||¶ <#cmdoption-clang-iwithsysroot-directory>
+
+Add directory to SYSTEM include search path, absolute paths are relative
+to -isysroot
+
+|--libomptarget-nvptx-path||=<arg>|¶
+<#cmdoption-clang-libomptarget-nvptx-path>
+
+Path to libomptarget-nvptx libraries
+
+|--ptxas-path||=<arg>|¶ <#cmdoption-clang-ptxas-path>
+
+Path to ptxas (used for compiling CUDA code)
+
+|--system-header-prefix||=<prefix>||,
+||--no-system-header-prefix||=<prefix>||,
+||--system-header-prefix||<arg>|¶ <#cmdoption-clang-system-header-prefix>
+
+Treat all #include paths starting with <prefix> as including a system
+header.
+
+
+        Dependency file generation <#id9>¶ <#dependency-file-generation>
+
+Flags controlling generation of a dependency file for |make|-like build
+systems.
+
+|-M||||, ||--dependencies|||¶ <#cmdoption-clang-m>
+
+Like -MD, but also implies -E and writes to stdout by default
+
+|-MD||||, ||--write-dependencies|||¶ <#cmdoption-clang-md>
+
+Write a depfile containing user and system headers
+
+|-MF<file>|||¶ <#cmdoption-clang-mf-file>
+
+Write depfile output from -MMD, -MD, -MM, or -M to <file>
+
+|-MG||||, ||--print-missing-file-dependencies|||¶ <#cmdoption-clang-mg>
+
+Add missing headers to depfile
+
+|-MJ<arg>|||¶ <#cmdoption-clang-mj-arg>
+
+Write a compilation database entry per input
+
+|-MM||||, ||--user-dependencies|||¶ <#cmdoption-clang-mm>
+
+Like -MMD, but also implies -E and writes to stdout by default
+
+|-MMD||||, ||--write-user-dependencies|||¶ <#cmdoption-clang-mmd>
+
+Write a depfile containing user headers
+
+|-MP|||¶ <#cmdoption-clang-mp>
+
+Create phony target for each dependency (other than main file)
+
+|-MQ<arg>|||¶ <#cmdoption-clang-mq-arg>
+
+Specify name of main file output to quote in depfile
+
+|-MT<arg>|||¶ <#cmdoption-clang-mt-arg>
+
+Specify name of main file output in depfile
+
+|-MV|||¶ <#cmdoption-clang-mv>
+
+Use NMake/Jom format for the depfile
+
+
+        Dumping preprocessor state <#id10>¶ <#dumping-preprocessor-state>
+
+Flags allowing the state of the preprocessor to be dumped in various ways.
+
+|-d|||¶ <#cmdoption-clang-d>
+
+|-d<arg>|||¶ <#cmdoption-clang1-d-arg>
+
+|-dA|||¶ <#cmdoption-clang-da>
+
+|-dD|||¶ <#cmdoption-clang-dd>
+
+Print macro definitions in -E mode in addition to normal output
+
+|-dI|||¶ <#cmdoption-clang-di>
+
+Print include directives in -E mode in addition to normal output
+
+|-dM|||¶ <#cmdoption-clang-dm>
+
+Print macro definitions in -E mode instead of normal output
+
+
+      Diagnostic flags <#id11>¶ <#diagnostic-flags>
+
+Flags controlling which warnings, errors, and remarks Clang will
+generate. See the full list of warning and remark flags
+<https://clang.llvm.org/docs/DiagnosticsReference.html>.
+
+|-R<remark>|||¶ <#cmdoption-clang-r-remark>
+
+Enable the specified remark
+
+|-Rpass-analysis||=<arg>|¶ <#cmdoption-clang-rpass-analysis>
+
+Report transformation analysis from optimization passes whose name
+matches the given POSIX regular expression
+
+|-Rpass-missed||=<arg>|¶ <#cmdoption-clang-rpass-missed>
+
+Report missed transformations by optimization passes whose name matches
+the given POSIX regular expression
+
+|-Rpass||=<arg>|¶ <#cmdoption-clang-rpass>
+
+Report transformations performed by optimization passes whose name
+matches the given POSIX regular expression
+
+|-W<warning>||||, ||--extra-warnings||||, ||--warn-<arg>||||,
+||--warn-||=<arg>|¶ <#cmdoption-clang-w-warning>
+
+Enable the specified warning
+
+|-Wdeprecated||||, ||-Wno-deprecated|||¶ <#cmdoption-clang-wdeprecated>
+
+Enable warnings for deprecated constructs and define __DEPRECATED
+
+|-Wnonportable-cfstrings<arg>||||, ||-Wno-nonportable-cfstrings<arg>|||¶
+<#cmdoption-clang-wnonportable-cfstrings-arg>
+
+
+      Target-independent compilation options <#id12>¶
+      <#target-independent-compilation-options>
+
+|-Wframe-larger-than||=<arg>|¶ <#cmdoption-clang-wframe-larger-than>
+
+|-fPIC||||, ||-fno-PIC|||¶ <#cmdoption-clang-fpic>
+
+|-fPIE||||, ||-fno-PIE|||¶ <#cmdoption-clang-fpie>
+
+|-faccess-control||||, ||-fno-access-control|||¶
+<#cmdoption-clang-faccess-control>
+
+|-faddrsig||||, ||-fno-addrsig|||¶ <#cmdoption-clang-faddrsig>
+
+Emit an address-significance table
+
+|-falign-functions||||, ||-fno-align-functions|||¶
+<#cmdoption-clang-falign-functions>
+
+|-falign-functions||=<arg>|¶ <#cmdoption-clang1-falign-functions>
+
+|-faligned-allocation||||, ||-faligned-new||||,
+||-fno-aligned-allocation|||¶ <#cmdoption-clang1-faligned-allocation>
+
+Enable C++17 aligned allocation functions
+
+|-fallow-editor-placeholders||||, ||-fno-allow-editor-placeholders|||¶
+<#cmdoption-clang-fallow-editor-placeholders>
+
+Treat editor placeholders as valid source code
+
+|-fallow-unsupported|||¶ <#cmdoption-clang-fallow-unsupported>
+
+|-faltivec||||, ||-fno-altivec|||¶ <#cmdoption-clang-faltivec>
+
+|-fansi-escape-codes|||¶ <#cmdoption-clang-fansi-escape-codes>
+
+Use ANSI escape codes for diagnostics
+
+|-fapple-kext||||, ||-findirect-virtual-calls||||,
+||-fterminated-vtables|||¶ <#cmdoption-clang-fapple-kext>
+
+Use Apple’s kernel extensions ABI
+
+|-fapple-pragma-pack||||, ||-fno-apple-pragma-pack|||¶
+<#cmdoption-clang-fapple-pragma-pack>
+
+Enable Apple gcc-compatible #pragma pack handling
+
+|-fapplication-extension||||, ||-fno-application-extension|||¶
+<#cmdoption-clang-fapplication-extension>
+
+Restrict code to those available for App Extensions
+
+|-fasm||||, ||-fno-asm|||¶ <#cmdoption-clang-fasm>
+
+|-fasm-blocks||||, ||-fno-asm-blocks|||¶ <#cmdoption-clang-fasm-blocks>
+
+|-fassociative-math||||, ||-fno-associative-math|||¶
+<#cmdoption-clang-fassociative-math>
+
+|-fassume-sane-operator-new||||, ||-fno-assume-sane-operator-new|||¶
+<#cmdoption-clang-fassume-sane-operator-new>
+
+|-fast|||¶ <#cmdoption-clang-fast>
+
+|-fastcp|||¶ <#cmdoption-clang-fastcp>
+
+|-fastf|||¶ <#cmdoption-clang-fastf>
+
+|-fasynchronous-unwind-tables||||, ||-fno-asynchronous-unwind-tables|||¶
+<#cmdoption-clang-fasynchronous-unwind-tables>
+
+|-fautolink||||, ||-fno-autolink|||¶ <#cmdoption-clang-fautolink>
+
+|-fblocks||||, ||-fno-blocks|||¶ <#cmdoption-clang-fblocks>
+
+Enable the ‘blocks’ language feature
+
+|-fbootclasspath||=<arg>||, ||--bootclasspath||<arg>||,
+||--bootclasspath||=<arg>|¶ <#cmdoption-clang-fbootclasspath>
+
+|-fborland-extensions||||, ||-fno-borland-extensions|||¶
+<#cmdoption-clang-fborland-extensions>
+
+Accept non-standard constructs supported by the Borland compiler
+
+|-fbracket-depth||=<arg>|¶ <#cmdoption-clang-fbracket-depth>
+
+|-fbuiltin||||, ||-fno-builtin|||¶ <#cmdoption-clang-fbuiltin>
+
+|-fbuiltin-module-map|||¶ <#cmdoption-clang-fbuiltin-module-map>
+
+Load the clang builtins module map file.
+
+|-fc++-static-destructors||||, ||-fno-c++-static-destructors|||¶
+<#cmdoption-clang-fc-static-destructors>
+
+Enable C++ static destructor registration (the default)
+
+|-fcaret-diagnostics||||, ||-fno-caret-diagnostics|||¶
+<#cmdoption-clang-fcaret-diagnostics>
+
+|-fcf-protection||=<arg>||, ||-fcf-protection||(equivalent to
+-fcf-protection=full)|¶ <#cmdoption-clang-fcf-protection>
+
+Instrument control-flow architecture protection. Options: return,
+branch, full, none.
+
+|-fcf-runtime-abi||=<arg>|¶ <#cmdoption-clang-fcf-runtime-abi>
+
+|-fchar8_t||||, ||-fno-char8_t|||¶ <#cmdoption-clang-fchar8-t>
+
+Enable C++ builtin type char8_t
+
+|-fclasspath||=<arg>||, ||--CLASSPATH||<arg>||, ||--CLASSPATH||=<arg>||,
+||--classpath||<arg>||, ||--classpath||=<arg>|¶
+<#cmdoption-clang-fclasspath>
+
+|-fcolor-diagnostics||||, ||-fno-color-diagnostics|||¶
+<#cmdoption-clang-fcolor-diagnostics>
+
+Use colors in diagnostics
+
+|-fcommon||||, ||-fno-common|||¶ <#cmdoption-clang-fcommon>
+
+|-fcompile-resource||=<arg>||, ||--resource||<arg>||,
+||--resource||=<arg>|¶ <#cmdoption-clang-fcompile-resource>
+
+|-fconstant-cfstrings||||, ||-fno-constant-cfstrings|||¶
+<#cmdoption-clang-fconstant-cfstrings>
+
+|-fconstant-string-class||=<arg>|¶ <#cmdoption-clang-fconstant-string-class>
+
+|-fconstexpr-backtrace-limit||=<arg>|¶
+<#cmdoption-clang-fconstexpr-backtrace-limit>
+
+|-fconstexpr-depth||=<arg>|¶ <#cmdoption-clang-fconstexpr-depth>
+
+|-fconstexpr-steps||=<arg>|¶ <#cmdoption-clang-fconstexpr-steps>
+
+|-fcoroutines-ts||||, ||-fno-coroutines-ts|||¶
+<#cmdoption-clang-fcoroutines-ts>
+
+Enable support for the C++ Coroutines TS
+
+|-fcoverage-mapping||||, ||-fno-coverage-mapping|||¶
+<#cmdoption-clang-fcoverage-mapping>
+
+Generate coverage mapping to enable code coverage analysis
+
+|-fcreate-profile|||¶ <#cmdoption-clang-fcreate-profile>
+
+|-fcs-profile-generate|||¶ <#cmdoption-clang-fcs-profile-generate>
+
+Generate instrumented code to collect context sensitive execution counts
+into default.profraw (overridden by LLVM_PROFILE_FILE env var)
+
+|-fcs-profile-generate||=<directory>|¶
+<#cmdoption-clang1-fcs-profile-generate>
+
+Generate instrumented code to collect context sensitive execution counts
+into <directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)
+
+|-fcxx-exceptions||||, ||-fno-cxx-exceptions|||¶
+<#cmdoption-clang-fcxx-exceptions>
+
+Enable C++ exceptions
+
+|-fcxx-modules||||, ||-fno-cxx-modules|||¶ <#cmdoption-clang-fcxx-modules>
+
+|-fdata-sections||||, ||-fno-data-sections|||¶
+<#cmdoption-clang-fdata-sections>
+
+Place each data in its own section (ELF Only)
+
+|-fdebug-info-for-profiling||||, ||-fno-debug-info-for-profiling|||¶
+<#cmdoption-clang-fdebug-info-for-profiling>
+
+Emit extra debug info to make sample profile more accurate.
+
+|-fdebug-macro||||, ||-fno-debug-macro|||¶ <#cmdoption-clang-fdebug-macro>
+
+Emit macro debug information
+
+|-fdebug-pass-arguments|||¶ <#cmdoption-clang-fdebug-pass-arguments>
+
+|-fdebug-pass-structure|||¶ <#cmdoption-clang-fdebug-pass-structure>
+
+|-fdebug-prefix-map||=<arg>|¶ <#cmdoption-clang-fdebug-prefix-map>
+
+remap file source paths in debug info
+
+|-fdebug-ranges-base-address||||, ||-fno-debug-ranges-base-address|||¶
+<#cmdoption-clang-fdebug-ranges-base-address>
+
+Use DWARF base address selection entries in debug_ranges
+
+|-fdebug-types-section||||, ||-fno-debug-types-section|||¶
+<#cmdoption-clang-fdebug-types-section>
+
+Place debug types in their own section (ELF Only)
+
+|-fdelayed-template-parsing||||, ||-fno-delayed-template-parsing|||¶
+<#cmdoption-clang-fdelayed-template-parsing>
+
+Parse templated function definitions at the end of the translation unit
+
+|-fdelete-null-pointer-checks||||, ||-fno-delete-null-pointer-checks|||¶
+<#cmdoption-clang-fdelete-null-pointer-checks>
+
+Treat usage of null pointers as undefined behavior.
+
+|-fdenormal-fp-math||=<arg>|¶ <#cmdoption-clang-fdenormal-fp-math>
+
+|-fdiagnostics-absolute-paths|||¶
+<#cmdoption-clang-fdiagnostics-absolute-paths>
+
+Print absolute paths in diagnostics
+
+|-fdiagnostics-color||||, ||-fno-diagnostics-color|||¶
+<#cmdoption-clang-fdiagnostics-color>
+
+|-fdiagnostics-color||=<arg>|¶ <#cmdoption-clang1-fdiagnostics-color>
+
+|-fdiagnostics-hotness-threshold||=<number>|¶
+<#cmdoption-clang-fdiagnostics-hotness-threshold>
+
+Prevent optimization remarks from being output if they do not have at
+least this profile count
+
+|-fdiagnostics-show-hotness||||, ||-fno-diagnostics-show-hotness|||¶
+<#cmdoption-clang-fdiagnostics-show-hotness>
+
+Enable profile hotness information in diagnostic line
+
+|-fdiagnostics-show-note-include-stack||||,
+||-fno-diagnostics-show-note-include-stack|||¶
+<#cmdoption-clang-fdiagnostics-show-note-include-stack>
+
+Display include stacks for diagnostic notes
+
+|-fdiagnostics-show-option||||, ||-fno-diagnostics-show-option|||¶
+<#cmdoption-clang-fdiagnostics-show-option>
+
+Print option name with mappable diagnostics
+
+|-fdiagnostics-show-template-tree|||¶
+<#cmdoption-clang-fdiagnostics-show-template-tree>
+
+Print a template comparison tree for differing templates
+
+|-fdigraphs||||, ||-fno-digraphs|||¶ <#cmdoption-clang-fdigraphs>
+
+Enable alternative token representations ‘<:’, ‘:>’, ‘<%’, ‘%>’, ‘%:’,
+‘%:%:’ (default)
+
+|-fdollars-in-identifiers||||, ||-fno-dollars-in-identifiers|||¶
+<#cmdoption-clang-fdollars-in-identifiers>
+
+Allow ‘$’ in identifiers
+
+|-fdouble-square-bracket-attributes||||,
+||-fno-double-square-bracket-attributes|||¶
+<#cmdoption-clang-fdouble-square-bracket-attributes>
+
+Enable ‘[[]]’ attributes in all C and C++ language modes
+
+|-fdwarf-directory-asm||||, ||-fno-dwarf-directory-asm|||¶
+<#cmdoption-clang-fdwarf-directory-asm>
+
+|-fdwarf-exceptions|||¶ <#cmdoption-clang-fdwarf-exceptions>
+
+Use DWARF style exceptions
+
+|-felide-constructors||||, ||-fno-elide-constructors|||¶
+<#cmdoption-clang-felide-constructors>
+
+|-feliminate-unused-debug-symbols||||,
+||-fno-eliminate-unused-debug-symbols|||¶
+<#cmdoption-clang-feliminate-unused-debug-symbols>
+
+|-fembed-bitcode||=<option>||, ||-fembed-bitcode||(equivalent to
+-fembed-bitcode=all)||, ||-fembed-bitcode-marker||(equivalent to
+-fembed-bitcode=marker)|¶ <#cmdoption-clang-fembed-bitcode>
+
+Embed LLVM bitcode (option: off, all, bitcode, marker)
+
+|-femit-all-decls|||¶ <#cmdoption-clang-femit-all-decls>
+
+Emit all declarations, even if unused
+
+|-femulated-tls||||, ||-fno-emulated-tls|||¶
+<#cmdoption-clang-femulated-tls>
+
+Use emutls functions to access thread_local variables
+
+|-fencoding||=<arg>||, ||--encoding||<arg>||, ||--encoding||=<arg>|¶
+<#cmdoption-clang-fencoding>
+
+|-ferror-limit||=<arg>|¶ <#cmdoption-clang-ferror-limit>
+
+|-fescaping-block-tail-calls||||, ||-fno-escaping-block-tail-calls|||¶
+<#cmdoption-clang-fescaping-block-tail-calls>
+
+|-fexceptions||||, ||-fno-exceptions|||¶ <#cmdoption-clang-fexceptions>
+
+Enable support for exception handling
+
+|-fexec-charset||=<arg>|¶ <#cmdoption-clang-fexec-charset>
+
+|-fextdirs||=<arg>||, ||--extdirs||<arg>||, ||--extdirs||=<arg>|¶
+<#cmdoption-clang-fextdirs>
+
+|-ffast-math||||, ||-fno-fast-math|||¶ <#cmdoption-clang-ffast-math>
+
+Allow aggressive, lossy floating-point optimizations
+
+|-ffinite-math-only||||, ||-fno-finite-math-only|||¶
+<#cmdoption-clang-ffinite-math-only>
+
+|-ffixed-point||||, ||-fno-fixed-point|||¶ <#cmdoption-clang-ffixed-point>
+
+Enable fixed point types
+
+|-ffor-scope||||, ||-fno-for-scope|||¶ <#cmdoption-clang-ffor-scope>
+
+|-fforce-emit-vtables||||, ||-fno-force-emit-vtables|||¶
+<#cmdoption-clang-fforce-emit-vtables>
+
+Emits more virtual tables to improve devirtualization
+
+|-fforce-enable-int128||||, ||-fno-force-enable-int128|||¶
+<#cmdoption-clang-fforce-enable-int128>
+
+Enable support for int128_t type
+
+|-ffp-contract||=<arg>|¶ <#cmdoption-clang-ffp-contract>
+
+Form fused FP ops (e.g. FMAs): fast (everywhere) | on (according to
+FP_CONTRACT pragma, default) | off (never fuse)
+
+|-ffreestanding|||¶ <#cmdoption-clang-ffreestanding>
+
+Assert that the compilation takes place in a freestanding environment
+
+|-ffunction-sections||||, ||-fno-function-sections|||¶
+<#cmdoption-clang-ffunction-sections>
+
+Place each function in its own section (ELF Only)
+
+|-fgnu-inline-asm||||, ||-fno-gnu-inline-asm|||¶
+<#cmdoption-clang-fgnu-inline-asm>
+
+|-fgnu-keywords||||, ||-fno-gnu-keywords|||¶
+<#cmdoption-clang-fgnu-keywords>
+
+Allow GNU-extension keywords regardless of language standard
+
+|-fgnu-runtime|||¶ <#cmdoption-clang-fgnu-runtime>
+
+Generate output compatible with the standard GNU Objective-C runtime
+
+|-fgnu89-inline||||, ||-fno-gnu89-inline|||¶
+<#cmdoption-clang-fgnu89-inline>
+
+Use the gnu89 inline semantics
+
+|-fhonor-infinities||||, ||-fhonor-infinites||||,
+||-fno-honor-infinities|||¶ <#cmdoption-clang-fhonor-infinities>
+
+|-fhonor-nans||||, ||-fno-honor-nans|||¶ <#cmdoption-clang-fhonor-nans>
+
+|-fhosted|||¶ <#cmdoption-clang-fhosted>
+
+|-fimplicit-module-maps||||, ||-fmodule-maps||||,
+||-fno-implicit-module-maps|||¶ <#cmdoption-clang-fimplicit-module-maps>
+
+Implicitly search the file system for module map files.
+
+|-fimplicit-modules||||, ||-fno-implicit-modules|||¶
+<#cmdoption-clang-fimplicit-modules>
+
+|-finput-charset||=<arg>|¶ <#cmdoption-clang-finput-charset>
+
+|-finstrument-function-entry-bare|||¶
+<#cmdoption-clang-finstrument-function-entry-bare>
+
+Instrument function entry only, after inlining, without arguments to the
+instrumentation call
+
+|-finstrument-functions|||¶ <#cmdoption-clang-finstrument-functions>
+
+Generate calls to instrument function entry and exit
+
+|-finstrument-functions-after-inlining|||¶
+<#cmdoption-clang-finstrument-functions-after-inlining>
+
+Like -finstrument-functions, but insert the calls after inlining
+
+|-fintegrated-as||||, ||-fno-integrated-as||||, ||-integrated-as|||¶
+<#cmdoption-clang-fintegrated-as>
+
+Enable the integrated assembler
+
+|-fjump-tables||||, ||-fno-jump-tables|||¶ <#cmdoption-clang-fjump-tables>
+
+|-fkeep-static-consts|||¶ <#cmdoption-clang-fkeep-static-consts>
+
+Keep static const variables even if unused
+
+|-flax-vector-conversions||||, ||-fno-lax-vector-conversions|||¶
+<#cmdoption-clang-flax-vector-conversions>
+
+|-flimited-precision||=<arg>|¶ <#cmdoption-clang-flimited-precision>
+
+|-flto||||, ||-fno-lto|||¶ <#cmdoption-clang-flto>
+
+Enable LTO in ‘full’ mode
+
+|-flto-jobs||=<arg>|¶ <#cmdoption-clang-flto-jobs>
+
+Controls the backend parallelism of -flto=thin (default of 0 means the
+number of threads will be derived from the number of CPUs detected)
+
+|-flto||=<arg>|¶ <#cmdoption-clang1-flto>
+
+Set LTO mode to either ‘full’ or ‘thin’
+
+|-fmacro-backtrace-limit||=<arg>|¶ <#cmdoption-clang-fmacro-backtrace-limit>
+
+|-fmath-errno||||, ||-fno-math-errno|||¶ <#cmdoption-clang-fmath-errno>
+
+Require math functions to indicate errors by setting errno
+
+|-fmax-type-align||=<arg>|¶ <#cmdoption-clang-fmax-type-align>
+
+Specify the maximum alignment to enforce on pointers lacking an explicit
+alignment
+
+|-fmerge-all-constants||||, ||-fno-merge-all-constants|||¶
+<#cmdoption-clang-fmerge-all-constants>
+
+Allow merging of constants
+
+|-fmessage-length||=<arg>|¶ <#cmdoption-clang-fmessage-length>
+
+|-fmodule-file-deps||||, ||-fno-module-file-deps|||¶
+<#cmdoption-clang-fmodule-file-deps>
+
+|-fmodule-map-file||=<file>|¶ <#cmdoption-clang-fmodule-map-file>
+
+Load this module map file
+
+|-fmodule-name||=<name>||, ||-fmodule-implementation-of||<arg>||,
+||-fmodule-name||<arg>|¶ <#cmdoption-clang-fmodule-name>
+
+Specify the name of the module to build
+
+|-fmodules||||, ||-fno-modules|||¶ <#cmdoption-clang-fmodules>
+
+Enable the ‘modules’ language feature
+
+|-fmodules-decluse||||, ||-fno-modules-decluse|||¶
+<#cmdoption-clang-fmodules-decluse>
+
+Require declaration of modules used within a module
+
+|-fmodules-ignore-macro||=<arg>|¶ <#cmdoption-clang-fmodules-ignore-macro>
+
+Ignore the definition of the given macro when building and loading modules
+
+|-fmodules-search-all||||, ||-fno-modules-search-all|||¶
+<#cmdoption-clang-fmodules-search-all>
+
+Search even non-imported modules to resolve references
+
+|-fmodules-strict-decluse|||¶ <#cmdoption-clang-fmodules-strict-decluse>
+
+Like -fmodules-decluse but requires all headers to be in modules
+
+|-fmodules-ts|||¶ <#cmdoption-clang-fmodules-ts>
+
+Enable support for the C++ Modules TS
+
+|-fms-compatibility||||, ||-fno-ms-compatibility|||¶
+<#cmdoption-clang-fms-compatibility>
+
+Enable full Microsoft Visual C++ compatibility
+
+|-fms-compatibility-version||=<arg>|¶
+<#cmdoption-clang-fms-compatibility-version>
+
+Dot-separated value representing the Microsoft compiler version number
+to report in _MSC_VER (0 = don’t define it (default))
+
+|-fms-extensions||||, ||-fno-ms-extensions|||¶
+<#cmdoption-clang-fms-extensions>
+
+Accept some non-standard constructs supported by the Microsoft compiler
+
+|-fms-memptr-rep||=<arg>|¶ <#cmdoption-clang-fms-memptr-rep>
+
+|-fms-volatile<arg>|||¶ <#cmdoption-clang-fms-volatile-arg>
+
+|-fmsc-version||=<arg>|¶ <#cmdoption-clang-fmsc-version>
+
+Microsoft compiler version number to report in _MSC_VER (0 = don’t
+define it (default))
+
+|-fmudflap|||¶ <#cmdoption-clang-fmudflap>
+
+|-fmudflapth|||¶ <#cmdoption-clang-fmudflapth>
+
+|-fnested-functions|||¶ <#cmdoption-clang-fnested-functions>
+
+|-fnew-alignment||=<align>||, ||-fnew-alignment||<arg>|¶
+<#cmdoption-clang-fnew-alignment>
+
+Specifies the largest alignment guaranteed by ‘::operator new(size_t)’
+
+|-fnext-runtime|||¶ <#cmdoption-clang-fnext-runtime>
+
+|-fno-builtin-<arg>|||¶ <#cmdoption-clang-fno-builtin-arg>
+
+Disable implicit builtin knowledge of a specific function
+
+|-fno-elide-type|||¶ <#cmdoption-clang-fno-elide-type>
+
+Do not elide types when printing diagnostics
+
+|-fno-max-type-align|||¶ <#cmdoption-clang-fno-max-type-align>
+
+|-fno-operator-names|||¶ <#cmdoption-clang-fno-operator-names>
+
+Do not treat C++ operator name keywords as synonyms for operators
+
+|-fno-rtti-data|||¶ <#cmdoption-clang-fno-rtti-data>
+
+Control emission of RTTI data
+
+|-fno-strict-modules-decluse|||¶
+<#cmdoption-clang-fno-strict-modules-decluse>
+
+|-fno-working-directory|||¶ <#cmdoption-clang-fno-working-directory>
+
+|-fnoxray-link-deps|||¶ <#cmdoption-clang-fnoxray-link-deps>
+
+|-fobjc-abi-version||=<arg>|¶ <#cmdoption-clang-fobjc-abi-version>
+
+|-fobjc-arc||||, ||-fno-objc-arc|||¶ <#cmdoption-clang-fobjc-arc>
+
+Synthesize retain and release calls for Objective-C pointers
+
+|-fobjc-arc-exceptions||||, ||-fno-objc-arc-exceptions|||¶
+<#cmdoption-clang-fobjc-arc-exceptions>
+
+Use EH-safe code when synthesizing retains and releases in -fobjc-arc
+
+|-fobjc-convert-messages-to-runtime-calls||||,
+||-fno-objc-convert-messages-to-runtime-calls|||¶
+<#cmdoption-clang-fobjc-convert-messages-to-runtime-calls>
+
+|-fobjc-exceptions||||, ||-fno-objc-exceptions|||¶
+<#cmdoption-clang-fobjc-exceptions>
+
+Enable Objective-C exceptions
+
+|-fobjc-infer-related-result-type||||,
+||-fno-objc-infer-related-result-type|||¶
+<#cmdoption-clang-fobjc-infer-related-result-type>
+
+|-fobjc-legacy-dispatch||||, ||-fno-objc-legacy-dispatch|||¶
+<#cmdoption-clang-fobjc-legacy-dispatch>
+
+|-fobjc-link-runtime|||¶ <#cmdoption-clang-fobjc-link-runtime>
+
+|-fobjc-nonfragile-abi||||, ||-fno-objc-nonfragile-abi|||¶
+<#cmdoption-clang-fobjc-nonfragile-abi>
+
+|-fobjc-nonfragile-abi-version||=<arg>|¶
+<#cmdoption-clang-fobjc-nonfragile-abi-version>
+
+|-fobjc-runtime||=<arg>|¶ <#cmdoption-clang-fobjc-runtime>
+
+Specify the target Objective-C runtime kind and version
+
+|-fobjc-sender-dependent-dispatch|||¶
+<#cmdoption-clang-fobjc-sender-dependent-dispatch>
+
+|-fobjc-weak||||, ||-fno-objc-weak|||¶ <#cmdoption-clang-fobjc-weak>
+
+Enable ARC-style weak references in Objective-C
+
+|-fomit-frame-pointer||||, ||-fno-omit-frame-pointer|||¶
+<#cmdoption-clang-fomit-frame-pointer>
+
+|-fopenmp||||, ||-fno-openmp|||¶ <#cmdoption-clang-fopenmp>
+
+Parse OpenMP pragmas and generate parallel code.
+
+|-fopenmp-simd||||, ||-fno-openmp-simd|||¶ <#cmdoption-clang-fopenmp-simd>
+
+Emit OpenMP code only for SIMD-based constructs.
+
+|-fopenmp-version||=<arg>|¶ <#cmdoption-clang-fopenmp-version>
+
+|-fopenmp||=<arg>|¶ <#cmdoption-clang1-fopenmp>
+
+|-foperator-arrow-depth||=<arg>|¶ <#cmdoption-clang-foperator-arrow-depth>
+
+|-foptimization-record-file||=<arg>|¶
+<#cmdoption-clang-foptimization-record-file>
+
+Specify the file name of any generated YAML optimization record
+
+|-foptimization-record-passes||=<arg>|¶
+<#cmdoption-clang-foptimization-record-passes>
+
+Only include passes which match a specified regular expression in the
+generated optimization record (by default, include all passes)
+
+|-foptimize-sibling-calls||||, ||-fno-optimize-sibling-calls|||¶
+<#cmdoption-clang-foptimize-sibling-calls>
+
+|-forder-file-instrumentation|||¶
+<#cmdoption-clang-forder-file-instrumentation>
+
+Generate instrumented code to collect order file into default.profraw
+file (overridden by ‘=’ form of option or LLVM_PROFILE_FILE env var)
+
+|-foutput-class-dir||=<arg>||, ||--output-class-directory||<arg>||,
+||--output-class-directory||=<arg>|¶ <#cmdoption-clang-foutput-class-dir>
+
+|-fpack-struct||||, ||-fno-pack-struct|||¶ <#cmdoption-clang-fpack-struct>
+
+|-fpack-struct||=<arg>|¶ <#cmdoption-clang1-fpack-struct>
+
+Specify the default maximum struct packing alignment
+
+|-fpascal-strings||||, ||-fno-pascal-strings||||, ||-mpascal-strings|||¶
+<#cmdoption-clang-fpascal-strings>
+
+Recognize and construct Pascal-style string literals
+
+|-fpass-plugin||=<dsopath>|¶ <#cmdoption-clang-fpass-plugin>
+
+Load pass plugin from a dynamic shared object file (only with new pass
+manager).
+
+|-fpcc-struct-return|||¶ <#cmdoption-clang-fpcc-struct-return>
+
+Override the default ABI to return all structs on the stack
+
+|-fpch-preprocess|||¶ <#cmdoption-clang-fpch-preprocess>
+
+|-fpic||||, ||-fno-pic|||¶ <#cmdoption-clang-fno-pic>
+
+|-fpie||||, ||-fno-pie|||¶ <#cmdoption-clang-fno-pie>
+
+|-fplt||||, ||-fno-plt|||¶ <#cmdoption-clang-fplt>
+
+Use the PLT to make function calls
+
+|-fplugin||=<dsopath>|¶ <#cmdoption-clang-fplugin>
+
+Load the named plugin (dynamic shared object)
+
+|-fpreserve-as-comments||||, ||-fno-preserve-as-comments|||¶
+<#cmdoption-clang-fpreserve-as-comments>
+
+|-fprofile-arcs||||, ||-fno-profile-arcs|||¶
+<#cmdoption-clang-fprofile-arcs>
+
+|-fprofile-dir||=<arg>|¶ <#cmdoption-clang-fprofile-dir>
+
+|-fprofile-exclude-files||=<arg>|¶ <#cmdoption-clang-fprofile-exclude-files>
+
+Instrument only functions from files where names don’t match all the
+regexes separated by a semi-colon
+
+|-fprofile-filter-files||=<arg>|¶ <#cmdoption-clang-fprofile-filter-files>
+
+Instrument only functions from files where names match any regex
+separated by a semi-colon
+
+|-fprofile-generate||||, ||-fno-profile-generate|||¶
+<#cmdoption-clang-fprofile-generate>
+
+Generate instrumented code to collect execution counts into
+default.profraw (overridden by LLVM_PROFILE_FILE env var)
+
+|-fprofile-generate||=<directory>|¶ <#cmdoption-clang1-fprofile-generate>
+
+Generate instrumented code to collect execution counts into
+<directory>/default.profraw (overridden by LLVM_PROFILE_FILE env var)
+
+|-fprofile-instr-generate||||, ||-fno-profile-instr-generate|||¶
+<#cmdoption-clang-fprofile-instr-generate>
+
+Generate instrumented code to collect execution counts into
+default.profraw file (overridden by ‘=’ form of option or
+LLVM_PROFILE_FILE env var)
+
+|-fprofile-instr-generate||=<file>|¶
+<#cmdoption-clang1-fprofile-instr-generate>
+
+Generate instrumented code to collect execution counts into <file>
+(overridden by LLVM_PROFILE_FILE env var)
+
+|-fprofile-instr-use||||, ||-fno-profile-instr-use||||,
+||-fprofile-use|||¶ <#cmdoption-clang-fprofile-instr-use>
+
+|-fprofile-instr-use||=<arg>|¶ <#cmdoption-clang1-fprofile-instr-use>
+
+Use instrumentation data for profile-guided optimization
+
+|-fprofile-remapping-file||=<file>||,
+||-fprofile-remapping-file||<arg>|¶
+<#cmdoption-clang-fprofile-remapping-file>
+
+Use the remappings described in <file> to match the profile data against
+names in the program
+
+|-fprofile-sample-accurate||||, ||-fauto-profile-accurate||||,
+||-fno-profile-sample-accurate|||¶
+<#cmdoption-clang-fprofile-sample-accurate>
+
+Specifies that the sample profile is accurate. If the sample
+    profile is accurate, callsites without profile samples are marked as
+    cold. Otherwise, treat callsites without profile samples as if we
+    have no profile
+
+|-fprofile-sample-use||||, ||-fauto-profile||||,
+||-fno-profile-sample-use|||¶ <#cmdoption-clang-fprofile-sample-use>
+
+|-fprofile-sample-use||=<arg>||, ||-fauto-profile||=<arg>|¶
+<#cmdoption-clang1-fprofile-sample-use>
+
+Enable sample-based profile guided optimizations
+
+|-fprofile-use||=<pathname>|¶ <#cmdoption-clang1-fprofile-use>
+
+Use instrumentation data for profile-guided optimization. If pathname is
+a directory, it reads from <pathname>/default.profdata. Otherwise, it
+reads from file <pathname>.
+
+|-freciprocal-math||||, ||-fno-reciprocal-math|||¶
+<#cmdoption-clang-freciprocal-math>
+
+Allow division operations to be reassociated
+
+|-freg-struct-return|||¶ <#cmdoption-clang-freg-struct-return>
+
+Override the default ABI to return small structs in registers
+
+|-fregister-global-dtors-with-atexit||||,
+||-fno-register-global-dtors-with-atexit|||¶
+<#cmdoption-clang-fregister-global-dtors-with-atexit>
+
+Use atexit or __cxa_atexit to register global destructors
+
+|-frelaxed-template-template-args||||,
+||-fno-relaxed-template-template-args|||¶
+<#cmdoption-clang-frelaxed-template-template-args>
+
+Enable C++17 relaxed template template argument matching
+
+|-freroll-loops||||, ||-fno-reroll-loops|||¶
+<#cmdoption-clang-freroll-loops>
+
+Turn on loop reroller
+
+|-fretain-comments-from-system-headers|||¶
+<#cmdoption-clang-fretain-comments-from-system-headers>
+
+|-frewrite-imports||||, ||-fno-rewrite-imports|||¶
+<#cmdoption-clang-frewrite-imports>
+
+|-frewrite-includes||||, ||-fno-rewrite-includes|||¶
+<#cmdoption-clang-frewrite-includes>
+
+|-frewrite-map-file||<arg>|¶ <#cmdoption-clang-frewrite-map-file>
+
+|-frewrite-map-file||=<arg>|¶ <#cmdoption-clang1-frewrite-map-file>
+
+|-fropi||||, ||-fno-ropi|||¶ <#cmdoption-clang-fropi>
+
+|-frtti||||, ||-fno-rtti|||¶ <#cmdoption-clang-frtti>
+
+|-frwpi||||, ||-fno-rwpi|||¶ <#cmdoption-clang-frwpi>
+
+|-fsave-optimization-record||||, ||-fno-save-optimization-record|||¶
+<#cmdoption-clang-fsave-optimization-record>
+
+Generate a YAML optimization record file
+
+|-fseh-exceptions|||¶ <#cmdoption-clang-fseh-exceptions>
+
+Use SEH style exceptions
+
+|-fshort-enums||||, ||-fno-short-enums|||¶ <#cmdoption-clang-fshort-enums>
+
+Allocate to an enum type only as many bytes as it needs for the declared
+range of possible values
+
+|-fshort-wchar||||, ||-fno-short-wchar|||¶ <#cmdoption-clang-fshort-wchar>
+
+Force wchar_t to be a short unsigned int
+
+|-fshow-column||||, ||-fno-show-column|||¶ <#cmdoption-clang-fshow-column>
+
+|-fshow-overloads||=<arg>|¶ <#cmdoption-clang-fshow-overloads>
+
+Which overload candidates to show when overload resolution fails:
+best|all; defaults to all
+
+|-fshow-source-location||||, ||-fno-show-source-location|||¶
+<#cmdoption-clang-fshow-source-location>
+
+|-fsignaling-math||||, ||-fno-signaling-math|||¶
+<#cmdoption-clang-fsignaling-math>
+
+|-fsigned-bitfields|||¶ <#cmdoption-clang-fsigned-bitfields>
+
+|-fsigned-char||||, ||-fno-signed-char||||, ||--signed-char|||¶
+<#cmdoption-clang-fsigned-char>
+
+|-fsigned-zeros||||, ||-fno-signed-zeros|||¶
+<#cmdoption-clang-fsigned-zeros>
+
+|-fsized-deallocation||||, ||-fno-sized-deallocation|||¶
+<#cmdoption-clang-fsized-deallocation>
+
+Enable C++14 sized global deallocation functions
+
+|-fsjlj-exceptions|||¶ <#cmdoption-clang-fsjlj-exceptions>
+
+Use SjLj style exceptions
+
+|-fslp-vectorize||||, ||-fno-slp-vectorize||||,
+||-ftree-slp-vectorize|||¶ <#cmdoption-clang-fslp-vectorize>
+
+Enable the superword-level parallelism vectorization passes
+
+|-fspell-checking||||, ||-fno-spell-checking|||¶
+<#cmdoption-clang-fspell-checking>
+
+|-fspell-checking-limit||=<arg>|¶ <#cmdoption-clang-fspell-checking-limit>
+
+|-fsplit-dwarf-inlining||||, ||-fno-split-dwarf-inlining|||¶
+<#cmdoption-clang-fsplit-dwarf-inlining>
+
+Provide minimal debug info in the object/executable to facilitate online
+symbolication/stack traces in the absence of .dwo/.dwp files when using
+Split DWARF
+
+|-fsplit-lto-unit||||, ||-fno-split-lto-unit|||¶
+<#cmdoption-clang-fsplit-lto-unit>
+
+Enables splitting of the LTO unit.
+
+|-fsplit-stack|||¶ <#cmdoption-clang-fsplit-stack>
+
+|-fstack-protector||||, ||-fno-stack-protector|||¶
+<#cmdoption-clang-fstack-protector>
+
+Enable stack protectors for some functions vulnerable to stack smashing.
+This uses a loose heuristic which considers functions vulnerable if they
+contain a char (or 8bit integer) array or constant sized calls to
+alloca, which are of greater size than ssp-buffer-size (default: 8
+bytes). All variable sized calls to alloca are considered vulnerable
+
+|-fstack-protector-all|||¶ <#cmdoption-clang-fstack-protector-all>
+
+Enable stack protectors for all functions
+
+|-fstack-protector-strong|||¶ <#cmdoption-clang-fstack-protector-strong>
+
+Enable stack protectors for some functions vulnerable to stack smashing.
+Compared to -fstack-protector, this uses a stronger heuristic that
+includes functions containing arrays of any size (and any type), as well
+as any calls to alloca or the taking of an address from a local variable
+
+|-fstack-size-section||||, ||-fno-stack-size-section|||¶
+<#cmdoption-clang-fstack-size-section>
+
+Emit section containing metadata on function stack sizes
+
+|-fstandalone-debug||||, ||-fno-limit-debug-info||||,
+||-fno-standalone-debug|||¶ <#cmdoption-clang-fstandalone-debug>
+
+Emit full debug info for all types used by the program
+
+|-fstrict-aliasing||||, ||-fno-strict-aliasing|||¶
+<#cmdoption-clang-fstrict-aliasing>
+
+|-fstrict-enums||||, ||-fno-strict-enums|||¶
+<#cmdoption-clang-fstrict-enums>
+
+Enable optimizations based on the strict definition of an enum’s value range
+
+|-fstrict-float-cast-overflow||||, ||-fno-strict-float-cast-overflow|||¶
+<#cmdoption-clang-fstrict-float-cast-overflow>
+
+Assume that overflowing float-to-int casts are undefined (default)
+
+|-fstrict-overflow||||, ||-fno-strict-overflow|||¶
+<#cmdoption-clang-fstrict-overflow>
+
+|-fstrict-return||||, ||-fno-strict-return|||¶
+<#cmdoption-clang-fstrict-return>
+
+Always treat control flow paths that fall off the end of a non-void
+function as unreachable
+
+|-fstrict-vtable-pointers||||, ||-fno-strict-vtable-pointers|||¶
+<#cmdoption-clang-fstrict-vtable-pointers>
+
+Enable optimizations based on the strict rules for overwriting
+polymorphic C++ objects
+
+|-fstruct-path-tbaa||||, ||-fno-struct-path-tbaa|||¶
+<#cmdoption-clang-fstruct-path-tbaa>
+
+|-ftabstop||=<arg>|¶ <#cmdoption-clang-ftabstop>
+
+|-ftemplate-backtrace-limit||=<arg>|¶
+<#cmdoption-clang-ftemplate-backtrace-limit>
+
+|-ftemplate-depth-<arg>|||¶ <#cmdoption-clang-ftemplate-depth-arg>
+
+|-ftemplate-depth||=<arg>|¶ <#cmdoption-clang-ftemplate-depth>
+
+|-ftest-coverage|||¶ <#cmdoption-clang-ftest-coverage>
+
+|-fthinlto-index||=<arg>|¶ <#cmdoption-clang-fthinlto-index>
+
+Perform ThinLTO importing using provided function summary index
+
+|-fthreadsafe-statics||||, ||-fno-threadsafe-statics|||¶
+<#cmdoption-clang-fthreadsafe-statics>
+
+|-ftime-report|||¶ <#cmdoption-clang-ftime-report>
+
+|-ftime-trace|||¶ <#cmdoption-clang-ftime-trace>
+
+|-ftls-model||=<arg>|¶ <#cmdoption-clang-ftls-model>
+
+|-ftrap-function||=<arg>|¶ <#cmdoption-clang-ftrap-function>
+
+Issue call to specified function rather than a trap instruction
+
+|-ftrapping-math||||, ||-fno-trapping-math|||¶
+<#cmdoption-clang-ftrapping-math>
+
+|-ftrapv|||¶ <#cmdoption-clang-ftrapv>
+
+Trap on integer overflow
+
+|-ftrapv-handler||<arg>|¶ <#cmdoption-clang-ftrapv-handler>
+
+|-ftrapv-handler||=<function name>|¶ <#cmdoption-clang1-ftrapv-handler>
+
+Specify the function to be called on overflow
+
+|-ftrigraphs||||, ||-fno-trigraphs||||, ||-trigraphs||||,
+||--trigraphs|||¶ <#cmdoption-clang-ftrigraphs>
+
+Process trigraph sequences
+
+|-ftrivial-auto-var-init||=<arg>|¶ <#cmdoption-clang-ftrivial-auto-var-init>
+
+Initialize trivial automatic stack variables: uninitialized (default) |
+pattern
+
+|-funique-section-names||||, ||-fno-unique-section-names|||¶
+<#cmdoption-clang-funique-section-names>
+
+Use unique names for text and data sections (ELF Only)
+
+|-funit-at-a-time||||, ||-fno-unit-at-a-time|||¶
+<#cmdoption-clang-funit-at-a-time>
+
+|-funroll-loops||||, ||-fno-unroll-loops|||¶
+<#cmdoption-clang-funroll-loops>
+
+Turn on loop unroller
+
+|-funsafe-math-optimizations||||, ||-fno-unsafe-math-optimizations|||¶
+<#cmdoption-clang-funsafe-math-optimizations>
+
+|-funsigned-bitfields|||¶ <#cmdoption-clang-funsigned-bitfields>
+
+|-funsigned-char||||, ||-fno-unsigned-char||||, ||--unsigned-char|||¶
+<#cmdoption-clang-funsigned-char>
+
+|-funwind-tables||||, ||-fno-unwind-tables|||¶
+<#cmdoption-clang-funwind-tables>
+
+|-fuse-cxa-atexit||||, ||-fno-use-cxa-atexit|||¶
+<#cmdoption-clang-fuse-cxa-atexit>
+
+|-fuse-init-array||||, ||-fno-use-init-array|||¶
+<#cmdoption-clang-fuse-init-array>
+
+Use .init_array instead of .ctors
+
+|-fuse-ld||=<arg>|¶ <#cmdoption-clang-fuse-ld>
+
+|-fuse-line-directives||||, ||-fno-use-line-directives|||¶
+<#cmdoption-clang-fuse-line-directives>
+
+|-fveclib||=<arg>|¶ <#cmdoption-clang-fveclib>
+
+Use the given vector functions library
+
+|-fvectorize||||, ||-fno-vectorize||||, ||-ftree-vectorize|||¶
+<#cmdoption-clang-fvectorize>
+
+Enable the loop vectorization passes
+
+|-fverbose-asm||||, ||-fno-verbose-asm|||¶ <#cmdoption-clang-fverbose-asm>
+
+|-fvisibility-global-new-delete-hidden|||¶
+<#cmdoption-clang-fvisibility-global-new-delete-hidden>
+
+Give global C++ operator new and delete declarations hidden visibility
+
+|-fvisibility-inlines-hidden|||¶
+<#cmdoption-clang-fvisibility-inlines-hidden>
+
+Give inline C++ member functions hidden visibility by default
+
+|-fvisibility-ms-compat|||¶ <#cmdoption-clang-fvisibility-ms-compat>
+
+Give global types ‘default’ visibility and global functions and
+variables ‘hidden’ visibility by default
+
+|-fvisibility||=<arg>|¶ <#cmdoption-clang-fvisibility>
+
+Set the default symbol visibility for all global declarations
+
+|-fwhole-program-vtables||||, ||-fno-whole-program-vtables|||¶
+<#cmdoption-clang-fwhole-program-vtables>
+
+Enables whole-program vtable optimization. Requires -flto
+
+|-fwrapv||||, ||-fno-wrapv|||¶ <#cmdoption-clang-fwrapv>
+
+Treat signed integer overflow as two’s complement
+
+|-fwritable-strings|||¶ <#cmdoption-clang-fwritable-strings>
+
+Store string literals as writable data
+
+|-fxray-always-emit-customevents||||,
+||-fno-xray-always-emit-customevents|||¶
+<#cmdoption-clang-fxray-always-emit-customevents>
+
+Determine whether to always emit __xray_customevent(…) calls even if the
+function it appears in is not always instrumented.
+
+|-fxray-always-emit-typedevents||||,
+||-fno-xray-always-emit-typedevents|||¶
+<#cmdoption-clang-fxray-always-emit-typedevents>
+
+Determine whether to always emit __xray_typedevent(…) calls even if the
+function it appears in is not always instrumented.
+
+|-fxray-always-instrument||=<arg>|¶
+<#cmdoption-clang-fxray-always-instrument>
+
+DEPRECATED: Filename defining the whitelist for imbuing the ‘always
+instrument’ XRay attribute.
+
+|-fxray-attr-list||=<arg>|¶ <#cmdoption-clang-fxray-attr-list>
+
+Filename defining the list of functions/types for imbuing XRay attributes.
+
+|-fxray-instruction-threshold<arg>|||¶
+<#cmdoption-clang-fxray-instruction-threshold-arg>
+
+|-fxray-instruction-threshold||=<arg>|¶
+<#cmdoption-clang1-fxray-instruction-threshold>
+
+Sets the minimum function size to instrument with XRay
+
+|-fxray-instrument||||, ||-fno-xray-instrument|||¶
+<#cmdoption-clang-fxray-instrument>
+
+Generate XRay instrumentation sleds on function entry and exit
+
+|-fxray-instrumentation-bundle||=<arg>|¶
+<#cmdoption-clang-fxray-instrumentation-bundle>
+
+Select which XRay instrumentation points to emit. Options: all, none,
+function, custom. Default is ‘all’.
+
+|-fxray-link-deps|||¶ <#cmdoption-clang-fxray-link-deps>
+
+Tells clang to add the link dependencies for XRay.
+
+|-fxray-modes||=<arg>|¶ <#cmdoption-clang-fxray-modes>
+
+List of modes to link in by default into XRay instrumented binaries.
+
+|-fxray-never-instrument||=<arg>|¶ <#cmdoption-clang-fxray-never-instrument>
+
+DEPRECATED: Filename defining the whitelist for imbuing the ‘never
+instrument’ XRay attribute.
+
+|-fzero-initialized-in-bss||||, ||-fno-zero-initialized-in-bss|||¶
+<#cmdoption-clang-fzero-initialized-in-bss>
+
+|-fzvector||||, ||-fno-zvector||||, ||-mzvector|||¶
+<#cmdoption-clang-fzvector>
+
+Enable System z vector language extension
+
+|-pedantic||||, ||--pedantic||||, ||-no-pedantic||||,
+||--no-pedantic|||¶ <#cmdoption-clang-pedantic>
+
+|-pedantic-errors||||, ||--pedantic-errors|||¶
+<#cmdoption-clang-pedantic-errors>
+
+
+        OpenCL flags <#id13>¶ <#opencl-flags>
+
+|-cl-denorms-are-zero|||¶ <#cmdoption-clang-cl-denorms-are-zero>
+
+OpenCL only. Allow denormals to be flushed to zero.
+
+|-cl-fast-relaxed-math|||¶ <#cmdoption-clang-cl-fast-relaxed-math>
+
+OpenCL only. Sets -cl-finite-math-only and
+-cl-unsafe-math-optimizations, and defines __FAST_RELAXED_MATH__.
+
+|-cl-finite-math-only|||¶ <#cmdoption-clang-cl-finite-math-only>
+
+OpenCL only. Allow floating-point optimizations that assume arguments
+and results are not NaNs or +-Inf.
+
+|-cl-fp32-correctly-rounded-divide-sqrt|||¶
+<#cmdoption-clang-cl-fp32-correctly-rounded-divide-sqrt>
+
+OpenCL only. Specify that single precision floating-point divide and
+sqrt used in the program source are correctly rounded.
+
+|-cl-kernel-arg-info|||¶ <#cmdoption-clang-cl-kernel-arg-info>
+
+OpenCL only. Generate kernel argument metadata.
+
+|-cl-mad-enable|||¶ <#cmdoption-clang-cl-mad-enable>
+
+OpenCL only. Allow use of less precise MAD computations in the generated
+binary.
+
+|-cl-no-signed-zeros|||¶ <#cmdoption-clang-cl-no-signed-zeros>
+
+OpenCL only. Allow use of less precise no signed zeros computations in
+the generated binary.
+
+|-cl-opt-disable|||¶ <#cmdoption-clang-cl-opt-disable>
+
+OpenCL only. This option disables all optimizations. By default
+optimizations are enabled.
+
+|-cl-single-precision-constant|||¶
+<#cmdoption-clang-cl-single-precision-constant>
+
+OpenCL only. Treat double precision floating-point constant as single
+precision constant.
+
+|-cl-std||=<arg>|¶ <#cmdoption-clang-cl-std>
+
+OpenCL language standard to compile for.
+
+|-cl-strict-aliasing|||¶ <#cmdoption-clang-cl-strict-aliasing>
+
+OpenCL only. This option is added for compatibility with OpenCL 1.0.
+
+|-cl-uniform-work-group-size|||¶
+<#cmdoption-clang-cl-uniform-work-group-size>
+
+OpenCL only. Defines that the global work-size be a multiple of the
+work-group size specified to clEnqueueNDRangeKernel
+
+|-cl-unsafe-math-optimizations|||¶
+<#cmdoption-clang-cl-unsafe-math-optimizations>
+
+OpenCL only. Allow unsafe floating-point optimizations. Also implies
+-cl-no-signed-zeros and -cl-mad-enable.
+
+
+      Target-dependent compilation options <#id14>¶
+      <#target-dependent-compilation-options>
+
+|-G<size>||||, ||-G||=<arg>||, ||-msmall-data-threshold||=<arg>|¶
+<#cmdoption-clang-g-size>
+
+Put objects of at most <size> bytes into small data section (MIPS / Hexagon)
+
+|-m16|||¶ <#cmdoption-clang-m16>
+
+|-m32|||¶ <#cmdoption-clang-m32>
+
+|-m64|||¶ <#cmdoption-clang-m64>
+
+|-mabi||=<arg>|¶ <#cmdoption-clang-mabi>
+
+|-malign-double|||¶ <#cmdoption-clang-malign-double>
+
+Align doubles to two words in structs (x86 only)
+
+|-march||=<arg>|¶ <#cmdoption-clang-march>
+
+|-masm||=<arg>|¶ <#cmdoption-clang-masm>
+
+|-mbackchain||||, ||-mno-backchain|||¶ <#cmdoption-clang-mbackchain>
+
+Link stack frames through backchain on System Z
+
+|-mcmodel||=<arg>|¶ <#cmdoption-clang-mcmodel>
+
+|-mconsole<arg>|||¶ <#cmdoption-clang-mconsole-arg>
+
+|-mcpu||=<arg>||, ||-mv5||(equivalent to -mcpu=hexagonv5)||,
+||-mv55||(equivalent to -mcpu=hexagonv55)||, ||-mv60||(equivalent to
+-mcpu=hexagonv60)||, ||-mv62||(equivalent to -mcpu=hexagonv62)||,
+||-mv65||(equivalent to -mcpu=hexagonv65)||, ||-mv66||(equivalent to
+-mcpu=hexagonv66)|¶ <#cmdoption-clang-mcpu>
+
+|-mcrc||||, ||-mno-crc|||¶ <#cmdoption-clang-mcrc>
+
+Allow use of CRC instructions (ARM/Mips only)
+
+|-mdefault-build-attributes<arg>||||,
+||-mno-default-build-attributes<arg>|||¶
+<#cmdoption-clang-mdefault-build-attributes-arg>
+
+|-mdll<arg>|||¶ <#cmdoption-clang-mdll-arg>
+
+|-mdynamic-no-pic<arg>|||¶ <#cmdoption-clang-mdynamic-no-pic-arg>
+
+|-meabi||<arg>|¶ <#cmdoption-clang-meabi>
+
+Set EABI type, e.g. 4, 5 or gnu (default depends on triple)
+
+|-mfentry|||¶ <#cmdoption-clang-mfentry>
+
+Insert calls to fentry at function entry (x86 only)
+
+|-mfloat-abi||=<arg>|¶ <#cmdoption-clang-mfloat-abi>
+
+|-mfpmath||=<arg>|¶ <#cmdoption-clang-mfpmath>
+
+|-mfpu||=<arg>|¶ <#cmdoption-clang-mfpu>
+
+|-mglobal-merge||||, ||-mno-global-merge|||¶
+<#cmdoption-clang-mglobal-merge>
+
+Enable merging of globals
+
+|-mhard-float|||¶ <#cmdoption-clang-mhard-float>
+
+|-mhwdiv||=<arg>||, ||--mhwdiv||<arg>||, ||--mhwdiv||=<arg>|¶
+<#cmdoption-clang-mhwdiv>
+
+|-mhwmult||=<arg>|¶ <#cmdoption-clang-mhwmult>
+
+|-miamcu||||, ||-mno-iamcu|||¶ <#cmdoption-clang-miamcu>
+
+Use Intel MCU ABI
+
+|-mimplicit-float||||, ||-mno-implicit-float|||¶
+<#cmdoption-clang-mimplicit-float>
+
+|-mimplicit-it||=<arg>|¶ <#cmdoption-clang-mimplicit-it>
+
+|-mincremental-linker-compatible||||,
+||-mno-incremental-linker-compatible|||¶
+<#cmdoption-clang-mincremental-linker-compatible>
+
+(integrated-as) Emit an object file which can be used with an
+incremental linker
+
+|-miphoneos-version-min||=<arg>||, ||-mios-version-min||=<arg>|¶
+<#cmdoption-clang-miphoneos-version-min>
+
+|-mkernel|||¶ <#cmdoption-clang-mkernel>
+
+|-mlong-calls||||, ||-mno-long-calls|||¶ <#cmdoption-clang-mlong-calls>
+
+Generate branches with extended addressability, usually via indirect jumps.
+
+|-mmacosx-version-min||=<arg>||, ||-mmacos-version-min||=<arg>|¶
+<#cmdoption-clang-mmacosx-version-min>
+
+Set Mac OS X deployment target
+
+|-mmcu||=<arg>|¶ <#cmdoption-clang-mmcu>
+
+|-mms-bitfields||||, ||-mno-ms-bitfields|||¶
+<#cmdoption-clang-mms-bitfields>
+
+Set the default structure layout to be compatible with the Microsoft
+compiler standard
+
+|-momit-leaf-frame-pointer||||, ||-mno-omit-leaf-frame-pointer|||¶
+<#cmdoption-clang-momit-leaf-frame-pointer>
+
+Omit frame pointer setup for leaf functions
+
+|-moslib||=<arg>|¶ <#cmdoption-clang-moslib>
+
+|-mpie-copy-relocations||||, ||-mno-pie-copy-relocations|||¶
+<#cmdoption-clang-mpie-copy-relocations>
+
+Use copy relocations support for PIE builds
+
+|-mprefer-vector-width||=<arg>|¶ <#cmdoption-clang-mprefer-vector-width>
+
+Specifies preferred vector width for auto-vectorization. Defaults to
+‘none’ which allows target specific decisions.
+
+|-mqdsp6-compat|||¶ <#cmdoption-clang-mqdsp6-compat>
+
+Enable hexagon-qdsp6 backward compatibility
+
+|-mrecip|||¶ <#cmdoption-clang-mrecip>
+
+|-mrecip||=<arg1>,<arg2>...|¶ <#cmdoption-clang1-mrecip>
+
+|-mred-zone||||, ||-mno-red-zone|||¶ <#cmdoption-clang-mred-zone>
+
+|-mregparm||=<arg>|¶ <#cmdoption-clang-mregparm>
+
+|-mrelax-all||||, ||-mno-relax-all|||¶ <#cmdoption-clang-mrelax-all>
+
+(integrated-as) Relax all machine instructions
+
+|-mretpoline||||, ||-mno-retpoline|||¶ <#cmdoption-clang-mretpoline>
+
+|-mrtd||||, ||-mno-rtd|||¶ <#cmdoption-clang-mrtd>
+
+Make StdCall calling convention the default
+
+|-msign-return-address||=<arg>|¶ <#cmdoption-clang-msign-return-address>
+
+Select return address signing scope
+
+|-msoft-float||||, ||-mno-soft-float|||¶ <#cmdoption-clang-msoft-float>
+
+Use software floating point
+
+|-mspeculative-load-hardening||||, ||-mno-speculative-load-hardening|||¶
+<#cmdoption-clang-mspeculative-load-hardening>
+
+|-mstack-alignment||=<arg>|¶ <#cmdoption-clang-mstack-alignment>
+
+Set the stack alignment
+
+|-mstack-arg-probe||||, ||-mno-stack-arg-probe|||¶
+<#cmdoption-clang-mstack-arg-probe>
+
+Enable stack probes
+
+|-mstack-probe-size||=<arg>|¶ <#cmdoption-clang-mstack-probe-size>
+
+Set the stack probe size
+
+|-mstackrealign||||, ||-mno-stackrealign|||¶
+<#cmdoption-clang-mstackrealign>
+
+Force realign the stack at entry to every function
+
+|-mthread-model||<arg>|¶ <#cmdoption-clang-mthread-model>
+
+The thread model to use, e.g. posix, single (posix by default)
+
+|-mthreads<arg>|||¶ <#cmdoption-clang-mthreads-arg>
+
+|-mthumb||||, ||-mno-thumb|||¶ <#cmdoption-clang-mthumb>
+
+|-mtls-direct-seg-refs||||, ||-mno-tls-direct-seg-refs|||¶
+<#cmdoption-clang-mtls-direct-seg-refs>
+
+Enable direct TLS access through segment registers (default)
+
+|-mtune||=<arg>|¶ <#cmdoption-clang-mtune>
+
+|-mtvos-version-min||=<arg>||, ||-mappletvos-version-min||=<arg>|¶
+<#cmdoption-clang-mtvos-version-min>
+
+|-municode<arg>|||¶ <#cmdoption-clang-municode-arg>
+
+|-mvx||||, ||-mno-vx|||¶ <#cmdoption-clang-mvx>
+
+|-mwarn-nonportable-cfstrings||||, ||-mno-warn-nonportable-cfstrings|||¶
+<#cmdoption-clang-mwarn-nonportable-cfstrings>
+
+|-mwatchos-version-min||=<arg>|¶ <#cmdoption-clang-mwatchos-version-min>
+
+|-mwindows<arg>|||¶ <#cmdoption-clang-mwindows-arg>
+
+|-mx32|||¶ <#cmdoption-clang-mx32>
+
+
+        AARCH64 <#id15>¶ <#aarch64>
+
+|-fcall-saved-x10|||¶ <#cmdoption-clang-fcall-saved-x10>
+
+Make the x10 register call-saved (AArch64 only)
+
+|-fcall-saved-x11|||¶ <#cmdoption-clang-fcall-saved-x11>
+
+Make the x11 register call-saved (AArch64 only)
+
+|-fcall-saved-x12|||¶ <#cmdoption-clang-fcall-saved-x12>
+
+Make the x12 register call-saved (AArch64 only)
+
+|-fcall-saved-x13|||¶ <#cmdoption-clang-fcall-saved-x13>
+
+Make the x13 register call-saved (AArch64 only)
+
+|-fcall-saved-x14|||¶ <#cmdoption-clang-fcall-saved-x14>
+
+Make the x14 register call-saved (AArch64 only)
+
+|-fcall-saved-x15|||¶ <#cmdoption-clang-fcall-saved-x15>
+
+Make the x15 register call-saved (AArch64 only)
+
+|-fcall-saved-x18|||¶ <#cmdoption-clang-fcall-saved-x18>
+
+Make the x18 register call-saved (AArch64 only)
+
+|-fcall-saved-x8|||¶ <#cmdoption-clang-fcall-saved-x8>
+
+Make the x8 register call-saved (AArch64 only)
+
+|-fcall-saved-x9|||¶ <#cmdoption-clang-fcall-saved-x9>
+
+Make the x9 register call-saved (AArch64 only)
+
+|-ffixed-x1|||¶ <#cmdoption-clang-ffixed-x1>
+
+Reserve the 1 register (AArch64 only)
+
+|-ffixed-x10|||¶ <#cmdoption-clang-ffixed-x10>
+
+Reserve the 10 register (AArch64 only)
+
+|-ffixed-x11|||¶ <#cmdoption-clang-ffixed-x11>
+
+Reserve the 11 register (AArch64 only)
+
+|-ffixed-x12|||¶ <#cmdoption-clang-ffixed-x12>
+
+Reserve the 12 register (AArch64 only)
+
+|-ffixed-x13|||¶ <#cmdoption-clang-ffixed-x13>
+
+Reserve the 13 register (AArch64 only)
+
+|-ffixed-x14|||¶ <#cmdoption-clang-ffixed-x14>
+
+Reserve the 14 register (AArch64 only)
+
+|-ffixed-x15|||¶ <#cmdoption-clang-ffixed-x15>
+
+Reserve the 15 register (AArch64 only)
+
+|-ffixed-x18|||¶ <#cmdoption-clang-ffixed-x18>
+
+Reserve the 18 register (AArch64 only)
+
+|-ffixed-x2|||¶ <#cmdoption-clang-ffixed-x2>
+
+Reserve the 2 register (AArch64 only)
+
+|-ffixed-x20|||¶ <#cmdoption-clang-ffixed-x20>
+
+Reserve the 20 register (AArch64 only)
+
+|-ffixed-x21|||¶ <#cmdoption-clang-ffixed-x21>
+
+Reserve the 21 register (AArch64 only)
+
+|-ffixed-x22|||¶ <#cmdoption-clang-ffixed-x22>
+
+Reserve the 22 register (AArch64 only)
+
+|-ffixed-x23|||¶ <#cmdoption-clang-ffixed-x23>
+
+Reserve the 23 register (AArch64 only)
+
+|-ffixed-x24|||¶ <#cmdoption-clang-ffixed-x24>
+
+Reserve the 24 register (AArch64 only)
+
+|-ffixed-x25|||¶ <#cmdoption-clang-ffixed-x25>
+
+Reserve the 25 register (AArch64 only)
+
+|-ffixed-x26|||¶ <#cmdoption-clang-ffixed-x26>
+
+Reserve the 26 register (AArch64 only)
+
+|-ffixed-x27|||¶ <#cmdoption-clang-ffixed-x27>
+
+Reserve the 27 register (AArch64 only)
+
+|-ffixed-x28|||¶ <#cmdoption-clang-ffixed-x28>
+
+Reserve the 28 register (AArch64 only)
+
+|-ffixed-x3|||¶ <#cmdoption-clang-ffixed-x3>
+
+Reserve the 3 register (AArch64 only)
+
+|-ffixed-x4|||¶ <#cmdoption-clang-ffixed-x4>
+
+Reserve the 4 register (AArch64 only)
+
+|-ffixed-x5|||¶ <#cmdoption-clang-ffixed-x5>
+
+Reserve the 5 register (AArch64 only)
+
+|-ffixed-x6|||¶ <#cmdoption-clang-ffixed-x6>
+
+Reserve the 6 register (AArch64 only)
+
+|-ffixed-x7|||¶ <#cmdoption-clang-ffixed-x7>
+
+Reserve the 7 register (AArch64 only)
+
+|-ffixed-x9|||¶ <#cmdoption-clang-ffixed-x9>
+
+Reserve the 9 register (AArch64 only)
+
+|-mfix-cortex-a53-835769||||, ||-mno-fix-cortex-a53-835769|||¶
+<#cmdoption-clang-mfix-cortex-a53-835769>
+
+Workaround Cortex-A53 erratum 835769 (AArch64 only)
+
+|-mgeneral-regs-only|||¶ <#cmdoption-clang-mgeneral-regs-only>
+
+Generate code which only uses the general purpose registers (AArch64 only)
+
+
+        AMDGPU <#id16>¶ <#amdgpu>
+
+|-mcode-object-v3||||, ||-mno-code-object-v3|||¶
+<#cmdoption-clang-mcode-object-v3>
+
+Enable code object v3 (AMDGPU only)
+
+|-msram-ecc||||, ||-mno-sram-ecc|||¶ <#cmdoption-clang-msram-ecc>
+
+Enable SRAM ECC (AMDGPU only)
+
+|-mxnack||||, ||-mno-xnack|||¶ <#cmdoption-clang-mxnack>
+
+Enable XNACK (AMDGPU only)
+
+
+        ARM <#id17>¶ <#arm>
+
+|-ffixed-r9|||¶ <#cmdoption-clang-ffixed-r9>
+
+Reserve the r9 register (ARM only)
+
+|-mexecute-only||||, ||-mno-execute-only||||, ||-mpure-code|||¶
+<#cmdoption-clang-mexecute-only>
+
+Disallow generation of data access to code sections (ARM only)
+
+|-mno-movt|||¶ <#cmdoption-clang-mno-movt>
+
+Disallow use of movt/movw pairs (ARM only)
+
+|-mno-neg-immediates|||¶ <#cmdoption-clang-mno-neg-immediates>
+
+Disallow converting instructions with negative immediates to their
+negation or inversion.
+
+|-mnocrc|||¶ <#cmdoption-clang-mnocrc>
+
+Disallow use of CRC instructions (ARM only)
+
+|-mrestrict-it||||, ||-mno-restrict-it|||¶ <#cmdoption-clang-mrestrict-it>
+
+Disallow generation of deprecated IT blocks for ARMv8. It is on by
+default for ARMv8 Thumb mode.
+
+|-mtp||=<arg>|¶ <#cmdoption-clang-mtp>
+
+Thread pointer access method (AArch32/AArch64 only)
+
+|-munaligned-access||||, ||-mno-unaligned-access|||¶
+<#cmdoption-clang-munaligned-access>
+
+Allow memory accesses to be unaligned (AArch32/AArch64 only)
+
+
+        Hexagon <#id18>¶ <#hexagon>
+
+|-mieee-rnd-near|||¶ <#cmdoption-clang-mieee-rnd-near>
+
+|-mmemops||||, ||-mno-memops|||¶ <#cmdoption-clang-mmemops>
+
+Enable generation of memop instructions
+
+|-mnvj||||, ||-mno-nvj|||¶ <#cmdoption-clang-mnvj>
+
+Enable generation of new-value jumps
+
+|-mnvs||||, ||-mno-nvs|||¶ <#cmdoption-clang-mnvs>
+
+Enable generation of new-value stores
+
+|-mpackets||||, ||-mno-packets|||¶ <#cmdoption-clang-mpackets>
+
+Enable generation of instruction packets
+
+
+        Hexagon <#id19>¶ <#id1>
+
+|-mhvx||||, ||-mno-hvx|||¶ <#cmdoption-clang-mhvx>
+
+Enable Hexagon Vector eXtensions
+
+|-mhvx-length||=<arg>|¶ <#cmdoption-clang-mhvx-length>
+
+Set Hexagon Vector Length
+
+|-mhvx||=<arg>|¶ <#cmdoption-clang1-mhvx>
+
+Enable Hexagon Vector eXtensions
+
+
+        MIPS <#id20>¶ <#mips>
+
+|-mabicalls||||, ||-mno-abicalls|||¶ <#cmdoption-clang-mabicalls>
+
+Enable SVR4-style position-independent code (Mips only)
+
+|-mabs||=<arg>|¶ <#cmdoption-clang-mabs>
+
+|-mcheck-zero-division||||, ||-mno-check-zero-division|||¶
+<#cmdoption-clang-mcheck-zero-division>
+
+|-mcompact-branches||=<arg>|¶ <#cmdoption-clang-mcompact-branches>
+
+|-mdouble-float|||¶ <#cmdoption-clang-mdouble-float>
+
+|-mdsp||||, ||-mno-dsp|||¶ <#cmdoption-clang-mdsp>
+
+|-mdspr2||||, ||-mno-dspr2|||¶ <#cmdoption-clang-mdspr2>
+
+|-membedded-data||||, ||-mno-embedded-data|||¶
+<#cmdoption-clang-membedded-data>
+
+Place constants in the .rodata section instead of the .sdata section
+even if they meet the -G <size> threshold (MIPS)
+
+|-mextern-sdata||||, ||-mno-extern-sdata|||¶
+<#cmdoption-clang-mextern-sdata>
+
+Assume that externally defined data is in the small data if it meets the
+-G <size> threshold (MIPS)
+
+|-mfp32|||¶ <#cmdoption-clang-mfp32>
+
+Use 32-bit floating point registers (MIPS only)
+
+|-mfp64|||¶ <#cmdoption-clang-mfp64>
+
+Use 64-bit floating point registers (MIPS only)
+
+|-mginv||||, ||-mno-ginv|||¶ <#cmdoption-clang-mginv>
+
+|-mgpopt||||, ||-mno-gpopt|||¶ <#cmdoption-clang-mgpopt>
+
+Use GP relative accesses for symbols known to be in a small data section
+(MIPS)
+
+|-mindirect-jump||=<arg>|¶ <#cmdoption-clang-mindirect-jump>
+
+Change indirect jump instructions to inhibit speculation
+
+|-mips16|||¶ <#cmdoption-clang-mips16>
+
+|-mldc1-sdc1||||, ||-mno-ldc1-sdc1|||¶ <#cmdoption-clang-mldc1-sdc1>
+
+|-mlocal-sdata||||, ||-mno-local-sdata|||¶ <#cmdoption-clang-mlocal-sdata>
+
+Extend the -G behaviour to object local data (MIPS)
+
+|-mmadd4||||, ||-mno-madd4|||¶ <#cmdoption-clang-mmadd4>
+
+Enable the generation of 4-operand madd.s, madd.d and related instructions.
+
+|-mmicromips||||, ||-mno-micromips|||¶ <#cmdoption-clang-mmicromips>
+
+|-mmsa||||, ||-mno-msa|||¶ <#cmdoption-clang-mmsa>
+
+Enable MSA ASE (MIPS only)
+
+|-mmt||||, ||-mno-mt|||¶ <#cmdoption-clang-mmt>
+
+Enable MT ASE (MIPS only)
+
+|-mnan||=<arg>|¶ <#cmdoption-clang-mnan>
+
+|-mno-mips16|||¶ <#cmdoption-clang-mno-mips16>
+
+|-msingle-float|||¶ <#cmdoption-clang-msingle-float>
+
+|-mvirt||||, ||-mno-virt|||¶ <#cmdoption-clang-mvirt>
+
+|-mxgot||||, ||-mno-xgot|||¶ <#cmdoption-clang-mxgot>
+
+
+        PowerPC <#id21>¶ <#powerpc>
+
+|-maltivec||||, ||-mno-altivec|||¶ <#cmdoption-clang-maltivec>
+
+|-mcmpb||||, ||-mno-cmpb|||¶ <#cmdoption-clang-mcmpb>
+
+|-mcrbits||||, ||-mno-crbits|||¶ <#cmdoption-clang-mcrbits>
+
+|-mcrypto||||, ||-mno-crypto|||¶ <#cmdoption-clang-mcrypto>
+
+|-mdirect-move||||, ||-mno-direct-move|||¶ <#cmdoption-clang-mdirect-move>
+
+|-mfloat128||||, ||-mno-float128|||¶ <#cmdoption-clang-mfloat128>
+
+|-mfprnd||||, ||-mno-fprnd|||¶ <#cmdoption-clang-mfprnd>
+
+|-mhtm||||, ||-mno-htm|||¶ <#cmdoption-clang-mhtm>
+
+|-minvariant-function-descriptors||||,
+||-mno-invariant-function-descriptors|||¶
+<#cmdoption-clang-minvariant-function-descriptors>
+
+|-misel||||, ||-mno-isel|||¶ <#cmdoption-clang-misel>
+
+|-mlongcall||||, ||-mno-longcall|||¶ <#cmdoption-clang-mlongcall>
+
+|-mmfocrf||||, ||-mmfcrf||||, ||-mno-mfocrf|||¶ <#cmdoption-clang-mmfocrf>
+
+|-mpopcntd||||, ||-mno-popcntd|||¶ <#cmdoption-clang-mpopcntd>
+
+|-mpower8-vector||||, ||-mno-power8-vector|||¶
+<#cmdoption-clang-mpower8-vector>
+
+|-mpower9-vector||||, ||-mno-power9-vector|||¶
+<#cmdoption-clang-mpower9-vector>
+
+|-mqpx||||, ||-mno-qpx|||¶ <#cmdoption-clang-mqpx>
+
+|-msecure-plt|||¶ <#cmdoption-clang-msecure-plt>
+
+|-mvsx||||, ||-mno-vsx|||¶ <#cmdoption-clang-mvsx>
+
+
+        WebAssembly <#id22>¶ <#webassembly>
+
+|-matomics||||, ||-mno-atomics|||¶ <#cmdoption-clang-matomics>
+
+|-mbulk-memory||||, ||-mno-bulk-memory|||¶ <#cmdoption-clang-mbulk-memory>
+
+|-mexception-handling||||, ||-mno-exception-handling|||¶
+<#cmdoption-clang-mexception-handling>
+
+|-mmutable-globals||||, ||-mno-mutable-globals|||¶
+<#cmdoption-clang-mmutable-globals>
+
+|-mnontrapping-fptoint||||, ||-mno-nontrapping-fptoint|||¶
+<#cmdoption-clang-mnontrapping-fptoint>
+
+|-msign-ext||||, ||-mno-sign-ext|||¶ <#cmdoption-clang-msign-ext>
+
+|-msimd128||||, ||-mno-simd128|||¶ <#cmdoption-clang-msimd128>
+
+|-munimplemented-simd128||||, ||-mno-unimplemented-simd128|||¶
+<#cmdoption-clang-munimplemented-simd128>
+
+
+        X86 <#id23>¶ <#x86>
+
+|-m3dnow||||, ||-mno-3dnow|||¶ <#cmdoption-clang-m3dnow>
+
+|-m3dnowa||||, ||-mno-3dnowa|||¶ <#cmdoption-clang-m3dnowa>
+
+|-madx||||, ||-mno-adx|||¶ <#cmdoption-clang-madx>
+
+|-maes||||, ||-mno-aes|||¶ <#cmdoption-clang-maes>
+
+|-mavx||||, ||-mno-avx|||¶ <#cmdoption-clang-mavx>
+
+|-mavx2||||, ||-mno-avx2|||¶ <#cmdoption-clang-mavx2>
+
+|-mavx512bitalg||||, ||-mno-avx512bitalg|||¶
+<#cmdoption-clang-mavx512bitalg>
+
+|-mavx512bw||||, ||-mno-avx512bw|||¶ <#cmdoption-clang-mavx512bw>
+
+|-mavx512cd||||, ||-mno-avx512cd|||¶ <#cmdoption-clang-mavx512cd>
+
+|-mavx512dq||||, ||-mno-avx512dq|||¶ <#cmdoption-clang-mavx512dq>
+
+|-mavx512er||||, ||-mno-avx512er|||¶ <#cmdoption-clang-mavx512er>
+
+|-mavx512f||||, ||-mno-avx512f|||¶ <#cmdoption-clang-mavx512f>
+
+|-mavx512ifma||||, ||-mno-avx512ifma|||¶ <#cmdoption-clang-mavx512ifma>
+
+|-mavx512pf||||, ||-mno-avx512pf|||¶ <#cmdoption-clang-mavx512pf>
+
+|-mavx512vbmi||||, ||-mno-avx512vbmi|||¶ <#cmdoption-clang-mavx512vbmi>
+
+|-mavx512vbmi2||||, ||-mno-avx512vbmi2|||¶ <#cmdoption-clang-mavx512vbmi2>
+
+|-mavx512vl||||, ||-mno-avx512vl|||¶ <#cmdoption-clang-mavx512vl>
+
+|-mavx512vnni||||, ||-mno-avx512vnni|||¶ <#cmdoption-clang-mavx512vnni>
+
+|-mavx512vpopcntdq||||, ||-mno-avx512vpopcntdq|||¶
+<#cmdoption-clang-mavx512vpopcntdq>
+
+|-mbmi||||, ||-mno-bmi|||¶ <#cmdoption-clang-mbmi>
+
+|-mbmi2||||, ||-mno-bmi2|||¶ <#cmdoption-clang-mbmi2>
+
+|-mcldemote||||, ||-mno-cldemote|||¶ <#cmdoption-clang-mcldemote>
+
+|-mclflushopt||||, ||-mno-clflushopt|||¶ <#cmdoption-clang-mclflushopt>
+
+|-mclwb||||, ||-mno-clwb|||¶ <#cmdoption-clang-mclwb>
+
+|-mclzero||||, ||-mno-clzero|||¶ <#cmdoption-clang-mclzero>
+
+|-mcx16||||, ||-mno-cx16|||¶ <#cmdoption-clang-mcx16>
+
+|-mf16c||||, ||-mno-f16c|||¶ <#cmdoption-clang-mf16c>
+
+|-mfma||||, ||-mno-fma|||¶ <#cmdoption-clang-mfma>
+
+|-mfma4||||, ||-mno-fma4|||¶ <#cmdoption-clang-mfma4>
+
+|-mfsgsbase||||, ||-mno-fsgsbase|||¶ <#cmdoption-clang-mfsgsbase>
+
+|-mfxsr||||, ||-mno-fxsr|||¶ <#cmdoption-clang-mfxsr>
+
+|-mgfni||||, ||-mno-gfni|||¶ <#cmdoption-clang-mgfni>
+
+|-minvpcid||||, ||-mno-invpcid|||¶ <#cmdoption-clang-minvpcid>
+
+|-mlwp||||, ||-mno-lwp|||¶ <#cmdoption-clang-mlwp>
+
+|-mlzcnt||||, ||-mno-lzcnt|||¶ <#cmdoption-clang-mlzcnt>
+
+|-mmmx||||, ||-mno-mmx|||¶ <#cmdoption-clang-mmmx>
+
+|-mmovbe||||, ||-mno-movbe|||¶ <#cmdoption-clang-mmovbe>
+
+|-mmovdir64b||||, ||-mno-movdir64b|||¶ <#cmdoption-clang-mmovdir64b>
+
+|-mmovdiri||||, ||-mno-movdiri|||¶ <#cmdoption-clang-mmovdiri>
+
+|-mmpx||||, ||-mno-mpx|||¶ <#cmdoption-clang-mmpx>
+
+|-mmwaitx||||, ||-mno-mwaitx|||¶ <#cmdoption-clang-mmwaitx>
+
+|-mpclmul||||, ||-mno-pclmul|||¶ <#cmdoption-clang-mpclmul>
+
+|-mpconfig||||, ||-mno-pconfig|||¶ <#cmdoption-clang-mpconfig>
+
+|-mpku||||, ||-mno-pku|||¶ <#cmdoption-clang-mpku>
+
+|-mpopcnt||||, ||-mno-popcnt|||¶ <#cmdoption-clang-mpopcnt>
+
+|-mprefetchwt1||||, ||-mno-prefetchwt1|||¶ <#cmdoption-clang-mprefetchwt1>
+
+|-mprfchw||||, ||-mno-prfchw|||¶ <#cmdoption-clang-mprfchw>
+
+|-mptwrite||||, ||-mno-ptwrite|||¶ <#cmdoption-clang-mptwrite>
+
+|-mrdpid||||, ||-mno-rdpid|||¶ <#cmdoption-clang-mrdpid>
+
+|-mrdrnd||||, ||-mno-rdrnd|||¶ <#cmdoption-clang-mrdrnd>
+
+|-mrdseed||||, ||-mno-rdseed|||¶ <#cmdoption-clang-mrdseed>
+
+|-mretpoline-external-thunk||||, ||-mno-retpoline-external-thunk|||¶
+<#cmdoption-clang-mretpoline-external-thunk>
+
+|-mrtm||||, ||-mno-rtm|||¶ <#cmdoption-clang-mrtm>
+
+|-msahf||||, ||-mno-sahf|||¶ <#cmdoption-clang-msahf>
+
+|-msgx||||, ||-mno-sgx|||¶ <#cmdoption-clang-msgx>
+
+|-msha||||, ||-mno-sha|||¶ <#cmdoption-clang-msha>
+
+|-mshstk||||, ||-mno-shstk|||¶ <#cmdoption-clang-mshstk>
+
+|-msse||||, ||-mno-sse|||¶ <#cmdoption-clang-msse>
+
+|-msse2||||, ||-mno-sse2|||¶ <#cmdoption-clang-msse2>
+
+|-msse3||||, ||-mno-sse3|||¶ <#cmdoption-clang-msse3>
+
+|-msse4.1||||, ||-mno-sse4.1|||¶ <#cmdoption-clang-msse4-1>
+
+|-msse4.2||||, ||-mno-sse4.2||||, ||-msse4|||¶ <#cmdoption-clang1-msse4-2>
+
+|-msse4a||||, ||-mno-sse4a|||¶ <#cmdoption-clang-msse4a>
+
+|-mssse3||||, ||-mno-ssse3|||¶ <#cmdoption-clang-mssse3>
+
+|-mtbm||||, ||-mno-tbm|||¶ <#cmdoption-clang-mtbm>
+
+|-mvaes||||, ||-mno-vaes|||¶ <#cmdoption-clang-mvaes>
+
+|-mvpclmulqdq||||, ||-mno-vpclmulqdq|||¶ <#cmdoption-clang-mvpclmulqdq>
+
+|-mwaitpkg||||, ||-mno-waitpkg|||¶ <#cmdoption-clang-mwaitpkg>
+
+|-mwbnoinvd||||, ||-mno-wbnoinvd|||¶ <#cmdoption-clang-mwbnoinvd>
+
+|-mx87||||, ||-m80387||||, ||-mno-x87|||¶ <#cmdoption-clang-mx87>
+
+|-mxop||||, ||-mno-xop|||¶ <#cmdoption-clang-mxop>
+
+|-mxsave||||, ||-mno-xsave|||¶ <#cmdoption-clang-mxsave>
+
+|-mxsavec||||, ||-mno-xsavec|||¶ <#cmdoption-clang-mxsavec>
+
+|-mxsaveopt||||, ||-mno-xsaveopt|||¶ <#cmdoption-clang-mxsaveopt>
+
+|-mxsaves||||, ||-mno-xsaves|||¶ <#cmdoption-clang-mxsaves>
+
+
+        RISCV <#id24>¶ <#riscv>
+
+|-mrelax||||, ||-mno-relax|||¶ <#cmdoption-clang-mrelax>
+
+Enable linker relaxation
+
+
+      Optimization level <#id25>¶ <#optimization-level>
+
+Flags controlling how much optimization should be performed.
+
+|-O<arg>||||, ||-O||(equivalent to -O2)||, ||--optimize||||,
+||--optimize||=<arg>|¶ <#cmdoption-clang-o-arg>
+
+|-Ofast<arg>|||¶ <#cmdoption-clang-ofast-arg>
+
+
+      Debug information generation <#id26>¶ <#debug-information-generation>
+
+Flags controlling how much and what kind of debug information should be
+generated.
+
+
+        Kind and level of debug information <#id27>¶
+        <#kind-and-level-of-debug-information>
+
+|-g||||, ||--debug||||, ||--debug||=<arg>|¶ <#cmdoption-clang-g>
+
+Generate source-level debug information
+
+|-gdwarf-2|||¶ <#cmdoption-clang-gdwarf-2>
+
+Generate source-level debug information with dwarf version 2
+
+|-gdwarf-3|||¶ <#cmdoption-clang-gdwarf-3>
+
+Generate source-level debug information with dwarf version 3
+
+|-gdwarf-4||||, ||-gdwarf|||¶ <#cmdoption-clang-gdwarf-4>
+
+Generate source-level debug information with dwarf version 4
+
+|-gdwarf-5|||¶ <#cmdoption-clang-gdwarf-5>
+
+Generate source-level debug information with dwarf version 5
+
+|-gfull|||¶ <#cmdoption-clang-gfull>
+
+|-gused|||¶ <#cmdoption-clang-gused>
+
+
+          Debug level <#id28>¶ <#debug-level>
+
+|-g0|||¶ <#cmdoption-clang-g0>
+
+|-g2|||¶ <#cmdoption-clang-g2>
+
+|-g3|||¶ <#cmdoption-clang-g3>
+
+|-ggdb0|||¶ <#cmdoption-clang-ggdb0>
+
+|-ggdb1|||¶ <#cmdoption-clang-ggdb1>
+
+|-ggdb2|||¶ <#cmdoption-clang-ggdb2>
+
+|-ggdb3|||¶ <#cmdoption-clang-ggdb3>
+
+|-gline-directives-only|||¶ <#cmdoption-clang-gline-directives-only>
+
+Emit debug line info directives only
+
+|-gline-tables-only||||, ||-g1||||, ||-gmlt|||¶
+<#cmdoption-clang-gline-tables-only>
+
+Emit debug line number tables only
+
+|-gmodules|||¶ <#cmdoption-clang-gmodules>
+
+Generate debug info with external references to clang modules or
+precompiled headers
+
+
+          Debugger to tune debug information for <#id29>¶
+          <#debugger-to-tune-debug-information-for>
+
+|-ggdb|||¶ <#cmdoption-clang-ggdb>
+
+|-glldb|||¶ <#cmdoption-clang-glldb>
+
+|-gsce|||¶ <#cmdoption-clang-gsce>
+
+
+        Debug information flags <#id30>¶ <#debug-information-flags>
+
+|-gcolumn-info||||, ||-gno-column-info|||¶ <#cmdoption-clang-gcolumn-info>
+
+|-gdwarf-aranges|||¶ <#cmdoption-clang-gdwarf-aranges>
+
+|-gembed-source||||, ||-gno-embed-source|||¶
+<#cmdoption-clang-gembed-source>
+
+Embed source text in DWARF debug sections
+
+|-ggnu-pubnames||||, ||-gno-gnu-pubnames|||¶
+<#cmdoption-clang-ggnu-pubnames>
+
+|-gpubnames||||, ||-gno-pubnames|||¶ <#cmdoption-clang-gpubnames>
+
+|-grecord-command-line||||, ||-gno-record-command-line||||,
+||-grecord-gcc-switches|||¶ <#cmdoption-clang-grecord-command-line>
+
+|-gsplit-dwarf|||¶ <#cmdoption-clang-gsplit-dwarf>
+
+|-gsplit-dwarf||=<arg>|¶ <#cmdoption-clang1-gsplit-dwarf>
+
+Set DWARF fission mode to either ‘split’ or ‘single’
+
+|-gstrict-dwarf||||, ||-gno-strict-dwarf|||¶
+<#cmdoption-clang-gstrict-dwarf>
+
+|-gz|||¶ <#cmdoption-clang-gz>
+
+DWARF debug sections compression type
+
+|-gz||=<arg>|¶ <#cmdoption-clang1-gz>
+
+DWARF debug sections compression type
+
+
+    Static analyzer flags <#id31>¶ <#static-analyzer-flags>
+
+Flags controlling the behavior of the Clang Static Analyzer.
+
+|-Xanalyzer||<arg>|¶ <#cmdoption-clang-xanalyzer>
+
+Pass <arg> to the static analyzer
+
+
+    Fortran compilation flags <#id32>¶ <#fortran-compilation-flags>
+
+Flags that will be passed onto the |gfortran| compiler when Clang is
+given a Fortran input.
+
+|-A<arg>||||, ||--assert||<arg>||, ||--assert||=<arg>|¶
+<#cmdoption-clang-assert>
+
+|-A-<arg>|||¶ <#id2>
+
+|-J<arg>|||¶ <#cmdoption-clang-j-arg>
+
+|-cpp|||¶ <#cmdoption-clang-cpp>
+
+|-faggressive-function-elimination||||,
+||-fno-aggressive-function-elimination|||¶
+<#cmdoption-clang-faggressive-function-elimination>
+
+|-falign-commons||||, ||-fno-align-commons|||¶
+<#cmdoption-clang-falign-commons>
+
+|-fall-intrinsics||||, ||-fno-all-intrinsics|||¶
+<#cmdoption-clang-fall-intrinsics>
+
+|-fautomatic||||, ||-fno-automatic|||¶ <#cmdoption-clang-fautomatic>
+
+|-fbackslash||||, ||-fno-backslash|||¶ <#cmdoption-clang-fbackslash>
+
+|-fbacktrace||||, ||-fno-backtrace|||¶ <#cmdoption-clang-fbacktrace>
+
+|-fblas-matmul-limit||=<arg>|¶ <#cmdoption-clang-fblas-matmul-limit>
+
+|-fbounds-check||||, ||-fno-bounds-check|||¶
+<#cmdoption-clang-fbounds-check>
+
+|-fcheck-array-temporaries||||, ||-fno-check-array-temporaries|||¶
+<#cmdoption-clang-fcheck-array-temporaries>
+
+|-fcheck||=<arg>|¶ <#cmdoption-clang-fcheck>
+
+|-fcoarray||=<arg>|¶ <#cmdoption-clang-fcoarray>
+
+|-fconvert||=<arg>|¶ <#cmdoption-clang-fconvert>
+
+|-fcray-pointer||||, ||-fno-cray-pointer|||¶
+<#cmdoption-clang-fcray-pointer>
+
+|-fd-lines-as-code||||, ||-fno-d-lines-as-code|||¶
+<#cmdoption-clang-fd-lines-as-code>
+
+|-fd-lines-as-comments||||, ||-fno-d-lines-as-comments|||¶
+<#cmdoption-clang-fd-lines-as-comments>
+
+|-fdefault-double-8||||, ||-fno-default-double-8|||¶
+<#cmdoption-clang-fdefault-double-8>
+
+|-fdefault-integer-8||||, ||-fno-default-integer-8|||¶
+<#cmdoption-clang-fdefault-integer-8>
+
+|-fdefault-real-8||||, ||-fno-default-real-8|||¶
+<#cmdoption-clang-fdefault-real-8>
+
+|-fdollar-ok||||, ||-fno-dollar-ok|||¶ <#cmdoption-clang-fdollar-ok>
+
+|-fdump-fortran-optimized||||, ||-fno-dump-fortran-optimized|||¶
+<#cmdoption-clang-fdump-fortran-optimized>
+
+|-fdump-fortran-original||||, ||-fno-dump-fortran-original|||¶
+<#cmdoption-clang-fdump-fortran-original>
+
+|-fdump-parse-tree||||, ||-fno-dump-parse-tree|||¶
+<#cmdoption-clang-fdump-parse-tree>
+
+|-fexternal-blas||||, ||-fno-external-blas|||¶
+<#cmdoption-clang-fexternal-blas>
+
+|-ff2c||||, ||-fno-f2c|||¶ <#cmdoption-clang-ff2c>
+
+|-ffixed-form||||, ||-fno-fixed-form|||¶ <#cmdoption-clang-ffixed-form>
+
+|-ffixed-line-length-<arg>|||¶ <#cmdoption-clang-ffixed-line-length-arg>
+
+|-ffpe-trap||=<arg>|¶ <#cmdoption-clang-ffpe-trap>
+
+|-ffree-form||||, ||-fno-free-form|||¶ <#cmdoption-clang-ffree-form>
+
+|-ffree-line-length-<arg>|||¶ <#cmdoption-clang-ffree-line-length-arg>
+
+|-ffrontend-optimize||||, ||-fno-frontend-optimize|||¶
+<#cmdoption-clang-ffrontend-optimize>
+
+|-fimplicit-none||||, ||-fno-implicit-none|||¶
+<#cmdoption-clang-fimplicit-none>
+
+|-finit-character||=<arg>|¶ <#cmdoption-clang-finit-character>
+
+|-finit-integer||=<arg>|¶ <#cmdoption-clang-finit-integer>
+
+|-finit-local-zero||||, ||-fno-init-local-zero|||¶
+<#cmdoption-clang-finit-local-zero>
+
+|-finit-logical||=<arg>|¶ <#cmdoption-clang-finit-logical>
+
+|-finit-real||=<arg>|¶ <#cmdoption-clang-finit-real>
+
+|-finteger-4-integer-8||||, ||-fno-integer-4-integer-8|||¶
+<#cmdoption-clang-finteger-4-integer-8>
+
+|-fintrinsic-modules-path||||, ||-fno-intrinsic-modules-path|||¶
+<#cmdoption-clang-fintrinsic-modules-path>
+
+|-fmax-array-constructor||=<arg>|¶ <#cmdoption-clang-fmax-array-constructor>
+
+|-fmax-errors||=<arg>|¶ <#cmdoption-clang-fmax-errors>
+
+|-fmax-identifier-length||||, ||-fno-max-identifier-length|||¶
+<#cmdoption-clang-fmax-identifier-length>
+
+|-fmax-stack-var-size||=<arg>|¶ <#cmdoption-clang-fmax-stack-var-size>
+
+|-fmax-subrecord-length||=<arg>|¶ <#cmdoption-clang-fmax-subrecord-length>
+
+|-fmodule-private||||, ||-fno-module-private|||¶
+<#cmdoption-clang-fmodule-private>
+
+|-fpack-derived||||, ||-fno-pack-derived|||¶
+<#cmdoption-clang-fpack-derived>
+
+|-fprotect-parens||||, ||-fno-protect-parens|||¶
+<#cmdoption-clang-fprotect-parens>
+
+|-frange-check||||, ||-fno-range-check|||¶ <#cmdoption-clang-frange-check>
+
+|-freal-4-real-10||||, ||-fno-real-4-real-10|||¶
+<#cmdoption-clang-freal-4-real-10>
+
+|-freal-4-real-16||||, ||-fno-real-4-real-16|||¶
+<#cmdoption-clang-freal-4-real-16>
+
+|-freal-4-real-8||||, ||-fno-real-4-real-8|||¶
+<#cmdoption-clang-freal-4-real-8>
+
+|-freal-8-real-10||||, ||-fno-real-8-real-10|||¶
+<#cmdoption-clang-freal-8-real-10>
+
+|-freal-8-real-16||||, ||-fno-real-8-real-16|||¶
+<#cmdoption-clang-freal-8-real-16>
+
+|-freal-8-real-4||||, ||-fno-real-8-real-4|||¶
+<#cmdoption-clang-freal-8-real-4>
+
+|-frealloc-lhs||||, ||-fno-realloc-lhs|||¶ <#cmdoption-clang-frealloc-lhs>
+
+|-frecord-marker||=<arg>|¶ <#cmdoption-clang-frecord-marker>
+
+|-frecursive||||, ||-fno-recursive|||¶ <#cmdoption-clang-frecursive>
+
+|-frepack-arrays||||, ||-fno-repack-arrays|||¶
+<#cmdoption-clang-frepack-arrays>
+
+|-fsecond-underscore||||, ||-fno-second-underscore|||¶
+<#cmdoption-clang-fsecond-underscore>
+
+|-fsign-zero||||, ||-fno-sign-zero|||¶ <#cmdoption-clang-fsign-zero>
+
+|-fstack-arrays||||, ||-fno-stack-arrays|||¶
+<#cmdoption-clang-fstack-arrays>
+
+|-funderscoring||||, ||-fno-underscoring|||¶
+<#cmdoption-clang-funderscoring>
+
+|-fwhole-file||||, ||-fno-whole-file|||¶ <#cmdoption-clang-fwhole-file>
+
+|-imultilib||<arg>|¶ <#cmdoption-clang-imultilib>
+
+|-nocpp|||¶ <#cmdoption-clang-nocpp>
+
+|-static-libgfortran|||¶ <#cmdoption-clang-static-libgfortran>
+
+
+    Linker flags <#id33>¶ <#linker-flags>
+
+Flags that are passed on to the linker
+
+|-L<dir>||||, ||--library-directory||<arg>||,
+||--library-directory||=<arg>|¶ <#cmdoption-clang-l-dir>
+
+Add directory to library search path
+
+|-Mach|||¶ <#cmdoption-clang-mach>
+
+|-T<script>|||¶ <#cmdoption-clang-t-script>
+
+Specify <script> as linker script
+
+|-Tbss<addr>|||¶ <#cmdoption-clang-tbss-addr>
+
+Set starting address of BSS to <addr>
+
+|-Tdata<addr>|||¶ <#cmdoption-clang-tdata-addr>
+
+Set starting address of DATA to <addr>
+
+|-Ttext<addr>|||¶ <#cmdoption-clang-ttext-addr>
+
+Set starting address of TEXT to <addr>
+
+|-Wl,<arg>,<arg2>...|||¶ <#cmdoption-clang-wl-arg-arg2>
+
+Pass the comma separated arguments in <arg> to the linker
+
+|-X|||¶ <#cmdoption-clang-x>
+
+|-Xlinker||<arg>||, ||--for-linker||<arg>||, ||--for-linker||=<arg>|¶
+<#cmdoption-clang-xlinker>
+
+Pass <arg> to the linker
+
+|-Z|||¶ <#cmdoption-clang1-z>
+
+|-e<arg>||||, ||--entry|||¶ <#cmdoption-clang-e-arg>
+
+|-filelist||<arg>|¶ <#cmdoption-clang-filelist>
+
+|--hip-device-lib-path||=<arg>|¶ <#cmdoption-clang-hip-device-lib-path>
+
+HIP device library path
+
+|--hip-device-lib||=<arg>|¶ <#cmdoption-clang-hip-device-lib>
+
+HIP device library
+
+|-l<arg>|||¶ <#cmdoption-clang-l-arg>
+
+|-r|||¶ <#cmdoption-clang-r>
+
+|-rpath||<arg>|¶ <#cmdoption-clang-rpath>
+
+|-s|||¶ <#id3>
+
+|-t|||¶ <#cmdoption-clang-t>
+
+|-u<arg>||||, ||--force-link||<arg>||, ||--force-link||=<arg>|¶
+<#cmdoption-clang-u-arg>
+
+|-undef|||¶ <#cmdoption-clang-undef>
+
+undef all system defines
+
+|-undefined<arg>||||, ||--no-undefined|||¶ <#cmdoption-clang-undefined-arg>
+
+|-z||<arg>|¶ <#cmdoption-clang-z>
+
+Pass -z <arg> to the linker
+
+«  Objective-C Automatic Reference Counting (ARC)
+<https://clang.llvm.org/docs/AutomaticReferenceCounting.html>   ::  
+Contents <https://clang.llvm.org/docs/index.html>   ::   Attributes in
+Clang <https://clang.llvm.org/docs/AttributeReference.html>  »
+
+© Copyright 2007-2019, The Clang Team. Created using Sphinx
+<http://sphinx-doc.org/> 1.7.6.

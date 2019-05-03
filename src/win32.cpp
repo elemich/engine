@@ -4969,7 +4969,7 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 			while(this->breaked);
 		else
 		{
-			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode).c_str(),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;
@@ -5067,7 +5067,7 @@ void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
 
 		iBreakpoint.breaked=true;
 
-		this->ReadStackTrace(iBreakpoint.address);
+		this->StackUnwind(this->editorscript,iBreakpoint.address);
 
 		this->editorscript->GetViewer()->GetRoot()->SetTab(this->editorscript->GetViewer());
 	}
@@ -5146,77 +5146,160 @@ DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
 	return 0;
 }
 
-void DebuggerWin32::ReadStackTrace(void* iAddress)
+void DebuggerWin32::StackUnwind(EditorScript* iEditorScript,void* iAddress)
 {
-	HANDLE process = GetCurrentProcess();
-	HANDLE thread = this->debuggeeThread;
+	system("Pause");
 
-	CONTEXT context;
-	memset(&context, 0, sizeof(CONTEXT));
-	context.ContextFlags = CONTEXT_FULL;
-	RtlCaptureContext(&context);
+	std::vector<String>	tFuncNames;
+	std::vector<void*>	tFunctionAdresses;
+	
+	{
+		//recurse on frames to get funcs return addresses 
 
-	SymInitialize(process, NULL, TRUE);
+		unsigned int*	tBasePtr=(unsigned int*)this->threadContext->Ebp;
+		void*			tFuncAddr=0;
 
-	DWORD image;
-	STACKFRAME stackframe;
-	ZeroMemory(&stackframe, sizeof(STACKFRAME));
+		for(int i=0;i<100 && tBasePtr;i++)
+		{
+			tFuncAddr=(void*)*(tBasePtr+1);
+			tFunctionAdresses.push_back(tFuncAddr);
 
-#ifdef _M_IX86
-	image = IMAGE_FILE_MACHINE_I386;
-	stackframe.AddrPC.Offset = (DWORD64)iAddress;
-	stackframe.AddrPC.Mode = AddrModeFlat;
-	stackframe.AddrFrame.Offset = context.Ebp ;
-	stackframe.AddrFrame.Mode = AddrModeFlat;
-	stackframe.AddrStack.Offset = context.Esp;
-	stackframe.AddrStack.Mode = AddrModeFlat;
-#elif _M_X64
-	image = IMAGE_FILE_MACHINE_AMD64;
-	stackframe.AddrPC.Offset = context.Rip;
-	stackframe.AddrPC.Mode = AddrModeFlat;
-	stackframe.AddrFrame.Offset = context.Rsp;
-	stackframe.AddrFrame.Mode = AddrModeFlat;
-	stackframe.AddrStack.Offset = context.Rsp;
-	stackframe.AddrStack.Mode = AddrModeFlat;
-#elif _M_IA64
-	image = IMAGE_FILE_MACHINE_IA64;
-	stackframe.AddrPC.Offset = context.StIIP;
-	stackframe.AddrPC.Mode = AddrModeFlat;
-	stackframe.AddrFrame.Offset = context.IntSp;
-	stackframe.AddrFrame.Mode = AddrModeFlat;
-	stackframe.AddrBStore.Offset = context.RsBSP;
-	stackframe.AddrBStore.Mode = AddrModeFlat;
-	stackframe.AddrStack.Offset = context.IntSp;
-	stackframe.AddrStack.Mode = AddrModeFlat;
-#endif
-
-	for (size_t i = 0; i < 25; i++) {
-
-		BOOL result = StackWalk(
-			image, process, thread,
-			&stackframe, &context, NULL, 
-			SymFunctionTableAccess, SymGetModuleBase, NULL);
-
-		if (!result) { break; }
-
-		char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-		PSYMBOL_INFO symbol = (PSYMBOL_INFO)buffer;
-		symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-		symbol->MaxNameLen = MAX_SYM_NAME;
-
-		
-		
-
-		DWORD64 displacement = 0;
-		if (SymFromAddr(process, stackframe.AddrPC.Offset, &displacement, symbol)) {
-			printf("[%i] %s\n", i, symbol->Name);
-		} else {
-			printf("[%i] ???\n", i);
+			tBasePtr=(unsigned int*)*tBasePtr;
 		}
-
 	}
 
-	SymCleanup(process);
+
+	String	tDwarfDumpFileNameWide=iEditorScript->GetLibPath().Path() + L"\\obj.dmp";
+	FILE*	tObjDumpFile=fopen(StringUtils::ToChar(tDwarfDumpFileNameWide).c_str(),"r");
+
+	if(tObjDumpFile)
+	{
+		char			tStrBuf[500];
+		
+		enum FDEEnum
+		{
+			SEARCH_INFOSEC,
+			SEARCH_DIE,
+			DECODE_RANGE,
+			SEARCH_MAX
+		};
+
+		unsigned int	tFdeState=SEARCH_INFOSEC;
+		unsigned int	tFileCursor=0;
+		unsigned int	tFrameCursor=0;
+		unsigned int	tFdeFileLocation=0;
+		unsigned int	tAddress=(unsigned int)iAddress;
+		unsigned int	tMemLocation=tAddress;
+
+		//roll on lines
+		
+		while(fgets(tStrBuf,500,tObjDumpFile))
+		{
+			tFileCursor=ftell(tObjDumpFile);
+
+			switch(tFdeState)
+			{
+				case SEARCH_INFOSEC:
+
+					if(strstr(tStrBuf,".debug_info"))
+					{
+						tFdeState=SEARCH_DIE;
+						tFrameCursor=tFileCursor;
+					}
+
+				break;
+				case SEARCH_DIE:
+
+					if(strstr(tStrBuf,"pc="))
+					{
+						unsigned int	tPtrSize=sizeof(void*);
+						unsigned int	tDelimiterSize=2;
+						unsigned int	tStringLineSize=strlen(tStrBuf);
+						unsigned int	tFirst;
+						unsigned int	tLast;
+
+						char* tPcRangeBegin=&tStrBuf[tStringLineSize-(tPtrSize*2*2+tDelimiterSize+1)];
+
+						sscanf(tPcRangeBegin,"%x",&tFirst);
+						sscanf(tPcRangeBegin+tPtrSize*2+tDelimiterSize,"%x",&tLast);
+
+						if(tAddress>=tFirst && tAddress<=tLast)
+						{
+							tFdeFileLocation=tFileCursor;
+							tFdeState=DECODE_RANGE;
+							tMemLocation=tFirst;
+							wprintf(L"address 0x%X found at FDE range 0x%X ,0x%X\n",tAddress,tFirst,tLast);
+						}
+					}
+
+				break;
+				case DECODE_RANGE:
+
+					{
+						const unsigned int tCallFrameInstructionsSize=20;
+
+						static char* tCallFrameInstructions[tCallFrameInstructionsSize]=
+						{
+							"DW_CFA_advance_loc",
+							"DW_CFA_offset",
+							"DW_CFA_restore",
+							"DW_CFA_set_loc",
+							"DW_CFA_advance_loc1",
+							"DW_CFA_advance_loc2",
+							"DW_CFA_advance_loc4",
+							"DW_CFA_offset_extended",
+							"DW_CFA_restore_extended",
+							"DW_CFA_undefined",
+							"DW_CFA_same_value",
+							"DW_CFA_register",
+							"DW_CFA_remember_state",
+							"DW_CFA_restore_state",
+							"DW_CFA_def_cfa",
+							"DW_CFA_def_cfa_register",
+							"DW_CFA_def_cfa_offset",
+							"DW_CFA_nop",
+							"DW_CFA_lo_user",
+							"DW_CFA_hi_user"
+						};
+
+						unsigned int tInstruction=0;
+
+						for(;tInstruction<tCallFrameInstructionsSize;tInstruction++)
+						{
+							if(strstr(tStrBuf,tCallFrameInstructions[tInstruction]))
+								break;
+						}
+
+						unsigned int tAdvanceLoc=0;
+						char*		 tDataPtr=strchr(tStrBuf,':');
+
+						switch(tInstruction)
+						{
+						case 0:
+
+							sscanf(++tDataPtr,"%d",&tAdvanceLoc);
+							tMemLocation+=tAdvanceLoc;
+
+							break;
+						default:{}
+						}
+
+						if(tMemLocation>=tAddress)
+						{
+							//get this FDE function name
+
+							//next FDE
+							tAddress=tMemLocation;
+							tFdeState=SEARCH_DIE;
+						}
+					}
+
+				break;
+			}
+		}
+
+		fclose(tObjDumpFile);
+	}
 }
 
 /////////////////PluginSystemWin32/////////////

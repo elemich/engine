@@ -3635,23 +3635,25 @@ Compiler::Compiler()
 	ideSrcPath=Ide::Instance()->pathExecutable.PathUp(5) + L"\\src";
 	ideLibPath=Ide::Instance()->pathExecutable.Path();
 
-	COMPILER msCompiler={L"ms",
-						 L"vc2010",
-						 L"",
-						 L"",
-						 L"cl.exe ",
-						 L"linker.exe ",
-						 L" /nologo /MDd /ZI /EHsc ",
-						 L" /link /MANIFEST:NO /DLL /NOENTRY ",
-						 L" /OUT:",
-						 L"enginelibMS",
-						 L".lib ",
-						 L" /I",
-						 L" ",
-						 L"kernel32.lib"
+	COMPILER msCompiler={
+							L"ms",
+							L"vc2010",
+							L"",
+							L"",
+							L"cl.exe ",
+							L"linker.exe ",
+							L" /nologo /MDd /ZI /EHsc ",
+							L" /link /MANIFEST:NO /DLL /NOENTRY ",
+							L" /OUT:",
+							L"enginelibMS",
+							L".lib ",
+							L" /I",
+							L" ",
+							L"kernel32.lib"
 						};
 
-	COMPILER mingwCompiler={L"mingw",
+	COMPILER mingwCompiler={
+							L"mingw",
 							L"i686-w64-mingw32",
 							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\bin",
 							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\lib",
@@ -3665,18 +3667,19 @@ Compiler::Compiler()
 							L" -I"
 						   };
 
-	COMPILER llvmCompiler={L"llvm",
-						   L"5.0.0 32bit",
-						   L"",
-						   L"",
-						   L"c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
-						   L"c:\\sdk\\llvm32\\bin\\lld-link.exe ",
-						   L" /nologo /MDd /ZI /EHsc ",
-						   L" /link /MANIFEST:NO /DLL /NOENTRY ",
-						   L" /OUT:",
-						   L"enginelibLLVM",
-						   L".lib ",
-						   L" /I"
+	COMPILER llvmCompiler={
+							L"llvm",
+							L"5.0.0 32bit",
+							L"",
+							L"",
+							L"c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
+							L"c:\\sdk\\llvm32\\bin\\lld-link.exe ",
+							L" /nologo /MDd /ZI /EHsc ",
+							L" /link /MANIFEST:NO /DLL /NOENTRY ",
+							L" /OUT:",
+							L"enginelibLLVM",
+							L".lib ",
+							L" /I"
 						  };
 
 	compilers.push_back(msCompiler);
@@ -3786,10 +3789,9 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	String tWideCharCompilationOutput=StringUtils::ReadCharFile(tCompilerErrorOutput.path,L"rb");
 
-	//extract pdb with cv2pdb
+	//dump dwarf data
 
-	String tTargetPdb=iEditorScript->libpath.Path() + L"\\" + iEditorScript->libpath.Name() + L".pdb";
-	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"cv2pdb " + iEditorScript->libpath + L" " + tTargetPdb);
+	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"objdump -W " + iEditorScript->libpath + L" > " + iEditorScript->libpath.Path()+L"\\obj.dmp");
 
 	//extract and parse breakpoint line addresses
 
@@ -3833,8 +3835,8 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 		tSourceLineAddressesOutput.Close();
 
-		if(!tSourceLineAddressesOutput.Delete())
-			DEBUG_BREAK();
+		/*if(!tSourceLineAddressesOutput.Delete())
+			DEBUG_BREAK();*/
 	}
 
 	bool noErrors=Compiler::Instance()->ParseCompilerOutputFile(tWideCharCompilationOutput);

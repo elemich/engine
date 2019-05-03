@@ -446,7 +446,7 @@ struct DLLBUILD DebuggerWin32 : Debugger
 	void BreakDebuggee(Breakpoint&);
 	void ContinueDebuggee();
 
-	void ReadStackTrace(void*);
+	void StackUnwind(EditorScript*,void*);
 	int HandleHardwareBreakpoint(void*);
 	void SetHardwareBreakpoint(Breakpoint&,bool);
 
