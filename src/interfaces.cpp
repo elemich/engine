@@ -27,6 +27,8 @@ GLOBALGETTERFUNC(GlobalSubsystemInstance,Subsystem*);
 GLOBALGETTERFUNC(GlobalViewersInstance,std::list<GuiViewer*>);
 GLOBALGETTERFUNC(GlobalStringEditorInstance,StringEditor*);
 GLOBALGETTERFUNC(GlobalCaretInstance,GuiCaret*);
+GLOBALGETTERFUNC(GlobalFrameStackInstance,Debugger::GuiFrameStack*);
+GLOBALGETTERFUNC(GlobalWatchersInstance,Debugger::GuiWatcher*);
 
 bool EdgesContainsPoint(const vec4& ivec,const vec2& ipoint)
 {
@@ -55,14 +57,25 @@ unsigned int BlendColor(unsigned int in,unsigned int icol)
 	return ret;
 }
 
-void SetFlag(unsigned int& iFlags,unsigned int iFlag,bool iValue)
+bool SetFlag(unsigned int& iFlags,unsigned int iFlag,bool iValue)
 {
-	iFlags ^= (-iValue^iFlags) & (1UL << iFlag);
+	return iFlags ^= (-iValue^iFlags) & (1UL << iFlag),iValue;
+}
+
+bool SetFlag(unsigned long long& iFlags,unsigned long long iFlag,bool iValue)
+{
+	iFlags ^= (unsigned long long)(-iValue^iFlags) & (1ULL << iFlag);
+	return iValue;
 }
 
 bool GetFlag(unsigned int& iFlags,unsigned int iFlag)
 {
-	return (iFlags >> iFlag) & 1U;
+	return (iFlags >> iFlag) & 1UL;
+}
+
+bool GetFlag(unsigned long long& iFlags,unsigned long long iFlag)
+{
+	return (iFlags >> iFlag) & 1UL;
 }
 
 ///////////////SerializerHelpers///////////////
@@ -394,22 +407,48 @@ Frame*	Ide::GetPopup()
 	return this->popup;
 }
 
+///////////////////Debugger::GuiFrameStack//////////////////
+
+Debugger::GuiFrameStack* Debugger::GuiFrameStack::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalFrameStackInstance,GuiFrameStack);
+}
+
+///////////////////Debugger::GuiFrameStack//////////////////
+
+Debugger::GuiWatcher* Debugger::GuiWatcher::Instance()
+{
+	GLOBALGETTERFUNCASSINGLETON(GlobalWatchersInstance,GuiWatcher);
+}
+
 ///////////////////Debugger//////////////////
 
-Debugger::Debugger():breaked(false),suspended(false),editorscript(0),function(0),debuggerCode(0),lastBreakedAddress(0),sleep(1)
+Debugger::Debugger():breaked(false),suspended(false),editorscript(0),lastBreakedAddress(0),function(0),sleep(1)
 {
 	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(this,L"Debugger");
 }
 
-
-std::vector<Debugger::Breakpoint>& Debugger::GetAllBreakpoint()
+void Debugger::WatcherItem::OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&)
 {
-	return this->allAvailableBreakpoints;
+
 }
 
-std::vector<Debugger::Breakpoint>& Debugger::GetBreakpointSet()
+Debugger::WatcherItem::WatcherItem(Debugger::Variable* iVariable):GuiListBoxItem<Variable*>(iVariable)
 {
-	return this->breakpointSet;
+	this->SetColumnNumber(GuiWatcher::NCOLUMNS);
+	this->SetLabel(iVariable->name,0);
+	this->SetLabel(iVariable->value,1);
+	this->SetLabel(iVariable->basetype,2);
+}
+
+void Debugger::FrameStackItem::OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&)
+{
+
+}
+
+Debugger::FrameStackItem::FrameStackItem(Debugger::Function* iFunction):GuiListBoxItem<Function*>(iFunction)
+{
+	this->SetLabel(iFunction->name);
 }
 
 void Debugger::RunDebuggeeFunction(EditorScript* iDebuggee,unsigned char iFunctionIndex)
@@ -426,6 +465,502 @@ void Debugger::RunDebuggeeFunction(EditorScript* iDebuggee,unsigned char iFuncti
 		this->editorscript=iDebuggee;
 
 		while(this->editorscript && !this->breaked);
+	}
+}
+
+void Debugger::BreakDebuggee(void* iBreakpointAddress,void* iEbp)
+{
+	if(!this->breaked)
+	{
+		for(size_t i=0;i<this->editorscript->breakpoints.size();i++)
+		{
+			if(iBreakpointAddress==this->editorscript->breakpoints[i]->address)
+			{
+				this->breaked=true;
+
+				this->breakpoint=this->editorscript->breakpoints[i];
+				this->lastBreakedAddress=this->breakpoint->address;
+
+				this->breakpoint->breaked=true;
+
+				this->StackUnwind(this->editorscript,this->breakpoint->address,iEbp);
+
+				this->editorscript->GetScriptViewer()->GetRoot()->SetTab(this->editorscript->GetScriptViewer());
+
+				break;
+			}
+		}
+	}
+}
+
+void Debugger::ContinueDebuggee()
+{
+	if(this->breaked)
+	{
+		this->breaked=false;
+		this->breakpoint->breaked=false;
+		this->breakpoint=0;
+
+		GuiFrameStack::Instance()->RemoveAll();
+		GuiWatcher::Instance()->RemoveAll();
+
+		this->variables.clear();
+		this->watcherItems.clear();
+		this->frameStackItems.clear();
+		this->addressStack.clear();
+
+		GuiFrameStack::Instance()->Draw();
+		GuiWatcher::Instance()->Draw();
+		this->editorscript->GetScriptViewer()->GetRoot()->SetTab(this->editorscript->GetScriptViewer());
+	}
+}
+
+void Debugger::StackUnwind(EditorScript* iEditorScript,void* iTargetAddress,void* iFrameBasePointer)
+{
+	system("Pause");
+
+	{
+		//collect nested function addresses
+		//recurse on frames to get funcs return addresses 
+
+		this->addressStack.push_back((unsigned int)iTargetAddress);
+
+		unsigned int*	tBasePtr=(unsigned int*)iFrameBasePointer;
+		void*			tAddr=0;
+
+		while(tBasePtr)
+		{
+			tAddr=(void*)*(tBasePtr+1);
+			this->addressStack.push_back((unsigned int)tAddr);
+
+			tBasePtr=(unsigned int*)*tBasePtr;
+		}
+	}
+
+	{
+		//convert function addresses to function info
+
+		std::vector<Debugger::Function>& tScriptFunctions=this->editorscript->functions;
+
+		for(int i=0;i<this->addressStack.size();i++)
+		{
+			for(int j=0;j<tScriptFunctions.size();j++)
+			{
+				if(this->addressStack[i]>=tScriptFunctions[j].low && (tScriptFunctions[j].hi && this->addressStack[i]<=tScriptFunctions[j].hi))
+				{
+					//stack is down-top
+					this->frameStackItems.push_back(FrameStackItem(&tScriptFunctions[j]));
+					GuiFrameStack::Instance()->InsertItem(this->frameStackItems.back());
+					break;
+				}
+			}
+		}
+	}
+
+	{
+		//extract context-variables data from dwarf dump infos
+
+		String tDwarfInfoFileName=this->editorscript->libpath.Path()+L"\\obj.dmp";
+
+		this->ParseDwarfData((char*)StringUtils::ToChar(tDwarfInfoFileName).c_str(),iTargetAddress,iFrameBasePointer);
+
+		String tColumnNames[GuiWatcher::NCOLUMNS]={L"Name",L"Value",L"Type"};
+		GuiWatcher::Instance()->SetColumnNumber(GuiWatcher::NCOLUMNS);
+
+		for(int i=0;i<GuiWatcher::NCOLUMNS;i++)
+		{
+			GuiWatcher::Instance()->SetColumnLabel(i,tColumnNames[i]);
+			GuiWatcher::Instance()->SetSplitterPos(i,100);
+		}
+
+		for(size_t i=0;i<this->variables.size();i++)
+		{
+			this->watcherItems.push_back(WatcherItem(&this->variables[i]));
+			GuiWatcher::Instance()->InsertItem(this->watcherItems.back());
+		}
+	}
+
+	//show related viewers
+	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(GuiFrameStack::Instance(),L"FrameStack");
+	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(GuiWatcher::Instance(),L"Watcher");
+
+	GuiFrameStack::Instance()->Draw();
+	GuiWatcher::Instance()->Draw();
+}
+
+void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFrameBase)
+{
+	this->variables.clear();
+
+	std::string				tDieString;
+	std::string				tTypeString;
+	String					tCompiledSource=this->editorscript->libpath.Path() + L"\\" + this->editorscript->libpath.Name() + L".cpp";
+	bool					tIsTargetCompilationUnit=false;
+	bool					tRollOnLines=true;
+	int						def_cfa_offset=8;
+	unsigned int			tDieCursor=0;
+	unsigned int			tCompilationUnitBegin=0;
+	unsigned int			tNextDieTypeId=0;
+	static const char*		tTypeLabels[Variable::flag_max]=
+	{
+							"DW_TAG_array_type",
+							"DW_TAG_class_type",
+							"DW_TAG_entry_point",
+							"DW_TAG_enumeration_type",
+							"DW_TAG_formal_parameter",
+							"DW_TAG_imported_declaration",
+							"DW_TAG_label",
+							"DW_TAG_lexical_block",
+							"DW_TAG_member",
+							"DW_TAG_pointer_type",
+							"DW_TAG_reference_type",
+							"DW_TAG_compile_unit",
+							"DW_TAG_string_type",
+							"DW_TAG_structure_type",
+							"DW_TAG_subroutine_type",
+							"DW_TAG_typedef",
+							"DW_TAG_union_type",
+							"DW_TAG_unspecified_parameters",
+							"DW_TAG_variant",
+							"DW_TAG_common_block",
+							"DW_TAG_common_inclusion",
+							"DW_TAG_inheritance",
+							"DW_TAG_inlined_subroutine",
+							"DW_TAG_module",
+							"DW_TAG_ptr_to_member_type",
+							"DW_TAG_set_type",
+							"DW_TAG_subrange_type",
+							"DW_TAG_with_stmt",
+							"DW_TAG_access_declaration",
+							"DW_TAG_base_type",
+							"DW_TAG_catch_block",
+							"DW_TAG_const_type",
+							"DW_TAG_constant",
+							"DW_TAG_enumerator",
+							"DW_TAG_file_type"
+	};
+
+	FILE*	tFile=fopen(iFileName,"r");
+
+	if(tFile)
+	{
+		const unsigned int	cbufsz=500;
+		char				tDieBuf[cbufsz];
+		char				tTypeBuf[cbufsz];
+		char				ttmpbuf[cbufsz];
+
+		unsigned int		tFunctionAddress=(unsigned int)iFunctionAddress;
+		unsigned int		tFrameBase=(unsigned int)iFrameBase;
+		bool				tFunctionFound=true;
+
+		unsigned int		tSourceFileIdx=2;
+		char				tSourceIdxStr[100]={0};
+
+		{
+			char titoa[10];
+
+			strcat(tSourceIdxStr,"DW_AT_decl_file   : ");
+			strcat(tSourceIdxStr,itoa(tSourceFileIdx,titoa,10));
+			strcat(tSourceIdxStr,"\n");
+		}
+
+		//roll on dies
+		while(tRollOnLines && (tDieCursor=ftell(tFile)),fgets(tDieBuf,cbufsz,tFile))
+		{
+			//parse die if not empty and create die string
+			if(tDieString.size() && strstr(tDieBuf,"Abbrev Number"))
+			{
+				//identify the target Compilation Unit
+				if(strstr(tDieString.c_str()," <0><"))
+				{
+					char* tComilationUnitName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
+
+					if(tComilationUnitName)
+					{
+						char  tCompilationUnitSource[cbufsz];
+						tComilationUnitName=strstr(tComilationUnitName,":");
+						sscanf(++tComilationUnitName,"%s",tCompilationUnitSource);
+
+						bool tTargetCompilationUnitHasBeenParsed=tIsTargetCompilationUnit;
+
+						tIsTargetCompilationUnit=(tCompiledSource==StringUtils::ToWide(tCompilationUnitSource));
+
+						tRollOnLines=!tTargetCompilationUnitHasBeenParsed;
+
+						if(tIsTargetCompilationUnit)
+							tCompilationUnitBegin=tDieCursor;
+					}
+				}
+
+				while(tIsTargetCompilationUnit)//false while to permit skipping
+				{
+					char* tSourceBelong=(char*)strstr(tDieString.c_str(),tSourceIdxStr);
+
+					if(tSourceBelong)
+					{
+						Variable	tVariable;
+
+						char* tFirstLevel=(char*)strstr(tDieString.c_str()," <1><");
+						char* tIsFunction=(char*)strstr(tDieString.c_str(),"DW_TAG_subprogram");
+						char* tIsParameter=(char*)strstr(tDieString.c_str(),"DW_TAG_formal_parameter");
+						char* tIsVariable=(char*)strstr(tDieString.c_str(),"DW_TAG_variable");
+
+						if(tFirstLevel)
+						{
+							if(tIsFunction)
+							{
+								char* lowPc=(char*)strstr(tDieString.c_str(),"DW_AT_low_pc");
+								char* highPc=(char*)strstr(tDieString.c_str(),"DW_AT_high_pc");
+
+								if(lowPc && highPc)
+								{
+									unsigned int		tLowAddress=0;
+									unsigned int		tHighAddress=0;
+
+									lowPc=strstr(lowPc,":");
+									highPc=strstr(highPc,":");
+
+									sscanf(++lowPc,"%x",&tLowAddress);
+									sscanf(++highPc,"%x",&tHighAddress);
+
+									tFunctionFound=(tFunctionAddress>=tLowAddress && tFunctionAddress<=(tLowAddress+tHighAddress));
+
+									break;
+								}
+							}
+						}
+
+						if(tIsVariable || tIsParameter)
+						{
+							char* tNumLine=(char*)strstr(tDieString.c_str(),"DW_AT_decl_line");
+
+							if(tNumLine)
+							{
+								tNumLine=(char*)strstr(tNumLine,":");
+								sscanf(++tNumLine,"%x",&tVariable.line);
+
+								//skip variable if code line is out of range
+								if(tVariable.line>this->editorscript->GetSourceLines())
+									break;
+							}
+
+							printf(tDieString.c_str());
+
+							char* tName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
+
+							if(tName)
+							{
+								char  tString[cbufsz];
+								tName=strstr(tName,":");
+								sscanf(++tName,"%s",tString);
+								tVariable.name=StringUtils::ToWide(tString);
+							}
+
+							char* tLocation=(char*)strstr(tDieString.c_str(),"DW_AT_location");
+
+							if(tLocation)
+							{
+								bool tIsLocal=(tFirstLevel ? false : true);
+
+								tLocation=(char*)strstr(tDieString.c_str(),tIsLocal ? "DW_OP_fbreg" : "DW_OP_addr");
+									
+								if(tLocation)
+								{
+									int tLocal=0;
+
+									tLocation=strstr(tLocation,":");
+									sscanf(++tLocation,(tIsLocal ? "%d" : "%x"),(tIsLocal ? &tLocal : &tVariable.addr));
+
+									if(tIsLocal)
+										tVariable.addr=tFrameBase+def_cfa_offset+tLocal;
+								}
+							}
+
+							char* tType=(char*)strstr(tDieString.c_str(),"DW_AT_type");
+
+							if(tType)
+							{
+								//get die type to construct
+								tType=strstr(tType,"<");
+								sscanf(++tType,"%x",&tNextDieTypeId);
+
+								//construct die type
+								if(!tIsFunction && tNextDieTypeId)
+								{
+									//go to beginning of the CU
+									fseek(tFile,tCompilationUnitBegin,SEEK_SET);
+
+									//roll on die types to find next type
+									while(fgets(tTypeBuf,cbufsz,tFile))
+									{
+										bool tDieAbbrev=(tTypeString.size() && strstr(tTypeBuf,"Abbrev Number") && !strstr(tTypeBuf,"[Abbrev Number"));
+
+										if(tTypeString.size() && tDieAbbrev)
+										{
+											unsigned int tTypeId=0;
+
+											//get the type id
+											{
+												char* tTypeIdPtr=(char*)strstr(tTypeString.c_str(),"><");
+												tTypeIdPtr=(char*)strstr(tTypeIdPtr,"<");
+
+												if(tTypeIdPtr)
+													sscanf(++tTypeIdPtr,"%x",&tTypeId);
+											}
+
+											//identify the target Compilation Unit
+											if(tNextDieTypeId==tTypeId)
+											{
+												printf(tTypeString.c_str());
+
+												bool tForceTypeEnd=false;
+
+												unsigned long long tCurType=0;
+
+												for(;tCurType<Variable::flag_max;tCurType++)
+												{
+													if(strstr(tTypeString.c_str(),tTypeLabels[tCurType]))
+													{
+														if(::GetFlag(tVariable.flags,tCurType))
+															tForceTypeEnd=true;
+														else
+															::SetFlag(tVariable.flags,tCurType,true);
+
+														break;
+													}
+												}
+
+												if(!tForceTypeEnd)
+												{
+													char*	tTmp=0;
+													char	tStr[cbufsz];
+
+													switch(tCurType)
+													{
+													case Variable::flag_array_type: break; 
+													case Variable::flag_class_type: break; 
+													case Variable::flag_entry_point: break; 
+													case Variable::flag_enumeration_type: break; 
+													case Variable::flag_formal_parameter: break; 
+													case Variable::flag_imported_declaration: break; 
+													case Variable::flag_label: break; 
+													case Variable::flag_lexical_block: break; 
+													case Variable::flag_member: break; 
+													case Variable::flag_pointer_type:break; 
+													case Variable::flag_reference_type: break; 
+													case Variable::flag_compile_unit: break; 
+													case Variable::flag_string_type: break; 
+													case Variable::flag_structure_type: break; 
+													case Variable::flag_subroutine_type: break; 
+													case Variable::flag_typedef: break; 
+													case Variable::flag_union_type: break; 
+													case Variable::flag_unspecified_parameters: break; 
+													case Variable::flag_variant: break; 
+													case Variable::flag_common_block: break; 
+													case Variable::flag_common_inclusion: break; 
+													case Variable::flag_inheritance: break; 
+													case Variable::flag_inlined_subroutine: break; 
+													case Variable::flag_module: break; 
+													case Variable::flag_ptr_to_member_type: break; 
+													case Variable::flag_set_type: break; 
+													case Variable::flag_subrange_type: break; 
+													case Variable::flag_with_stmt: break; 
+													case Variable::flag_access_declaration: break; 
+													case Variable::flag_base_type:
+														if(strstr(tTypeString.c_str(),"DW_AT_encoding"))
+														{
+															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_encoding");
+															tTmp=(char*)strstr(tTmp,":");
+															sscanf(++tTmp,"%d",&tVariable.code);
+														}
+														if(strstr(tTypeString.c_str(),"DW_AT_byte_size"))
+														{
+															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_byte_size");
+															tTmp=(char*)strstr(tTmp,":");
+															sscanf(++tTmp,"%d",&tVariable.size);
+														}
+														if(strstr(tTypeString.c_str(),"DW_AT_name"))
+														{
+															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_name");
+															tTmp=(char*)strstr(tTmp,":");
+															sscanf(++tTmp,"%s",tStr);
+
+															tVariable.basetype=StringUtils::ToWide(tStr);
+														}														
+														break; 
+													case Variable::flag_catch_block: break; 
+													case Variable::flag_const_type: break; 
+													case Variable::flag_constant: break; 
+													case Variable::flag_enumerator: break; 
+													case Variable::flag_file_type: break;
+													}
+												}
+
+												char* tTypeTypeIdPtr=(char*)strstr(tTypeString.c_str(),"DW_AT_type");
+
+												if(!tForceTypeEnd && tTypeTypeIdPtr)
+												{
+													unsigned int tPrevioustDieTypeId=tNextDieTypeId;
+
+													tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,": <");
+													tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,"<");
+
+													//set next type to get
+													if(tTypeTypeIdPtr)
+														sscanf(++tTypeTypeIdPtr,"%x",&tNextDieTypeId);
+
+													//go to beginning of the CU
+													if(tNextDieTypeId<tPrevioustDieTypeId)
+														fseek(tFile,tCompilationUnitBegin,SEEK_SET);
+												}
+												else
+												{
+													//compose type
+													//extract value
+													switch(tVariable.code)
+													{
+														case 0x1:tVariable.value=StringUtils::Format(L"0x%X",tVariable.addr);break;
+														case 0x2:tVariable.value=StringUtils::Format(L"%ls",*((bool*)tVariable.addr) ? L"true" : L"false");break;
+														case 0x3:tVariable.value=L"complex,todo";break;
+														case 0x4:tVariable.value=StringUtils::Format(L"%f",*((float*)tVariable.addr));break;
+														case 0x5:tVariable.value=StringUtils::Format(L"%d",*((int*)tVariable.addr));break;
+														case 0x6:tVariable.value=StringUtils::Format(L"%c",*((char*)tVariable.addr));break;
+														case 0x7:tVariable.value=StringUtils::Format(L"%u",*((unsigned int*)tVariable.addr));break;
+														case 0x8:tVariable.value=StringUtils::Format(L"%u",*((unsigned char*)tVariable.addr));break;
+													}
+
+													//set cursor to current die section
+													fseek(tFile,tDieCursor,SEEK_SET);
+													//return control to die parse
+													break;
+												}
+											}
+
+											//prepare next type string
+											tTypeString.clear();
+										}
+
+										//add this row to the type string
+										tTypeString+=tTypeBuf;
+									}
+								}
+							}
+
+							this->variables.push_back(tVariable);
+						}
+					}
+					break;	//false while skip
+				}
+
+				//prepare next die string
+				tDieString.clear();
+			}
+
+			//add this row to the die string
+			tDieString+=tDieBuf;
+		}
+
+		fclose(tFile);
 	}
 }
 
@@ -551,7 +1086,18 @@ Frame::~Frame()
 
 
 
-
+void Frame::ChooseDraw(unsigned int iParameter1,unsigned int iParameter2)
+{
+	if(iParameter1)
+		GuiCaret::Instance()->Draw(iParameter2);
+	else if(!iParameter1)
+		this->Draw();
+	else if(this->BeginDraw((GuiViewport*)iParameter2))
+	{
+		this->BroadcastPaintTo((GuiViewport*)iParameter2);
+		this->EndDraw();
+	}
+}
 
 
 void Frame::Draw()
@@ -760,6 +1306,12 @@ void Frame::OnSize(float iWidth,float iHeight)
 
 void Frame::OnMouseMove(float iX,float iY)
 {
+	Mouse& tMouse=*Mouse::Instance();
+
+	tMouse.old=tMouse.pos;
+	tMouse.pos.make(iX,iY);
+	tMouse.delta.make(tMouse.pos.x-tMouse.old.x,tMouse.pos.y-tMouse.old.y);
+	
 	this->mouse.x=iX;
 	this->mouse.y=iY;
 
@@ -856,6 +1408,21 @@ void Frame::OnSizeboxUp()
 
 void Frame::OnMouseDown(unsigned int iButton)
 {
+	unsigned int tOldTiming=0;
+
+	Mouse& tMouse=*Mouse::Instance();
+		
+	tOldTiming=tMouse.timing[iButton-1];
+	tMouse.timing[iButton-1]=Timer::Instance()->GetCurrent();
+
+	tMouse.buttons[iButton-1]=true;
+
+	if(tMouse.buttons[iButton-1]-tOldTiming<1000/6.0f)
+	{
+		this->OnMouseClick(iButton);
+		return;
+	}
+
 	if(this->hittest.hit==0 && iButton==1)
 		this->drag=true;
 
@@ -903,6 +1470,8 @@ void Frame::OnMouseLeave()
 
 void Frame::OnMouseUp(unsigned int iButton)
 {
+	Mouse::Instance()->buttons[iButton-1]=false;
+
 	if(this->drag)
 	{
 		for(int i=0;i<4;i++)
@@ -2194,10 +2763,18 @@ void GuiRect::OnSize(Frame* iFrame,const vec4& iNewSize)
 	this->edges=iNewSize;
 }
 
-void GuiRect::Draw(Frame* iFrame)
+void GuiRect::Draw(void* iParameter)
 {
-	if(this->GetFlag(GuiRectFlag::SELFDRAW))
-		iFrame->SetDraw(this);
+	Frame*		tFrame=0;
+	GuiViewer*	tViewer=0;
+	
+	tViewer=this->GetRoot();
+
+	if(tViewer)
+		tFrame=tViewer->GetFrame();
+
+	if(tFrame)
+		tFrame->SetDraw(this,true,false,iParameter);
 }
 
 GuiRect::GuiRect(unsigned int iState,unsigned int iColor):parent(0),flags(iState),color(iColor){}
@@ -2624,13 +3201,16 @@ const std::list<String>&        GuiViewer::GetLabels()
 
 GuiRect* GuiViewer::AddTab(GuiRect* iTab,String iLabel)
 {
-	iTab->parent=this;
-	this->tabs.push_back(iTab);
-	this->labels.push_back(iLabel);
+	if(std::find(this->tabs.begin(),this->tabs.end(),iTab)==this->tabs.end())
+	{
+		iTab->parent=this;
+		this->tabs.push_back(iTab);
+		this->labels.push_back(iLabel);
 
-	this->CalculateTabsRects();
+		this->CalculateTabsRects();
 
-	this->SetTab(iTab);
+		this->SetTab(iTab);
+	}
 	return iTab;
 }
 
@@ -2818,24 +3398,42 @@ Frame* GuiViewer::GetFrame()
 
 ////////////////////GuiListBoxNode////////////////
 
-GuiListBoxNode::GuiListBoxNode():flags(0){}
-GuiListBoxNode::GuiListBoxNode(const String& iLabel):flags(0),label(iLabel){}
-
-GuiListBox::GuiListBox():hovered(0){}
-
-void			GuiListBoxNode::SetLabel(const String& iString)
+GuiListBoxNode::GuiListBoxNode():flags(0)
 {
-	this->label=iString;
+	labels.resize(1);
+}
+GuiListBoxNode::GuiListBoxNode(const String& iLabel):flags(0)
+{
+	labels.push_back(iLabel);
 }
 
-const String&	GuiListBoxNode::GetLabel()
+void	GuiListBoxNode::SetLabel(const String& iString,unsigned int iColumn)
 {
-	return this->label;
+	this->labels[iColumn]=iString;
+}
+
+const String&	GuiListBoxNode::GetLabel(unsigned int iColumn)
+{
+	return this->labels[iColumn];
+}
+
+void GuiListBoxNode::SetColumnNumber(unsigned int iColumns)
+{
+	if(iColumns>0 && iColumns!=this->labels.size())
+		this->labels.resize(iColumns);
+}
+
+unsigned int	GuiListBoxNode::GetColumnNumber()
+{
+	return this->labels.size();
 }
 
 float GuiListBoxNode::GetWidth()
 {
-	return GuiFont::GetDefaultFont()->MeasureText(this->label.c_str()).x;
+	if(this->labels.size()==1)
+		return GuiFont::GetDefaultFont()->MeasureText(this->labels[0].c_str()).x;
+	else
+		return 0;
 }
 
 float GuiListBoxNode::GetHeight()
@@ -2843,9 +3441,9 @@ float GuiListBoxNode::GetHeight()
 	return Frame::ICON_WH;
 }
 
-void  GuiListBoxNode::OnPaint(GuiListBox*,Frame* iFrame,const vec4& iEdges)
+void  GuiListBoxNode::OnPaint(GuiListBox* tListBox,Frame* iFrame,const vec4& iEdges,unsigned int iColumn)
 {
-	iFrame->renderer2D->DrawText(this->label,iEdges.x,iEdges.y,iEdges.z,iEdges.w,vec2(0,0.5f),vec2(0,0.5f),0xffffffff);
+	iFrame->renderer2D->DrawText(this->labels[iColumn],iEdges.x,iEdges.y,iEdges.z,iEdges.w,vec2(0,0.5f),vec2(0,0.5f),0xffffffff);
 }
 
 void  GuiListBoxNode::OnMouseDown(GuiListBox*,Frame*,const vec4& iEdges,const MouseData&)
@@ -2861,7 +3459,13 @@ void  GuiListBoxNode::OnMouseMove(GuiListBox*,Frame*,const vec4& iEdges,const Mo
 
 }
 
-////////////////////GuiListBox////////////////<
+////////////////////GuiListBox////////////////
+
+GuiListBox::GuiListBox():hovered(0),ncolumns(0),movingsplitter(-1)
+{
+	this->SetColumnNumber(1);
+	this->splitters[0]=100;
+}
 
 void GuiListBox::InsertItem(GuiListBoxNode& iItem)
 {
@@ -2890,6 +3494,38 @@ void GuiListBox::RemoveAll()
 	this->CalculateLayout();
 }
 
+void GuiListBox::SetColumnNumber(unsigned int iColumnNumber)
+{
+	if(iColumnNumber>0 && iColumnNumber!=this->ncolumns)
+	{
+		this->ncolumns=iColumnNumber>0 ? iColumnNumber : 1;
+
+		this->collabels.resize(this->ncolumns);
+		this->splitters.resize(this->ncolumns);
+
+		for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end();i++)
+			(*i)->labels.resize(this->ncolumns);
+	}
+}
+void GuiListBox::SetSplitterPos(unsigned int iSplitter,unsigned int iPosition)
+{
+	this->splitters[iSplitter]=iPosition;
+}
+void GuiListBox::SetColumnLabel(unsigned int iColumn,String iLabel)
+{
+	this->collabels[iColumn]=iLabel;
+}
+
+const std::vector<unsigned int>& GuiListBox::GetSplitters()
+{
+	return this->splitters;
+}
+const std::vector<String>& GuiListBox::GetColumnLabels()
+{
+	return this->collabels;
+}
+
+
 void GuiListBox::SetFlag(GuiListBoxNode* iItem,GuiListBoxNode::Flags iFlag,bool iValue)
 {
 	::SetFlag(iItem->flags,iFlag,iValue);
@@ -2914,7 +3550,10 @@ void GuiListBox::SetHoverHighlight(Frame* iFrame,bool iValue)
 GuiListBox::GuiListBoxData GuiListBox::GetListBoxData(void* iData)
 {
 	vec4	tContentEdges=this->GetContentEdges();
-	vec4	tFirstItemEdges(tContentEdges.x,tContentEdges.y,tContentEdges.z,tContentEdges.y);
+
+	float	tFirstItemUpperEdge=tContentEdges.y+(this->ncolumns>1 ? 20 : 0);
+
+	vec4	tFirstItemEdges(tContentEdges.x,tFirstItemUpperEdge,tContentEdges.z,tFirstItemUpperEdge);
 
 	GuiListBoxData tTreeViewData={tContentEdges,tFirstItemEdges,0,0,iData,false};
 
@@ -2936,10 +3575,24 @@ void GuiListBox::CalculateLayout()
 
 	for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end();i++)
 	{
+		(*i)->SetColumnNumber(this->ncolumns);
+
 		float tWidth=(*i)->GetWidth();
 		tTop+=(*i)->GetHeight();
-		
+
 		this->SetContent(tWidth,tTop-this->edges.y);
+	}
+
+	if(this->ncolumns>1)
+	{
+		float tWidth=0;
+
+		for(int i=0;i<this->splitters.size();i++)
+			tWidth+=this->splitters[i];
+
+		tWidth+=20;
+
+		this->SetContent(tWidth,this->GetContent().y);
 	}
 
 	this->CalculateScrollbarsLayout();
@@ -2975,7 +3628,23 @@ void GuiListBox::ItemProcedure(GuiListBoxNode* iItem,Frame* iFrame,GuiRectMessag
 			//base rect
 			iFrame->renderer2D->DrawRectangle(iLbid.labeledges.x,iLbid.labeledges.y,iLbid.labeledges.z,iLbid.labeledges.w,tColor);
 
-			iItem->OnPaint(this,iFrame,iLbid.labeledges);
+			if(this->ncolumns>1)
+			{
+				std::vector<unsigned int>	tSplitter;
+				vec4						tColumn=iLbid.labeledges;
+
+				tSplitter.push_back(this->edges.x);
+
+				for(size_t i=0;i<this->ncolumns;i++)
+				{
+					tSplitter.push_back(tSplitter[i]+this->splitters[i]);
+					tColumn.x=tSplitter[i];
+					tColumn.z=tSplitter[i+1];
+					iItem->OnPaint(this,iFrame,tColumn,i);
+				}
+			}
+			else
+				iItem->OnPaint(this,iFrame,iLbid.labeledges,0);
 		}
 		break;
 	}
@@ -2995,7 +3664,6 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			{
 				if(this->scrollerhit==0 && this->scrollerpressed==0)
 				{
-					vec4			tContentEdges=this->GetContentEdges();
 					GuiListBoxData	tLbid=GetListBoxData(&thtd);
 
 					for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end() && !tLbid.skip;i++)
@@ -3035,13 +3703,34 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		{
 			GuiScrollRect::Procedure(iFrame,iMsg,iData);
 
+			this->movingsplitter=-1;
+
+			iFrame->SetCursor(0);
+
 			if(this->hovered)
 				this->hovered->OnMouseUp(this,iFrame,this->hoverededges,*(MouseData*)iData);
 		}
 		break;
 		case ONMOUSEDOWN:
 		{
+			MouseData& tMouseData=*(MouseData*)iData;
+
 			GuiScrollRect::Procedure(iFrame,iMsg,iData);
+
+			unsigned int tSplitter=this->edges.x;
+
+			for(size_t i=0;!this->scrollerhit && this->ncolumns>1 && i<this->splitters.size();i++)
+			{
+				tSplitter+=this->splitters[i];
+
+				if(tMouseData.mouse.x>=(tSplitter-2) && tMouseData.mouse.x<=(tSplitter+2))
+				{
+					this->movingsplitter=i;
+					break;
+				}
+			}
+
+			iFrame->SetCursor(this->movingsplitter>0 ? 1 : 0);
 
 			if(this->hovered)
 				this->hovered->OnMouseDown(this,iFrame,this->hoverededges,*(MouseData*)iData);
@@ -3049,8 +3738,46 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		break;
 		case ONMOUSEMOVE:
 		{
+			MouseData& tMouseData=*(MouseData*)iData;
+
 			GuiScrollRect::Procedure(iFrame,iMsg,iData);
 
+			iFrame->SetCursor(0);
+
+			unsigned int tSplitter=this->edges.x;
+
+			for(size_t i=0;!this->scrollerhit && this->ncolumns>1 && this->movingsplitter<0 && i<this->splitters.size();i++)
+			{
+				tSplitter+=this->splitters[i];
+
+				if(tMouseData.mouse.x>=(tSplitter-2) && tMouseData.mouse.x<=(tSplitter+2))
+				{
+					iFrame->SetCursor(1);
+					break;
+				}
+			}
+
+			if(this->movingsplitter>=0)
+			{
+				this->splitters[this->movingsplitter]+=tMouseData.raw.Delta().x;
+
+				if(this->splitters[this->movingsplitter]<30)
+					this->splitters[this->movingsplitter]=30;
+
+				float tWidth=0;
+
+				for(int i=0;i<this->splitters.size();i++)
+					tWidth+=this->splitters[i];
+
+				tWidth+=20;
+
+				this->ResetContent(true,false);
+				this->SetContent(tWidth,this->GetContent().y);
+
+				iFrame->SetCursor(1);
+				iFrame->SetDraw(this);
+			}
+			
 			if(this->hovered)
 				this->hovered->OnMouseMove(this,iFrame,this->hoverededges,*(MouseData*)iData);
 		}
@@ -3069,9 +3796,19 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		break;
 		case ONPAINT:
 		{
-			PaintData& pd=*(PaintData*)iData;
+			PaintData& tPaintData=*(PaintData*)iData;
 
-			if(pd.data==0)GuiRect::Procedure(iFrame,iMsg,iData);
+			std::vector<unsigned int> tSplitters;
+
+			if(this->ncolumns>1)
+			{
+				tSplitters.push_back(this->edges.x);
+
+				for(size_t i=0;i<this->splitters.size();i++)
+					tSplitters.push_back(tSplitters[i]+this->splitters[i]);
+			}
+
+			if(tPaintData.data==0)GuiRect::Procedure(iFrame,iMsg,iData);
 
 			vec4 tClippingEdges=this->GetClippingEdges();
 			vec4 tContentEdges=this->GetContentEdges();
@@ -3079,25 +3816,51 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			float tOffsetx=this->GetScrollbarPosition(0);
 			float tOffsety=this->GetScrollbarPosition(1);
 
-			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
+			if(this->ncolumns>1 && tPaintData.data==0)
+			{
+				//draw header
+				iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.y+20);
+				iFrame->renderer2D->Translate(-tOffsetx,0);
+
+				iFrame->renderer2D->DrawRectangle(tContentEdges.x,tContentEdges.y,tContentEdges.z,tContentEdges.y+20,0x7F7F7F);
+
+				for(size_t i=0;i<this->ncolumns;i++)
+					iFrame->renderer2D->DrawText(this->collabels[i],tSplitters[i],this->edges.y,tSplitters[i+1],this->edges.y+20,vec2(0,0.5f),vec2(0,0.5f),0xffffffff);
+
+				iFrame->renderer2D->Translate(0,0);
+				iFrame->renderer2D->PopScissor();
+			}
+
+			//draw content
+			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y+(this->ncolumns>1 ? 20 : 0),tClippingEdges.z,tClippingEdges.w);
 			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
 
-			GuiListBoxData tLbid=this->GetListBoxData(pd.data);
+			GuiListBoxData tListBoxData=this->GetListBoxData(tPaintData.data);
 
-			for(std::list<GuiListBoxNode*>::iterator i=this->items.begin();i!=this->items.end() && !tLbid.skip;i++)
+			for(std::list<GuiListBoxNode*>::iterator tListBoxNode=this->items.begin();tListBoxNode!=this->items.end() && !tListBoxData.skip;tListBoxNode++)
 			{
-				this->SetLabelEdges(*i,tLbid);
+				this->SetLabelEdges(*tListBoxNode,tListBoxData);
 
-				if(pd.data==0 || pd.data==*i)
-					this->ItemProcedure(*i,iFrame,iMsg,tLbid);
+				if(tPaintData.data==0 || tPaintData.data==*tListBoxNode)
+					this->ItemProcedure(*tListBoxNode,iFrame,iMsg,tListBoxData);
 
-				tLbid.idx++;
+				tListBoxData.idx++;
 			}
 
 			iFrame->renderer2D->Translate(0,0);
 			iFrame->renderer2D->PopScissor();
 
-			if(pd.data==0)GuiScrollRect::Procedure(iFrame,iMsg,iData);
+			//draw content
+			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
+			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
+
+			for(size_t i=0;this->ncolumns>1 && i<this->ncolumns;i++)
+				iFrame->renderer2D->DrawLine(vec2(tSplitters[i+1],tContentEdges.y),vec2(tSplitters[i+1],tContentEdges.w),Frame::COLOR_BACK,1,1);
+
+			iFrame->renderer2D->Translate(0,0);
+			iFrame->renderer2D->PopScissor();
+			
+			if(tPaintData.data==0)GuiScrollRect::Procedure(iFrame,iMsg,iData);
 		}
 		break;
 	default:
@@ -3659,7 +4422,7 @@ Compiler::Compiler()
 							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\lib",
 							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
 							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
-							L" --verbose -O0 -g -shared ",
+							L" -O0 -g -shared ",
 							L"",
 							L" -o ",
 							L"enginelibMingW",
@@ -3793,9 +4556,55 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"objdump -W " + iEditorScript->libpath + L" > " + iEditorScript->libpath.Path()+L"\\obj.dmp");
 
+	//dump funcs names
+
+	String	tFncsDmpFileName=iEditorScript->GetLibPath().Path()+L"\\fncs.dmp";
+
+	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"nm -l -n -C " + iEditorScript->GetLibPath() + L" | findstr /R \"T.*\\.cpp\" > " + tFncsDmpFileName);
+
+	FILE*	tFunctionsDumpFile=fopen(StringUtils::ToChar(tFncsDmpFileName).c_str(),"r");
+
+	if(tFunctionsDumpFile)
+	{
+		iEditorScript->functions.clear();
+
+		struct CHAR5000{char c[5000];};
+		std::vector<CHAR5000> tLineBufferVector;
+		char tmp[5000];
+		char* ptr;
+
+		while(fgets(tmp,5000,tFunctionsDumpFile))
+		{
+			tLineBufferVector.push_back(CHAR5000());
+			strcpy(tLineBufferVector.back().c,tmp);
+		}
+
+		for(int j=0;j<tLineBufferVector.size();j++)
+		{
+			Debugger::Function tFunction;
+
+			if(tLineBufferVector[j].c)
+				sscanf(tLineBufferVector[j].c,"%x",&tFunction.low);
+			if(j<tLineBufferVector.size() && tLineBufferVector[j+1].c)
+				sscanf(tLineBufferVector[j+1].c,"%x",&tFunction.hi);
+
+			strcpy(tmp,tLineBufferVector[j].c);
+
+			ptr=strtok(tmp," \t");
+			ptr=strtok(0," \t");
+			ptr=strtok(0," \t");
+
+			tFunction.name=StringUtils::ToWide(ptr);
+
+			iEditorScript->functions.push_back(tFunction);
+		}
+
+		fclose(tFunctionsDumpFile);
+	}
+
 	//extract and parse breakpoint line addresses
 
-	File tSourceLineAddressesOutput=iEditorScript->libpath.Path() + L"\\laddrss.output";
+	File tSourceLineAddressesOutput=iEditorScript->libpath.Path() + L"\\laddr.dmp";
 
 	String tParseLineAddressesCommandLine=this->compilers[COMPILER_MINGW].binDir + L"\\" + L"objdump --dwarf=decodedline " + iEditorScript->libpath + L" | find \""+ iEditorScript->sourcepath.Name() + L".cpp" + L"\" | find /V \":\"";
 
@@ -3806,11 +4615,10 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	if(tSourceLineAddressesOutput.Open(L"rb"))
 	{
-		std::vector<Debugger::Breakpoint>&	tAllBreakpoints=Debugger::Instance()->GetAllBreakpoint();
-		int									tNumberOfAddressesLinesFound=tSourceLineAddressesOutput.CountOccurrences('\n');
-		int									tNumberOfSourceLines=std::count(iEditorScript->sourcetext.begin(),iEditorScript->sourcetext.end(),L'\n');
-		
+		iEditorScript->availableBreakpoints.clear();
 
+		int		tNumberOfAddressesLinesFound=tSourceLineAddressesOutput.CountOccurrences('\n');
+		
 		char c[500];
 		unsigned int line;
 
@@ -3820,16 +4628,14 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 			fscanf(tSourceLineAddressesOutput.data,"%u",&line);
 			fscanf(tSourceLineAddressesOutput.data,"%s",&c);
 
-			if(line<tNumberOfSourceLines)//skip source exports
+			if(line<iEditorScript->GetSourceLines())//skip source exports
 			{
 				Debugger::Breakpoint tLineAddress;
 
 				sscanf(c,"%lx", &tLineAddress.address);
 				tLineAddress.line=line;
-				tLineAddress.script=iEditorScript;
 
-
-				tAllBreakpoints.push_back(tLineAddress);
+				iEditorScript->availableBreakpoints.push_back(tLineAddress);
 			}
 		}
 
@@ -5040,12 +5846,12 @@ GuiViewport* GuiViewport::Instance()
 
 GuiScrollRect::GuiScrollRect()
 {
-	this->clength[0]=0;
-	this->clength[1]=0;
-	this->ratios[0]=0;
-	this->ratios[1]=0;
-	this->active[0]=0;
-	this->active[1]=0;
+	this->scrollbarcontainerlength[0]=0;
+	this->scrollbarcontainerlength[1]=0;
+	this->scrollbarratios[0]=0;
+	this->scrollbarratios[1]=0;
+	this->scrollbaractive[0]=0;
+	this->scrollbaractive[1]=0;
 	this->positions[0]=0;
 	this->positions[1]=0;
 	this->content[0]=0;
@@ -5069,20 +5875,20 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			if(thtd.hit==this)
 			{
-				if(this->active[SCROLLH] && EdgesContainsPoint(this->sedges[SCROLLH][0],thtd.mouse))
+				if(this->scrollbaractive[SCROLLH] && EdgesContainsPoint(this->scrollbaredges[SCROLLH][0],thtd.mouse))
 				{
-					if(EdgesContainsPoint(this->sedges[SCROLLH][1],thtd.mouse))this->scrollerhit=1;
-					else if(EdgesContainsPoint(this->sedges[SCROLLH][2],thtd.mouse))this->scrollerhit=2;
-					else if(EdgesContainsPoint(this->sedges[SCROLLH][3],thtd.mouse))this->scrollerhit=3;
+					if(EdgesContainsPoint(this->scrollbaredges[SCROLLH][1],thtd.mouse))this->scrollerhit=1;
+					else if(EdgesContainsPoint(this->scrollbaredges[SCROLLH][2],thtd.mouse))this->scrollerhit=2;
+					else if(EdgesContainsPoint(this->scrollbaredges[SCROLLH][3],thtd.mouse))this->scrollerhit=3;
 				}
-				else if(this->active[SCROLLV] && EdgesContainsPoint(this->sedges[SCROLLV][0],thtd.mouse))
+				else if(this->scrollbaractive[SCROLLV] && EdgesContainsPoint(this->scrollbaredges[SCROLLV][0],thtd.mouse))
 				{
-					if(EdgesContainsPoint(this->sedges[SCROLLV][1],thtd.mouse))this->scrollerhit=4;
-					else if(EdgesContainsPoint(this->sedges[SCROLLV][2],thtd.mouse))this->scrollerhit=5;
-					else if(EdgesContainsPoint(this->sedges[SCROLLV][3],thtd.mouse))this->scrollerhit=6;
+					if(EdgesContainsPoint(this->scrollbaredges[SCROLLV][1],thtd.mouse))this->scrollerhit=4;
+					else if(EdgesContainsPoint(this->scrollbaredges[SCROLLV][2],thtd.mouse))this->scrollerhit=5;
+					else if(EdgesContainsPoint(this->scrollbaredges[SCROLLV][3],thtd.mouse))this->scrollerhit=6;
 				}
 				else
-				{
+				{ 
 					this->scrollerhit=0;
 
 					float offx=this->positions[SCROLLH]*this->content[0];
@@ -5150,7 +5956,7 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 					//tip a
 					if(this->scrollerpressed==1 || this->scrollerpressed==4)
 					{
-						float tRatio=this->ratios[tBarType];
+						float tRatio=this->scrollbarratios[tBarType];
 						float tAmount=this->positions[tBarType] - tRatio/TICKNESS;
 
 						this->SetScrollbarPosition(tBarType,tAmount);
@@ -5162,20 +5968,20 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 						float tMouseValue=tBarType ? md.mouse.y : md.mouse.x;
 						vec4  tScroller=this->GetScrollerEdges(tBarType);
 					
-						float tContainerBegin=tBarType ? this->sedges[tBarType][2].y : this->sedges[tBarType][2].x;
-						float tContainerLength=this->clength[tBarType];
+						float tContainerBegin=tBarType ? this->scrollbaredges[tBarType][2].y : this->scrollbaredges[tBarType][2].x;
+						float tContainerLength=this->scrollbarcontainerlength[tBarType];
 						float tScrollerBegin=tBarType ? tScroller.y : tScroller.x;
 						float tScrollerEnd=tBarType ? tScroller.w : tScroller.z;
 						float tScrollerLength=tScrollerEnd-tScrollerBegin;
 
 						if(tMouseValue>=tScrollerBegin && tMouseValue<=tScrollerEnd)
-							this->scroller=((tMouseValue-tScrollerBegin)/tScrollerLength)*this->ratios[tBarType];
+							this->scroller=((tMouseValue-tScrollerBegin)/tScrollerLength)*this->scrollbarratios[tBarType];
 						else
 							this->SetScrollbarPosition(tBarType,(tMouseValue-tContainerBegin)/tContainerLength);
 					}
 					else if(this->scrollerpressed==3 || this->scrollerpressed==6)
 					{
-						float tRatio=this->ratios[tBarType];
+						float tRatio=this->scrollbarratios[tBarType];
 						float tAmount=this->positions[tBarType] + tRatio/TICKNESS;
 
 						this->SetScrollbarPosition(tBarType,tAmount);
@@ -5210,9 +6016,9 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				const unsigned int tBarType=(this->scrollerpressed>=1 && this->scrollerpressed<=3) ? 0 : 1;
 				float tMouseValue=tBarType ? md.mouse.y : md.mouse.x;
 
-				float tContainerBegin=tBarType ? this->sedges[tBarType][2].y : this->sedges[tBarType][2].x;
-				float tContainerEnd=tBarType ? this->sedges[tBarType][2].w : this->sedges[tBarType][2].z;
-				float tContainerLength=this->clength[tBarType];
+				float tContainerBegin=tBarType ? this->scrollbaredges[tBarType][2].y : this->scrollbaredges[tBarType][2].x;
+				float tContainerEnd=tBarType ? this->scrollbaredges[tBarType][2].w : this->scrollbaredges[tBarType][2].z;
+				float tContainerLength=this->scrollbarcontainerlength[tBarType];
 
 				if(tMouseValue>tContainerBegin && tMouseValue<tContainerEnd)
 				{
@@ -5232,12 +6038,12 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		break;
 		case GuiRectMessages::ONPAINT:
 		{
-			if(this->active[SCROLLH])
+			if(this->scrollbaractive[SCROLLH])
 			{
-				const vec4& e=this->sedges[SCROLLH][0];
-				const vec4& a=this->sedges[SCROLLH][1];
-				const vec4& c=this->sedges[SCROLLH][2];
-				const vec4& b=this->sedges[SCROLLH][3];
+				const vec4& e=this->scrollbaredges[SCROLLH][0];
+				const vec4& a=this->scrollbaredges[SCROLLH][1];
+				const vec4& c=this->scrollbaredges[SCROLLH][2];
+				const vec4& b=this->scrollbaredges[SCROLLH][3];
 				vec4  s=this->GetScrollerEdges(SCROLLH);
 
 				//tip a
@@ -5252,12 +6058,12 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				iFrame->renderer2D->DrawBitmap(iFrame->iconRight,b.x,b.y,b.z,b.w);
 			}
 
-			if(this->active[SCROLLV])
+			if(this->scrollbaractive[SCROLLV])
 			{
-				const vec4& e=this->sedges[SCROLLV][0];
-				const vec4& a=this->sedges[SCROLLV][1];
-				const vec4& c=this->sedges[SCROLLV][2];
-				const vec4& b=this->sedges[SCROLLV][3];
+				const vec4& e=this->scrollbaredges[SCROLLV][0];
+				const vec4& a=this->scrollbaredges[SCROLLV][1];
+				const vec4& c=this->scrollbaredges[SCROLLV][2];
+				const vec4& b=this->scrollbaredges[SCROLLV][3];
 				vec4  s=this->GetScrollerEdges(SCROLLV);
 
 				//tip a
@@ -5280,17 +6086,17 @@ void GuiScrollRect::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 float GuiScrollRect::GetScrollerRatio(unsigned int iType)
 {
-	return this->ratios[iType];
+	return this->scrollbarratios[iType];
 };
 
 void GuiScrollRect::SetScrollbarPosition(unsigned int iType,float iNewPositionPercent)
 {
-	float tPosition=iNewPositionPercent+this->ratios[iType];
+	float tPosition=iNewPositionPercent+this->scrollbarratios[iType];
 
 	vec4 s=this->GetScrollerEdges(iType);
 
 	float slen=iType ? s.w-s.y : s.z-s.x;
-	const float& clen=this->clength[iType];
+	const float& clen=this->scrollbarcontainerlength[iType];
 	
 	if(tPosition>1)
 		this->positions[iType]=(clen-slen)/clen;
@@ -5305,16 +6111,16 @@ float GuiScrollRect::GetScrollbarPosition(unsigned int iType)
 
 bool GuiScrollRect::IsScrollbarVisible(unsigned int iType)
 {
-	return this->active[iType];
+	return this->scrollbaractive[iType];
 }
 
 vec4 GuiScrollRect::GetScrollerEdges(unsigned int iType)
 {
-	const vec4&		e=this->sedges[iType][0];
-	const vec4&		c=this->sedges[iType][2];
+	const vec4&		e=this->scrollbaredges[iType][0];
+	const vec4&		c=this->scrollbaredges[iType][2];
 	const float&	p=this->positions[iType];
-	const float&	r=this->ratios[iType];
-	const float&	clen=this->clength[iType];
+	const float&	r=this->scrollbarratios[iType];
+	const float&	clen=this->scrollbarcontainerlength[iType];
 
 	float	sbeg;
 
@@ -5343,8 +6149,8 @@ vec4 GuiScrollRect::GetScrollerEdges(unsigned int iType)
 
 vec4 GuiScrollRect::GetClippingEdges()
 {
-	float right=this->edges.z - (this->active[1] ? TICKNESS : 0);
-	float bottom=this->edges.w - (this->active[0] ? TICKNESS : 0);
+	float right=this->edges.z - (this->scrollbaractive[1] ? TICKNESS : 0);
+	float bottom=this->edges.w - (this->scrollbaractive[0] ? TICKNESS : 0);
 
 	return vec4(this->edges.x,this->edges.y,right,bottom);
 }
@@ -5364,8 +6170,8 @@ void GuiScrollRect::CalculateScrollbarsLayout()
 	float tRight=this->edges.z;
 	float tBottom=this->edges.w;
 
-	bool& hActive=this->active[SCROLLH];
-	bool& vActive=this->active[SCROLLV];
+	bool& hActive=this->scrollbaractive[SCROLLH];
+	bool& vActive=this->scrollbaractive[SCROLLV];
 
 	hActive=this->content[0]>(tRight-this->edges.x);
 	tBottom -= hActive ? TICKNESS : 0;
@@ -5378,31 +6184,31 @@ void GuiScrollRect::CalculateScrollbarsLayout()
 
 	if(hActive)
 	{
-		const vec4& e=this->sedges[SCROLLH][0];
+		const vec4& e=this->scrollbaredges[SCROLLH][0];
 
-		this->sedges[SCROLLH][0].make(edges.x,edges.w-TICKNESS,edges.z - (vActive ? TICKNESS : 0),edges.w);
-		this->sedges[SCROLLH][1].make(e.x,e.y,e.x+TICKNESS,e.w);
-		this->sedges[SCROLLH][3].make(e.z-TICKNESS,e.y,e.z,e.w);
-		this->sedges[SCROLLH][2].make(this->sedges[SCROLLH][1].z,e.y,this->sedges[SCROLLH][3].x,e.w);
-		this->clength[SCROLLH]=(this->sedges[SCROLLH][2].z-this->sedges[SCROLLH][2].x);
-		this->ratios[SCROLLH]=(this->sedges[SCROLLH][0].z-this->sedges[SCROLLH][0].x)/this->maxes[SCROLLH];
+		this->scrollbaredges[SCROLLH][0].make(edges.x,edges.w-TICKNESS,edges.z - (vActive ? TICKNESS : 0),edges.w);
+		this->scrollbaredges[SCROLLH][1].make(e.x,e.y,e.x+TICKNESS,e.w);
+		this->scrollbaredges[SCROLLH][3].make(e.z-TICKNESS,e.y,e.z,e.w);
+		this->scrollbaredges[SCROLLH][2].make(this->scrollbaredges[SCROLLH][1].z,e.y,this->scrollbaredges[SCROLLH][3].x,e.w);
+		this->scrollbarcontainerlength[SCROLLH]=(this->scrollbaredges[SCROLLH][2].z-this->scrollbaredges[SCROLLH][2].x);
+		this->scrollbarratios[SCROLLH]=(this->scrollbaredges[SCROLLH][0].z-this->scrollbaredges[SCROLLH][0].x)/this->maxes[SCROLLH];
 	}
 	else
-		 this->sedges[SCROLLH][0].make(0,0,0,0);
+		 this->scrollbaredges[SCROLLH][0].make(0,0,0,0);
 
 	if(vActive)
 	{
-		const vec4& e=this->sedges[SCROLLV][0];
+		const vec4& e=this->scrollbaredges[SCROLLV][0];
 
-		this->sedges[SCROLLV][0].make(edges.z-TICKNESS,edges.y,edges.z,edges.w - (hActive ? TICKNESS : 0));
-		this->sedges[SCROLLV][1].make(e.x,e.y,e.z,e.y+TICKNESS);
-		this->sedges[SCROLLV][3].make(e.x,e.w-TICKNESS,e.z,e.w);
-		this->sedges[SCROLLV][2].make(e.x,this->sedges[SCROLLV][1].w,e.z,this->sedges[SCROLLV][3].y);
-		this->clength[SCROLLV]=(this->sedges[SCROLLV][2].w-this->sedges[SCROLLV][2].y);
-		this->ratios[SCROLLV]=(this->sedges[SCROLLV][0].w-this->sedges[SCROLLV][0].y)/this->maxes[SCROLLV];
+		this->scrollbaredges[SCROLLV][0].make(edges.z-TICKNESS,edges.y,edges.z,edges.w - (hActive ? TICKNESS : 0));
+		this->scrollbaredges[SCROLLV][1].make(e.x,e.y,e.z,e.y+TICKNESS);
+		this->scrollbaredges[SCROLLV][3].make(e.x,e.w-TICKNESS,e.z,e.w);
+		this->scrollbaredges[SCROLLV][2].make(e.x,this->scrollbaredges[SCROLLV][1].w,e.z,this->scrollbaredges[SCROLLV][3].y);
+		this->scrollbarcontainerlength[SCROLLV]=(this->scrollbaredges[SCROLLV][2].w-this->scrollbaredges[SCROLLV][2].y);
+		this->scrollbarratios[SCROLLV]=(this->scrollbaredges[SCROLLV][0].w-this->scrollbaredges[SCROLLV][0].y)/this->maxes[SCROLLV];
 	}
 	else
-		 this->sedges[SCROLLV][0].make(0,0,0,0);
+		 this->scrollbaredges[SCROLLV][0].make(0,0,0,0);
 	
 	this->SetScrollbarPosition(0,this->positions[0]);
 	this->SetScrollbarPosition(1,this->positions[1]);
@@ -5410,18 +6216,20 @@ void GuiScrollRect::CalculateScrollbarsLayout()
 
 void GuiScrollRect::SetContent(float iHor,float iVer)
 {
+	float tOldContent[2]={this->content[0],this->content[1]};
+
 	this->content[0]=std::max<float>(this->content[0],iHor);
 	this->content[1]=std::max<float>(this->content[1],iVer);
 
-	this->CalculateScrollbarsLayout();
+	if(tOldContent[0]!=this->content[0] || tOldContent[1]!=this->content[1])
+		this->CalculateScrollbarsLayout();
 }
 
-void GuiScrollRect::ResetContent()
+void GuiScrollRect::ResetContent(bool x,bool y)
 {
-	this->content[0]=0;
-	this->content[1]=0;
-
-	this->CalculateScrollbarsLayout();
+	if(x)this->content[0]=0;
+	if(y)this->content[1]=0;
+	if(x||y)this->CalculateScrollbarsLayout();
 }
 
 vec2 GuiScrollRect::GetContent(){return vec2(this->content[0],this->content[1]);}
@@ -5666,10 +6474,12 @@ EditorEntity*	GuiEntity::GetEntity()
 
 GuiLogger::GuiLoggerItem::GuiLoggerItem(const String& iString):GuiListBoxNode(iString)
 {
-	if(this->label.size() && this->label.back()==L'\n' || this->label.back()==L'\r')
-		this->label.pop_back();
+	String& tString=(String&)this->GetLabel();
 
-	vec2 tTextDim=GuiFont::GetDefaultFont()->MeasureText(this->label.c_str());
+	if(tString.size() && (tString.back()==L'\n' || tString.back()==L'\r'))
+		tString.pop_back();
+
+	vec2 tTextDim=GuiFont::GetDefaultFont()->MeasureText(tString.c_str());
 	this->height=tTextDim.y*SEZAUREA;
 }
 
@@ -6133,23 +6943,28 @@ void GuiScript::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			{
 				unsigned int tBreakOnLine=(md.mouse.y-this->edges.y)/this->font->GetHeight() + 1;
 
-				std::vector<Debugger::Breakpoint>& tAvailableBreakpoints=Debugger::Instance()->GetAllBreakpoint();
-				std::vector<Debugger::Breakpoint>& tBreakpoints=Debugger::Instance()->GetBreakpointSet();
+				std::vector<Debugger::Breakpoint>&	rAvailableBreakpoints=this->editorscript->availableBreakpoints;
+				std::vector<Debugger::Breakpoint*>& rSettedBreakpoints=this->editorscript->breakpoints;
 
-				for(size_t i=0;i<tAvailableBreakpoints.size();i++)
+				for(size_t i=0;i<rAvailableBreakpoints.size();i++)
 				{
-					if(tAvailableBreakpoints[i].script==this->editorscript && tAvailableBreakpoints[i].line==tBreakOnLine)
+					if(rAvailableBreakpoints[i].line==tBreakOnLine)
 					{
-						std::vector<Debugger::Breakpoint>::iterator tFoundedBreakpointIterator=std::find(tBreakpoints.begin(),tBreakpoints.end(),tAvailableBreakpoints[i]);
+						std::vector<Debugger::Breakpoint*>::iterator tFoundedBreakpointIterator=std::find(rSettedBreakpoints.begin(),rSettedBreakpoints.end(),&rAvailableBreakpoints[i]);
 
-						bool tAdd=tBreakpoints.end()==tFoundedBreakpointIterator;
+						bool tAdd=rSettedBreakpoints.end()==tFoundedBreakpointIterator;
 
 						if(tAdd)
-							tBreakpoints.push_back(tAvailableBreakpoints[i]);
+							rSettedBreakpoints.push_back(&rAvailableBreakpoints[i]);
 						else
-							tBreakpoints.erase(tFoundedBreakpointIterator);
+							rSettedBreakpoints.erase(tFoundedBreakpointIterator);
 
-						Debugger::Instance()->SetBreakpoint(tAvailableBreakpoints[i],tAdd);
+						Debugger::Instance()->SetBreakpoint(rAvailableBreakpoints[i],tAdd);
+
+						Debugger::Instance()->AppendLog(
+							StringUtils::Format(L"%ls: %ls breakpoint on line %d, address 0x%X",
+							this->editorscript->sourcepath.File().c_str(),tAdd ? L"Set" : L"Unset",rAvailableBreakpoints[i].line,rAvailableBreakpoints[i].address
+							));
 
 						iFrame->SetDraw(this);
 
@@ -6291,22 +7106,18 @@ void GuiScript::DrawLineNumbers(Frame* iFrame)
 
 void GuiScript::DrawBreakpoints(Frame* iFrame)
 {
-	float tFontHeight=this->font->GetHeight();
+	std::vector<Debugger::Breakpoint*>& rBreakpoints=this->editorscript->breakpoints;
 
-	std::vector<Debugger::Breakpoint>& breakpoints=Debugger::Instance()->GetBreakpointSet();
+	float			tFontHeight=this->font->GetHeight();
+	float			tBreakpointRay=GuiScript::BREAKPOINT_COLUMN_WIDTH/3.0f;
+	unsigned int	tLineInsertion;
+	unsigned int	tBreakColor;
 
-	float tBreakpointRay=GuiScript::BREAKPOINT_COLUMN_WIDTH/3.0f;
-
-	for(size_t i=0;i<breakpoints.size();i++)
+	for(size_t i=0;i<rBreakpoints.size();i++)
 	{
-		if(breakpoints[i].script==this->editorscript)
-		{
-			unsigned int tLineInsertion=this->edges.y + (breakpoints[i].line - 1) * tFontHeight;
-
-			unsigned int tBreakColor = breakpoints[i].breaked ? 0xff0000 : 0xffff00 ;
-
-			iFrame->renderer2D->DrawCircle(this->edges.x + tBreakpointRay,tLineInsertion + 10,tBreakpointRay,tBreakColor);
-		}
+		tLineInsertion=this->edges.y + (rBreakpoints[i]->line - 1) * tFontHeight;
+		tBreakColor = rBreakpoints[i]->breaked ? 0xff0000 : 0xffff00 ;
+		iFrame->renderer2D->DrawCircle(this->edges.x + tBreakpointRay,tLineInsertion + 10,tBreakpointRay,tBreakColor);
 	}
 }
 
@@ -6728,6 +7539,7 @@ void EditorScript::EditorScriptButtons::SetColor(unsigned int iColor)
 EditorScript::EditorScript():
 	scriptViewer(0),
 	isRunning(0),
+	lines(0),
 	spButtons(this),
 	spFilePath(&this->Script::sourcepath,GuiStringProperty::STRING),
 	spIsRunning(&this->isRunning,GuiStringProperty::BOOLPTR),
@@ -6753,6 +7565,7 @@ void EditorScript::OnUpdateProperties(Frame* tab)
 void EditorScript::SaveScript()
 {
 	StringUtils::WriteCharFile(this->sourcepath,this->sourcetext,L"wb");
+	this->lines=std::count(this->sourcetext.begin(),this->sourcetext.end(),L'\n');
 }
 
 void EditorScript::LoadScript()
@@ -6795,9 +7608,14 @@ void EditorScript::deinit()
 	this->isRunning=false;
 }
 
-GuiScript*	EditorScript::GetViewer()
+GuiScript*	EditorScript::GetScriptViewer()
 {
 	return this->scriptViewer;
+}
+
+unsigned int	EditorScript::GetSourceLines()
+{
+	return this->lines;
 }
 
 void EditorScript::OnInitResources()
@@ -6867,10 +7685,11 @@ void PluginSystem::Plugin::Unload()
 
 PluginSystem::Plugin::PluginListBoxItem::PluginListBoxItem(Plugin* iPlugin):GuiListBoxItem(iPlugin){}
 
-void PluginSystem::Plugin::PluginListBoxItem::OnPaint(GuiListBox*,Frame* iFrame,const vec4& iEdges)
+void PluginSystem::Plugin::PluginListBoxItem::OnPaint(GuiListBox*,Frame* iFrame,const vec4& iEdges,unsigned int iColumn)
 {
-	iFrame->renderer2D->DrawCircle(iEdges.x+15,iEdges.y+10,7.5f,this->GetValue()->loaded ? 0x00ff00 : 0xff0000);
-	iFrame->renderer2D->DrawText(this->GetLabel(),iEdges.x+30,iEdges.y,iEdges.z,iEdges.w,vec2(0,0.5f),vec2(0,0.5f));
+	if(!iColumn)
+		iFrame->renderer2D->DrawCircle(iEdges.x+15,iEdges.y+10,7.5f,this->GetValue()->loaded ? 0x00ff00 : 0xff0000);
+	iFrame->renderer2D->DrawText(this->GetLabel(iColumn),iEdges.x+30,iEdges.y,iEdges.z,iEdges.w,vec2(0,0.5f),vec2(0,0.5f));
 }
 void PluginSystem::Plugin::PluginListBoxItem::OnMouseDown(GuiListBox*,Frame* iFrame,const vec4& iEdges,const MouseData& iMd)
 {

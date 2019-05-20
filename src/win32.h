@@ -368,7 +368,6 @@ struct DLLBUILD WindowDataWin32 : WindowData
 	void PostMessage(unsigned iCode=0,unsigned data1=0,unsigned data2=0);
 };
 
-
 struct DLLBUILD FrameWin32 : Frame
 {
 	WindowDataWin32*& windowDataWin32;
@@ -396,13 +395,11 @@ struct DLLBUILD FrameWin32 : Frame
 	int TrackProjectFileViewerPopup(ResourceNode*);
 
 	void SetCursor(int);
-
 };
 
 struct DLLBUILD TimerWin32 : Timer
 {
 	TimerWin32();
-
 	virtual void update();
 };
 
@@ -443,10 +440,6 @@ struct DLLBUILD DebuggerWin32 : Debugger
 
 	void SetBreakpoint(Breakpoint&,bool);
 
-	void BreakDebuggee(Breakpoint&);
-	void ContinueDebuggee();
-
-	void StackUnwind(EditorScript*,void*);
 	int HandleHardwareBreakpoint(void*);
 	void SetHardwareBreakpoint(Breakpoint&,bool);
 

@@ -35,9 +35,6 @@ struct DLLBUILD GuiPropertyBool;
 struct DLLBUILD GuiPropertyAnimationController;
 struct DLLBUILD DrawInstance;
 struct DLLBUILD Frame;
-#ifdef _WIN32
-struct DLLBUILD FrameWin32; //for GuiCaret::Draw friendship
-#endif
 struct DLLBUILD MainFrame;
 struct DLLBUILD ResourceNodeDir;
 struct DLLBUILD Compiler;
@@ -137,11 +134,14 @@ public:
 struct DLLBUILD Mouse : Singleton<Mouse>
 {
 protected:
+	friend Frame;
+
 	vec2	pos;
-	vec2	posold;
+	vec2	old;
+	vec2    delta;
 
 	bool			buttons[3];
-	unsigned int	previous[3];
+	unsigned int	timing[3];
 
 	Mouse();
 public:
@@ -151,8 +151,11 @@ public:
 	bool Right();
 	bool Middle();
 
-	bool*			RawButtons(){return buttons;}
-	unsigned int*	RawTiming(){return previous;}
+	bool*			Buttons(){return buttons;}
+	unsigned int*	Timing(){return timing;}
+	vec2			Pos(){return pos;}
+	vec2			Old(){return old;}
+	vec2			Delta(){return delta;}
 };
 
 struct DLLBUILD MsgData
@@ -266,7 +269,6 @@ protected:
 
 	friend MainFrame;
 	friend Frame;
-	friend FrameWin32;
 
 	GuiRect*			rect;
 
@@ -439,6 +441,9 @@ enum GuiRectMessages
 	ONEXITFOCUS,
 	ONCONTROLEVENT,
 	ONDRAWBARS,
+	ONMOUSEMOVEBAR,
+	ONMOUSEDOWNBAR,
+	ONMOUSEUPBAR,
 	MAXMESSAGES
 };
 
@@ -477,7 +482,7 @@ struct DLLBUILD GuiRect
 
 	virtual void OnSize(Frame*,const vec4& iNewSize);
 
-	virtual void Draw(Frame*);
+	virtual void Draw(void* iParameter=0);
 
 	GuiRect(unsigned int iState=1,unsigned int iColor=GuiRect::COLOR_BACK);
 	virtual ~GuiRect(){};
@@ -568,10 +573,10 @@ protected:
 	static const unsigned int SCROLLV=1;
 	static const unsigned int TICKNESS=20;
 
-	float clength[2];
-	float ratios[2];
-	vec4 sedges[2][4];
-	bool active[2];
+	float scrollbarcontainerlength[2];
+	float scrollbarratios[2];
+	vec4 scrollbaredges[2][4];
+	bool scrollbaractive[2];
 	float positions[2];
 	float content[2];
 	float maxes[2];
@@ -587,7 +592,7 @@ public:
 	GuiScrollRect();
 
 	void SetContent(float iHor,float iVer);
-	void ResetContent();
+	void ResetContent(bool x=true,bool y=true);
 	vec2 GetContent();
 
 	float GetScrollbarPosition(unsigned int iType);
@@ -619,19 +624,22 @@ struct DLLBUILD GuiListBoxNode
 protected:
 	friend GuiListBox;
 	unsigned int		flags;
-	String				label;
+	std::vector<String>	labels;
 public:
 
 	GuiListBoxNode();
 	GuiListBoxNode(const String&);
 
-	void			SetLabel(const String&);
-	const String&	GetLabel();
+	void			SetLabel(const String&,unsigned int iColumn=0);
+	const String&	GetLabel(unsigned int iColumn=0);
+
+	void			SetColumnNumber(unsigned int);
+	unsigned int	GetColumnNumber();
 
 	virtual float	GetWidth();
 	virtual float	GetHeight();
 
-	virtual void	OnPaint(GuiListBox*,Frame*,const vec4&);
+	virtual void	OnPaint(GuiListBox*,Frame*,const vec4&,unsigned int iColumn);
 	virtual void	OnMouseDown(GuiListBox*,Frame*,const vec4&,const MouseData&);
 	virtual void	OnMouseUp(GuiListBox*,Frame*,const vec4&,const MouseData&);
 	virtual void	OnMouseMove(GuiListBox*,Frame*,const vec4&,const MouseData&);
@@ -662,11 +670,14 @@ struct DLLBUILD GuiListBox : GuiScrollRect
 	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 	virtual void ItemProcedure(GuiListBoxNode*,Frame*,GuiRectMessages,GuiListBoxData&);
 private:
-	std::list<String>						columns;
-	std::list<GuiListBoxNode*>				items;
-	std::list<GuiListBoxNode*>				selected;
-	GuiListBoxNode*							hovered;
-	vec4									hoverededges;
+	unsigned int								ncolumns;
+	std::list<GuiListBoxNode*>					items;
+	std::vector<unsigned int>					splitters;
+	std::vector<String>							collabels;
+	std::list<GuiListBoxNode*>					selected;
+	GuiListBoxNode*								hovered;
+	vec4										hoverededges;
+	int											movingsplitter;
 
 	GuiListBoxData	GetListBoxData(void* iData=0);
 	virtual void	SetLabelEdges(GuiListBoxNode*,GuiListBoxData&);
@@ -682,6 +693,13 @@ public:
 	void InsertItems(const std::list<GuiListBoxNode*>&);
 	void RemoveItem(GuiListBoxNode&);
 	void RemoveAll();
+
+	void SetColumnNumber(unsigned int);
+	void SetSplitterPos(unsigned int iSplitter,unsigned int iPos);
+	void SetColumnLabel(unsigned int iColumn,String iLabel);
+
+	const std::vector<unsigned int>& GetSplitters();
+	const std::vector<String>& GetColumnLabels();
 
 	void CalculateLayout();
 
@@ -1209,32 +1227,125 @@ public:
 	static void Log(const String& iString,GuiLogger* iLogger=GuiLogger::GetDefaultLogger());
 };
 
+
+///////////////////////////Debugger//////////////////////////
+
+
 struct DLLBUILD Debugger : Singleton<Debugger> , GuiLogger
 {
+	struct DLLBUILD Function
+	{
+		unsigned int	low;
+		unsigned int	hi;
+		String			name;
+
+		Function():low(0),hi(0){}
+	};
+
+	struct DLLBUILD Variable
+	{
+		enum Flags
+		{
+			flag_array_type=0, 
+			flag_class_type, 
+			flag_entry_point, 
+			flag_enumeration_type, 
+			flag_formal_parameter, 
+			flag_imported_declaration, 
+			flag_label, 
+			flag_lexical_block, 
+			flag_member, 
+			flag_pointer_type, 
+			flag_reference_type, 
+			flag_compile_unit, 
+			flag_string_type, 
+			flag_structure_type, 
+			flag_subroutine_type, 
+			flag_typedef, 
+			flag_union_type, 
+			flag_unspecified_parameters, 
+			flag_variant, 
+			flag_common_block, 
+			flag_common_inclusion, 
+			flag_inheritance, 
+			flag_inlined_subroutine, 
+			flag_module, 
+			flag_ptr_to_member_type, 
+			flag_set_type, 
+			flag_subrange_type, 
+			flag_with_stmt, 
+			flag_access_declaration, 
+			flag_base_type, 
+			flag_catch_block, 
+			flag_const_type, 
+			flag_constant, 
+			flag_enumerator, 
+			flag_file_type,
+			flag_max
+		};
+
+		unsigned char				code;
+		String						name;
+		String						type;
+		String						value;
+		String						basetype;
+		unsigned int				addr;
+		unsigned int				line;
+		unsigned int				size;
+		unsigned int				count;
+		unsigned long long			flags;		
+
+		Variable():code(0),addr(0),line(0),size(0),count(0),flags(0){}
+	};
+
 	struct DLLBUILD Breakpoint
 	{
 		void*	address;
 		int		line;
-		Script* script;
 		bool	breaked;
 
-		Breakpoint():address(0),line(0),script(0),breaked(0){}
+		Breakpoint():address(0),line(0),breaked(0){}
 
 		bool operator==(const Breakpoint& iLineAddress){return address==iLineAddress.address && line==iLineAddress.line;}
 	};
+
+	struct DLLBUILD GuiFrameStack : Singleton<GuiFrameStack> , GuiListBox
+	{
+		static GuiFrameStack* Instance();
+	};
+
+	struct DLLBUILD GuiWatcher : Singleton<GuiWatcher> , GuiListBox
+	{
+		static const unsigned int NCOLUMNS=3;
+		static GuiWatcher* Instance();
+	};
+
+	struct DLLBUILD FrameStackItem : GuiListBoxItem<Function*>
+	{
+		void OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&);
+		FrameStackItem(Function*);
+	};
+
+	struct DLLBUILD WatcherItem : GuiListBoxItem<Variable*>
+	{
+		void OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&);
+		WatcherItem(Variable*);
+	};
+
 protected:
-	std::vector<Breakpoint> allAvailableBreakpoints;
-	std::vector<Breakpoint> breakpointSet;
 
 	EditorScript*		editorscript;
 	Breakpoint*			breakpoint;
+
+	std::vector<Variable>			variables;
+	std::vector<unsigned int>		addressStack;
+	std::list<WatcherItem>			watcherItems;
+	std::list<FrameStackItem>		frameStackItems;
 
 	void*				lastBreakedAddress;
 
 	bool				suspended;
 	bool				breaked;
-
-	int					debuggerCode;
 
 	unsigned int		function;
 
@@ -1249,24 +1360,23 @@ public:
 	virtual void SuspendDebuggee(){}
 	virtual void ResumeDebuggee(){}
 
-	virtual void SetBreakpoint(Breakpoint&,bool){}
+	virtual void SetBreakpoint(Breakpoint&,bool){};
 
-	virtual void BreakDebuggee(Breakpoint&){}
-	virtual void ContinueDebuggee(){}
+	virtual void BreakDebuggee(void* iBreakpointAddress,void* iEbp);
+	virtual void ContinueDebuggee();
 
 	virtual int HandleHardwareBreakpoint(void*){return 0;}
 	virtual void SetHardwareBreakpoint(Breakpoint&,bool){}
 
 	virtual void PrintThreadContext(void*){}
 
-	virtual void StackUnwind(EditorScript*,void*){}
+	virtual void StackUnwind(EditorScript*,void* iTargetAddress,void* iFrameBasePointer);
 
-	std::vector<Breakpoint>& GetAllBreakpoint();
-	std::vector<Breakpoint>& GetBreakpointSet();
-
+	void ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFrameBase);
 	/*Script*			GetRunningScript();
 	unsigned char	GetRunningScriptFunction();*/
 };
+
 
 struct DLLBUILD Compiler : Singleton <Compiler> , GuiLogger
 {
@@ -1621,6 +1731,7 @@ public:
 	}
 
 	void Draw();
+	void ChooseDraw(unsigned int iParameter1,unsigned int iParameter2);
 	
 	virtual bool BeginDraw(void*){return false;}
 	virtual void EndDraw(){};
@@ -1728,7 +1839,7 @@ struct DLLBUILD PluginSystem : Singleton<PluginSystem>
 		{
 			PluginListBoxItem(Plugin*);
 
-			void OnPaint(GuiListBox*,Frame*,const vec4&);
+			void OnPaint(GuiListBox*,Frame*,const vec4&,unsigned int iColumn);
 			void OnMouseDown(GuiListBox*,Frame*,const vec4&,const MouseData&);
 			void OnMouseUp(GuiListBox*,Frame*,const vec4&,const MouseData&);
 			void OnMouseMove(GuiListBox*,Frame*,const vec4&,const MouseData&);
@@ -2020,6 +2131,11 @@ protected:
 
 	FilePath			libpath;
 	String				sourcetext;
+	unsigned int		lines;
+
+	std::vector<Debugger::Breakpoint>	availableBreakpoints;
+	std::vector<Debugger::Breakpoint*>	breakpoints;
+	std::vector<Debugger::Function>		functions;
 
 	GuiStringProperty	spFilePath;
 	GuiStringProperty	spIsRunning;
@@ -2044,9 +2160,9 @@ public:
 	void    deinit();
 	void	update();
 
-	GuiScript*	GetViewer();
-
-	FilePath GetLibPath();
+	GuiScript*		GetScriptViewer();
+	unsigned int	GetSourceLines();
+	FilePath		GetLibPath();
 };
 struct DLLBUILD EditorCamera : ComponentProperties<Camera>
 {

@@ -1,1 +1,1 @@
-nm -l -n -C entity_1.dll | findstr /R "T.*\.cpp"
+c:\sdk\mingw32\bin\nm -l -n -C entity_1.dll | findstr /R "T.*\.cpp"

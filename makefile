@@ -7,24 +7,25 @@ x86d:
  @echo project dir: $(DIRPROJ)
  @echo build dir: $(DIRDST)
 
- @echo --ms build--
- 
- @cd $(DIRDST)
- @nmake.exe -f $(DIRDST)\makefile_ms /NOLOGO /S engineMS.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
+# @echo --ms build--
+# 
+# @cd $(DIRDST)
+# @nmake.exe -f $(DIRDST)\makefile_ms /NOLOGO /S engineMS.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
       
  @echo --mingw build--
  @c:\sdk\mingw32\bin\mingw32-make -s -f $(DIRDST)\makefile_mingw engineMingW.exe -C $(DIRDST) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
  
 # @echo --LLVM build--
-# @nmake.exe -f $(DIRDST)\makefile_llvm /NOLOGO /S engineLLVM.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
+# @cd $(DIRDST)\mingw
+# @nmake.exe -f $(DIRDST)\makefile_llvm /NOLOGO /S engineLLVM.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)\mingw
   
- @echo --ndk-build build--        
- 
- if not exist $(DIRSRC)\targets\android\obj mkdir $(DIRSRC)\targets\android\obj
- 
- @c:\sdk\android\android-ndk-r16b_x86_64\ndk-build NDK_DEBUG=1 APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRSRC=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
- @javac -verbose -g -d $(DIRSRC)\targets\android\obj  $(ANDROIDSRC)\EngineActivity.java -sourcepath $(ANDROIDSRC)\*.java -classpath C:\Sdk\android\android-sdk\platforms\android-27\android.jar
- @C:\Sdk\android\android-sdk\build-tools\27.0.3\dx --verbose --dex --output=$(DIRDST)\classes.dex $(DIRSRC)\targets\android\obj
+# @echo --ndk-build build--        
+# 
+# if not exist $(DIRSRC)\targets\android\obj mkdir $(DIRSRC)\targets\android\obj
+# 
+# @c:\sdk\android\android-ndk-r16b_x86_64\ndk-build NDK_DEBUG=1 APP_PROJECT_PATH=$(DIRSRC)\targets\android DIRSRC=$(DIRSRC)\targets\android DIRDST=$(DIRDST)
+# @javac -verbose -g -d $(DIRSRC)\targets\android\obj  $(ANDROIDSRC)\EngineActivity.java -sourcepath $(ANDROIDSRC)\*.java -classpath C:\Sdk\android\android-sdk\platforms\android-27\android.jar
+# @C:\Sdk\android\android-sdk\build-tools\27.0.3\dx --verbose --dex --output=$(DIRDST)\classes.dex $(DIRSRC)\targets\android\obj
  
 cleanx86d:
  @echo cleaning x86d dir: $(DIRDST)

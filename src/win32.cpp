@@ -1578,6 +1578,12 @@ void Renderer2DWin32::DrawText(const String& iText,float left,float top, float r
 
 void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,float iOpacity)
 {
+	p1.x=(int)p1.x;
+	p1.y=(int)p1.y;
+
+	p2.x=(int)p2.x;
+	p2.y=(int)p2.y;
+
 	Direct2D::DrawLine(this->renderer,this->SetColorWin32(iColor),p1,p2,iWidth,iOpacity);
 }
 
@@ -3841,15 +3847,7 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 	{
 		case 0:
 		{
-			if(lparam)
-				GuiCaret::Instance()->Draw(wparam);
-			else if(!wparam)
-				frame->Draw();
-			else if(frame->BeginDraw((GuiViewport*)wparam))
-			{
-				frame->BroadcastPaintTo((GuiViewport*)wparam);
-				frame->EndDraw();
-			}	
+			frame->ChooseDraw(lparam,wparam);	
 
 			result=0;
 		}
@@ -3946,22 +3944,10 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 
 				::SetCapture(frame->windowDataWin32->hwnd);
 
-				Mouse& tMi=*Mouse::Instance();
-
-				tMi.RawButtons()[tIndex]=true;
-
 				if(!tIndex && frame->windowDataWin32->hwnd!=::GetFocus())
 					::SetFocus(frame->windowDataWin32->hwnd);
 
-				unsigned int tOldTime=tMi.RawTiming()[tIndex];
-				tMi.RawTiming()[tIndex]=Timer::Instance()->GetCurrent();
-
-				unsigned int tFinalButtonIndex=tIndex+1;
-
-				if(tMi.RawTiming()[tIndex]-tOldTime<1000/6.0f)
-					frame->OnMouseClick(tFinalButtonIndex);
-				else
-					frame->OnMouseDown(tFinalButtonIndex);
+				frame->OnMouseDown(tIndex+1);
 			}
 		}
 		break;
@@ -3973,15 +3959,9 @@ LRESULT CALLBACK FrameWin32::FrameWin32Procedure(HWND hwnd,UINT msg,WPARAM wpara
 
 			if(!frame->skipFrameMouseExit)
 			{
-				unsigned int tIndex=msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1);
-				Mouse& tMi=*Mouse::Instance();
-				tMi.RawButtons()[tIndex]=false;
-
 				frame->hittest.locked=false;
-
 				::SetCapture(0);
-
-				frame->OnMouseUp(tIndex+1);
+				frame->OnMouseUp(1+(msg==WM_LBUTTONUP ? 0 : (msg==WM_RBUTTONUP ? 2 : 1)));
 			}
 		}
 		break;
@@ -4952,24 +4932,13 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 	}
 	else
 	{
-		std::vector<Debugger::Breakpoint>& tBreakpoints=this->breakpointSet;
-
-		Debugger::Breakpoint* tbBreakpoint=0;
-
-		for(size_t i=0;i<tBreakpoints.size();i++)
-		{
-			if(exceptionInfo->ExceptionRecord->ExceptionAddress==tBreakpoints[i].address)
-			{
-				this->BreakDebuggee(tBreakpoints[i]);
-				break;
-			}
-		}
+		Debugger::BreakDebuggee(exceptionInfo->ExceptionRecord->ExceptionAddress,(void*)this->threadContext->Ebp);
 
 		if(this->breaked)
 			while(this->breaked);
 		else
 		{
-			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode).c_str(),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;
@@ -5025,11 +4994,6 @@ void DebuggerWin32::SetHardwareBreakpoint(Breakpoint& iLineAddress,bool iSet)
 			}
 		}
 	}
-
-	this->AppendLog(
-		StringUtils::Format(L"%ls: %ls breakpoint on line %d, address 0x%X",
-		iLineAddress.script->sourcepath.File().c_str(),iSet ? L"Set" : L"Unset",iLineAddress.line,iLineAddress.address
-		));
 }
 
 void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
@@ -5045,7 +5009,7 @@ void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
 	}
 
 	this->SetHardwareBreakpoint(iLineAddress,iSet);
-
+	
 	if(!this->breaked)
 	{
 		if(!SetThreadContext(this->debuggeeThread,this->threadContext))
@@ -5057,32 +5021,7 @@ void DebuggerWin32::SetBreakpoint(Breakpoint& iLineAddress,bool iSet)
 	this->PrintThreadContext(this->threadContext);
 }
 
-void DebuggerWin32::BreakDebuggee(Breakpoint& iBreakpoint)
-{
-	if(!this->breaked)
-	{
-		this->breaked=true;
-		this->breakpoint=&iBreakpoint;
-		this->lastBreakedAddress=iBreakpoint.address;
 
-		iBreakpoint.breaked=true;
-
-		this->StackUnwind(this->editorscript,iBreakpoint.address);
-
-		this->editorscript->GetViewer()->GetRoot()->SetTab(this->editorscript->GetViewer());
-	}
-}
-void DebuggerWin32::ContinueDebuggee()
-{
-	if(this->breaked)
-	{
-		this->breaked=false;
-		this->breakpoint->breaked=false;
-		this->breakpoint=0;
-
-		this->editorscript->GetViewer()->GetRoot()->SetTab(this->editorscript->GetViewer());
-	}
-}
 
 DebuggerWin32::DebuggerWin32()
 {
@@ -5119,21 +5058,9 @@ DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
 		{
 			switch(tDebuggerWin32->function)
 			{
-			case 1: 
-				{
-					tDebuggerWin32->editorscript->runtime->init();
-				}
-				break;
-			case 2:
-				{
-					tDebuggerWin32->editorscript->runtime->update();
-				}
-				break;
-			case 3: 
-				{
-					tDebuggerWin32->editorscript->runtime->deinit();
-				}
-				break;
+				case 1: tDebuggerWin32->editorscript->runtime->init();		break;
+				case 2: tDebuggerWin32->editorscript->runtime->update();	break;
+				case 3: tDebuggerWin32->editorscript->runtime->deinit();	break;
 			}
 		}
 
@@ -5146,161 +5073,6 @@ DWORD WINAPI DebuggerWin32::debuggeeThreadFunc(LPVOID iDebuggerWin32)
 	return 0;
 }
 
-void DebuggerWin32::StackUnwind(EditorScript* iEditorScript,void* iAddress)
-{
-	system("Pause");
-
-	std::vector<String>	tFuncNames;
-	std::vector<void*>	tFunctionAdresses;
-	
-	{
-		//recurse on frames to get funcs return addresses 
-
-		unsigned int*	tBasePtr=(unsigned int*)this->threadContext->Ebp;
-		void*			tFuncAddr=0;
-
-		for(int i=0;i<100 && tBasePtr;i++)
-		{
-			tFuncAddr=(void*)*(tBasePtr+1);
-			tFunctionAdresses.push_back(tFuncAddr);
-
-			tBasePtr=(unsigned int*)*tBasePtr;
-		}
-	}
-
-
-	String	tDwarfDumpFileNameWide=iEditorScript->GetLibPath().Path() + L"\\obj.dmp";
-	FILE*	tObjDumpFile=fopen(StringUtils::ToChar(tDwarfDumpFileNameWide).c_str(),"r");
-
-	if(tObjDumpFile)
-	{
-		char			tStrBuf[500];
-		
-		enum FDEEnum
-		{
-			SEARCH_INFOSEC,
-			SEARCH_DIE,
-			DECODE_RANGE,
-			SEARCH_MAX
-		};
-
-		unsigned int	tFdeState=SEARCH_INFOSEC;
-		unsigned int	tFileCursor=0;
-		unsigned int	tFrameCursor=0;
-		unsigned int	tFdeFileLocation=0;
-		unsigned int	tAddress=(unsigned int)iAddress;
-		unsigned int	tMemLocation=tAddress;
-
-		//roll on lines
-		
-		while(fgets(tStrBuf,500,tObjDumpFile))
-		{
-			tFileCursor=ftell(tObjDumpFile);
-
-			switch(tFdeState)
-			{
-				case SEARCH_INFOSEC:
-
-					if(strstr(tStrBuf,".debug_info"))
-					{
-						tFdeState=SEARCH_DIE;
-						tFrameCursor=tFileCursor;
-					}
-
-				break;
-				case SEARCH_DIE:
-
-					if(strstr(tStrBuf,"pc="))
-					{
-						unsigned int	tPtrSize=sizeof(void*);
-						unsigned int	tDelimiterSize=2;
-						unsigned int	tStringLineSize=strlen(tStrBuf);
-						unsigned int	tFirst;
-						unsigned int	tLast;
-
-						char* tPcRangeBegin=&tStrBuf[tStringLineSize-(tPtrSize*2*2+tDelimiterSize+1)];
-
-						sscanf(tPcRangeBegin,"%x",&tFirst);
-						sscanf(tPcRangeBegin+tPtrSize*2+tDelimiterSize,"%x",&tLast);
-
-						if(tAddress>=tFirst && tAddress<=tLast)
-						{
-							tFdeFileLocation=tFileCursor;
-							tFdeState=DECODE_RANGE;
-							tMemLocation=tFirst;
-							wprintf(L"address 0x%X found at FDE range 0x%X ,0x%X\n",tAddress,tFirst,tLast);
-						}
-					}
-
-				break;
-				case DECODE_RANGE:
-
-					{
-						const unsigned int tCallFrameInstructionsSize=20;
-
-						static char* tCallFrameInstructions[tCallFrameInstructionsSize]=
-						{
-							"DW_CFA_advance_loc",
-							"DW_CFA_offset",
-							"DW_CFA_restore",
-							"DW_CFA_set_loc",
-							"DW_CFA_advance_loc1",
-							"DW_CFA_advance_loc2",
-							"DW_CFA_advance_loc4",
-							"DW_CFA_offset_extended",
-							"DW_CFA_restore_extended",
-							"DW_CFA_undefined",
-							"DW_CFA_same_value",
-							"DW_CFA_register",
-							"DW_CFA_remember_state",
-							"DW_CFA_restore_state",
-							"DW_CFA_def_cfa",
-							"DW_CFA_def_cfa_register",
-							"DW_CFA_def_cfa_offset",
-							"DW_CFA_nop",
-							"DW_CFA_lo_user",
-							"DW_CFA_hi_user"
-						};
-
-						unsigned int tInstruction=0;
-
-						for(;tInstruction<tCallFrameInstructionsSize;tInstruction++)
-						{
-							if(strstr(tStrBuf,tCallFrameInstructions[tInstruction]))
-								break;
-						}
-
-						unsigned int tAdvanceLoc=0;
-						char*		 tDataPtr=strchr(tStrBuf,':');
-
-						switch(tInstruction)
-						{
-						case 0:
-
-							sscanf(++tDataPtr,"%d",&tAdvanceLoc);
-							tMemLocation+=tAdvanceLoc;
-
-							break;
-						default:{}
-						}
-
-						if(tMemLocation>=tAddress)
-						{
-							//get this FDE function name
-
-							//next FDE
-							tAddress=tMemLocation;
-							tFdeState=SEARCH_DIE;
-						}
-					}
-
-				break;
-			}
-		}
-
-		fclose(tObjDumpFile);
-	}
-}
 
 /////////////////PluginSystemWin32/////////////
 
