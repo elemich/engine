@@ -77,6 +77,15 @@ MinGW-w64 64bit     __MINGW64__
 
 	#define DEBUG_BREAK() \
 		__debugbreak()
+#elif __clang__
+	#ifdef CREATEDLL
+		#define DLLBUILD __declspec(dllexport)
+	#else
+		#define DLLBUILD // __declspec(dllimport)
+	#endif
+
+	#define DEBUG_BREAK() \
+		__debugbreak()
 #else
 	#define DLLBUILD
 

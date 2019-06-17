@@ -1,5 +1,6 @@
 #include "win32.h"
 #include "dbghelp.h"
+#include "signal.h"
 
 GLOBALGETTERFUNC(GlobalIdeInstance,IdeWin32*);
 GLOBALGETTERFUNC(GlobalTimerInstance,TimerWin32*);
@@ -4932,13 +4933,13 @@ int DebuggerWin32::HandleHardwareBreakpoint(void* iException)
 	}
 	else
 	{
-		Debugger::BreakDebuggee(exceptionInfo->ExceptionRecord->ExceptionAddress,(void*)this->threadContext->Ebp);
+		Debugger::BreakDebuggee(exceptionInfo->ExceptionRecord->ExceptionAddress,(void*)this->threadContext->Rbp);
 
 		if(this->breaked)
 			while(this->breaked);
 		else
 		{
-			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode),exceptionInfo->ExceptionRecord->ExceptionAddress);
+			wprintf(L"%ls on address 0x%X without breakpoint\n",ExceptionString(exceptionInfo->ExceptionRecord->ExceptionCode).c_str(),exceptionInfo->ExceptionRecord->ExceptionAddress);
 
 			exceptionInfo->ContextRecord->Dr0=0;
 			exceptionInfo->ContextRecord->Dr1=0;
@@ -4960,12 +4961,22 @@ LONG WINAPI UnhandledException(LPEXCEPTION_POINTERS exceptionInfo)
 	return debuggerWin32->HandleHardwareBreakpoint(exceptionInfo);
 }
 
+void UnhandledException(int exceptionInfo)
+{
+	DebuggerWin32* debuggerWin32=(DebuggerWin32*)Debugger::Instance();
+
+	if(exceptionInfo==SIGINT)
+	{
+		debuggerWin32->HandleHardwareBreakpoint(0);
+	}
+}
+
 
 void DebuggerWin32::SetHardwareBreakpoint(Breakpoint& iLineAddress,bool iSet)
 {
 	const unsigned int NUMBER_OF_BREAKPOINT_REGISTERS=4;
 
-	DWORD* rBreakpointRegisters[NUMBER_OF_BREAKPOINT_REGISTERS]=
+	DWORD64* rBreakpointRegisters[NUMBER_OF_BREAKPOINT_REGISTERS]=
 	{
 		&this->threadContext->Dr0,
 		&this->threadContext->Dr1,
@@ -4979,14 +4990,14 @@ void DebuggerWin32::SetHardwareBreakpoint(Breakpoint& iLineAddress,bool iSet)
 		{
 			if(!*rBreakpointRegisters[i])
 			{
-				*rBreakpointRegisters[i]=(DWORD)iLineAddress.address;
+				*rBreakpointRegisters[i]=(DWORD64)iLineAddress.address;
 				this->threadContext->Dr7|=1UL << i*2;
 				break;
 			}
 		}
 		else
 		{
-			if(*rBreakpointRegisters[i]==(DWORD)iLineAddress.address)
+			if(*rBreakpointRegisters[i]==(DWORD64)iLineAddress.address)
 			{
 				*rBreakpointRegisters[i]=0;
 				this->threadContext->Dr7 &= ~ (1UL << i*2);
@@ -5030,6 +5041,7 @@ DebuggerWin32::DebuggerWin32()
 	/*SystemUnhandledException=*/SetUnhandledExceptionFilter(UnhandledException);
 
 	this->debuggeeThread=CreateThread(0,0,DebuggerWin32::debuggeeThreadFunc,this,/*CREATE_SUSPENDED*/0,(DWORD*)(int*)&this->debuggeeThreadId);
+	signal(SIGINT,UnhandledException);
 
 	GuiLogger::Log(StringUtils::Format(L"Debugger thread: 0x%X, ID: %d\n",this->debuggeeThread,this->debuggeeThreadId));
 }

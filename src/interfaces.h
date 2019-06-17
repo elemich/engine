@@ -62,6 +62,8 @@ struct DLLBUILD Script;
 
 #define MAX_TOUCH_INPUTS 10
 
+#define CLANG_ENABLED 1
+#define LLVM_ENABLED 1
 #define RENDERER_ENABLED 1
 #define RENDERER_FRAMED 1
 #define RENDERER_THREADED 0
@@ -749,12 +751,15 @@ protected:
 	GuiTreeViewNode*			parent;
 	std::list<GuiTreeViewNode*>	childs;
 	unsigned int				flags;
-	String						label;
+	std::vector<String>			labels;
 
 	GuiTreeViewNode();
 public:
-	void			SetLabel(const String&);
-	const String&	GetLabel();
+	void			SetLabel(const String&,unsigned int iColumn=0);
+	const String&	GetLabel(unsigned int iColumn=0);
+
+	void			SetColumnNumber(unsigned int);
+	unsigned int	GetColumnNumber();
 	
 	void Insert(GuiTreeViewNode& iChild);
 	void Remove(GuiTreeViewNode& iItem);
@@ -763,7 +768,7 @@ public:
 
 	virtual void Reset();
 
-	virtual void  OnPaint(Frame*,const vec4&,const float& tExpandosEnd);
+	virtual void  OnPaint(Frame*,const vec4&,const float& tExpandosEnd,unsigned int iColumn);
 	virtual float GetWidth(const float& tExpandosEnd);
 	virtual float GetHeight();
 	virtual void  OnExpandos(Frame*,const bool&);
@@ -797,11 +802,15 @@ struct DLLBUILD GuiTreeView : GuiScrollRect
 	virtual void Procedure(Frame*,GuiRectMessages,void* iData=&MsgData());
 
 protected:
+	unsigned int				ncolumns;
+	std::vector<String>			labels;
+	std::vector<unsigned int>	splitters;
 	std::list<GuiListBoxNode*>	selected;
 	GuiTreeViewNode*			root;
 	GuiTreeViewNode*			hovered;
 	vec4						hoveredg;
 	unsigned					hoverlvl;
+	bool						drawroot;
 protected:
 	virtual void ItemProcedure(GuiTreeViewNode*,Frame*,GuiRectMessages,GuiTreeViewData&);
 	virtual void ItemLayout(Frame*,GuiTreeViewNode*,GuiTreeViewData&);
@@ -820,11 +829,23 @@ public:
 
 	void InsertRoot(GuiTreeViewNode& iItem);
 	void RemoveRoot();
+	void RemoveItem(GuiTreeViewNode& iItem);
+	void RemoveItemChilds(GuiTreeViewNode& iItem);
 
 	virtual void CalculateLayout();
 
+	void SetColumnNumber(unsigned int);
+	void SetSplitterPos(unsigned int iSplitter,unsigned int iPos);
+	void SetColumnLabel(unsigned int iColumn,String iLabel);
+
+	const std::vector<unsigned int>& GetSplitters();
+	const std::vector<String>& GetColumnLabels();
+
 	GuiTreeViewNode* GetTreeViewHoveredNode();
 	GuiTreeViewNode* GetTreeViewRootNode();
+
+	void SetDrawRoot(bool);
+	bool GetDrawRoot();
 };
 
 ////////GuiPropertyTree///////
@@ -1284,16 +1305,16 @@ struct DLLBUILD Debugger : Singleton<Debugger> , GuiLogger
 			flag_max
 		};
 
-		unsigned char				code;
 		String						name;
 		String						type;
 		String						value;
-		String						basetype;
+		unsigned char				code;
 		unsigned int				addr;
 		unsigned int				line;
 		unsigned int				size;
 		unsigned int				count;
 		unsigned long long			flags;		
+		std::list<Variable>			childs;
 
 		Variable():code(0),addr(0),line(0),size(0),count(0),flags(0){}
 	};
@@ -1314,7 +1335,7 @@ struct DLLBUILD Debugger : Singleton<Debugger> , GuiLogger
 		static GuiFrameStack* Instance();
 	};
 
-	struct DLLBUILD GuiWatcher : Singleton<GuiWatcher> , GuiListBox
+	struct DLLBUILD GuiWatcher : Singleton<GuiWatcher> , GuiTreeView
 	{
 		static const unsigned int NCOLUMNS=3;
 		static GuiWatcher* Instance();
@@ -1326,9 +1347,9 @@ struct DLLBUILD Debugger : Singleton<Debugger> , GuiLogger
 		FrameStackItem(Function*);
 	};
 
-	struct DLLBUILD WatcherItem : GuiListBoxItem<Variable*>
+	struct DLLBUILD WatcherItem : GuiTreeViewItem<Variable*>
 	{
-		void OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&);
+		void OnMouseUp(Frame*,const MouseData&);
 		WatcherItem(Variable*);
 	};
 
@@ -1339,7 +1360,7 @@ protected:
 
 	std::vector<Variable>			variables;
 	std::vector<unsigned int>		addressStack;
-	std::list<WatcherItem>			watcherItems;
+	WatcherItem						watcherRootItem;
 	std::list<FrameStackItem>		frameStackItems;
 
 	void*				lastBreakedAddress;

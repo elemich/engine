@@ -27,6 +27,79 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_abbrev.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_alloc.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_arange.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_die_deliv.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_dnames.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_dsc.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elfread.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elf_access.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elf_load_headers.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elf_rel_detector.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_error.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_form.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_frame.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_frame2.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_funcs.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_gdbindex.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_generic_init.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_global.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_groups.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_harmless.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_init_finish.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_leb.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_leb_test.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_line.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_loc.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_machoread.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_macro.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_macro5.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_names.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_object_detector.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_object_read_common.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_original_elf_init.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_peread.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_print_lines.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_pubtypes.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_query.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_ranges.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_string.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_str_offsets.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_test_errmsg_list.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_tied.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_tied_test.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_tsearchhash.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_types.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_util.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_vars.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_weaks.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_xu_index.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwgetopt.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\gennames.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\malloc_check.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_alloc.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_arange.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_die.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_dnames.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_encode_nm.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_error.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_expr.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_finish.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_forms.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_frame.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_funcs.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_init.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_line.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_macinfo.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_pubnames.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_reloc.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_reloc_stream.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_reloc_symbolic.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_section.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_types.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_vars.c" />
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_weaks.c" />
     <ClCompile Include="src\EngineAndroid.cpp" />
     <ClCompile Include="src\entities.cpp" />
     <ClCompile Include="src\fbxutil.cpp" />
@@ -42,6 +115,8 @@
     <ClCompile Include="src\win32.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Sdk\libdwarf-20190505\bin\libdwarf\libdwarf.h" />
+    <ClInclude Include="..\..\Sdk\LLVM\include\clang-c\Index.h" />
     <ClInclude Include="src\EngineAndroid.h" />
     <ClInclude Include="src\entities.h" />
     <ClInclude Include="src\fbxutil.h" />
@@ -54,8 +129,9 @@
     <ClInclude Include="src\win32.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="build\win32\x86\debug\makefile" />
-    <None Include="build\win32\x86\debug\makefile-ms" />
+    <None Include="build\win32\x86\debug\makefile_llvm" />
+    <None Include="build\win32\x86\debug\makefile_mingw" />
+    <None Include="build\win32\x86\debug\makefile_ms" />
     <None Include="makefile" />
     <None Include="src\targets\android\src\com\android\Engine\EngineActivity.java" />
     <None Include="src\targets\android\src\com\android\Engine\EngineLib.java" />
@@ -142,7 +218,9 @@
     <NMakeCleanCommandLine>nmake cleanx86d</NMakeCleanCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeOutput>build\win32\x86\debug\engineMS.exe</NMakeOutput>
+    <NMakeOutput>C:\Projects\Engine\build\win32\x86\debug\LLVM\engineLLVM.exe</NMakeOutput>
+    <IncludePath>C:\Sdk\LLVM\include;C:\Sdk\llvm_src\llvm-8.0.0.src\include;$(IncludePath)</IncludePath>
+    <ReferencePath>C:\Sdk\llvm_src\llvm-8.0.0.src\lib;$(ReferencePath)</ReferencePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

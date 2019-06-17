@@ -15,9 +15,8 @@ x86d:
  @echo --mingw build--
  @c:\sdk\mingw32\bin\mingw32-make -s -f $(DIRDST)\makefile_mingw engineMingW.exe -C $(DIRDST) DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)
  
-# @echo --LLVM build--
-# @cd $(DIRDST)\mingw
-# @nmake.exe -f $(DIRDST)\makefile_llvm /NOLOGO /S engineLLVM.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)\mingw
+# @cd $(DIRDST)\LLVM
+# @nmake.exe -f $(DIRDST)\LLVM\makefile_llvm_ms /NOLOGO /S engineLLVM.exe DIRSRC=$(DIRSRC) DIRDST=$(DIRDST)\LLVM
   
 # @echo --ndk-build build--        
 # 

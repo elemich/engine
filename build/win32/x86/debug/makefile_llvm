@@ -1,6 +1,6 @@
 SDKDIR=c:\sdk
 
-MINGWDIR=$(SDKDIR)\clang
+MINGWDIR=$(SDKDIR)\sdk\llvm\bin\clang++.exe
 COMPILER=$(SDKDIR)\clang\bin\i386-mingw32-llvm-g++.exe --sysroot=$(MINGWDIR)
 LINKER=$(SDKDIR)\llvm32\bin\clang-cl.exe
 

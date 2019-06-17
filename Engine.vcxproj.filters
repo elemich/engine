@@ -16,6 +16,21 @@
     <Filter Include="Plugins\Android">
       <UniqueIdentifier>{a70132d0-a52b-452f-91cc-421d934c4eb2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Plugins\Fbx">
+      <UniqueIdentifier>{ac9a3c4f-7b03-4ed5-9cd4-a2a2017e8ab3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\Dwarf">
+      <UniqueIdentifier>{d6d9d005-8e04-47d0-9779-a1c1f4523f7b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\Dwarf\src">
+      <UniqueIdentifier>{6bef3f28-eb58-4e93-9e05-f1ace53a75ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\clang">
+      <UniqueIdentifier>{4ad89461-a9a3-4f59-b276-7ba80f8ddbef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugins\llvm">
+      <UniqueIdentifier>{ac3c9440-7deb-4950-acc5-c819dd93ba2f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\entities.cpp">
@@ -48,14 +63,233 @@
     <ClCompile Include="src\EngineAndroid.cpp">
       <Filter>Plugins\Android</Filter>
     </ClCompile>
-    <ClCompile Include="src\fbxutil_fbx.cpp">
-      <Filter>Plugins</Filter>
-    </ClCompile>
-    <ClCompile Include="src\fbxutil.cpp">
-      <Filter>Plugins</Filter>
-    </ClCompile>
     <ClCompile Include="src\IdeAndroid.cpp">
       <Filter>Plugins\Android</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fbxutil.cpp">
+      <Filter>Plugins\Fbx</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fbxutil_fbx.cpp">
+      <Filter>Plugins\Fbx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_abbrev.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_alloc.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_arange.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_die_deliv.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_dnames.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_dsc.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elf_access.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elf_load_headers.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elf_rel_detector.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_elfread.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_error.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_form.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_frame.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_frame2.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_funcs.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_gdbindex.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_generic_init.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_global.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_groups.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_harmless.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_init_finish.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_leb.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_leb_test.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_line.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_loc.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_machoread.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_macro.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_macro5.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_names.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_object_detector.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_object_read_common.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_original_elf_init.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_peread.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_print_lines.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_pubtypes.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_query.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_ranges.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_str_offsets.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_string.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_test_errmsg_list.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_tied.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_tied_test.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_tsearchhash.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_types.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_util.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_vars.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_weaks.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwarf_xu_index.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\dwgetopt.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\gennames.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\malloc_check.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_alloc.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_arange.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_die.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_dnames.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_encode_nm.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_error.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_expr.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_finish.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_forms.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_frame.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_funcs.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_init.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_line.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_macinfo.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_pubnames.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_reloc.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_reloc_stream.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_reloc_symbolic.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_section.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_types.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_vars.c">
+      <Filter>Plugins\Dwarf\src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_weaks.c">
+      <Filter>Plugins\Dwarf\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -83,11 +317,17 @@
     <ClInclude Include="src\EngineAndroid.h">
       <Filter>Plugins\Android</Filter>
     </ClInclude>
-    <ClInclude Include="src\fbxutil.h">
-      <Filter>Plugins</Filter>
-    </ClInclude>
     <ClInclude Include="src\IdeAndroid.h">
       <Filter>Plugins\Android</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fbxutil.h">
+      <Filter>Plugins\Fbx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Sdk\libdwarf-20190505\bin\libdwarf\libdwarf.h">
+      <Filter>Plugins\Dwarf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Sdk\LLVM\include\clang-c\Index.h">
+      <Filter>Plugins\clang</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -103,10 +343,13 @@
     <None Include="makefile">
       <Filter>Makefiles</Filter>
     </None>
-    <None Include="build\win32\x86\debug\makefile">
+    <None Include="build\win32\x86\debug\makefile_llvm">
       <Filter>Makefiles</Filter>
     </None>
-    <None Include="build\win32\x86\debug\makefile-ms">
+    <None Include="build\win32\x86\debug\makefile_mingw">
+      <Filter>Makefiles</Filter>
+    </None>
+    <None Include="build\win32\x86\debug\makefile_ms">
       <Filter>Makefiles</Filter>
     </None>
   </ItemGroup>

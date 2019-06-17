@@ -1,8 +1,24 @@
 #include "interfaces.h"
 
+#include <type_traits>
+
 #include "imgpng.h"
 #include "imgjpg.h"
 #include "imgtga.h"
+
+#include <cinttypes>
+
+#if CLANG_ENABLED
+	#include "clang-c\Index.h"
+#endif
+
+#if LLVM_ENABLED
+	#include "llvm\adt\StringRef.h"
+	#include "llvm\object\ObjectFile.h"
+	#include "llvm\DebugInfo\DWARF\DWARFObject.h"
+	#include "llvm/DebugInfo/DWARF/DWARFContext.h"
+	#include "llvm/Support/MemoryBuffer.h"
+#endif
 
 /////////////////////globals///////////////////
 
@@ -423,22 +439,26 @@ Debugger::GuiWatcher* Debugger::GuiWatcher::Instance()
 
 ///////////////////Debugger//////////////////
 
-Debugger::Debugger():breaked(false),suspended(false),editorscript(0),lastBreakedAddress(0),function(0),sleep(1)
+Debugger::Debugger():breaked(false),suspended(false),editorscript(0),lastBreakedAddress(0),function(0),sleep(1),watcherRootItem(new Variable)
 {
 	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(this,L"Debugger");
 }
 
-void Debugger::WatcherItem::OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&)
+void Debugger::WatcherItem::OnMouseUp(Frame*,const MouseData&)
 {
 
 }
 
-Debugger::WatcherItem::WatcherItem(Debugger::Variable* iVariable):GuiListBoxItem<Variable*>(iVariable)
+Debugger::WatcherItem::WatcherItem(Debugger::Variable* iVariable):GuiTreeViewItem<Variable*>(iVariable)
 {
 	this->SetColumnNumber(GuiWatcher::NCOLUMNS);
-	this->SetLabel(iVariable->name,0);
-	this->SetLabel(iVariable->value,1);
-	this->SetLabel(iVariable->basetype,2);
+
+	if(iVariable)
+	{
+		this->SetLabel(iVariable->name,0);
+		this->SetLabel(iVariable->value,1);
+		this->SetLabel(iVariable->type,2);
+	}
 }
 
 void Debugger::FrameStackItem::OnMouseUp(GuiListBox*,Frame*,const vec4&,MouseData&)
@@ -502,10 +522,9 @@ void Debugger::ContinueDebuggee()
 		this->breakpoint=0;
 
 		GuiFrameStack::Instance()->RemoveAll();
-		GuiWatcher::Instance()->RemoveAll();
+		GuiWatcher::Instance()->RemoveRoot();
 
 		this->variables.clear();
-		this->watcherItems.clear();
 		this->frameStackItems.clear();
 		this->addressStack.clear();
 
@@ -518,6 +537,10 @@ void Debugger::ContinueDebuggee()
 void Debugger::StackUnwind(EditorScript* iEditorScript,void* iTargetAddress,void* iFrameBasePointer)
 {
 	system("Pause");
+
+	//show related viewers
+	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(GuiFrameStack::Instance(),L"FrameStack");
+	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(GuiWatcher::Instance(),L"Watcher");
 
 	{
 		//collect nested function addresses
@@ -574,266 +597,384 @@ void Debugger::StackUnwind(EditorScript* iEditorScript,void* iTargetAddress,void
 		}
 
 		for(size_t i=0;i<this->variables.size();i++)
-		{
-			this->watcherItems.push_back(WatcherItem(&this->variables[i]));
-			GuiWatcher::Instance()->InsertItem(this->watcherItems.back());
-		}
-	}
+			this->watcherRootItem.Insert(*(new WatcherItem(&this->variables[i])));
 
-	//show related viewers
-	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(GuiFrameStack::Instance(),L"FrameStack");
-	GuiLogger::GetDefaultLogger()->GetRoot()->AddTab(GuiWatcher::Instance(),L"Watcher");
+		GuiWatcher::Instance()->InsertRoot(this->watcherRootItem);
+		GuiWatcher::Instance()->SetDrawRoot(false);
+	}
 
 	GuiFrameStack::Instance()->Draw();
 	GuiWatcher::Instance()->Draw();
 }
 
+static char* strrstr(const char *iString, const char *iSubstring)
+{
+	if (!iString || !iSubstring || *iString==0 || *iSubstring==0)
+		return 0;
+
+	char* t = (char*)&iString[strlen(iString)-1];
+
+	while (t && t!=iString)
+	{
+		if(strstr(t, iSubstring))
+			return t;
+		
+		--t;
+	}
+
+	return 0;
+}
+
+#if CLANG_ENABLED
+
+CXChildVisitResult translation_unit_visitor(CXCursor cursor, CXCursor, CXClientData) 
+{
+	CXCursorKind	tKind = clang_getCursorKind(cursor);
+	CXString		tCursorName=clang_getCursorDisplayName(cursor);
+
+	// Consider functions and methods
+	//switch(tKind)
+	{
+		/*case CXCursorKind::CXCursor_FunctionDecl:
+		case CXCursorKind::CXCursor_CXXMethod:
+		case CXCursorKind::CXCursor_VarDecl:*/
+		{
+			// Print if function/method starts with doSomething
+			std::string cursorNameStr(clang_getCString(tCursorName));
+
+			//if (cursorNameStr.find("doSomething") == 0) 
+			{
+				// Get the source location
+				CXSourceRange range = clang_getCursorExtent(cursor);
+				CXSourceLocation location = clang_getRangeStart(range);
+
+				CXFile file;
+				unsigned line;
+				unsigned column;
+				clang_getFileLocation(location, &file, &line, &column,0);
+
+				CXString fileName = clang_getFileName(file);
+
+				printf("Found call to %s at %d:%d\n",clang_getCString(tCursorName),line,column);
+
+				clang_disposeString(fileName);
+			}
+		}
+		//break;
+	}
+
+	clang_disposeString(tCursorName);
+
+	return CXChildVisit_Recurse;
+}
+
+#endif
+
 void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFrameBase)
 {
 	this->variables.clear();
 
-	std::string				tDieString;
-	std::string				tTypeString;
-	String					tCompiledSource=this->editorscript->libpath.Path() + L"\\" + this->editorscript->libpath.Name() + L".cpp";
-	bool					tIsTargetCompilationUnit=false;
-	bool					tRollOnLines=true;
-	int						def_cfa_offset=8;
-	unsigned int			tDieCursor=0;
-	unsigned int			tCompilationUnitBegin=0;
-	unsigned int			tNextDieTypeId=0;
-	static const char*		tTypeLabels[Variable::flag_max]=
+#if CLANG_ENABLED
 	{
-							"DW_TAG_array_type",
-							"DW_TAG_class_type",
-							"DW_TAG_entry_point",
-							"DW_TAG_enumeration_type",
-							"DW_TAG_formal_parameter",
-							"DW_TAG_imported_declaration",
-							"DW_TAG_label",
-							"DW_TAG_lexical_block",
-							"DW_TAG_member",
-							"DW_TAG_pointer_type",
-							"DW_TAG_reference_type",
-							"DW_TAG_compile_unit",
-							"DW_TAG_string_type",
-							"DW_TAG_structure_type",
-							"DW_TAG_subroutine_type",
-							"DW_TAG_typedef",
-							"DW_TAG_union_type",
-							"DW_TAG_unspecified_parameters",
-							"DW_TAG_variant",
-							"DW_TAG_common_block",
-							"DW_TAG_common_inclusion",
-							"DW_TAG_inheritance",
-							"DW_TAG_inlined_subroutine",
-							"DW_TAG_module",
-							"DW_TAG_ptr_to_member_type",
-							"DW_TAG_set_type",
-							"DW_TAG_subrange_type",
-							"DW_TAG_with_stmt",
-							"DW_TAG_access_declaration",
-							"DW_TAG_base_type",
-							"DW_TAG_catch_block",
-							"DW_TAG_const_type",
-							"DW_TAG_constant",
-							"DW_TAG_enumerator",
-							"DW_TAG_file_type"
-	};
+		//LLVM source approach
 
-	FILE*	tFile=fopen(iFileName,"r");
+		CXIndex tIndex = clang_createIndex(0, 0);
+		CXTranslationUnit tUnit = clang_parseTranslationUnit(tIndex,StringUtils::ToChar(this->editorscript->sourcepath).c_str(),0,0,0,0,CXTranslationUnit_None);
 
-	if(tFile)
+		CXCursor cursor = clang_getTranslationUnitCursor(tUnit);
+		clang_visitChildren(cursor,translation_unit_visitor, 0);
+
+		clang_disposeTranslationUnit(tUnit);
+		clang_disposeIndex(tIndex);
+	}
+#endif
+
+#if LLVM_ENABLED
 	{
-		const unsigned int	cbufsz=500;
-		char				tDieBuf[cbufsz];
-		char				tTypeBuf[cbufsz];
-		char				ttmpbuf[cbufsz];
+		//LLVM binary approach
+		llvm::StringRef						tScriptLibraryFilename(StringUtils::ToChar(this->editorscript->libpath).c_str());
+		llvm::object::ObjectFile			*tObjectfile=llvm::object::ObjectFile::createObjectFile(tScriptLibraryFilename).get().getBinary();
 
-		unsigned int		tFunctionAddress=(unsigned int)iFunctionAddress;
-		unsigned int		tFrameBase=(unsigned int)iFrameBase;
-		bool				tFunctionFound=true;
-
-		unsigned int		tSourceFileIdx=2;
-		char				tSourceIdxStr[100]={0};
-
+		if(tObjectfile)
 		{
-			char titoa[10];
+			std::unique_ptr<llvm::DWARFContext> tDwarfContext=llvm::DWARFContext::create(*tObjectfile);
 
-			strcat(tSourceIdxStr,"DW_AT_decl_file   : ");
-			strcat(tSourceIdxStr,itoa(tSourceFileIdx,titoa,10));
-			strcat(tSourceIdxStr,"\n");
 		}
+	}
+#endif
 
-		//roll on dies
-		while(tRollOnLines && (tDieCursor=ftell(tFile)),fgets(tDieBuf,cbufsz,tFile))
+	if(0)
+	{
+		//DWARF approach
+
+		FILE*	tFile=fopen(iFileName,"r");
+
+		if(tFile)
 		{
-			//parse die if not empty and create die string
-			if(tDieString.size() && strstr(tDieBuf,"Abbrev Number"))
+			std::string				tDieString;
+			std::string				tTypeString;
+			String					tCompiledSource = this->editorscript->libpath.Path() + L"\\" + this->editorscript->libpath.Name() + L".cpp";
+			bool					tIsTargetCompilationUnit = false;
+			bool					tRollOnLines = true;
+			int						def_cfa_offset = 8;
+			unsigned int			tDieCursor = 0;
+			unsigned int			tCompilationUnitBegin = 0;
+			unsigned int			tNextDieTypeId = 0;
+			static const char*		tTypeLabels[Variable::flag_max] =
 			{
-				//identify the target Compilation Unit
-				if(strstr(tDieString.c_str()," <0><"))
+				"DW_TAG_array_type",
+				"DW_TAG_class_type",
+				"DW_TAG_entry_point",
+				"DW_TAG_enumeration_type",
+				"DW_TAG_formal_parameter",
+				"DW_TAG_imported_declaration",
+				"DW_TAG_label",
+				"DW_TAG_lexical_block",
+				"DW_TAG_member",
+				"DW_TAG_pointer_type",
+				"DW_TAG_reference_type",
+				"DW_TAG_compile_unit",
+				"DW_TAG_string_type",
+				"DW_TAG_structure_type",
+				"DW_TAG_subroutine_type",
+				"DW_TAG_typedef",
+				"DW_TAG_union_type",
+				"DW_TAG_unspecified_parameters",
+				"DW_TAG_variant",
+				"DW_TAG_common_block",
+				"DW_TAG_common_inclusion",
+				"DW_TAG_inheritance",
+				"DW_TAG_inlined_subroutine",
+				"DW_TAG_module",
+				"DW_TAG_ptr_to_member_type",
+				"DW_TAG_set_type",
+				"DW_TAG_subrange_type",
+				"DW_TAG_with_stmt",
+				"DW_TAG_access_declaration",
+				"DW_TAG_base_type",
+				"DW_TAG_catch_block",
+				"DW_TAG_const_type",
+				"DW_TAG_constant",
+				"DW_TAG_enumerator",
+				"DW_TAG_file_type"
+			};
+
+			const unsigned int	cbufsz=500;
+			char				tDieBuf[cbufsz];
+			char				tTypeBuf[cbufsz];
+			char				ttmpbuf[cbufsz];
+
+			unsigned int		tFunctionAddress=(unsigned int)iFunctionAddress;
+			unsigned int		tFrameBase=(unsigned int)iFrameBase;
+			bool				tFunctionFound=true;
+
+			unsigned int		tSourceFileIdx=2;
+			char				tSourceIdxStr[100]={0};
+
+			{
+				char titoa[10];
+
+				strcat(tSourceIdxStr,"DW_AT_decl_file   : ");
+				strcat(tSourceIdxStr,itoa(tSourceFileIdx,titoa,10));
+				strcat(tSourceIdxStr,"\n");
+			}
+
+			//roll on dies
+			while(tRollOnLines && (tDieCursor=ftell(tFile)),fgets(tDieBuf,cbufsz,tFile))
+			{
+				//parse die if not empty and create die string
+				if(tDieString.size() && strstr(tDieBuf,"Abbrev Number"))
 				{
-					char* tComilationUnitName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
-
-					if(tComilationUnitName)
+					//identify the target Compilation Unit
+					if(strstr(tDieString.c_str()," <0><"))
 					{
-						char  tCompilationUnitSource[cbufsz];
-						tComilationUnitName=strstr(tComilationUnitName,":");
-						sscanf(++tComilationUnitName,"%s",tCompilationUnitSource);
+						char* tComilationUnitName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
 
-						bool tTargetCompilationUnitHasBeenParsed=tIsTargetCompilationUnit;
-
-						tIsTargetCompilationUnit=(tCompiledSource==StringUtils::ToWide(tCompilationUnitSource));
-
-						tRollOnLines=!tTargetCompilationUnitHasBeenParsed;
-
-						if(tIsTargetCompilationUnit)
-							tCompilationUnitBegin=tDieCursor;
-					}
-				}
-
-				while(tIsTargetCompilationUnit)//false while to permit skipping
-				{
-					char* tSourceBelong=(char*)strstr(tDieString.c_str(),tSourceIdxStr);
-
-					if(tSourceBelong)
-					{
-						Variable	tVariable;
-
-						char* tFirstLevel=(char*)strstr(tDieString.c_str()," <1><");
-						char* tIsFunction=(char*)strstr(tDieString.c_str(),"DW_TAG_subprogram");
-						char* tIsParameter=(char*)strstr(tDieString.c_str(),"DW_TAG_formal_parameter");
-						char* tIsVariable=(char*)strstr(tDieString.c_str(),"DW_TAG_variable");
-
-						if(tFirstLevel)
+						if(tComilationUnitName)
 						{
-							if(tIsFunction)
+							char  tCompilationUnitSource[cbufsz];
+							tComilationUnitName=strstr(tComilationUnitName,":");
+							sscanf(++tComilationUnitName,"%s",tCompilationUnitSource);
+
+							bool tTargetCompilationUnitHasBeenParsed=tIsTargetCompilationUnit;
+
+							tIsTargetCompilationUnit=(tCompiledSource==StringUtils::ToWide(tCompilationUnitSource));
+
+							tRollOnLines=!tTargetCompilationUnitHasBeenParsed;
+
+							if(tIsTargetCompilationUnit)
+								tCompilationUnitBegin=tDieCursor;
+						}
+					}
+
+					while(tIsTargetCompilationUnit)//false while to permit skipping
+					{
+						char* tSourceBelong=(char*)strstr(tDieString.c_str(),tSourceIdxStr);
+
+						if(tSourceBelong)
+						{
+							Variable	tVariable;
+
+							char* tFirstLevel=(char*)strstr(tDieString.c_str()," <1><");
+							char* tIsFunction=(char*)strstr(tDieString.c_str(),"DW_TAG_subprogram");
+							char* tIsParameter=(char*)strstr(tDieString.c_str(),"DW_TAG_formal_parameter");
+							char* tIsVariable=(char*)strstr(tDieString.c_str(),"DW_TAG_variable");
+
+							if(tFirstLevel)
 							{
-								char* lowPc=(char*)strstr(tDieString.c_str(),"DW_AT_low_pc");
-								char* highPc=(char*)strstr(tDieString.c_str(),"DW_AT_high_pc");
-
-								if(lowPc && highPc)
+								if(tIsFunction)
 								{
-									unsigned int		tLowAddress=0;
-									unsigned int		tHighAddress=0;
+									char* lowPc=(char*)strstr(tDieString.c_str(),"DW_AT_low_pc");
+									char* highPc=(char*)strstr(tDieString.c_str(),"DW_AT_high_pc");
 
-									lowPc=strstr(lowPc,":");
-									highPc=strstr(highPc,":");
+									if(lowPc && highPc)
+									{
+										unsigned int		tLowAddress=0;
+										unsigned int		tHighAddress=0;
 
-									sscanf(++lowPc,"%x",&tLowAddress);
-									sscanf(++highPc,"%x",&tHighAddress);
+										lowPc=strstr(lowPc,":");
+										highPc=strstr(highPc,":");
 
-									tFunctionFound=(tFunctionAddress>=tLowAddress && tFunctionAddress<=(tLowAddress+tHighAddress));
+										sscanf(++lowPc,"%x",&tLowAddress);
+										sscanf(++highPc,"%x",&tHighAddress);
 
-									break;
+										tFunctionFound=(tFunctionAddress>=tLowAddress && tFunctionAddress<=(tLowAddress+tHighAddress));
+
+										break;
+									}
 								}
 							}
-						}
 
-						if(tIsVariable || tIsParameter)
-						{
-							char* tNumLine=(char*)strstr(tDieString.c_str(),"DW_AT_decl_line");
-
-							if(tNumLine)
+							if(tIsVariable || tIsParameter)
 							{
-								tNumLine=(char*)strstr(tNumLine,":");
-								sscanf(++tNumLine,"%x",&tVariable.line);
+								char* tNumLine=(char*)strstr(tDieString.c_str(),"DW_AT_decl_line");
 
-								//skip variable if code line is out of range
-								if(tVariable.line>this->editorscript->GetSourceLines())
-									break;
-							}
+								if(tNumLine)
+								{
+									tNumLine=(char*)strstr(tNumLine,":");
+									sscanf(++tNumLine,"%x",&tVariable.line);
 
-							printf(tDieString.c_str());
+									//skip variable if code line is out of range
+									if(tVariable.line>this->editorscript->GetSourceLines())
+										break;
+								}
 
-							char* tName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
+								printf(tDieString.c_str());
 
-							if(tName)
-							{
-								char  tString[cbufsz];
-								tName=strstr(tName,":");
-								sscanf(++tName,"%s",tString);
-								tVariable.name=StringUtils::ToWide(tString);
-							}
+								char* tName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
 
-							char* tLocation=(char*)strstr(tDieString.c_str(),"DW_AT_location");
+								if(tName)
+								{
+									char  tString[cbufsz];
+									tName=strstr(tName,":");
+									sscanf(++tName,"%s",tString);
+									tVariable.name=StringUtils::ToWide(tString);
+								}
 
-							if(tLocation)
-							{
-								bool tIsLocal=(tFirstLevel ? false : true);
+								char* tLocation=(char*)strstr(tDieString.c_str(),"DW_AT_location");
 
-								tLocation=(char*)strstr(tDieString.c_str(),tIsLocal ? "DW_OP_fbreg" : "DW_OP_addr");
-									
 								if(tLocation)
 								{
-									int tLocal=0;
+									bool tIsLocal=(tFirstLevel ? false : true);
 
-									tLocation=strstr(tLocation,":");
-									sscanf(++tLocation,(tIsLocal ? "%d" : "%x"),(tIsLocal ? &tLocal : &tVariable.addr));
+									tLocation=(char*)strstr(tDieString.c_str(),tIsLocal ? "DW_OP_fbreg" : "DW_OP_addr");
 
-									if(tIsLocal)
-										tVariable.addr=tFrameBase+def_cfa_offset+tLocal;
-								}
-							}
-
-							char* tType=(char*)strstr(tDieString.c_str(),"DW_AT_type");
-
-							if(tType)
-							{
-								//get die type to construct
-								tType=strstr(tType,"<");
-								sscanf(++tType,"%x",&tNextDieTypeId);
-
-								//construct die type
-								if(!tIsFunction && tNextDieTypeId)
-								{
-									//go to beginning of the CU
-									fseek(tFile,tCompilationUnitBegin,SEEK_SET);
-
-									//roll on die types to find next type
-									while(fgets(tTypeBuf,cbufsz,tFile))
+									if(tLocation)
 									{
-										bool tDieAbbrev=(tTypeString.size() && strstr(tTypeBuf,"Abbrev Number") && !strstr(tTypeBuf,"[Abbrev Number"));
+										int tLocal=0;
 
-										if(tTypeString.size() && tDieAbbrev)
+										tLocation=strstr(tLocation,":");
+
+										if(tIsLocal)
+											sscanf(++tLocation,"%d",&tLocal);
+										else				   
+											sscanf(++tLocation,"%x",&tVariable.addr);
+
+
+										if(tIsLocal)
+											tVariable.addr=tFrameBase+def_cfa_offset+tLocal;
+									}
+								}
+
+								char* tType=(char*)strstr(tDieString.c_str(),"DW_AT_type");
+
+								if(tType)
+								{
+									//get die type to construct
+									tType=strstr(tType,"<");
+									sscanf(++tType,"%x",&tNextDieTypeId);
+
+									//construct die type
+									if(!tIsFunction && tNextDieTypeId)
+									{
+										//go to beginning of the CU
+										fseek(tFile,tCompilationUnitBegin,SEEK_SET);
+
+										//roll on die types to find next type
+										while(fgets(tTypeBuf,cbufsz,tFile))
 										{
-											unsigned int tTypeId=0;
+											char*	tTmp=0;
 
-											//get the type id
+											bool tDieAbbrev=(tTypeString.size() && strstr(tTypeBuf,"Abbrev Number") && !strstr(tTypeBuf,"[Abbrev Number"));
+
+											if(tTypeString.size() && tDieAbbrev)
 											{
-												char* tTypeIdPtr=(char*)strstr(tTypeString.c_str(),"><");
-												tTypeIdPtr=(char*)strstr(tTypeIdPtr,"<");
+												unsigned int	tTypeId=0;
+												//bool			tIsBaseType=false;
 
-												if(tTypeIdPtr)
-													sscanf(++tTypeIdPtr,"%x",&tTypeId);
-											}
-
-											//identify the target Compilation Unit
-											if(tNextDieTypeId==tTypeId)
-											{
-												printf(tTypeString.c_str());
-
-												bool tForceTypeEnd=false;
-
-												unsigned long long tCurType=0;
-
-												for(;tCurType<Variable::flag_max;tCurType++)
+												//get the type id
 												{
-													if(strstr(tTypeString.c_str(),tTypeLabels[tCurType]))
-													{
-														if(::GetFlag(tVariable.flags,tCurType))
-															tForceTypeEnd=true;
-														else
-															::SetFlag(tVariable.flags,tCurType,true);
+													char* tTypeIdPtr=(char*)strstr(tTypeString.c_str(),"><");
+													tTypeIdPtr=(char*)strstr(tTypeIdPtr,"<");
 
-														break;
-													}
+													if(tTypeIdPtr)
+														sscanf(++tTypeIdPtr,"%x",&tTypeId);
 												}
 
-												if(!tForceTypeEnd)
+												//identify the target Compilation Unit
+												if(tNextDieTypeId==tTypeId)
 												{
-													char*	tTmp=0;
-													char	tStr[cbufsz];
+													printf(tTypeString.c_str());
+
+													unsigned long long tCurType=0;
+
+													for(;tCurType<Variable::flag_max;tCurType++)
+													{
+														if(strstr(tTypeString.c_str(),tTypeLabels[tCurType]))
+														{
+															/*if(::GetFlag(tVariable.flags,tCurType))
+															tIsBaseType=true;
+															else*/
+															::SetFlag(tVariable.flags,tCurType,true);
+
+															break;
+														}
+													}
+
+													if(strstr(tTypeString.c_str(),"DW_AT_name"))
+													{
+														char	tStr1[cbufsz];
+														char	tStr2[cbufsz];
+														char*	cFirst=0;
+														size_t	tLen=0;
+
+														tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_name");
+
+														//DW_AT_name string length
+														tLen=strstr(tTmp,"\n")-tTmp;
+														//copy DW_AT_name string to buffer
+														strncpy(tStr1,tTmp,tLen);
+														tStr1[tLen]=0;
+														//isolate type name
+														cFirst=strrstr(tStr1,": ");
+														//adjust first and len 
+														cFirst+=2;//colons + space
+
+														strcpy(tStr2,cFirst);
+
+														if(tStr2)
+															tVariable.type=StringUtils::ToWide(tStr2);
+													}	
 
 													switch(tCurType)
 													{
@@ -878,15 +1019,7 @@ void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFram
 															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_byte_size");
 															tTmp=(char*)strstr(tTmp,":");
 															sscanf(++tTmp,"%d",&tVariable.size);
-														}
-														if(strstr(tTypeString.c_str(),"DW_AT_name"))
-														{
-															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_name");
-															tTmp=(char*)strstr(tTmp,":");
-															sscanf(++tTmp,"%s",tStr);
-
-															tVariable.basetype=StringUtils::ToWide(tStr);
-														}														
+														}												
 														break; 
 													case Variable::flag_catch_block: break; 
 													case Variable::flag_const_type: break; 
@@ -894,73 +1027,91 @@ void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFram
 													case Variable::flag_enumerator: break; 
 													case Variable::flag_file_type: break;
 													}
-												}
 
-												char* tTypeTypeIdPtr=(char*)strstr(tTypeString.c_str(),"DW_AT_type");
+													char* tTypeTypeIdPtr=(char*)strstr(tTypeString.c_str(),"DW_AT_type");
 
-												if(!tForceTypeEnd && tTypeTypeIdPtr)
-												{
-													unsigned int tPrevioustDieTypeId=tNextDieTypeId;
-
-													tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,": <");
-													tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,"<");
-
-													//set next type to get
 													if(tTypeTypeIdPtr)
-														sscanf(++tTypeTypeIdPtr,"%x",&tNextDieTypeId);
-
-													//go to beginning of the CU
-													if(tNextDieTypeId<tPrevioustDieTypeId)
-														fseek(tFile,tCompilationUnitBegin,SEEK_SET);
-												}
-												else
-												{
-													//compose type
-													//extract value
-													switch(tVariable.code)
 													{
-														case 0x1:tVariable.value=StringUtils::Format(L"0x%X",tVariable.addr);break;
-														case 0x2:tVariable.value=StringUtils::Format(L"%ls",*((bool*)tVariable.addr) ? L"true" : L"false");break;
-														case 0x3:tVariable.value=L"complex,todo";break;
-														case 0x4:tVariable.value=StringUtils::Format(L"%f",*((float*)tVariable.addr));break;
-														case 0x5:tVariable.value=StringUtils::Format(L"%d",*((int*)tVariable.addr));break;
-														case 0x6:tVariable.value=StringUtils::Format(L"%c",*((char*)tVariable.addr));break;
-														case 0x7:tVariable.value=StringUtils::Format(L"%u",*((unsigned int*)tVariable.addr));break;
-														case 0x8:tVariable.value=StringUtils::Format(L"%u",*((unsigned char*)tVariable.addr));break;
-													}
+														unsigned int tPrevioustDieTypeId=tNextDieTypeId;
 
-													//set cursor to current die section
-													fseek(tFile,tDieCursor,SEEK_SET);
-													//return control to die parse
-													break;
+														tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,": <");
+														tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,"<");
+
+														//set next type to get
+														if(tTypeTypeIdPtr)
+															sscanf(++tTypeTypeIdPtr,"%x",&tNextDieTypeId);
+
+														//go to beginning of the CU
+														if(tNextDieTypeId<tPrevioustDieTypeId)
+															fseek(tFile,tCompilationUnitBegin,SEEK_SET);
+													}
+													else
+													{
+														//compose type
+														//extract value
+														if(tVariable.code)
+														{
+															switch(tVariable.code)
+															{
+															case 0x1:tVariable.value=StringUtils::Format(L"0x%X",tVariable.addr);break;
+															case 0x2:tVariable.value=StringUtils::Format(L"%ls",*((bool*)tVariable.addr) ? L"true" : L"false");break;
+															case 0x3:tVariable.value=L"complex,todo";break;
+															case 0x4:tVariable.value=StringUtils::Format(L"%f",*((float*)tVariable.addr));break;
+															case 0x5:tVariable.value=StringUtils::Format(L"%d",*((int*)tVariable.addr));break;
+															case 0x6:
+																if(::GetFlag(tVariable.flags,Variable::flag_pointer_type))
+																	tVariable.value=StringUtils::ToWide(*((char**)tVariable.addr));
+																else
+																	tVariable.value=StringUtils::Format(L"%c",*((char*)tVariable.addr));
+																break;
+															case 0x7:tVariable.value=StringUtils::Format(L"%u",*((unsigned int*)tVariable.addr));break;
+															case 0x8:tVariable.value=StringUtils::Format(L"%u",*((unsigned char*)tVariable.addr));break;
+															}
+														}
+														else
+														{
+															if(strstr(tTypeString.c_str(),"basic_string"))
+															{
+																if(strstr(tTypeString.c_str(),"wchar_t"))
+																	tVariable.value=*((String*)tVariable.addr);
+																if(strstr(tTypeString.c_str(),"char") && !strstr(tTypeString.c_str(),"wchar_t"))
+																	tVariable.value=StringUtils::ToWide(*((std::string*)tVariable.addr));
+															}
+														}
+
+														//set cursor to current die section
+														fseek(tFile,tDieCursor,SEEK_SET);
+														//return control to die parse
+														break;
+													}
 												}
+
+												//prepare next type string
+												tTypeString.clear();
 											}
 
-											//prepare next type string
-											tTypeString.clear();
+											//add this row to the type string
+											tTypeString+=tTypeBuf;
 										}
-
-										//add this row to the type string
-										tTypeString+=tTypeBuf;
 									}
 								}
-							}
 
-							this->variables.push_back(tVariable);
+								this->variables.push_back(tVariable);
+							}
 						}
+						break;	//false while skip
 					}
-					break;	//false while skip
+
+					//prepare next die string
+					tDieString.clear();
 				}
 
-				//prepare next die string
-				tDieString.clear();
+				//add this row to the die string
+				tDieString+=tDieBuf;
 			}
 
-			//add this row to the die string
-			tDieString+=tDieBuf;
+			fclose(tFile);
 		}
-
-		fclose(tFile);
 	}
 }
 
@@ -3818,7 +3969,8 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 
 			if(this->ncolumns>1 && tPaintData.data==0)
 			{
-				//draw header
+				//draw column headers
+
 				iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.y+20);
 				iFrame->renderer2D->Translate(-tOffsetx,0);
 
@@ -3831,34 +3983,41 @@ void GuiListBox::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				iFrame->renderer2D->PopScissor();
 			}
 
-			//draw content
-			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y+(this->ncolumns>1 ? 20 : 0),tClippingEdges.z,tClippingEdges.w);
-			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
-
-			GuiListBoxData tListBoxData=this->GetListBoxData(tPaintData.data);
-
-			for(std::list<GuiListBoxNode*>::iterator tListBoxNode=this->items.begin();tListBoxNode!=this->items.end() && !tListBoxData.skip;tListBoxNode++)
 			{
-				this->SetLabelEdges(*tListBoxNode,tListBoxData);
+				//draw items
 
-				if(tPaintData.data==0 || tPaintData.data==*tListBoxNode)
-					this->ItemProcedure(*tListBoxNode,iFrame,iMsg,tListBoxData);
+				GuiListBoxData tListBoxData=this->GetListBoxData(tPaintData.data); 
 
-				tListBoxData.idx++;
+				iFrame->renderer2D->PushScissor(tClippingEdges.x,tListBoxData.labeledges.y,tClippingEdges.z,tClippingEdges.w);
+				iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
+
+				for(std::list<GuiListBoxNode*>::iterator tListBoxNode=this->items.begin();tListBoxNode!=this->items.end() && !tListBoxData.skip;tListBoxNode++)
+				{
+					this->SetLabelEdges(*tListBoxNode,tListBoxData);
+
+					if(tPaintData.data==0 || tPaintData.data==*tListBoxNode)
+						this->ItemProcedure(*tListBoxNode,iFrame,iMsg,tListBoxData);
+
+					tListBoxData.idx++;
+				}
+
+				iFrame->renderer2D->Translate(0,0);
+				iFrame->renderer2D->PopScissor();
 			}
 
-			iFrame->renderer2D->Translate(0,0);
-			iFrame->renderer2D->PopScissor();
+			if(this->ncolumns>1)
+			{
+				//draw columns
 
-			//draw content
-			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
-			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
+				iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
+				iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
 
-			for(size_t i=0;this->ncolumns>1 && i<this->ncolumns;i++)
-				iFrame->renderer2D->DrawLine(vec2(tSplitters[i+1],tContentEdges.y),vec2(tSplitters[i+1],tContentEdges.w),Frame::COLOR_BACK,1,1);
+				for(size_t i=0;i<this->ncolumns;i++)
+					iFrame->renderer2D->DrawLine(vec2(tSplitters[i+1],tContentEdges.y),vec2(tSplitters[i+1],tContentEdges.w),Frame::COLOR_BACK,1,1);
 
-			iFrame->renderer2D->Translate(0,0);
-			iFrame->renderer2D->PopScissor();
+				iFrame->renderer2D->Translate(0,0);
+				iFrame->renderer2D->PopScissor();
+			}
 			
 			if(tPaintData.data==0)GuiScrollRect::Procedure(iFrame,iMsg,iData);
 		}
@@ -3875,6 +4034,7 @@ GuiTreeViewNode::GuiTreeViewNode()
 	this->parent=0;
 	this->flags=0;
 	::SetFlag(this->flags,GuiTreeViewNode::EXPANDED,true);
+	labels.resize(1);
 }
 
 void GuiTreeViewNode::Reset()
@@ -3884,8 +4044,19 @@ void GuiTreeViewNode::Reset()
 	this->flags=0;
 }
 
-void			GuiTreeViewNode::SetLabel(const String& iLabel){this->label=iLabel;}
-const String&	GuiTreeViewNode::GetLabel(){return this->label;}
+void			GuiTreeViewNode::SetLabel(const String& iLabel,unsigned int iColumn){this->labels[iColumn]=iLabel;}
+const String&	GuiTreeViewNode::GetLabel(unsigned int iColumn){return this->labels[iColumn];}
+
+void GuiTreeViewNode::SetColumnNumber(unsigned int iColumns)
+{
+	if(iColumns>0 && iColumns!=this->labels.size())
+		this->labels.resize(iColumns);
+}
+
+unsigned int	GuiTreeViewNode::GetColumnNumber()
+{
+	return this->labels.size();
+}
 
 void GuiTreeViewNode::Insert(GuiTreeViewNode& iChild)
 {
@@ -3899,13 +4070,16 @@ void GuiTreeViewNode::Remove(GuiTreeViewNode& iItem)
 	iItem.parent=0;
 }
 
-void  GuiTreeViewNode::OnPaint(Frame* iFrame,const vec4& iEdges,const float& tExpandosEnd)
+void  GuiTreeViewNode::OnPaint(Frame* iFrame,const vec4& iEdges,const float& tExpandosEnd,unsigned int iColumn)
 {
-	iFrame->renderer2D->DrawText(this->label,tExpandosEnd,iEdges.y,iEdges.z,iEdges.w,vec2(0,0.5f),vec2(0,0.5f),0xffffffff);
+	iFrame->renderer2D->DrawText(this->labels[iColumn],tExpandosEnd,iEdges.y,iEdges.z,iEdges.w,vec2(0,0.5f),vec2(0,0.5f),0xffffffff);
 }
 float GuiTreeViewNode::GetWidth(const float& tExpandosEnd)
 {
-	return tExpandosEnd + GuiFont::GetDefaultFont()->MeasureText(this->label.c_str()).x;
+	if(this->labels.size()==1)
+		return tExpandosEnd + GuiFont::GetDefaultFont()->MeasureText(this->labels[0].c_str()).x;
+	else
+		return 0;
 }
 float GuiTreeViewNode::GetHeight()
 {
@@ -3919,7 +4093,7 @@ void  GuiTreeViewNode::OnMouseExit(Frame*,const MouseData&);*/
 
 ////////////////GuiTreeView////////////////
 
-GuiTreeView::GuiTreeView():root(0),hovered(0){}
+GuiTreeView::GuiTreeView():root(0),hovered(0),ncolumns(0),drawroot(true){}
 
 void GuiTreeView::InsertRoot(GuiTreeViewNode& iRoot)
 {
@@ -3933,6 +4107,54 @@ void GuiTreeView::RemoveRoot()
 	this->root=0;
 	this->CalculateLayout();
 }
+
+void GuiTreeView::RemoveItem(GuiTreeViewNode& iItem)
+{
+	if(iItem.parent && std::find(iItem.parent->childs.begin(),iItem.parent->childs.end(),&iItem)!=iItem.parent->childs.end())
+	{
+		iItem.parent->childs.remove(&iItem);
+		this->CalculateLayout();
+	}
+}
+
+void GuiTreeView::RemoveItemChilds(GuiTreeViewNode& iItem)
+{
+	iItem.childs.clear();
+	this->CalculateLayout();
+}
+
+
+void GuiTreeView::SetColumnNumber(unsigned int iColumnNumber)
+{
+	if(iColumnNumber>0 && iColumnNumber!=this->ncolumns)
+	{
+		this->ncolumns=iColumnNumber>0 ? iColumnNumber : 1;
+
+		this->labels.resize(this->ncolumns);
+		this->splitters.resize(this->ncolumns);
+
+		/*for(std::list<GuiTreeViewNode*>::iterator i=this->items.begin();i!=this->items.end();i++)
+			(*i)->labels.resize(this->ncolumns);*/
+	}
+}
+void GuiTreeView::SetSplitterPos(unsigned int iSplitter,unsigned int iPosition)
+{
+	this->splitters[iSplitter]=iPosition;
+}
+void GuiTreeView::SetColumnLabel(unsigned int iColumn,String iLabel)
+{
+	this->labels[iColumn]=iLabel;
+}
+
+const std::vector<unsigned int>& GuiTreeView::GetSplitters()
+{
+	return this->splitters;
+}
+const std::vector<String>& GuiTreeView::GetColumnLabels()
+{
+	return this->labels;
+}
+
 
 
 void GuiTreeView::SetFlag(GuiTreeViewNode* iItem,GuiTreeViewNode::Flags iFlag,bool iValue)
@@ -3954,7 +4176,8 @@ void GuiTreeView::SetLabelEdges(GuiTreeViewNode* iItem,GuiTreeViewData& iTvdata)
 GuiTreeView::GuiTreeViewData GuiTreeView::GetTreeViewData(void* iData)
 {
 	vec4	tContentEdges=this->GetContentEdges();
-	vec4	tFirstItemEdges(tContentEdges.x,tContentEdges.y,tContentEdges.z,tContentEdges.y);
+	float	tFirstItemUpperEdge=tContentEdges.y+(this->ncolumns>1 ? 20 : 0);
+	vec4	tFirstItemEdges(tContentEdges.x,tFirstItemUpperEdge,tContentEdges.z,tFirstItemUpperEdge);
 
 	GuiTreeViewData tTreeViewData={0,tContentEdges,tFirstItemEdges,0,0,iData,false};
 
@@ -3980,10 +4203,25 @@ GuiTreeViewNode* GuiTreeView::GetTreeViewRootNode()
 	return this->root;
 }
 
+void GuiTreeView::SetDrawRoot(bool iDrawRoot)
+{
+	if(this->drawroot!=iDrawRoot)
+	{
+		this->drawroot=iDrawRoot;
+	}
+	
+}
+bool GuiTreeView::GetDrawRoot()
+{
+	return this->drawroot;
+}
+
 void GuiTreeView::ItemLayout(Frame* iFrame,GuiTreeViewNode* iItem,GuiTreeViewData& iTvdata)
 {
 	if(iItem)
 	{
+		iItem->SetColumnNumber(this->ncolumns);
+
 		float	tWidth=iItem->GetWidth(iTvdata.level*20+(iItem->childs.size() ? 20 : 0));
 
 		this->SetLabelEdges(iItem,iTvdata);
@@ -3996,6 +4234,18 @@ void GuiTreeView::ItemLayout(Frame* iFrame,GuiTreeViewNode* iItem,GuiTreeViewDat
 
 			for(std::list<GuiTreeViewNode*>::iterator i=iItem->childs.begin();i!=iItem->childs.end();i++)
 				this->ItemLayout(iFrame,*i,iTvdata);
+		}
+
+		if(this->ncolumns>1)
+		{
+			float tWidth=0;
+
+			for(int i=0;i<this->splitters.size();i++)
+				tWidth+=this->splitters[i];
+
+			tWidth+=20;
+
+			this->SetContent(tWidth,this->GetContent().y);
 		}
 	}
 }
@@ -4015,7 +4265,14 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 				if(this->scrollerhit==0 && this->scrollerpressed==0)
 				{
 					GuiTreeViewData tTreeViewData=this->GetTreeViewData(iData);
-					this->ItemRoll(this->root,iFrame,GuiRectMessages::ONHITTEST,tTreeViewData);
+
+					if(this->drawroot)
+						this->ItemRoll(this->root,iFrame,GuiRectMessages::ONHITTEST,tTreeViewData);
+					else
+					{
+						for(std::list<GuiTreeViewNode*>::iterator i=this->root->childs.begin();i!=this->root->childs.end();i++)
+							this->ItemRoll(*i,iFrame,GuiRectMessages::ONHITTEST,tTreeViewData);
+					}
 
 					if(this->hovered!=tTreeViewData.hit)
 					{
@@ -4074,9 +4331,17 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 		break;
 		case ONPAINT:
 		{
-			PaintData& pd=*(PaintData*)iData;
+			PaintData& tPaintData=*(PaintData*)iData;
 
-			GuiTreeViewData tTreeViewData=this->GetTreeViewData(pd.data);
+			std::vector<unsigned int> tSplitters;
+
+			if(this->ncolumns>1)
+			{
+				tSplitters.push_back(this->edges.x);
+
+				for(size_t i=0;i<this->splitters.size();i++)
+					tSplitters.push_back(tSplitters[i]+this->splitters[i]);
+			}
 
 			vec4	tClippingEdges=this->GetClippingEdges();
 			vec4	tContentEdges=this->GetContentEdges();
@@ -4084,22 +4349,64 @@ void GuiTreeView::Procedure(Frame* iFrame,GuiRectMessages iMsg,void* iData)
 			float tOffsetx=this->GetScrollbarPosition(0);
 			float tOffsety=this->GetScrollbarPosition(1);
 
-			if(pd.data==0)
+			if(tPaintData.data==0)
 			{
 				GuiRect::Procedure(iFrame,iMsg,iData);
 				float tContentBottom=(this->edges.y+this->GetContent().y)<=this->edges.w ? (this->edges.y+this->GetContent().y)-tOffsety : this->edges.w;
 				iFrame->renderer2D->DrawRectangle(this->edges.x,this->edges.y,tClippingEdges.z,tContentBottom,Frame::COLOR_BACK);
+
+				if(this->ncolumns>1)
+				{
+					//draw column headers
+
+					iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.y+20);
+					iFrame->renderer2D->Translate(-tOffsetx,0);
+
+					iFrame->renderer2D->DrawRectangle(tContentEdges.x,tContentEdges.y,tContentEdges.z,tContentEdges.y+20,0x7F7F7F);
+
+					for(size_t i=0;i<this->ncolumns;i++)
+						iFrame->renderer2D->DrawText(this->labels[i],tSplitters[i],this->edges.y,tSplitters[i+1],this->edges.y+20,vec2(0,0.5f),vec2(0,0.5f),0xffffffff);
+
+					iFrame->renderer2D->Translate(0,0);
+					iFrame->renderer2D->PopScissor();
+				}
 			}
 
-			iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
-			iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
+			{
+				//draw items
 
-			this->ItemRoll(this->root,iFrame,GuiRectMessages::ONPAINT,tTreeViewData);
+				GuiTreeViewData tTreeViewData=this->GetTreeViewData(tPaintData.data);
 
-			iFrame->renderer2D->Translate(0,0);
-			iFrame->renderer2D->PopScissor();
+				iFrame->renderer2D->PushScissor(tClippingEdges.x,tTreeViewData.labeledges.y,tClippingEdges.z,tClippingEdges.w);
+				iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
 
-			if(pd.data==0)GuiScrollRect::Procedure(iFrame,iMsg,pd.data);
+				if(this->drawroot)
+					this->ItemRoll(this->root,iFrame,GuiRectMessages::ONPAINT,tTreeViewData);
+				else
+				{
+					for(std::list<GuiTreeViewNode*>::iterator i=this->root->childs.begin();i!=this->root->childs.end();i++)
+						this->ItemRoll(*i,iFrame,GuiRectMessages::ONPAINT,tTreeViewData);
+				}
+
+				iFrame->renderer2D->Translate(0,0);
+				iFrame->renderer2D->PopScissor();
+			}
+
+			if(this->ncolumns>1)
+			{
+				//draw columns
+
+				iFrame->renderer2D->PushScissor(tClippingEdges.x,tClippingEdges.y,tClippingEdges.z,tClippingEdges.w);
+				iFrame->renderer2D->Translate(-tOffsetx,-tOffsety);
+
+				for(size_t i=0;i<this->ncolumns;i++)
+					iFrame->renderer2D->DrawLine(vec2(tSplitters[i+1],tContentEdges.y),vec2(tSplitters[i+1],tContentEdges.w),Frame::COLOR_BACK,1,1);
+
+				iFrame->renderer2D->Translate(0,0);
+				iFrame->renderer2D->PopScissor();
+			}
+
+			if(tPaintData.data==0)GuiScrollRect::Procedure(iFrame,iMsg,tPaintData.data);
 		}
 		break;
 		case ONMOUSEEXIT:
@@ -4207,7 +4514,24 @@ void GuiTreeView::ItemProcedure(GuiTreeViewNode* iItem,Frame* iFrame,GuiRectMess
 					tContentBegin+=20;
 				}
 
-				iItem->OnPaint(iFrame,iTvdata.labeledges,tContentBegin);
+				if(this->ncolumns>1)
+				{
+					std::vector<unsigned int>	tSplitter;
+					vec4						tColumn=iTvdata.labeledges;
+
+					tSplitter.push_back(this->edges.x);
+
+					for(size_t i=0;i<this->ncolumns;i++)
+					{
+						tSplitter.push_back(tSplitter[i]+this->splitters[i]);
+						tColumn.x=tSplitter[i];
+						tColumn.z=tSplitter[i+1];
+						iItem->OnPaint(iFrame,tColumn,tContentBegin,i);
+					}
+				}
+				else
+					iItem->OnPaint(iFrame,iTvdata.labeledges,tContentBegin,0);
+
 			}
 			break;
 		}
@@ -4417,11 +4741,11 @@ Compiler::Compiler()
 
 	COMPILER mingwCompiler={
 							L"mingw",
-							L"i686-w64-mingw32",
-							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\bin",
-							L"c:\\sdk\\mingw32\\i686-w64-mingw32\\lib",
-							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-g++.exe ",
-							L"c:\\sdk\\mingw32\\bin\\i686-w64-mingw32-ld.exe ",
+							L"x86_64-w64-mingw32",
+							L"c:\\sdk\\mingw32\\x86_64-w64-mingw32\\bin",
+							L"c:\\sdk\\mingw32\\x86_64-w64-mingw32\\lib",
+							L"c:\\sdk\\mingw32\\bin\\x86_64-w64-mingw32-g++.exe ",
+							L"c:\\sdk\\mingw32\\bin\\x86_64-w64-mingw32-ld.exe ",
 							L" -O0 -g -shared ",
 							L"",
 							L" -o ",
@@ -4433,16 +4757,16 @@ Compiler::Compiler()
 	COMPILER llvmCompiler={
 							L"llvm",
 							L"5.0.0 32bit",
+							L"c:\\sdk\\llvm\\bin",
+							L"c:\\sdk\\llvm\\lib",
+							L"c:\\sdk\\llvm\\bin\\clang.exe ",
+							L"c:\\sdk\\llvm\\bin\\ld.lld.exe ",
+							L" -v -target i686-pc-windows-gnu -O0 -g -shared ",
 							L"",
-							L"",
-							L"c:\\sdk\\llvm32\\bin\\clang-cl.exe ",
-							L"c:\\sdk\\llvm32\\bin\\lld-link.exe ",
-							L" /nologo /MDd /ZI /EHsc ",
-							L" /link /MANIFEST:NO /DLL /NOENTRY ",
-							L" /OUT:",
+							L" -o ",
 							L"enginelibLLVM",
 							L".lib ",
-							L" /I"
+							L" -I"
 						  };
 
 	compilers.push_back(msCompiler);
@@ -4536,6 +4860,8 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 			tCompiler.includeLibPrefix + 
 			tCompiler.additionalLibs;
 	}
+
+	GuiLogger::Log(L"Compiler command line: " + tComposedOutput);
 
 	//execute compilation
 
