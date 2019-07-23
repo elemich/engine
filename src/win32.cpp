@@ -1052,6 +1052,8 @@ void ___saferelease(IUnknown* iPtr)
 	}
 }
 
+//////////////////Keyboard//////////////////
+
 bool Keyboard::IsPressed(unsigned int iCharCode)
 {
 	return ((::GetKeyState(iCharCode) >> 8) & 0xff)!=0;
@@ -4084,9 +4086,9 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 {
 	windowDataWin32=new WindowDataWin32;
 
-	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS|(!MainFrame::IsInstanced() ? WS_OVERLAPPEDWINDOW : WS_SIZEBOX);
+	DWORD tStyle=WS_CLIPCHILDREN|WS_CLIPSIBLINGS|(!MainFrame::Instanced() ? WS_OVERLAPPEDWINDOW : WS_SIZEBOX);
 
-	HWND tParent=MainFrame::IsInstanced() ? (HWND)MainFrame::Instance()->GetFrame()->windowData->GetWindowHandle() : 0;
+	HWND tParent=MainFrame::Instanced() ? (HWND)MainFrame::Instance()->GetFrame()->windowData->GetWindowHandle() : 0;
 
 	this->windowDataWin32->hwnd=::CreateWindow(WC_DIALOG,0,tStyle,(int)iX,(int)iY,(int)iW,(int)iH,tParent,0,0,0);
 
@@ -4098,13 +4100,13 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 
 	this->renderer2D=this->renderer2DWin32=new Renderer2DWin32(this,this->windowDataWin32->hwnd);
 
-	if(MainFrame::IsInstanced()) /*removes the caption style*/
+	if(MainFrame::Instanced()) /*removes the caption style*/
 		::SetWindowLong(this->windowDataWin32->hwnd,GWL_STYLE,::GetWindowLong(this->windowDataWin32->hwnd, GWL_STYLE) & ~(WS_CAPTION));
 
 	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_USERDATA,(LONG_PTR)this);
 	::SetWindowLongPtr(this->windowDataWin32->hwnd,GWLP_WNDPROC,(LONG_PTR)FrameWin32::FrameWin32Procedure);
 
-	if(MainFrame::IsInstanced())/*visually remove the caption*/
+	if(MainFrame::Instanced())/*visually remove the caption*/
 		::SetWindowPos(this->windowDataWin32->hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_DRAWFRAME);
 
 	this->windowDataWin32->hdc=::GetDC(this->windowDataWin32->hwnd);
@@ -4116,7 +4118,7 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 	this->iconFolder=new PictureRef(Frame::rawFolder,Frame::ICON_WH,Frame::ICON_WH);
 	this->iconFile=new PictureRef(Frame::rawFile,Frame::ICON_WH,Frame::ICON_WH);
 
-	if(!MainFrame::IsInstanced())
+	if(!MainFrame::Instanced())
 	{
 		GuiLogger::Log(StringUtils::Format(L"MainFrame: 0x%X , HWND: 0x%X",this,this->windowDataWin32->hwnd));
 
@@ -4138,7 +4140,7 @@ FrameWin32::FrameWin32(float iX,float iY,float iW,float iH):
 
 	this->OnRecreateTarget();
 
-	if(MainFrame::IsInstanced())
+	if(MainFrame::Instanced())
 		this->windowData->Show(true);
 }
 
@@ -4788,7 +4790,7 @@ bool Subsystem::DirectoryExist(String iDir)
 void* Subsystem::LoadLib(String iLibName)
 {
 	FilePath tApplicationFolder=Ide::Instance()->pathExecutable.Path();
-	FilePath tCompilerLibFolder=Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).libDir;
+	FilePath tCompilerLibFolder=Compiler::Instance()->GetCompiler().libDir;
 
 	::SetDllDirectory(tCompilerLibFolder.c_str());
 

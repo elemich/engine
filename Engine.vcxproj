@@ -141,6 +141,7 @@
     <ProjectGuid>{723F1E61-5F13-4596-9185-160E49DA5BFC}</ProjectGuid>
     <RootNamespace>Engine</RootNamespace>
     <ProjectName>Engine</ProjectName>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -149,6 +150,7 @@
     <CharacterSet>MultiByte</CharacterSet>
     <OutDir />
     <IntDir />
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FbxPlugin|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -156,9 +158,10 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FbxPlugin|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -201,6 +204,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <NMakeBuildCommandLine>nmake x86d</NMakeBuildCommandLine>
+    <NMakeOutput>C:\Projects\Engine\build\win32\x86\debug\engineLLVM.exe</NMakeOutput>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='FbxPlugin|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -302,7 +307,7 @@ del *.pdb</Command>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>c:\sdk\openGL;c:\sdk\Autodesk\FBX\FBX SDK\2014.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <ShowIncludes>false</ShowIncludes>
+      <ShowIncludes>true</ShowIncludes>
       <OmitDefaultLibName>false</OmitDefaultLibName>
       <ErrorReporting>Queue</ErrorReporting>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>

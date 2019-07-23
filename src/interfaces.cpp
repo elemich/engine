@@ -6,9 +6,8 @@
 #include "imgjpg.h"
 #include "imgtga.h"
 
-#include <cinttypes>
-
 #if CLANG_ENABLED
+	#include <inttypes.h>
 	#include "clang-c\Index.h"
 #endif
 
@@ -692,24 +691,35 @@ void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFram
 #if LLVM_ENABLED
 	{
 		//LLVM binary approach
-		llvm::StringRef						tScriptLibraryFilename(StringUtils::ToChar(this->editorscript->libpath).c_str());
-		llvm::object::ObjectFile			*tObjectfile=llvm::object::ObjectFile::createObjectFile(tScriptLibraryFilename).get().getBinary();
 
-		if(tObjectfile)
+		using namespace llvm;
+		using namespace llvm::object;
+
+		std::string								tScriptLibraryFilenameString=StringUtils::ToChar(this->editorscript->libpath);
+		StringRef								tScriptLibraryFilename(tScriptLibraryFilenameString.c_str());
+		Expected< OwningBinary<Binary> >		tBinaryfile=createBinary(tScriptLibraryFilename);
+
+		if(tBinaryfile.get().getBinary())
 		{
-			std::unique_ptr<llvm::DWARFContext> tDwarfContext=llvm::DWARFContext::create(*tObjectfile);
+			ObjectFile* tObjectFile=llvm::dyn_cast<ObjectFile>(tBinaryfile.get().getBinary());
 
+			std::unique_ptr<DWARFContext> DICtx = DWARFContext::create(*tObjectFile);
+
+			if(DICtx.get())
+			{
+
+			}
 		}
 	}
 #endif
 
-	if(0)
+#if DWARF_ENABLED
 	{
 		//DWARF approach
 
-		FILE*	tFile=fopen(iFileName,"r");
+		FILE*	tFile = fopen(iFileName, "r");
 
-		if(tFile)
+		if (tFile)
 		{
 			std::string				tDieString;
 			std::string				tTypeString;
@@ -759,328 +769,328 @@ void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFram
 				"DW_TAG_file_type"
 			};
 
-			const unsigned int	cbufsz=500;
+			const unsigned int	cbufsz = 500;
 			char				tDieBuf[cbufsz];
 			char				tTypeBuf[cbufsz];
 			char				ttmpbuf[cbufsz];
 
-			unsigned int		tFunctionAddress=(unsigned int)iFunctionAddress;
-			unsigned int		tFrameBase=(unsigned int)iFrameBase;
-			bool				tFunctionFound=true;
+			unsigned int		tFunctionAddress = (unsigned int)iFunctionAddress;
+			unsigned int		tFrameBase = (unsigned int)iFrameBase;
+			bool				tFunctionFound = true;
 
-			unsigned int		tSourceFileIdx=2;
-			char				tSourceIdxStr[100]={0};
+			unsigned int		tSourceFileIdx = 2;
+			char				tSourceIdxStr[100] = { 0 };
 
 			{
 				char titoa[10];
 
-				strcat(tSourceIdxStr,"DW_AT_decl_file   : ");
-				strcat(tSourceIdxStr,itoa(tSourceFileIdx,titoa,10));
-				strcat(tSourceIdxStr,"\n");
+				strcat(tSourceIdxStr, "DW_AT_decl_file   : ");
+				strcat(tSourceIdxStr, itoa(tSourceFileIdx, titoa, 10));
+				strcat(tSourceIdxStr, "\n");
 			}
 
 			//roll on dies
-			while(tRollOnLines && (tDieCursor=ftell(tFile)),fgets(tDieBuf,cbufsz,tFile))
+			while (tRollOnLines && (tDieCursor = ftell(tFile)), fgets(tDieBuf, cbufsz, tFile))
 			{
 				//parse die if not empty and create die string
-				if(tDieString.size() && strstr(tDieBuf,"Abbrev Number"))
+				if (tDieString.size() && strstr(tDieBuf, "Abbrev Number"))
 				{
 					//identify the target Compilation Unit
-					if(strstr(tDieString.c_str()," <0><"))
+					if (strstr(tDieString.c_str(), " <0><"))
 					{
-						char* tComilationUnitName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
+						char* tComilationUnitName = (char*)strstr(tDieString.c_str(), "DW_AT_name");
 
-						if(tComilationUnitName)
+						if (tComilationUnitName)
 						{
 							char  tCompilationUnitSource[cbufsz];
-							tComilationUnitName=strstr(tComilationUnitName,":");
-							sscanf(++tComilationUnitName,"%s",tCompilationUnitSource);
+							tComilationUnitName = strstr(tComilationUnitName, ":");
+							sscanf(++tComilationUnitName, "%s", tCompilationUnitSource);
 
-							bool tTargetCompilationUnitHasBeenParsed=tIsTargetCompilationUnit;
+							bool tTargetCompilationUnitHasBeenParsed = tIsTargetCompilationUnit;
 
-							tIsTargetCompilationUnit=(tCompiledSource==StringUtils::ToWide(tCompilationUnitSource));
+							tIsTargetCompilationUnit = (tCompiledSource == StringUtils::ToWide(tCompilationUnitSource));
 
-							tRollOnLines=!tTargetCompilationUnitHasBeenParsed;
+							tRollOnLines = !tTargetCompilationUnitHasBeenParsed;
 
-							if(tIsTargetCompilationUnit)
-								tCompilationUnitBegin=tDieCursor;
+							if (tIsTargetCompilationUnit)
+								tCompilationUnitBegin = tDieCursor;
 						}
 					}
 
-					while(tIsTargetCompilationUnit)//false while to permit skipping
+					while (tIsTargetCompilationUnit)//false while to permit skipping
 					{
-						char* tSourceBelong=(char*)strstr(tDieString.c_str(),tSourceIdxStr);
+						char* tSourceBelong = (char*)strstr(tDieString.c_str(), tSourceIdxStr);
 
-						if(tSourceBelong)
+						if (tSourceBelong)
 						{
 							Variable	tVariable;
 
-							char* tFirstLevel=(char*)strstr(tDieString.c_str()," <1><");
-							char* tIsFunction=(char*)strstr(tDieString.c_str(),"DW_TAG_subprogram");
-							char* tIsParameter=(char*)strstr(tDieString.c_str(),"DW_TAG_formal_parameter");
-							char* tIsVariable=(char*)strstr(tDieString.c_str(),"DW_TAG_variable");
+							char* tFirstLevel = (char*)strstr(tDieString.c_str(), " <1><");
+							char* tIsFunction = (char*)strstr(tDieString.c_str(), "DW_TAG_subprogram");
+							char* tIsParameter = (char*)strstr(tDieString.c_str(), "DW_TAG_formal_parameter");
+							char* tIsVariable = (char*)strstr(tDieString.c_str(), "DW_TAG_variable");
 
-							if(tFirstLevel)
+							if (tFirstLevel)
 							{
-								if(tIsFunction)
+								if (tIsFunction)
 								{
-									char* lowPc=(char*)strstr(tDieString.c_str(),"DW_AT_low_pc");
-									char* highPc=(char*)strstr(tDieString.c_str(),"DW_AT_high_pc");
+									char* lowPc = (char*)strstr(tDieString.c_str(), "DW_AT_low_pc");
+									char* highPc = (char*)strstr(tDieString.c_str(), "DW_AT_high_pc");
 
-									if(lowPc && highPc)
+									if (lowPc && highPc)
 									{
-										unsigned int		tLowAddress=0;
-										unsigned int		tHighAddress=0;
+										unsigned int		tLowAddress = 0;
+										unsigned int		tHighAddress = 0;
 
-										lowPc=strstr(lowPc,":");
-										highPc=strstr(highPc,":");
+										lowPc = strstr(lowPc, ":");
+										highPc = strstr(highPc, ":");
 
-										sscanf(++lowPc,"%x",&tLowAddress);
-										sscanf(++highPc,"%x",&tHighAddress);
+										sscanf(++lowPc, "%x", &tLowAddress);
+										sscanf(++highPc, "%x", &tHighAddress);
 
-										tFunctionFound=(tFunctionAddress>=tLowAddress && tFunctionAddress<=(tLowAddress+tHighAddress));
+										tFunctionFound = (tFunctionAddress >= tLowAddress && tFunctionAddress <= (tLowAddress + tHighAddress));
 
 										break;
 									}
 								}
 							}
 
-							if(tIsVariable || tIsParameter)
+							if (tIsVariable || tIsParameter)
 							{
-								char* tNumLine=(char*)strstr(tDieString.c_str(),"DW_AT_decl_line");
+								char* tNumLine = (char*)strstr(tDieString.c_str(), "DW_AT_decl_line");
 
-								if(tNumLine)
+								if (tNumLine)
 								{
-									tNumLine=(char*)strstr(tNumLine,":");
-									sscanf(++tNumLine,"%x",&tVariable.line);
+									tNumLine = (char*)strstr(tNumLine, ":");
+									sscanf(++tNumLine, "%x", &tVariable.line);
 
 									//skip variable if code line is out of range
-									if(tVariable.line>this->editorscript->GetSourceLines())
+									if (tVariable.line > this->editorscript->GetSourceLines())
 										break;
 								}
 
 								printf(tDieString.c_str());
 
-								char* tName=(char*)strstr(tDieString.c_str(),"DW_AT_name");
+								char* tName = (char*)strstr(tDieString.c_str(), "DW_AT_name");
 
-								if(tName)
+								if (tName)
 								{
 									char  tString[cbufsz];
-									tName=strstr(tName,":");
-									sscanf(++tName,"%s",tString);
-									tVariable.name=StringUtils::ToWide(tString);
+									tName = strstr(tName, ":");
+									sscanf(++tName, "%s", tString);
+									tVariable.name = StringUtils::ToWide(tString);
 								}
 
-								char* tLocation=(char*)strstr(tDieString.c_str(),"DW_AT_location");
+								char* tLocation = (char*)strstr(tDieString.c_str(), "DW_AT_location");
 
-								if(tLocation)
+								if (tLocation)
 								{
-									bool tIsLocal=(tFirstLevel ? false : true);
+									bool tIsLocal = (tFirstLevel ? false : true);
 
-									tLocation=(char*)strstr(tDieString.c_str(),tIsLocal ? "DW_OP_fbreg" : "DW_OP_addr");
+									tLocation = (char*)strstr(tDieString.c_str(), tIsLocal ? "DW_OP_fbreg" : "DW_OP_addr");
 
-									if(tLocation)
+									if (tLocation)
 									{
-										int tLocal=0;
+										int tLocal = 0;
 
-										tLocation=strstr(tLocation,":");
+										tLocation = strstr(tLocation, ":");
 
-										if(tIsLocal)
-											sscanf(++tLocation,"%d",&tLocal);
-										else				   
-											sscanf(++tLocation,"%x",&tVariable.addr);
+										if (tIsLocal)
+											sscanf(++tLocation, "%d", &tLocal);
+										else
+											sscanf(++tLocation, "%x", &tVariable.addr);
 
 
-										if(tIsLocal)
-											tVariable.addr=tFrameBase+def_cfa_offset+tLocal;
+										if (tIsLocal)
+											tVariable.addr = tFrameBase + def_cfa_offset + tLocal;
 									}
 								}
 
-								char* tType=(char*)strstr(tDieString.c_str(),"DW_AT_type");
+								char* tType = (char*)strstr(tDieString.c_str(), "DW_AT_type");
 
-								if(tType)
+								if (tType)
 								{
 									//get die type to construct
-									tType=strstr(tType,"<");
-									sscanf(++tType,"%x",&tNextDieTypeId);
+									tType = strstr(tType, "<");
+									sscanf(++tType, "%x", &tNextDieTypeId);
 
 									//construct die type
-									if(!tIsFunction && tNextDieTypeId)
+									if (!tIsFunction && tNextDieTypeId)
 									{
 										//go to beginning of the CU
-										fseek(tFile,tCompilationUnitBegin,SEEK_SET);
+										fseek(tFile, tCompilationUnitBegin, SEEK_SET);
 
 										//roll on die types to find next type
-										while(fgets(tTypeBuf,cbufsz,tFile))
+										while (fgets(tTypeBuf, cbufsz, tFile))
 										{
-											char*	tTmp=0;
+											char*	tTmp = 0;
 
-											bool tDieAbbrev=(tTypeString.size() && strstr(tTypeBuf,"Abbrev Number") && !strstr(tTypeBuf,"[Abbrev Number"));
+											bool tDieAbbrev = (tTypeString.size() && strstr(tTypeBuf, "Abbrev Number") && !strstr(tTypeBuf, "[Abbrev Number"));
 
-											if(tTypeString.size() && tDieAbbrev)
+											if (tTypeString.size() && tDieAbbrev)
 											{
-												unsigned int	tTypeId=0;
+												unsigned int	tTypeId = 0;
 												//bool			tIsBaseType=false;
 
 												//get the type id
 												{
-													char* tTypeIdPtr=(char*)strstr(tTypeString.c_str(),"><");
-													tTypeIdPtr=(char*)strstr(tTypeIdPtr,"<");
+													char* tTypeIdPtr = (char*)strstr(tTypeString.c_str(), "><");
+													tTypeIdPtr = (char*)strstr(tTypeIdPtr, "<");
 
-													if(tTypeIdPtr)
-														sscanf(++tTypeIdPtr,"%x",&tTypeId);
+													if (tTypeIdPtr)
+														sscanf(++tTypeIdPtr, "%x", &tTypeId);
 												}
 
 												//identify the target Compilation Unit
-												if(tNextDieTypeId==tTypeId)
+												if (tNextDieTypeId == tTypeId)
 												{
 													printf(tTypeString.c_str());
 
-													unsigned long long tCurType=0;
+													unsigned long long tCurType = 0;
 
-													for(;tCurType<Variable::flag_max;tCurType++)
+													for (;tCurType < Variable::flag_max;tCurType++)
 													{
-														if(strstr(tTypeString.c_str(),tTypeLabels[tCurType]))
+														if (strstr(tTypeString.c_str(), tTypeLabels[tCurType]))
 														{
 															/*if(::GetFlag(tVariable.flags,tCurType))
 															tIsBaseType=true;
 															else*/
-															::SetFlag(tVariable.flags,tCurType,true);
+															::SetFlag(tVariable.flags, tCurType, true);
 
 															break;
 														}
 													}
 
-													if(strstr(tTypeString.c_str(),"DW_AT_name"))
+													if (strstr(tTypeString.c_str(), "DW_AT_name"))
 													{
 														char	tStr1[cbufsz];
 														char	tStr2[cbufsz];
-														char*	cFirst=0;
-														size_t	tLen=0;
+														char*	cFirst = 0;
+														size_t	tLen = 0;
 
-														tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_name");
+														tTmp = (char*)strstr(tTypeString.c_str(), "DW_AT_name");
 
 														//DW_AT_name string length
-														tLen=strstr(tTmp,"\n")-tTmp;
+														tLen = strstr(tTmp, "\n") - tTmp;
 														//copy DW_AT_name string to buffer
-														strncpy(tStr1,tTmp,tLen);
-														tStr1[tLen]=0;
+														strncpy(tStr1, tTmp, tLen);
+														tStr1[tLen] = 0;
 														//isolate type name
-														cFirst=strrstr(tStr1,": ");
+														cFirst = strrstr(tStr1, ": ");
 														//adjust first and len 
-														cFirst+=2;//colons + space
+														cFirst += 2;//colons + space
 
-														strcpy(tStr2,cFirst);
+														strcpy(tStr2, cFirst);
 
-														if(tStr2)
-															tVariable.type=StringUtils::ToWide(tStr2);
-													}	
+														if (tStr2)
+															tVariable.type = StringUtils::ToWide(tStr2);
+													}
 
-													switch(tCurType)
+													switch (tCurType)
 													{
-													case Variable::flag_array_type: break; 
-													case Variable::flag_class_type: break; 
-													case Variable::flag_entry_point: break; 
-													case Variable::flag_enumeration_type: break; 
-													case Variable::flag_formal_parameter: break; 
-													case Variable::flag_imported_declaration: break; 
-													case Variable::flag_label: break; 
-													case Variable::flag_lexical_block: break; 
-													case Variable::flag_member: break; 
-													case Variable::flag_pointer_type:break; 
-													case Variable::flag_reference_type: break; 
-													case Variable::flag_compile_unit: break; 
-													case Variable::flag_string_type: break; 
-													case Variable::flag_structure_type: break; 
-													case Variable::flag_subroutine_type: break; 
-													case Variable::flag_typedef: break; 
-													case Variable::flag_union_type: break; 
-													case Variable::flag_unspecified_parameters: break; 
-													case Variable::flag_variant: break; 
-													case Variable::flag_common_block: break; 
-													case Variable::flag_common_inclusion: break; 
-													case Variable::flag_inheritance: break; 
-													case Variable::flag_inlined_subroutine: break; 
-													case Variable::flag_module: break; 
-													case Variable::flag_ptr_to_member_type: break; 
-													case Variable::flag_set_type: break; 
-													case Variable::flag_subrange_type: break; 
-													case Variable::flag_with_stmt: break; 
-													case Variable::flag_access_declaration: break; 
+													case Variable::flag_array_type: break;
+													case Variable::flag_class_type: break;
+													case Variable::flag_entry_point: break;
+													case Variable::flag_enumeration_type: break;
+													case Variable::flag_formal_parameter: break;
+													case Variable::flag_imported_declaration: break;
+													case Variable::flag_label: break;
+													case Variable::flag_lexical_block: break;
+													case Variable::flag_member: break;
+													case Variable::flag_pointer_type:break;
+													case Variable::flag_reference_type: break;
+													case Variable::flag_compile_unit: break;
+													case Variable::flag_string_type: break;
+													case Variable::flag_structure_type: break;
+													case Variable::flag_subroutine_type: break;
+													case Variable::flag_typedef: break;
+													case Variable::flag_union_type: break;
+													case Variable::flag_unspecified_parameters: break;
+													case Variable::flag_variant: break;
+													case Variable::flag_common_block: break;
+													case Variable::flag_common_inclusion: break;
+													case Variable::flag_inheritance: break;
+													case Variable::flag_inlined_subroutine: break;
+													case Variable::flag_module: break;
+													case Variable::flag_ptr_to_member_type: break;
+													case Variable::flag_set_type: break;
+													case Variable::flag_subrange_type: break;
+													case Variable::flag_with_stmt: break;
+													case Variable::flag_access_declaration: break;
 													case Variable::flag_base_type:
-														if(strstr(tTypeString.c_str(),"DW_AT_encoding"))
+														if (strstr(tTypeString.c_str(), "DW_AT_encoding"))
 														{
-															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_encoding");
-															tTmp=(char*)strstr(tTmp,":");
-															sscanf(++tTmp,"%d",&tVariable.code);
+															tTmp = (char*)strstr(tTypeString.c_str(), "DW_AT_encoding");
+															tTmp = (char*)strstr(tTmp, ":");
+															sscanf(++tTmp, "%d", &tVariable.code);
 														}
-														if(strstr(tTypeString.c_str(),"DW_AT_byte_size"))
+														if (strstr(tTypeString.c_str(), "DW_AT_byte_size"))
 														{
-															tTmp=(char*)strstr(tTypeString.c_str(),"DW_AT_byte_size");
-															tTmp=(char*)strstr(tTmp,":");
-															sscanf(++tTmp,"%d",&tVariable.size);
-														}												
-														break; 
-													case Variable::flag_catch_block: break; 
-													case Variable::flag_const_type: break; 
-													case Variable::flag_constant: break; 
-													case Variable::flag_enumerator: break; 
+															tTmp = (char*)strstr(tTypeString.c_str(), "DW_AT_byte_size");
+															tTmp = (char*)strstr(tTmp, ":");
+															sscanf(++tTmp, "%d", &tVariable.size);
+														}
+														break;
+													case Variable::flag_catch_block: break;
+													case Variable::flag_const_type: break;
+													case Variable::flag_constant: break;
+													case Variable::flag_enumerator: break;
 													case Variable::flag_file_type: break;
 													}
 
-													char* tTypeTypeIdPtr=(char*)strstr(tTypeString.c_str(),"DW_AT_type");
+													char* tTypeTypeIdPtr = (char*)strstr(tTypeString.c_str(), "DW_AT_type");
 
-													if(tTypeTypeIdPtr)
+													if (tTypeTypeIdPtr)
 													{
-														unsigned int tPrevioustDieTypeId=tNextDieTypeId;
+														unsigned int tPrevioustDieTypeId = tNextDieTypeId;
 
-														tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,": <");
-														tTypeTypeIdPtr=(char*)strstr(tTypeTypeIdPtr,"<");
+														tTypeTypeIdPtr = (char*)strstr(tTypeTypeIdPtr, ": <");
+														tTypeTypeIdPtr = (char*)strstr(tTypeTypeIdPtr, "<");
 
 														//set next type to get
-														if(tTypeTypeIdPtr)
-															sscanf(++tTypeTypeIdPtr,"%x",&tNextDieTypeId);
+														if (tTypeTypeIdPtr)
+															sscanf(++tTypeTypeIdPtr, "%x", &tNextDieTypeId);
 
 														//go to beginning of the CU
-														if(tNextDieTypeId<tPrevioustDieTypeId)
-															fseek(tFile,tCompilationUnitBegin,SEEK_SET);
+														if (tNextDieTypeId < tPrevioustDieTypeId)
+															fseek(tFile, tCompilationUnitBegin, SEEK_SET);
 													}
 													else
 													{
 														//compose type
 														//extract value
-														if(tVariable.code)
+														if (tVariable.code)
 														{
-															switch(tVariable.code)
+															switch (tVariable.code)
 															{
-															case 0x1:tVariable.value=StringUtils::Format(L"0x%X",tVariable.addr);break;
-															case 0x2:tVariable.value=StringUtils::Format(L"%ls",*((bool*)tVariable.addr) ? L"true" : L"false");break;
-															case 0x3:tVariable.value=L"complex,todo";break;
-															case 0x4:tVariable.value=StringUtils::Format(L"%f",*((float*)tVariable.addr));break;
-															case 0x5:tVariable.value=StringUtils::Format(L"%d",*((int*)tVariable.addr));break;
+															case 0x1:tVariable.value = StringUtils::Format(L"0x%X", tVariable.addr);break;
+															case 0x2:tVariable.value = StringUtils::Format(L"%ls", *((bool*)tVariable.addr) ? L"true" : L"false");break;
+															case 0x3:tVariable.value = L"complex,todo";break;
+															case 0x4:tVariable.value = StringUtils::Format(L"%f", *((float*)tVariable.addr));break;
+															case 0x5:tVariable.value = StringUtils::Format(L"%d", *((int*)tVariable.addr));break;
 															case 0x6:
-																if(::GetFlag(tVariable.flags,Variable::flag_pointer_type))
-																	tVariable.value=StringUtils::ToWide(*((char**)tVariable.addr));
+																if (::GetFlag(tVariable.flags, Variable::flag_pointer_type))
+																	tVariable.value = StringUtils::ToWide(*((char**)tVariable.addr));
 																else
-																	tVariable.value=StringUtils::Format(L"%c",*((char*)tVariable.addr));
+																	tVariable.value = StringUtils::Format(L"%c", *((char*)tVariable.addr));
 																break;
-															case 0x7:tVariable.value=StringUtils::Format(L"%u",*((unsigned int*)tVariable.addr));break;
-															case 0x8:tVariable.value=StringUtils::Format(L"%u",*((unsigned char*)tVariable.addr));break;
+															case 0x7:tVariable.value = StringUtils::Format(L"%u", *((unsigned int*)tVariable.addr));break;
+															case 0x8:tVariable.value = StringUtils::Format(L"%u", *((unsigned char*)tVariable.addr));break;
 															}
 														}
 														else
 														{
-															if(strstr(tTypeString.c_str(),"basic_string"))
+															if (strstr(tTypeString.c_str(), "basic_string"))
 															{
-																if(strstr(tTypeString.c_str(),"wchar_t"))
-																	tVariable.value=*((String*)tVariable.addr);
-																if(strstr(tTypeString.c_str(),"char") && !strstr(tTypeString.c_str(),"wchar_t"))
-																	tVariable.value=StringUtils::ToWide(*((std::string*)tVariable.addr));
+																if (strstr(tTypeString.c_str(), "wchar_t"))
+																	tVariable.value = *((String*)tVariable.addr);
+																if (strstr(tTypeString.c_str(), "char") && !strstr(tTypeString.c_str(), "wchar_t"))
+																	tVariable.value = StringUtils::ToWide(*((std::string*)tVariable.addr));
 															}
 														}
 
 														//set cursor to current die section
-														fseek(tFile,tDieCursor,SEEK_SET);
+														fseek(tFile, tDieCursor, SEEK_SET);
 														//return control to die parse
 														break;
 													}
@@ -1091,7 +1101,7 @@ void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFram
 											}
 
 											//add this row to the type string
-											tTypeString+=tTypeBuf;
+											tTypeString += tTypeBuf;
 										}
 									}
 								}
@@ -1107,12 +1117,12 @@ void Debugger::ParseDwarfData(char* iFileName,void* iFunctionAddress,void* iFram
 				}
 
 				//add this row to the die string
-				tDieString+=tDieBuf;
+				tDieString += tDieBuf;
 			}
 
 			fclose(tFile);
 		}
-	}
+#endif //DWARF_ENABLED
 }
 
 /*
@@ -1241,12 +1251,14 @@ void Frame::ChooseDraw(unsigned int iParameter1,unsigned int iParameter2)
 {
 	if(iParameter1)
 		GuiCaret::Instance()->Draw(iParameter2);
-	else if(!iParameter1)
-		this->Draw();
-	else if(this->BeginDraw((GuiViewport*)iParameter2))
+	else if (!iParameter1)
 	{
-		this->BroadcastPaintTo((GuiViewport*)iParameter2);
-		this->EndDraw();
+		if (iParameter2 && this->BeginDraw((GuiViewport*)iParameter2))
+		{
+			this->BroadcastPaintTo((GuiViewport*)iParameter2);
+			this->EndDraw();
+		}
+		else this->Draw();
 	}
 }
 
@@ -1920,7 +1932,7 @@ MainFrame* MainFrame::Instance()
 	GLOBALGETTERFUNCASSINGLETON(GlobalMainFrameInstance,MainFrame);
 }
 
-bool MainFrame::IsInstanced()
+bool MainFrame::Instanced()
 {
 	return GlobalMainFrameInstance() ? true : false;
 }
@@ -4749,7 +4761,7 @@ Compiler::Compiler()
 							L" -O0 -g -shared ",
 							L"",
 							L" -o ",
-							L"enginelibMingW",
+							L"engineMingW",
 							L".dll ",
 							L" -I"
 						   };
@@ -4760,14 +4772,19 @@ Compiler::Compiler()
 							L"c:\\sdk\\llvm\\bin",
 							L"c:\\sdk\\llvm\\lib",
 							L"c:\\sdk\\llvm\\bin\\clang.exe ",
-							L"c:\\sdk\\llvm\\bin\\ld.lld.exe ",
-							L" -v -target i686-pc-windows-gnu -O0 -g -shared ",
-							L"",
+							L"c:\\sdk\\llvm\\bin\\ld.exe ",
+							L" -target -x86_64-pc-win32-gnu ",
+							L" -shared ",
 							L" -o ",
-							L"enginelibLLVM",
-							L".lib ",
-							L" -I"
+							L"engineLibLLVM",
+							L".lib",
+							L" -I",
+							L" ",
+							L" -lkernel32 -lstdc++ "
 						  };
+
+
+	this->SetCompiler(Compiler::COMPILER_MINGW);
 
 	compilers.push_back(msCompiler);
 	compilers.push_back(mingwCompiler);
@@ -4805,7 +4822,6 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 	if(iEditorScript->libpath.empty())
 		iEditorScript->libpath=Subsystem::RandomDir(Ide::Instance()->folderAppData,8)+L"\\"+iEditorScript->sourcepath.Name()+L".dll";
 
-	unsigned int	tCompilerType=Compiler::COMPILER_MINGW;
 	FilePath		tTmpCompileSourceFile=iEditorScript->libpath.Path() + L"\\" + iEditorScript->sourcepath.File();
 
 	//set compiler error output path
@@ -4832,47 +4848,37 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 	
 	//compose the compiler command line
 
-	String	tComposedOutput;
+	String	tCompilerInvoke;
 
 	{
-		Compiler::COMPILER& tCompiler=this->compilers[tCompilerType];
-
 		String tIdeSourcePath=this->ideSrcPath +  L" ";
-		String tEngineLibrary=this->ideLibPath + L"\\" + tCompiler.engineLibraryName + tCompiler.engineLibraryExtension + L" ";
+		String tEngineLibrary=this->ideLibPath + L"\\" + this->GetCompiler().engineLibraryName + this->GetCompiler().engineLibraryExtension + L" ";
 
-
-		String tCompilerExecutableString;
-
-		if(tCompilerType==Compiler::COMPILER_MS)
-			tCompilerExecutableString=L"vcvars32.bat && ";
-
-		tCompilerExecutableString+=tCompiler.compilerExecutable;
-
-		tComposedOutput=tCompilerExecutableString +
-			tCompiler.compilerFlags +
-			tCompiler.includeHeadersPrefix +
+		tCompilerInvoke= this->GetCompiler().compilerExecutable +
+			this->GetCompiler().compilerFlags +
+			this->GetCompiler().includeHeadersPrefix +
 			tIdeSourcePath +
 			tTmpCompileSourceFile +
-			tCompiler.linkerFlags +
-			tCompiler.outputCommand +
+			this->GetCompiler().linkerFlags +
+			this->GetCompiler().outputCommand +
 			iEditorScript->libpath.File() + L" " +
 			tEngineLibrary +
-			tCompiler.includeLibPrefix + 
-			tCompiler.additionalLibs;
+			this->GetCompiler().includeLibPrefix +
+			this->GetCompiler().additionalLibs;
 	}
 
-	GuiLogger::Log(L"Compiler command line: " + tComposedOutput);
+	GuiLogger::Log(L"Compiler command line: " + tCompilerInvoke);
 
 	//execute compilation
 
-	bool tExecuteWithSuccess=Subsystem::Execute(iEditorScript->libpath.Path(),tComposedOutput,tCompilerErrorOutput.path,true,true,true);
+	bool tExecuteWithSuccess=Subsystem::Execute(iEditorScript->libpath.Path(),tCompilerInvoke,tCompilerErrorOutput.path,true,true,true);
 
 	if(!tExecuteWithSuccess)
 		DEBUG_BREAK();
 
 	//unroll exports
 
-	Subsystem::CancelDir(tTmpCompileSourceFile);
+	//Subsystem::CancelDir(tTmpCompileSourceFile);
 
 	//convert compiler output to readable locale
 
@@ -4880,13 +4886,13 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	//dump dwarf data
 
-	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"objdump -W " + iEditorScript->libpath + L" > " + iEditorScript->libpath.Path()+L"\\obj.dmp");
+	Subsystem::Execute(Compiler::Instance()->GetCompiler().binDir,L"objdump -W " + iEditorScript->libpath + L" > " + iEditorScript->libpath.Path()+L"\\obj.dmp");
 
 	//dump funcs names
 
 	String	tFncsDmpFileName=iEditorScript->GetLibPath().Path()+L"\\fncs.dmp";
 
-	Subsystem::Execute(Compiler::Instance()->GetCompiler(Compiler::COMPILER_MINGW).binDir,L"nm -l -n -C " + iEditorScript->GetLibPath() + L" | findstr /R \"T.*\\.cpp\" > " + tFncsDmpFileName);
+	Subsystem::Execute(Compiler::Instance()->GetCompiler().binDir,L"nm -l -n -C " + iEditorScript->GetLibPath() + L" | findstr /R \"T.*\\.cpp\" > " + tFncsDmpFileName);
 
 	FILE*	tFunctionsDumpFile=fopen(StringUtils::ToChar(tFncsDmpFileName).c_str(),"r");
 
@@ -4932,7 +4938,7 @@ bool Compiler::Compile(EditorScript* iEditorScript)
 
 	File tSourceLineAddressesOutput=iEditorScript->libpath.Path() + L"\\laddr.dmp";
 
-	String tParseLineAddressesCommandLine=this->compilers[COMPILER_MINGW].binDir + L"\\" + L"objdump --dwarf=decodedline " + iEditorScript->libpath + L" | find \""+ iEditorScript->sourcepath.Name() + L".cpp" + L"\" | find /V \":\"";
+	String tParseLineAddressesCommandLine=this->compilers[COMPILER_LLVM].binDir + L"\\" + L"objdump --dwarf=decodedline " + iEditorScript->libpath + L" | find \""+ iEditorScript->sourcepath.Name() + L".cpp" + L"\" | find /V \":\"";
 
 	tExecuteWithSuccess=Subsystem::Execute(iEditorScript->libpath.Path(),tParseLineAddressesCommandLine,tSourceLineAddressesOutput.path,true,true,true);
 
@@ -5142,9 +5148,14 @@ bool Compiler::ParseCompilerOutputFile(String iFileBuffer)
 	return false;
 }
 
-const Compiler::COMPILER& Compiler::GetCompiler(Type iType)
+const Compiler::COMPILER& Compiler::GetCompiler()
 {
-	return this->compilers[iType];
+	return this->compilers[this->compilerTypeSelected];
+}
+
+void Compiler::SetCompiler(Type iType)
+{
+	this->compilerTypeSelected= iType;
 }
 
 ///////////////////////////////////////////////

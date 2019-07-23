@@ -694,7 +694,8 @@ bool vec3::operator==(vec3 a){return Vector::equal(v,a.v,3);}
 bool vec3::operator==(vec3& a)const{return Vector::equal(a.v,v,3);}
 bool vec3::operator!=(vec3& a){return !Vector::equal(a.v,v,3);}
 vec3& vec3::operator=(vec3 a){Vector::copy(v,a.v,3);return *this;}
-vec3 vec3::operator+(vec3& a){vec3 r;Vector::sum(r,v,a.v,3);return r;}
+vec3 vec3::operator+(vec3& a) { vec3 r;Vector::sum(r, v, a.v, 3);return r; }
+vec3 vec3::operator+(vec3 a) { vec3 r;Vector::sum(r, v, a.v, 3);return r; }
 vec3& vec3::operator+=(vec3& a){Vector::sum(v,v,a.v,3);return *this;}
 vec3 vec3::operator-(vec3& a){vec3 r;Vector::subtract(r,v,a.v,3);return r;}
 vec3 vec3::operator-(){vec3 r;Vector::negate(r,v,3);return r;}

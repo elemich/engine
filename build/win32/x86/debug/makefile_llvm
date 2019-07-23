@@ -1,60 +1,90 @@
 SDKDIR=c:\sdk
 
-MINGWDIR=$(SDKDIR)\sdk\llvm\bin\clang++.exe
-COMPILER=$(SDKDIR)\clang\bin\i386-mingw32-llvm-g++.exe --sysroot=$(MINGWDIR)
-LINKER=$(SDKDIR)\llvm32\bin\clang-cl.exe
-
+LLVMDIR=$(SDKDIR)\LLVM
+LLVMDIRINC=$(LLVMDIR)\include
+LLVMDIRLIB=$(LLVMDIR)\lib
+COMPILER=$(LLVMDIR)\bin\clang-cl.exe
+LINKER=$(LLVMDIR)\bin\lld-link.exe
 
 OPENGLSDK=$(SDKDIR)\OpenGL
-FBXSDK="$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\include"
+FBXSDK="$(SDKDIR)\Autodesk\FBX\FBX SDK\2019.2"
+CLANGDIR=$(SDKDIR)\LLVM
+LLVMSRCDIR=$(SDKDIR)\llvm_src\llvm-8.0.0.src
 
-INCPATH=-I$(OPENGLSDK) -I$(FBXSDK) -I$(MINGWDIR)\include
-LIBPATH=-L$(MINGWDIR)\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
+INCPATH=-I$(LLVMDIRINC) -I$(OPENGLSDK) -I$(FBXSDK)\include -I$(CLANGDIR)\include -I$(LLVMSRCDIR)\include -I$(LLVMSRCDIR)\bin_ms\include -I$(DIRSRC)\c++
+LIBPATH=/LIBPATH:$(LLVMSRCDIR)\bin_ms\debug\bin /LIBPATH:$(LLVMSRCDIR)\bin_ms\debug\lib /LIBPATH:$(CLANGDIR)\lib /LIBPATH:$(FBXSDK)\lib\vs2017\x64\debug
 
-CLOPT= -fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) -c
+MSFLAGS=/D__STDC_LIMIT_MACROS /D__STDC_CONSTANT_MACROS
 
-STATICCPPDRIVER=-static -lstdc++
+MSOPT= $(MSFLAGS) /MDd /ZI /W0 /nologo /EHsc
+CLOPT= $(MSOPT) -libc++abi -Wno-c++11-narrowing -Wno-address-of-temporary -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) 
+MSLINKOPT=/nologo /DEBUG /MANIFEST:NO /MACHINE:x64 /SUBSYSTEM:CONSOLE $(LIBPATH)
+COMPILEONLY=-c $(CLOPT)
 
-WIN32LIBD= $(STATICCPPDRIVER) -luser32 -lopengl32 -lkernel32 -lD3D11 -ld2d1 -lDwrite -lOle32 -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lDbghelp
-FBXLIB=-llibfbxsdk-md -ladvapi32
+WIN32LIBD=uuid.lib Ole32.lib user32.lib opengl32.lib D3D11.lib d2d1.lib Dwrite.lib Windowscodecs.lib Comdlg32.lib Gdi32.lib Shlwapi.lib Winmm.lib Comctl32.lib Shell32.lib kernel32.lib 
+CLANGLIB=libclang.lib
+LLVMLIBS=LLVMAArch64AsmParser.lib LLVMAArch64AsmPrinter.lib LLVMAArch64CodeGen.lib LLVMAArch64Desc.lib LLVMAArch64Disassembler.lib LLVMAArch64Info.lib LLVMAArch64Utils.lib LLVMAggressiveInstCombine.lib LLVMAMDGPUAsmParser.lib LLVMAMDGPUAsmPrinter.lib LLVMAMDGPUCodeGen.lib LLVMAMDGPUDesc.lib LLVMAMDGPUDisassembler.lib LLVMAMDGPUInfo.lib LLVMAMDGPUUtils.lib LLVMAnalysis.lib LLVMARMAsmParser.lib LLVMARMAsmPrinter.lib LLVMARMCodeGen.lib LLVMARMDesc.lib LLVMARMDisassembler.lib LLVMARMInfo.lib LLVMARMUtils.lib LLVMAsmParser.lib LLVMAsmPrinter.lib LLVMBinaryFormat.lib LLVMBitReader.lib LLVMBitWriter.lib LLVMBPFAsmParser.lib LLVMBPFAsmPrinter.lib LLVMBPFCodeGen.lib LLVMBPFDesc.lib LLVMBPFDisassembler.lib LLVMBPFInfo.lib LLVMCodeGen.lib LLVMCore.lib LLVMCoroutines.lib LLVMCoverage.lib LLVMDebugInfoCodeView.lib LLVMDebugInfoDWARF.lib LLVMDebugInfoMSF.lib LLVMDebugInfoPDB.lib LLVMDemangle.lib LLVMDlltoolDriver.lib LLVMExecutionEngine.lib LLVMFuzzMutate.lib LLVMGlobalISel.lib LLVMHello.lib LLVMHexagonAsmParser.lib LLVMHexagonCodeGen.lib LLVMHexagonDesc.lib LLVMHexagonDisassembler.lib LLVMHexagonInfo.lib LLVMInstCombine.lib LLVMInstrumentation.lib LLVMInterpreter.lib LLVMipo.lib LLVMIRReader.lib LLVMLanaiAsmParser.lib LLVMLanaiAsmPrinter.lib LLVMLanaiCodeGen.lib LLVMLanaiDesc.lib LLVMLanaiDisassembler.lib LLVMLanaiInfo.lib LLVMLibDriver.lib LLVMLineEditor.lib LLVMLinker.lib LLVMLTO.lib LLVMMC.lib LLVMMCA.lib LLVMMCDisassembler.lib LLVMMCJIT.lib LLVMMCParser.lib LLVMMipsAsmParser.lib LLVMMipsAsmPrinter.lib LLVMMipsCodeGen.lib LLVMMipsDesc.lib LLVMMipsDisassembler.lib LLVMMipsInfo.lib LLVMMIRParser.lib LLVMMSP430AsmParser.lib LLVMMSP430AsmPrinter.lib LLVMMSP430CodeGen.lib LLVMMSP430Desc.lib LLVMMSP430Disassembler.lib LLVMMSP430Info.lib LLVMNVPTXAsmPrinter.lib LLVMNVPTXCodeGen.lib LLVMNVPTXDesc.lib LLVMNVPTXInfo.lib LLVMObjCARCOpts.lib LLVMObject.lib LLVMObjectYAML.lib LLVMOption.lib LLVMOptRemarks.lib LLVMOrcJIT.lib LLVMPasses.lib LLVMPowerPCAsmParser.lib LLVMPowerPCAsmPrinter.lib LLVMPowerPCCodeGen.lib LLVMPowerPCDesc.lib LLVMPowerPCDisassembler.lib LLVMPowerPCInfo.lib LLVMProfileData.lib LLVMRuntimeDyld.lib LLVMScalarOpts.lib LLVMSelectionDAG.lib LLVMSparcAsmParser.lib LLVMSparcAsmPrinter.lib LLVMSparcCodeGen.lib LLVMSparcDesc.lib LLVMSparcDisassembler.lib LLVMSparcInfo.lib LLVMSupport.lib LLVMSymbolize.lib LLVMSystemZAsmParser.lib LLVMSystemZAsmPrinter.lib LLVMSystemZCodeGen.lib LLVMSystemZDesc.lib LLVMSystemZDisassembler.lib LLVMSystemZInfo.lib LLVMTableGen.lib LLVMTarget.lib LLVMTestingSupport.lib LLVMTextAPI.lib LLVMTransformUtils.lib LLVMVectorize.lib LLVMWebAssemblyAsmParser.lib LLVMWebAssemblyAsmPrinter.lib LLVMWebAssemblyCodeGen.lib LLVMWebAssemblyDesc.lib LLVMWebAssemblyDisassembler.lib LLVMWebAssemblyInfo.lib LLVMWindowsManifest.lib LLVMX86AsmParser.lib LLVMX86AsmPrinter.lib LLVMX86CodeGen.lib LLVMX86Desc.lib LLVMX86Disassembler.lib LLVMX86Info.lib LLVMX86Utils.lib LLVMXCoreAsmPrinter.lib LLVMXCoreCodeGen.lib LLVMXCoreDesc.lib LLVMXCoreDisassembler.lib LLVMXCoreInfo.lib LLVMXRay.lib
 
-primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
-	@echo primitives.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\primitives.cpp
+primitives.obj: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
+	@echo primitives.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\primitives.cpp
 
-entities.o: primitives.o $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.o
-	@echo entities.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\entities.cpp
+entities.obj: primitives.obj $(DIRSRC)\entities.cpp $(DIRSRC)\entities.h primitives.obj
+	@echo entities.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\entities.cpp
 
-imgjpg.o: entities.o $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
-	@echo imgjpg.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\imgjpg.cpp
+imgjpg.obj: entities.obj $(DIRSRC)\imgjpg.cpp $(DIRSRC)\imgjpg.h
+	@echo imgjpg.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\imgjpg.cpp
 
-imgpng.o: entities.o $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
-	@echo imgpng.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\imgpng.cpp
+imgpng.obj: entities.obj $(DIRSRC)\imgpng.cpp $(DIRSRC)\imgpng.h
+	@echo imgpng.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\imgpng.cpp
 
-imgtga.o: entities.o $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
-	@echo imgtga.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\imgtga.cpp
+imgtga.obj: entities.obj $(DIRSRC)\imgtga.cpp $(DIRSRC)\imgtga.h
+	@echo imgtga.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\imgtga.cpp
 
-interfaces.o: imgjpg.o imgpng.o imgtga.o $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
-	@echo interfaces.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\interfaces.cpp
+interfaces.obj: imgjpg.obj imgpng.obj imgtga.obj $(DIRSRC)\interfaces.cpp $(DIRSRC)\interfaces.h
+	@echo interfaces.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\interfaces.cpp
 
-win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
-	@echo win32.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp 
+win32.obj: interfaces.obj $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
+	@echo win32.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\win32.cpp 
 
-fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
-	@echo fbxutil.o
-	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
+#FBXPLUGIN BEGIN
 
-enginelibLLVM.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
-	@echo enginelibLLVM.dll
-	$(COMPILER) $(LIBPATH) -Wno-address-of-temporary -g -o enginelibLLVM.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,enginelibLLVM.a $(WIN32LIBD) 
+fbxutil.obj: win32.obj $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+	@echo fbxutil.obj
+	$(COMPILER) $(COMPILEONLY) $(DIRSRC)\fbxutil.cpp
 
-engineLLVM.exe: enginelibLLVM.dll $(DIRSRC)\main.cpp
+fbxplugin.dll: engineLLVM.lib fbxutil.obj
+	@echo fbxplugin.dll
+	$(LINKER) $(MSLINKOPT) /DLL /OUT:fbxplugin.dll engineLibLLVM.lib fbxutil.obj libfbxsdk-md.lib libxml2-md.lib zlib-md.lib advapi32.lib $(WIN32LIBD)
+	@move /Y fbxplugin.dll $(MAKEDIR)\plugins
+	@move /Y fbxplugin.lib $(MAKEDIR)\plugins
+
+#FBXPLUGIN END
+
+#ANDROIDPLUGIN BEGIN
+
+android.obj: win32.obj $(DIRSRC)\IdeAndroid.cpp $(DIRSRC)\IdeAndroid.h
+	@echo android.obj
+	$(COMPILER) $(COMPILEONLY) $(CLDLL) /Foandroid.obj $(DIRSRC)\IdeAndroid.cpp
+
+androidplugin.dll: engineLLVM.lib android.obj
+	@echo androidplugin.dll
+	$(LINKER) $(MSLINKOPT) /DLL /OUT:androidplugin.dll engineLLVM.lib android.obj libfbxsdk.lib $(WIN32LIBD)
+	@move /Y androidplugin.dll $(MAKEDIR)\plugins
+	@move /Y androidplugin.lib $(MAKEDIR)\plugins
+
+#ANDROIDPLUGIN END
+
+engineLibLLVM.dll: primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj
+	@echo engineLibLLVM.dll
+	$(LINKER)  $(MSLINKOPT) /DLL /OUT:engineLibLLVM.dll primitives.obj entities.obj imgjpg.obj imgpng.obj imgtga.obj interfaces.obj win32.obj $(WIN32LIBD) $(CLANGLIB) $(LLVMLIBS) 
+
+engineLLVM.exe: engineLibLLVM.dll $(DIRSRC)\main.cpp $(MAKEDIR)\plugins\fbxplugin.dll $(MAKEDIR)\plugins\androidplugin.dll
 	@echo engineLLVM.exe
-	$(COMPILER) -fpermissive -g -w -O0 $(INCPATH) $(LIBPATH) -o enginelibLLVM.exe enginelibLLVM.dll $(DIRSRC)\main.cpp $(STATICCPPDRIVER) 
-
+	$(COMPILER)  $(CLOPT) $(DIRSRC)\main.cpp /link $(MSLINKOPT) /OUT:engineLLVM.exe engineLibLLVM.lib

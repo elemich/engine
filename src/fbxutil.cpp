@@ -610,7 +610,7 @@ void FillMesh(FbxNode* fbxNode,Mesh* mesh)
 				printf("error(polygon %d has %d vertices), retriangulate...",i,polygonSize);
 
 				FbxGeometryConverter triangulator(globalFbxManager);
-				triangulator.TriangulateInPlace(fbxNode);
+				triangulator.Triangulate(fbxNode->GetNodeAttribute(),true);
 
 				printf("retriangulate ok...recheck...");
 

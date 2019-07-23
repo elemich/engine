@@ -28,6 +28,51 @@
 	funcName()=new dataType; \
 	return funcName(); \
 
+#ifdef _WIN32 
+	#define __STDC_FORMAT_MACROS
+
+#endif
+
+#ifdef _MSC_VER
+	#define WINAPI_FAMILY_ONE_PARTITION(a,b) true
+
+	#ifdef CREATEDLL
+		#define DLLBUILD __declspec(dllexport)
+	#else
+		#define DLLBUILD // __declspec(dllimport)
+	#endif
+
+	#define DEBUG_BREAK() \
+		__debugbreak()
+#elif __clang__
+	#ifdef CREATEDLL
+		#define DLLBUILD __declspec(dllexport)
+	#else
+		#define DLLBUILD // __declspec(dllimport)
+	#endif
+
+	#define DEBUG_BREAK() \
+		__debugbreak()
+#else
+	#define DLLBUILD
+
+	#define DEBUG_BREAK() \
+			__builtin_trap()
+
+	#ifdef __ANDROID__
+
+		#include <wchar.h>
+		#include <time.h>
+		#include <dlfcn.h>
+		#include <android/log.h>
+		#define  LOG_TAG    "Engine"
+		#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
+	#endif
+#endif
+
+
+
 #include <vector>
 #include <list>
 #include <functional>
@@ -68,42 +113,6 @@ MinGW-w64 32bit     __MINGW32__
 MinGW-w64 64bit     __MINGW64__
 */
 
-#ifdef _MSC_VER
-	#ifdef CREATEDLL
-		#define DLLBUILD __declspec(dllexport)
-	#else
-		#define DLLBUILD // __declspec(dllimport)
-	#endif
-
-	#define DEBUG_BREAK() \
-		__debugbreak()
-#elif __clang__
-	#ifdef CREATEDLL
-		#define DLLBUILD __declspec(dllexport)
-	#else
-		#define DLLBUILD // __declspec(dllimport)
-	#endif
-
-	#define DEBUG_BREAK() \
-		__debugbreak()
-#else
-	#define DLLBUILD
-
-	#define DEBUG_BREAK() \
-			__builtin_trap()
-
-	#ifdef __ANDROID__
-
-		#include <wchar.h>
-		#include <time.h>
-		#include <dlfcn.h>
-		#include <android/log.h>
-		#define  LOG_TAG    "Engine"
-		#define  printf(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-	
-	#endif
-#endif
-
 struct DLLBUILD  mat2;
 struct DLLBUILD  mat3;
 struct DLLBUILD  mat4;
@@ -124,7 +133,7 @@ template <typename T> struct DLLBUILD Singleton
 {
 private:
 	void Instancer(){T* tInstance=T::Instance();}
-	bool InstanceQuery(){return T::IsInstanced();}
+	bool InstanceProbe(){return T::Istanced();}
 public:
 };
 
@@ -277,6 +286,7 @@ struct DLLBUILD  vec3 : TNumberedVectorInterface<float,3>
 	vec3& operator=(vec3 a);
 
 	vec3 operator+(vec3& a);
+	vec3 operator+(vec3 a);
 	vec3& operator+=(vec3& a);
 	vec3 operator-(vec3& a);
 	vec3 operator-();

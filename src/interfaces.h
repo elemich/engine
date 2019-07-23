@@ -62,8 +62,9 @@ struct DLLBUILD Script;
 
 #define MAX_TOUCH_INPUTS 10
 
-#define CLANG_ENABLED 1
-#define LLVM_ENABLED 1
+#define CLANG_ENABLED 0
+#define LLVM_ENABLED 0
+#define DWARF_ENABLED 0
 #define RENDERER_ENABLED 1
 #define RENDERER_FRAMED 1
 #define RENDERER_THREADED 0
@@ -1405,7 +1406,8 @@ struct DLLBUILD Compiler : Singleton <Compiler> , GuiLogger
 	{
 		COMPILER_MS=0,
 		COMPILER_MINGW,
-		COMPILER_LLVM
+		COMPILER_LLVM,
+		COMPILER_MAX
 	};
 
 protected:
@@ -1431,6 +1433,7 @@ protected:
 	};
 
 	std::vector<COMPILER> compilers;
+	Type compilerTypeSelected;
 
 	String outputDirectory;
 
@@ -1448,7 +1451,8 @@ public:
 	bool LoadScript(EditorScript*);
 	bool UnloadScript(EditorScript*);
 	bool ParseCompilerOutputFile(String iFileBuffer);
-	const COMPILER& GetCompiler(Type);
+	const COMPILER& GetCompiler();
+	void SetCompiler(Type);
 };
 
 
@@ -1809,7 +1813,7 @@ struct DLLBUILD MainFrame : Singleton<MainFrame> , MenuInterface
 	virtual ~MainFrame();
 
 	static MainFrame* Instance();
-	static bool		  IsInstanced();
+	static bool		  Instanced();
 
 	void Initialize();
 	void Deintialize();
@@ -2115,6 +2119,7 @@ struct DLLBUILD EditorLight : ComponentProperties<Light>
 	void OnInitProperties();
 	void OnUpdateProperties(Frame*);
 };
+
 struct DLLBUILD EditorScript : ComponentProperties<Script>
 {
 	enum State
@@ -2203,10 +2208,6 @@ struct DLLBUILD EditorSkin : ComponentProperties<Skin>
 	void OnInitProperties();
 	void OnUpdateProperties(Frame*);
 };
-
-
-
-
 
 struct DLLBUILD Renderer2D
 {

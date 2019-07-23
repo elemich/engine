@@ -1,26 +1,29 @@
 SDKDIR=c:\sdk
 
+COMPILER_MINGW=1
+
 MINGWDIR=$(SDKDIR)\mingw32
 MINGWINCLUDESDIR=$(MINGWDIR)\include
 MINGWLIBSDIR=$(MINGWDIR)\lib
 COMPILER=$(MINGWDIR)\bin\g++.exe
+LINKER=$(MINGWDIR)\bin\ld.exe
 
 OPENGLSDK=$(SDKDIR)\OpenGL
-FBXSDK="$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\include"
+FBXSDK="$(SDKDIR)\Autodesk\FBX\FBX SDK\2019.2"
 CLANGDIR=$(SDKDIR)\LLVM
 LLVMSRCDIR=$(SDKDIR)\llvm_src\llvm-8.0.0.src
 
-INCPATH=-I$(MINGWINCLUDESDIR) -I$(OPENGLSDK) -I$(FBXSDK) -I$(CLANGDIR)\include -I$(LLVMSRCDIR)\include -I$(LLVMSRCDIR)\bin\include
-LIBPATH=-L$(MINGWLIBSDIR) -L$(CLANGDIR)\lib -L$(CLANGDIR)\bin -L$(LLVMSRCDIR)\bin\lib -L"$(SDKDIR)\Autodesk\FBX\FBX SDK\2014.1\lib\vs2010\x64\release"
+INCPATH=-I$(MINGWINCLUDESDIR) -I$(OPENGLSDK) -I$(FBXSDK)\include -I$(CLANGDIR)\include -I$(LLVMSRCDIR)\include -I$(LLVMSRCDIR)\bin_mingw\include
+LIBPATH=-L$(MINGWLIBSDIR) -L$(CLANGDIR)\lib -L$(CLANGDIR)\bin -L$(LLVMSRCDIR)\bin_mingw\bin -L$(LLVMSRCDIR)\bin_mingw\lib -L$(FBXSDK)\lib\vs2017\x64\debug
 
-CLOPT=-fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) -c
+CLOPT=-fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) -UCOMPILER_ID -DCOMPILER_ID=2 -c
 
 STATICCPPDRIVER= -static -lstdc++
 
-WIN32LIBD= $(STATICCPPDRIVER) -luuid -lOle32 -luser32 -lopengl32 -lD3D11 -ld2d1 -lDwrite -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lkernel32 
+WIN32LIBD=  -luuid -lOle32 -luser32 -lopengl32 -lD3D11 -ld2d1 -lDwrite -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lkernel32 
 FBXLIB=-llibfbxsdk-md -ladvapi32
 CLANGLIB=-l:libclang.lib
-LLVMLIBS=$(LLVMSRCDIR)\bin\bin\LLVMObject.dll $(LLVMSRCDIR)\bin\bin\LLVMDebugInfoDWARF.dll
+LLVMLIBS=-lLLVMObject.dll -lLLVMDebugInfoDWARF.dll
 
 primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
 	$(info primitives.o)
@@ -50,15 +53,38 @@ win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
 	$(info win32.o)
 	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp 
 
-fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
-	$(info fbxutil.o)
-	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
+#FBXPLUGIN BEGIN
 
-enginelibMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
-	$(info enginelibMingW.dll)
-	$(COMPILER) $(LIBPATH) -fpermissive -g -o enginelibMingW.dll -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
+# fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+# 	$(info fbxutil.o)
+# 	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
+# 
+# fbxplugin.dll: engineMingW.a fbxutil.o
+# 	$(info fbxplugin.dll)
+# 	$(COMPILER) $(LIBPATH) -fpermissive -g -o fbxplugin.dll -static -shared fbxutil.o engineMingW.a $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
+# 	@move /Y fbxplugin.dll $(MAKEDIR)\plugins
+# 	@move /Y fbxplugin.lib $(MAKEDIR)\plugins
 
-engineMingW.exe: enginelibMingW.dll $(DIRSRC)\main.cpp
+#FBXPLUGIN END
+
+#ANDROIDPLUGIN BEGIN
+
+# android.o: win32.o $(DIRSRC)\IdeAndroid.cpp $(DIRSRC)\IdeAndroid.h
+# 	$(info android.o)
+# 	$(COMPILER) $(CLOPT) -o android.o $(DIRSRC)\IdeAndroid.cpp
+# 
+# androidplugin.dll: android.o engineMingW.a
+# 	$(info androidplugin.dll)
+# 	$(COMPILER) $(LIBPATH) -fpermissive -g -o androidplugin.dll -shared engineMingW.a primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o android.o $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
+# #	@move /Y androidplugin.dll plugins
+# #	@move /Y androidplugin.lib plugins
+
+#ANDROIDPLUGIN END
+
+engineMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
+	$(info engineMingW.dll)
+	$(COMPILER) $(LIBPATH) -fpermissive -g -o engineMingW.dll -static -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
+
+engineMingW.exe: engineMingW.dll $(DIRSRC)\main.cpp
 	$(info engineMingW.exe)
-	$(COMPILER)  -fpermissive -g -w -O0 $(INCPATH) $(LIBPATH) -o engineMingW.exe enginelibMingW.dll $(DIRSRC)\main.cpp $(STATICCPPDRIVER) 
-
+	$(COMPILER)  -fpermissive -g -w -O0 $(INCPATH) $(LIBPATH) -o engineMingW.exe engineMingW.dll $(DIRSRC)\main.cpp $(STATICCPPDRIVER)
