@@ -664,9 +664,9 @@ DEFINE_GUID(IID_ID2D1Bitmap, 0xa2296057,0xea42,0x4099,0x98,0x3b,0x53,0x9f,0xb6,0
 #ifndef D2D_USE_C_DEFINITIONS
 
 interface ID2D1Bitmap : public ID2D1Image {
-    STDMETHOD_(void, GetSize)(D2D1_SIZE_F&) const PURE;
-    STDMETHOD_(void, GetPixelSize)(D2D1_SIZE_U&) const PURE;
-    STDMETHOD_(void, GetPixelFormat)(D2D1_PIXEL_FORMAT&) const PURE;
+    STDMETHOD_(void, GetSize)(D2D1_SIZE_F*) const PURE;
+    STDMETHOD_(void, GetPixelSize)(D2D1_SIZE_U*) const PURE;
+    STDMETHOD_(void, GetPixelFormat)(D2D1_PIXEL_FORMAT*) const PURE;
     STDMETHOD_(void, GetDpi)(FLOAT *dpiX, FLOAT *dpiY) const PURE;
     STDMETHOD(CopyFromBitmap)(const D2D1_POINT_2U *destPoint, ID2D1Bitmap *bitmap, const D2D1_RECT_U *srcRect) PURE;
     STDMETHOD(CopyFromRenderTarget)(const D2D1_POINT_2U *destPoint, ID2D1RenderTarget *renderTarget, const D2D1_RECT_U *srcRect) PURE;
@@ -809,11 +809,11 @@ interface ID2D1RenderTarget : public ID2D1Resource {
     STDMETHOD_(void, Clear)(const D2D1_COLOR_F *clearColor = NULL) PURE;
     STDMETHOD_(void, BeginDraw)(void) PURE;
     STDMETHOD(EndDraw)(D2D1_TAG *tag1 = NULL, D2D1_TAG *tag2 = NULL) PURE;
-    STDMETHOD_(void, GetPixelFormat)(D2D1_PIXEL_FORMAT&) const PURE;
+    STDMETHOD_(void, GetPixelFormat)(D2D1_PIXEL_FORMAT*) const PURE;
     STDMETHOD_(void, SetDpi)(FLOAT dpiX, FLOAT dpiY) PURE;
     STDMETHOD_(void, GetDpi)(FLOAT *dpiX, FLOAT *dpiY) const PURE;
-    STDMETHOD_(void, GetSize)(D2D1_SIZE_F&) const PURE;
-    STDMETHOD_(void, GetPixelSize)(D2D1_SIZE_U&) const PURE;
+    STDMETHOD_(void, GetSize)(D2D1_SIZE_F*) const PURE;
+    STDMETHOD_(void, GetPixelSize)(D2D1_SIZE_U*) const PURE;
     STDMETHOD_(UINT32, GetMaximumBitmapSize)(void) const PURE;
     STDMETHOD_(BOOL, IsSupported)(const D2D1_RENDER_TARGET_PROPERTIES *renderTargetProperties) const PURE;
 
@@ -1962,7 +1962,7 @@ DEFINE_GUID(IID_ID2D1Layer, 0x2cd9069b,0x12e2,0x11dc,0x9f,0xed,0x00,0x11,0x43,0x
 #ifndef D2D_USE_C_DEFINITIONS
 
 interface ID2D1Layer : public ID2D1Resource {
-    STDMETHOD_(void, GetSize)(D2D1_SIZE_F&) const PURE;
+    STDMETHOD_(void, GetSize)(D2D1_SIZE_F*) const PURE;
 };
 
 #else

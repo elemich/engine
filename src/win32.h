@@ -76,6 +76,7 @@ struct DLLBUILD GuiFontWin32 : GuiFont
 
 struct DLLBUILD Direct2D
 {
+	
 	static ID2D1Factory			*factory;
 	static IWICImagingFactory	*imager;
 	static IDWriteFactory		*writer;
@@ -107,6 +108,9 @@ struct DLLBUILD Direct2D
 	static bool LoadBitmapFile(ID2D1RenderTarget* renderer,String iFilename,ID2D1Bitmap*& iHandle,float& iWidth,float& iHeight);
 
 	static void SetAntialiasing(ID2D1RenderTarget* renderer,bool iAntialiasing);
+
+	static float ScaleFloatDpi(float& iCoord);
+	static void ScaleEdgesDpi(float& iCoordX, float& iCoordY, float& iCoordZ, float& iCoordW);
 };
 
 

@@ -1544,7 +1544,14 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 		/*rRenderTargetProperties.pixelFormat.format=DXGI_FORMAT_UNKNOWN;
 		rRenderTargetProperties.pixelFormat.alphaMode=D2D1_ALPHA_MODE_PREMULTIPLIED;*/
 
-		result=Direct2D::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&renderer);
+		result=Direct2D::factory->CreateHwndRenderTarget(rRenderTargetProperties,D2D1::HwndRenderTargetProperties(iHandle,size,D2D1_PRESENT_OPTIONS_IMMEDIATELY),&this->renderer);
+
+		if (renderer)
+		{
+			renderer->GetDpi(&this->frame->dpi[0], &this->frame->dpi[1]);
+			this->frame->dip[0] = 96.0 / this->frame->dpi[0];
+			this->frame->dip[1] = 96.0 / this->frame->dpi[1];
+		}
 	}
 
 	if(S_OK!=result || !this->renderer)
@@ -1558,21 +1565,41 @@ bool Renderer2DWin32::RecreateTarget(HWND iHandle)
 	return true;
 }
 
-void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,unsigned int iColor,const GuiFont* iFont)
+void Renderer2DWin32::DrawText(const String& iText,float x,float y, float z,float w,unsigned int iColor,const GuiFont* iFont)
 {
-	Direct2D::DrawText(this,iFont,iColor,iText,left,top,right,bottom);
+	x *= this->frame->dip[0];
+	y *= this->frame->dip[1];
+	z *= this->frame->dip[0];
+	w *= this->frame->dip[1];
+
+	int ix = x;
+	int iy = y;
+	int iz = z;
+	int iw = w;
+
+	Direct2D::DrawText(this,iFont,iColor,iText,ix,iy,iz,iw);
 }
 
-void Renderer2DWin32::DrawText(const String& iText,float left,float top, float right,float bottom,vec2 iSpot,vec2 iAlign,unsigned int iColor,const GuiFont* iFont)
+void Renderer2DWin32::DrawText(const String& iText,float x,float y, float z,float w,vec2 iSpot,vec2 iAlign,unsigned int iColor,const GuiFont* iFont)
 {
-	vec4 tRect(left,top,right-left,bottom-top);
+	x *= this->frame->dip[0];
+	y *= this->frame->dip[1];
+	z *= this->frame->dip[0];
+	w *= this->frame->dip[1];
+
+	int ix = x;
+	int iy = y;
+	int iz = z;
+	int iw = w;
+
+	vec4 tRect(ix,iy,iz-ix,iw-iy);
 
 	vec2 tTextSize=iFont->MeasureText(iText.c_str());
 
 	float tLeft=tRect.x + (tRect.z*iAlign.x) - (tTextSize.x * iSpot.x);
 	float tTop=tRect.y + (tRect.w*iAlign.y) - (tTextSize.y * iSpot.y);
 
-	this->renderer->PushAxisAlignedClip(D2D1::RectF(left,top,right,bottom),D2D1_ANTIALIAS_MODE_ALIASED);
+	this->renderer->PushAxisAlignedClip(D2D1::RectF(ix,iy,iz,iw),D2D1_ANTIALIAS_MODE_ALIASED);
 
 	Direct2D::DrawText(this,iFont,iColor,iText,tLeft,tTop,tLeft + tTextSize.x,tTop + tTextSize.y);
 
@@ -1581,17 +1608,22 @@ void Renderer2DWin32::DrawText(const String& iText,float left,float top, float r
 
 void Renderer2DWin32::DrawLine(vec2 p1,vec2 p2,unsigned int iColor,float iWidth,float iOpacity)
 {
-	p1.x=(int)p1.x;
-	p1.y=(int)p1.y;
+	p1.x=(int)(p1.x* this->frame->dip[0]);
+	p1.y=(int)(p1.y*this->frame->dip[1]);
 
-	p2.x=(int)p2.x;
-	p2.y=(int)p2.y;
+	p2.x=(int)(p2.x* this->frame->dip[0]);
+	p2.y=(int)(p2.y* this->frame->dip[1]);
 
 	Direct2D::DrawLine(this->renderer,this->SetColorWin32(iColor),p1,p2,iWidth,iOpacity);
 }
 
 void Renderer2DWin32::DrawRectangle(float x,float y, float z,float w,unsigned int iColor,float iStroke,float op)
 {
+	x *= this->frame->dip[0];
+	y *= this->frame->dip[1];
+	z *= this->frame->dip[0];
+	w *= this->frame->dip[1];
+
 	int ix=x;
 	int iy=y;
 	int iz=z;
@@ -1613,9 +1645,19 @@ void Renderer2DWin32::DrawEllipse(float x,float y,float iRadiusA,float iRadiusB,
 	Direct2D::DrawEllipse(this->renderer,this->SetColorWin32(iColor),x,y,iRadiusA,iRadiusB,iStroke,iOpacity);
 }
 
-void Renderer2DWin32::DrawBitmap(Picture* iBitmap,float iX,float iY, float iW,float iH)
+void Renderer2DWin32::DrawBitmap(Picture* iBitmap,float x,float y, float z,float w)
 {
-	Direct2D::DrawBitmap(this->renderer,(ID2D1Bitmap*)iBitmap->handle,iX,iY,iW,iH);
+	x *= this->frame->dip[0];
+	y *= this->frame->dip[1];
+	z *= this->frame->dip[0];
+	w *= this->frame->dip[1];
+
+	int ix = x;
+	int iy = y;
+	int iz = z;
+	int iw = w;
+
+	Direct2D::DrawBitmap(this->renderer,(ID2D1Bitmap*)iBitmap->handle,ix,iy,iz,iw);
 }
 
 unsigned int Renderer2DWin32::ReadPixel(float x,float y)
@@ -1648,6 +1690,11 @@ bool Renderer2DWin32::LoadBitmap(Picture* iPicture)
 
 void Renderer2DWin32::PushScissor(float x,float y, float z,float w)
 {
+	x *= this->frame->dip[0];
+	y *= this->frame->dip[1];
+	z *= this->frame->dip[0];
+	w *= this->frame->dip[1];
+
 	int ix=x;
 	int iy=y;
 	int iz=z;
@@ -1663,6 +1710,9 @@ void Renderer2DWin32::PopScissor()
 
 void Renderer2DWin32::Translate(float x,float y)
 {
+	x *= this->frame->dip[0];
+	y *= this->frame->dip[1];
+
 	int ix=x;
 	int iy=y;
 
@@ -2147,7 +2197,7 @@ void IdeWin32::ScanDir(String iDirectory,ResourceNodeDir* iParent)
 
 	String tCreateNodeFilename;
 
-	while(FindNextFile(tHandle,&tData))
+	while(::FindNextFile(tHandle,&tData))
 	{
 		if(tData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
 			continue;

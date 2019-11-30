@@ -1672,6 +1672,9 @@ struct DLLBUILD Frame
 	PictureRef* iconFolder;
 	PictureRef* iconFile;
 
+	vec2	dpi;
+	vec2	dip;
+
 	HitTestData hittest;
 	MouseData	mousedata;
 

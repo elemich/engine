@@ -17,6 +17,14 @@
       <Configuration>FbxPlugin</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="NewWindowsConfiguration|Win32">
+      <Configuration>NewWindowsConfiguration</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="NewWindowsConfiguration|x64">
+      <Configuration>NewWindowsConfiguration</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -113,6 +121,7 @@
     <ClCompile Include="src\primitives.cpp" />
     <ClCompile Include="src\shaders.cpp" />
     <ClCompile Include="src\win32.cpp" />
+    <None Include="newwindowsconfiguration.mak" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Sdk\libdwarf-20190505\bin\libdwarf\libdwarf.h" />
@@ -129,6 +138,7 @@
     <ClInclude Include="src\win32.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="build.bat" />
     <None Include="build\win32\x86\debug\makefile_llvm" />
     <None Include="build\win32\x86\debug\makefile_mingw" />
     <None Include="build\win32\x86\debug\makefile_ms" />
@@ -180,6 +190,21 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='NewWindowsConfiguration|x64'">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>v160</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='NewWindowsConfiguration|Win32'">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>v160</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="VisualGDBPackageDefinitions">
+    <ToolchainID>com.sysprogs.imported.mingw</ToolchainID>
+    <ToolchainVersion>8.1.0/8.1/r0</ToolchainVersion>
+  </PropertyGroup>
+  <ImportGroup Label="VisualGDBFindComponents">
+    <Import Project="$(LOCALAPPDATA)\VisualGDB\FindComponents.props" />
+  </ImportGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -214,7 +239,7 @@
     <TargetName>$(ProjectName)_FbxPlugin.dll</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeBuildCommandLine>nmake x86d</NMakeBuildCommandLine>
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeReBuildCommandLine>nmake cleanx86d x86d</NMakeReBuildCommandLine>
@@ -223,9 +248,36 @@
     <NMakeCleanCommandLine>nmake cleanx86d</NMakeCleanCommandLine>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeOutput>C:\Projects\Engine\build\win32\x86\debug\LLVM\engineLLVM.exe</NMakeOutput>
-    <IncludePath>C:\Sdk\LLVM\include;C:\Sdk\llvm_src\llvm-8.0.0.src\include;$(IncludePath)</IncludePath>
-    <ReferencePath>C:\Sdk\llvm_src\llvm-8.0.0.src\lib;$(ReferencePath)</ReferencePath>
+    <NMakeOutput>$(ProjectDir)\build\win32\x86\debug\enginemingw.exe</NMakeOutput>
+    <IncludePath>$(SDKDIR)\Windows Kits\10\include\10.0.18362.0\shared;$(SDKDIR)\Windows Kits\10\include\10.0.18362.0\ucrt;$(SDKDIR)\Windows Kits\10\include\10.0.18362.0\cppwinrt;$(SDKDIR)\Windows Kits\10\include\10.0.18362.0\winrt;$(SDKDIR)\Windows Kits\10\include\10.0.18362.0\um;$(SDKDIR)\Windows Kits\10\include;$(IncludePath)</IncludePath>
+    <ReferencePath>$(SDKDIR)\opengl\gl;$(SDKDIR)\opengl;$(ReferencePath)</ReferencePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='NewWindowsConfiguration|x64'">
+    <NMakeBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /build "$(ProjectPath)" "/solution:$(SolutionPath)"  "/config:$(Configuration)" "/platform:$(Platform)"</NMakeBuildCommandLine>
+    <NMakeCleanCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /clean "$(ProjectPath)" "/solution:$(SolutionPath)"  "/config:$(Configuration)" "/platform:$(Platform)"</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /rebuild "$(ProjectPath)" "/solution:$(SolutionPath)"  "/config:$(Configuration)" "/platform:$(Platform)"</NMakeReBuildCommandLine>
+    <NMakeOutput>$(ProjectDir)Engine-NewWindowsConfiguration.vgdbsettings</NMakeOutput>
+    <IncludePath />
+    <ReferencePath />
+    <LibraryPath />
+    <NMakeIncludeSearchPath>F:\CONTENT\michele\sdk\mingw64\lib\gcc\x86_64-w64-mingw32\8.1.0\include\c++;F:\CONTENT\michele\sdk\mingw64\lib\gcc\x86_64-w64-mingw32\8.1.0\include\c++\x86_64-w64-mingw32;F:\CONTENT\michele\sdk\mingw64\lib\gcc\x86_64-w64-mingw32\8.1.0\include\c++\backward;F:\CONTENT\michele\sdk\mingw64\lib\gcc\x86_64-w64-mingw32\8.1.0\include;F:\CONTENT\michele\sdk\mingw64\lib\gcc\x86_64-w64-mingw32\8.1.0\include-fixed;F:\CONTENT\michele\sdk\mingw64\x86_64-w64-mingw32\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>$(ProjectDir)\gcc_NewWindowsConfiguration.h;$(VISUALGDB_DIR)\gcc_compat.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <NMakePreprocessorDefinitions>__VisualGDB_CFG_NewWindowsConfiguration;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='NewWindowsConfiguration|Win32'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeCleanCommandLine>
+    </NMakeCleanCommandLine>
+    <NMakeOutput>
+    </NMakeOutput>
+    <NMakeReBuildCommandLine>
+    </NMakeReBuildCommandLine>
+    <NMakeIncludeSearchPath>
+    </NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>
+    </NMakeForcedIncludes>
+    <NMakePreprocessorDefinitions>
+    </NMakePreprocessorDefinitions>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

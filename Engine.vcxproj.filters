@@ -31,6 +31,9 @@
     <Filter Include="Plugins\llvm">
       <UniqueIdentifier>{ac3c9440-7deb-4950-acc5-c819dd93ba2f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Make files">
+      <UniqueIdentifier>{6ecc9968-f6a3-4f48-93e0-31a9592f9ec6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\entities.cpp">
@@ -291,6 +294,9 @@
     <ClCompile Include="..\..\Sdk\libdwarf-20190505\libdwarf\pro_weaks.c">
       <Filter>Plugins\Dwarf\src</Filter>
     </ClCompile>
+    <None Include="newwindowsconfiguration.mak">
+      <Filter>Make files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\entities.h">
@@ -350,6 +356,9 @@
       <Filter>Makefiles</Filter>
     </None>
     <None Include="build\win32\x86\debug\makefile_ms">
+      <Filter>Makefiles</Filter>
+    </None>
+    <None Include="build.bat">
       <Filter>Makefiles</Filter>
     </None>
   </ItemGroup>
