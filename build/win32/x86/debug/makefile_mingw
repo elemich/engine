@@ -1,25 +1,22 @@
-MINGWDIR=$(DIRSDK)\mingw64
 MINGWINCLUDESDIR=$(MINGWDIR)\include
 MINGWLIBSDIR=$(MINGWDIR)\lib
 COMPILER=$(MINGWDIR)\bin\g++.exe
 LINKER=$(MINGWDIR)\bin\ld.exe
 
 OPENGLSDK=$(DIRSDK)\OpenGL
-FBXSDK="$(DIRSDK)\Autodesk\FBX\FBX SDK\2019.2"
+FBXSDK="$(DIRSDK)\Autodesk\FBX\FBX SDK\2014.1"
 CLANGDIR=$(DIRSDK)\LLVM
 LLVMSRCDIR=$(DIRSDK)\llvm_src\llvm-8.0.0.src
 
-INCPATH=-I$(MINGWINCLUDESDIR) -I$(OPENGLSDK) -I$(FBXSDK)\include -I$(CLANGDIR)\include -I$(LLVMSRCDIR)\include -I$(LLVMSRCDIR)\bin_mingw\include
-LIBPATH=-L$(MINGWLIBSDIR) -L$(CLANGDIR)\lib -L$(CLANGDIR)\bin -L$(LLVMSRCDIR)\bin_mingw\bin -L$(LLVMSRCDIR)\bin_mingw\lib -L$(FBXSDK)\lib\vs2017\x64\debug
+INCPATH=-I$(MINGWINCLUDESDIR) -I$(OPENGLSDK) -I$(FBXSDK)\include
+LIBPATH=-L$(MINGWLIBSDIR) -L$(FBXSDK)\lib\vs2010\x64\release
 
-CLOPT=-fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH) -UCOMPILER_ID -DCOMPILER_ID=2 -c
+CLOPT=-fpermissive -w -O0 -g -DCREATEDLL -DEDITORBUILD $(INCPATH)-c
 
 STATICCPPDRIVER= -static -lstdc++
 
-WIN32LIBD=  -luuid -lOle32 -luser32 -lopengl32 -lD3D11 -ld2d1 -lDwrite -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lkernel32 
-FBXLIB=-llibfbxsdk-md -ladvapi32
-CLANGLIB=#-l:libclang.lib
-LLVMLIBS=#-lLLVMObject.dll -lLLVMDebugInfoDWARF.dll
+WIN32LIBD = -ladvapi32 -luuid -lOle32 -luser32 -lopengl32 -lD3D11 -ld2d1 -lDwrite -lWindowscodecs -lComdlg32 -lGdi32 -lShlwapi -lWinmm -lComctl32 -lShell32 -lkernel32 
+FBXLIB = -llibfbxsdk-md
 
 primitives.o: $(DIRSRC)\primitives.cpp $(DIRSRC)\primitives.h
 	$(info primitives.o)
@@ -49,17 +46,21 @@ win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
 	$(info win32.o)
 	$(COMPILER) $(CLOPT) $(DIRSRC)\win32.cpp 
 
+checkPluginsFolder:
+	$(info checking plugins folder)
+	if not exist plugins mkdir plugins
+
 #FBXPLUGIN BEGIN
 
-# fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
-# 	$(info fbxutil.o)
-# 	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
-# 
-# fbxplugin.dll: engineMingW.a fbxutil.o
-# 	$(info fbxplugin.dll)
-# 	$(COMPILER) $(LIBPATH) -fpermissive -g -o fbxplugin.dll -static -shared fbxutil.o engineMingW.a $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
-# 	@move /Y fbxplugin.dll $(MAKEDIR)\plugins
-# 	@move /Y fbxplugin.lib $(MAKEDIR)\plugins
+fbxutil.o: win32.o $(DIRSRC)\fbxutil.cpp $(DIRSRC)\fbxutil.h
+	$(info fbxutil.o)
+	$(COMPILER) $(CLOPT) $(DIRSRC)\fbxutil.cpp
+
+fbxplugin.dll: engineMingW.a fbxutil.o
+	$(info fbxplugin.dll)
+	$(COMPILER) $(LIBPATH) -fpermissive -g -shared -o fbxplugin.dll fbxutil.o $(WIN32LIBD) $(FBXLIB) engineMingW.a 
+
+fbxplugin: fbxplugin.dll
 
 #FBXPLUGIN END
 
@@ -71,7 +72,7 @@ win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
 # 
 # androidplugin.dll: android.o engineMingW.a
 # 	$(info androidplugin.dll)
-# 	$(COMPILER) $(LIBPATH) -fpermissive -g -o androidplugin.dll -shared engineMingW.a primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o android.o $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
+# 	$(COMPILER) $(LIBPATH) -fpermissive -g -o androidplugin.dll -shared engineMingW.a primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o android.o $(WIN32LIBD)
 # #	@move /Y androidplugin.dll plugins
 # #	@move /Y androidplugin.lib plugins
 
@@ -79,8 +80,11 @@ win32.o: interfaces.o $(DIRSRC)\win32.cpp $(DIRSRC)\win32.h
 
 engineMingW.dll: primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o
 	$(info engineMingW.dll)
-	$(COMPILER) $(LIBPATH) -fpermissive -g -o engineMingW.dll -static -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(LLVMLIBS) $(WIN32LIBD) $(CLANGLIB)
+	$(COMPILER) $(LIBPATH) -fpermissive -g -o engineMingW.dll -static -shared primitives.o entities.o imgjpg.o imgpng.o imgtga.o interfaces.o win32.o -Wl,--out-implib,engineMingW.a $(WIN32LIBD)
 
 engineMingW.exe: engineMingW.dll $(DIRSRC)\main.cpp
 	$(info engineMingW.exe)
 	$(COMPILER)  -fpermissive -g -w -O0 $(INCPATH) $(LIBPATH) -o engineMingW.exe engineMingW.dll $(DIRSRC)\main.cpp $(STATICCPPDRIVER)
+
+all: checkPluginsFolder engineMingW.exe fbxplugin
+	

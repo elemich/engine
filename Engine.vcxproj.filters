@@ -361,5 +361,8 @@
     <None Include="build.bat">
       <Filter>Makefiles</Filter>
     </None>
+    <None Include="build\win32\x86\debug\makefile_cygwin">
+      <Filter>Makefiles</Filter>
+    </None>
   </ItemGroup>
 </Project>

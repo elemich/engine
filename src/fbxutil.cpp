@@ -2,6 +2,8 @@
 
 #include "win32.h"
 
+#ifdef __cplusplus
+
 Fbx* allocatedPlugin=0;
 
 Fbx::Fbx()
@@ -67,7 +69,7 @@ void DestroyPlugin()
 #include <map>
 
 #include <fbxsdk.h>
-#include <fbxsdk\fileio\fbxiosettings.h>
+#include <fbxsdk/fileio/fbxiosettings.h>
 
 #include <windows.h>
 
@@ -978,3 +980,4 @@ int main()
 
 }*/
 
+#endif //__cplusplus

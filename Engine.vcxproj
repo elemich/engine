@@ -121,6 +121,7 @@
     <ClCompile Include="src\primitives.cpp" />
     <ClCompile Include="src\shaders.cpp" />
     <ClCompile Include="src\win32.cpp" />
+    <None Include="build\win32\x86\debug\makefile_cygwin" />
     <None Include="newwindowsconfiguration.mak" />
   </ItemGroup>
   <ItemGroup>

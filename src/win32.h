@@ -18,13 +18,13 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <objbase.h>
-#include <CommCtrl.h>
-#include <TlHelp32.h>
+#include <commctrl.h>
+#include <tlhelp32.h>
 
 #include <array>
 
 
-#include <gl/gl.h> //platform dependent
+#include <GL/gl.h>
 #include <gl/glext.h>
 #include <gl/wgl.h>
 #include <gl/wglext.h>
